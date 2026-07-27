@@ -41,11 +41,12 @@ Leaderboard liveness comes from a trigger on `daily_scores` calling `realtime.br
 
 Hours track the spec's 305–430h MVP estimate (§16).
 
-### ⬜ Phase 0 — Foundation · 20–30h
-- Root npm workspace, `packages/kairo-core`, vitest in node
-- Expo prebuild app + EAS dev client running on the physical iPhone
-- Supabase schema + RLS migrations
-- Firebase project + APNs auth key verified
+### 🟨 Phase 0 — Foundation · 20–30h
+- ✅ Root npm workspace, `packages/kairo-core`, vitest in node
+- ✅ Supabase schema + RLS migrations (`supabase/migrations/`), verified against PGlite
+- ⬜ Expo prebuild app + EAS dev client running on the physical iPhone
+- ⬜ `supabase init` + link project, push migrations
+- ⬜ Firebase project + APNs auth key verified
 - **Blocked on:** bundle identifier, Supabase project ref + anon key, `GoogleService-Info.plist`
 
 ### ⬜ Phase 1 — Auth + onboarding · 35–45h
@@ -54,9 +55,9 @@ Hours track the spec's 305–430h MVP estimate (§16).
 - HealthKit permission framed as "power your character with real life"
 - Body metrics deferred to the soft prompt, never a gate
 
-### ⬜ Phase 2 — Scoring engine (TDD) · 25–35h
-- `kairo-core` complete and fully tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
-- **No UI, no device, no network.** Fully unblocked — start here.
+### ✅ Phase 2 — Scoring engine (TDD) · 25–35h
+- `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
+- 143 tests. The spec's three worked scenarios (§5) are fixtures and land on 2,900 / 1,300 / 0.
 
 ### ⬜ Phase 3 — HealthKit ingest · 50–70h
 - Observer queries + background delivery, anchored reads with persisted anchors
@@ -95,6 +96,9 @@ Strict red-green-refactor on the money logic. UI verified by hand on device.
 - **Day boundaries** — `day.ts` takes `now` as a parameter and never reads the clock, so Manila/Dubai/New York, DST and the grace window are table-driven tests with no time mocking.
 - **Edge Functions** — Deno tests against `supabase start`. Idempotency asserted explicitly: run `sync-health` twice, assert one set of rows and one score.
 - **`seed-health`** — dev-only function writing synthetic buckets for fake squad members. Non-negotiable for velocity: without it, testing a leaderboard means physically walking 10,000 steps, and testing week-3 dynamics is impossible.
+- **Schema** — `npm run test:schema` applies every migration to [PGlite](https://github.com/electric-sql/pglite) (real Postgres, WASM, in-process) and asserts constraints, triggers, RPC behaviour and RLS enforcement under a non-owner role. Runs in ~1.5s with no Docker.
+
+  **Its limits, so nobody over-trusts it:** `supabase/tests/harness.ts` stubs the platform's `auth` and `realtime` schemas. It proves the SQL is valid and the policies bite, but it does *not* prove Supabase's Realtime server actually delivers the broadcasts, nor that the hosted `auth` schema behaves identically. Re-run the same suite against `supabase start` once Docker and the CLI are available.
 
 ---
 

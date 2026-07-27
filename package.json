@@ -6,10 +6,13 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:core && npm run test:schema",
+    "test:core": "npm run test --workspaces --if-present",
+    "test:schema": "vitest run --config vitest.config.ts",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "typescript": "^5.7.2",
     "vitest": "^3.0.5"
   }
