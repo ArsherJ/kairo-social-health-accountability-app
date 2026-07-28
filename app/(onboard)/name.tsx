@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -22,6 +22,25 @@ export default function NameYourHunter() {
   const [name, setName] = useState('');
 
   const valid = isValidCharacterName(name);
+
+  // createProfile.isPending flips through TanStack's notifyManager, which by
+  // default schedules the update via setTimeout(fn, 0) rather than delivering
+  // it synchronously with mutate(). A keyboard "Done" and an already-queued
+  // touch can both fire within the same tick and both still read the
+  // previous render's isPending === false, producing two inserts with the
+  // same id. This ref is flipped synchronously, before mutate() runs, so the
+  // second event in the same tick is rejected regardless of render timing.
+  const submitting = useRef(false);
+
+  function submit() {
+    if (!valid || createProfile.isPending || submitting.current) return;
+    submitting.current = true;
+    createProfile.mutate(name, {
+      onSettled: () => {
+        submitting.current = false;
+      },
+    });
+  }
 
   return (
     <KeyboardAvoidingView
@@ -47,9 +66,7 @@ export default function NameYourHunter() {
           selectionColor={colors.accent}
           style={styles.input}
           returnKeyType="done"
-          onSubmitEditing={() => {
-            if (valid && !createProfile.isPending) createProfile.mutate(name);
-          }}
+          onSubmitEditing={submit}
         />
 
         {createProfile.error && (
@@ -61,7 +78,7 @@ export default function NameYourHunter() {
         <Pressable
           accessibilityRole="button"
           disabled={!valid || createProfile.isPending}
-          onPress={() => createProfile.mutate(name)}
+          onPress={submit}
           style={({ pressed }) => [
             styles.button,
             (!valid || createProfile.isPending) && styles.buttonDisabled,
