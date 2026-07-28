@@ -1,0 +1,17 @@
+{
+  "name": "@kairo/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Pure, zero-dependency scoring/day/sabotage logic shared by the Expo client and Supabase Edge Functions.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}

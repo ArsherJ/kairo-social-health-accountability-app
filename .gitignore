@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.expo/
+ios/
+android/
+*.log
+.DS_Store
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+GoogleService-Info.plist
+google-services.json
+
+# Supabase CLI scratch
+supabase/.temp/
+supabase/.branches/

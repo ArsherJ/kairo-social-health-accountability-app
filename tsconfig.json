@@ -1,0 +1,30 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@kairo/core": ["./packages/kairo-core/src/index.ts"]
+    }
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "supabase/tests/**/*.ts",
+    "supabase/functions/_shared/**/*.ts",
+    "app.config.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  // *.deno.ts modules import Deno-only specifiers (npm:, Deno globals) that tsc
+  // cannot resolve. They are typechecked by `npm run check:functions` instead.
+  // Everything else under _shared stays pure so vitest can exercise it.
+  "exclude": ["node_modules", "packages", "**/*.deno.ts"]
+}
