@@ -4,12 +4,17 @@
 -- (§12). Every hour of the day is somebody's finalization hour: an OFW in New
 -- York and their sibling in Cebu finalize thirteen hours apart.
 --
--- The shared secret is read from Vault at call time, never written here — this
--- file is committed to git. Create it once, out of band:
+-- Both the project URL and the shared secret are read from Vault at call time,
+-- never written here — this file is committed to git, and hardcoding a project
+-- ref would silently break the moment the project is recreated (which is
+-- exactly what happened moving from ap-south-1 to ap-southeast-1).
 --
+-- Create both once, out of band:
+--
+--   select vault.create_secret('https://<ref>.supabase.co', 'project_url', 'Base URL for cron -> Edge Functions');
 --   select vault.create_secret('<random>', 'cron_secret', 'pg_cron -> Edge Functions');
 --
--- and set the identical value as a function secret so the handler can compare:
+-- and set the identical secret as a function secret so the handler can compare:
 --
 --   supabase secrets set CRON_SECRET=<random>
 
@@ -32,7 +37,8 @@ select cron.schedule(
   '5 * * * *',
   $cron$
   select net.http_post(
-    url := 'https://lplmsagrtxbvpcywvyzm.supabase.co/functions/v1/finalize-days',
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+           || '/functions/v1/finalize-days',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-cron-secret',

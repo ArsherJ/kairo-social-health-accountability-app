@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-PROJECT_REF="${SUPABASE_PROJECT_REF:-lplmsagrtxbvpcywvyzm}"
+PROJECT_REF="${SUPABASE_PROJECT_REF:-zniopywbwenrzxezolwv}"
 
 usage() {
   echo "usage: $0 \"<sql>\"   |   $0 -f <file.sql>" >&2

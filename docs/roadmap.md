@@ -44,7 +44,7 @@ Hours track the spec's 305–430h MVP estimate (§16).
 ### 🟨 Phase 0 — Foundation · 20–30h
 - ✅ Root npm workspace, `packages/kairo-core`, vitest in node
 - ✅ Supabase schema + RLS migrations, verified against PGlite **and** against the live project
-- ✅ Schema deployed to `lplmsagrtxbvpcywvyzm` (ap-south-1), all 7 migrations recorded
+- ✅ Schema deployed to `zniopywbwenrzxezolwv` (**ap-southeast-1, Singapore**), all 11 migrations recorded
 - ✅ Expo SDK 57 + Expo Router app, bundle ID `com.arsherj.kairo`
 - ✅ HealthKit background-delivery entitlement confirmed in generated `ios/`
 - ✅ Supabase client with Keychain-backed session storage
@@ -70,7 +70,7 @@ VM does not mount the project directory, producing
 local stack is ever genuinely needed — so far nothing has required one.
 
 ### ⬜ Phase 1 — Auth + onboarding · 35–45h
-- Apple Sign-In (Google optional — see open questions)
+- Apple Sign-In only (decided — Google deferred to V1.5 Android)
 - Character-first flow: name + Hunter on screen inside 60 seconds (§5)
 - HealthKit permission framed as "power your character with real life"
 - Body metrics deferred to the soft prompt, never a gate
@@ -136,7 +136,7 @@ Strict red-green-refactor on the money logic. UI verified by hand on device.
 |---|---|
 | Google Sign-In in the beta? | ✅ **Decided: Apple only.** Apple mandates Sign in with Apple anyway; Google is deferred to the Android work in V1.5. |
 | Streak milestones (§19) pay coins, but the beta has no coin economy (§15) | Milestones award **XP + badges only** in MVP; coins arrive at V1 with the shop. |
-| Database region | 🔴 **Moving to Singapore.** Project currently sits in `ap-south-1` (Mumbai), ~90–120ms from Manila vs ~35ms to `ap-southeast-1`. Supabase cannot relocate a project, so this means a new project. Cheap now (DB verified empty), painful after beta users have history. Blocked on the free-tier 2-project limit — one existing project must go first. |
+| Database region | ✅ **Done: `ap-southeast-1` (Singapore).** Project recreated as `zniopywbwenrzxezolwv` while the database was still empty. Supabase cannot relocate a project, so this was the only cheap moment to do it. |
 
 ### Deviations introduced during implementation
 
