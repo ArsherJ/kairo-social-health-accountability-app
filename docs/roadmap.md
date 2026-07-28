@@ -44,10 +44,13 @@ Hours track the spec's 305–430h MVP estimate (§16).
 ### 🟨 Phase 0 — Foundation · 20–30h
 - ✅ Root npm workspace, `packages/kairo-core`, vitest in node
 - ✅ Supabase schema + RLS migrations (`supabase/migrations/`), verified against PGlite
-- ⬜ Expo prebuild app + EAS dev client running on the physical iPhone
-- ⬜ `supabase init` + link project, push migrations
-- ⬜ Firebase project + APNs auth key verified
-- **Blocked on:** bundle identifier, Supabase project ref + anon key, `GoogleService-Info.plist`
+- ✅ Expo SDK 57 + Expo Router app, bundle ID `com.arsherj.kairo`
+- ✅ HealthKit background-delivery entitlement confirmed in generated `ios/`
+- ✅ Supabase client with Keychain-backed session storage
+- ⬜ EAS dev client built and running on the physical iPhone
+- ⬜ `supabase link` + `supabase db push` to project `lplmsagrtxbvpcywvyzm`
+- ⬜ **Enable HealthKit capability on the App ID** at developer.apple.com
+- ⬜ Firebase `GoogleService-Info.plist` + APNs auth key
 
 ### ⬜ Phase 1 — Auth + onboarding · 35–45h
 - Apple Sign-In (Google optional — see open questions)

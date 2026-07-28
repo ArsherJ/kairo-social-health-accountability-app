@@ -9,11 +9,38 @@
     "test": "npm run test:core && npm run test:schema",
     "test:core": "npm run test --workspaces --if-present",
     "test:schema": "vitest run --config vitest.config.ts",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "start": "expo start --dev-client",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild --clean"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
-    "typescript": "^5.7.2",
+    "@types/react": "~19.2.0",
+    "typescript": "~6.0.3",
     "vitest": "^3.0.5"
-  }
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.7",
+    "@kairo/core": "*",
+    "@kingstinct/react-native-healthkit": "^14.0.2",
+    "@supabase/supabase-js": "^2.110.9",
+    "@tanstack/react-query": "^5.101.4",
+    "expo": "^57.0.8",
+    "expo-constants": "~57.0.7",
+    "expo-linking": "~57.0.4",
+    "expo-router": "~57.0.8",
+    "expo-secure-store": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-mmkv": "^4.3.2",
+    "react-native-nitro-modules": "^0.36.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "^0.21.2",
+    "zustand": "^5.0.14"
+  },
+  "main": "expo-router/entry"
 }
