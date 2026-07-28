@@ -608,6 +608,80 @@ describe('health data is private', () => {
     );
   });
 
+  it('blocks clients from inserting a profile with server-awarded columns', async () => {
+    // A bare auth user with no profile yet — h.createUser() would create one.
+    const seeded = await h.asService<{ id: string }>(
+      'insert into auth.users (email) values ($1) returning id',
+      ['insert-grant-probe@example.test'],
+    );
+    const id = seeded[0]!.id;
+
+    await rejects(
+      h.asUser(
+        id,
+        `insert into public.profiles (id, character_name, total_xp)
+         values ($1, 'Cheater', 999999)`,
+        [id],
+      ),
+      /permission denied/i,
+    );
+
+    await rejects(
+      h.asUser(
+        id,
+        `insert into public.profiles (id, character_name, is_legendary)
+         values ($1, 'Cheater', true)`,
+        [id],
+      ),
+      /permission denied/i,
+    );
+
+    await rejects(
+      h.asUser(
+        id,
+        `insert into public.profiles (id, character_name, level)
+         values ($1, 'Cheater', 99)`,
+        [id],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('lets a client create its own profile with the permitted columns', async () => {
+    const seeded = await h.asService<{ id: string }>(
+      'insert into auth.users (email) values ($1) returning id',
+      ['onboarding-probe@example.test'],
+    );
+    const id = seeded[0]!.id;
+
+    await h.asUser(
+      id,
+      `insert into public.profiles (id, character_name, timezone)
+       values ($1, 'Aeon', 'Asia/Dubai')`,
+      [id],
+    );
+
+    const created = await h.asService<{
+      character_name: string;
+      timezone: string;
+      level: number;
+      total_xp: number;
+      is_legendary: boolean;
+    }>(
+      `select character_name, timezone, level, total_xp, is_legendary
+       from public.profiles where id = $1`,
+      [id],
+    );
+
+    expect(created[0]).toMatchObject({
+      character_name: 'Aeon',
+      timezone: 'Asia/Dubai',
+      level: 1,
+      total_xp: 0,
+      is_legendary: false,
+    });
+  });
+
   it('still lets a user edit their own character name', async () => {
     const user = await h.createUser();
     await h.asUser(user, `update public.profiles set character_name = 'Renamed' where id = $1`, [
