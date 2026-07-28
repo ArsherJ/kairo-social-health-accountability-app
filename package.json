@@ -9,14 +9,16 @@
     "test": "npm run test:core && npm run test:schema",
     "test:core": "npm run test --workspaces --if-present",
     "test:schema": "vitest run --config vitest.config.ts",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present && npm run check:functions",
     "start": "expo start --dev-client",
     "ios": "expo run:ios",
-    "prebuild": "expo prebuild --clean"
+    "prebuild": "expo prebuild --clean",
+    "check:functions": "deno check --config supabase/functions/deno.json supabase/functions/*/index.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
     "@types/react": "~19.2.0",
+    "deno": "^2.9.4",
     "typescript": "~6.0.3",
     "vitest": "^3.0.5"
   },

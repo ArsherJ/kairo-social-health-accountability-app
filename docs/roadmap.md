@@ -79,10 +79,13 @@ local stack is ever genuinely needed — so far nothing has required one.
 - `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
 - 143 tests. The spec's three worked scenarios (§5) are fixtures and land on 2,900 / 1,300 / 0.
 
-### ⬜ Phase 3 — HealthKit ingest · 50–70h
-- Observer queries + background delivery, anchored reads with persisted anchors
-- Local-tz hourly bucketing, MMKV offline queue, foreground flush on every app open
-- `sync-health` Edge Function
+### 🟨 Phase 3 — HealthKit ingest · 50–70h
+- ✅ `sync-health` Edge Function — deployed and verified end-to-end against the
+  live project: idempotent re-sync, whole-day rescoring from a partial payload,
+  §19 backfill freeze, anti-cheat flag with false-positive control
+- ✅ XP rollup and level derivation
+- ⬜ Observer queries + background delivery, anchored reads with persisted anchors
+- ⬜ Local-tz hourly bucketing, MMKV offline queue, foreground flush on app open
 
 ### ⬜ Phase 4 — Squads + leaderboard · 45–60h
 - Create/join by 6-digit code, `squad_leaderboard` RPC, Realtime broadcast

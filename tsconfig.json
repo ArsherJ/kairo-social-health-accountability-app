@@ -18,6 +18,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "supabase/tests/**/*.ts",
+    "supabase/functions/_shared/**/*.ts",
     "app.config.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"

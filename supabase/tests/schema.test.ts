@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
 let h: Harness;
@@ -15,6 +16,99 @@ afterAll(async () => {
 async function rejects(promise: Promise<unknown>, pattern: RegExp): Promise<void> {
   await expect(promise).rejects.toThrow(pattern);
 }
+
+describe('XP rollup', () => {
+  async function xpState(userId: string) {
+    const rows = await h.asService<{ total_xp: number; level: number }>(
+      'select total_xp, level from public.profiles where id = $1',
+      [userId],
+    );
+    return rows[0]!;
+  }
+
+  async function setDayXp(userId: string, date: string, xp: number) {
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, xp_awarded)
+       values ($1, $2, $3)
+       on conflict (user_id, local_date) do update set xp_awarded = excluded.xp_awarded`,
+      [userId, date, xp],
+    );
+  }
+
+  it('sums xp_awarded across days into the profile', async () => {
+    const user = await h.createUser();
+    await setDayXp(user, '2026-07-26', 95);
+    await setDayXp(user, '2026-07-27', 60);
+    expect((await xpState(user)).total_xp).toBe(155);
+  });
+
+  it('recomputes rather than increments, so re-syncing a day is idempotent', async () => {
+    const user = await h.createUser();
+    // The same day scored three times, as background delivery would.
+    for (const xp of [40, 85, 85]) await setDayXp(user, '2026-07-27', xp);
+    expect((await xpState(user)).total_xp).toBe(85);
+  });
+
+  it('follows a day being revised downward', async () => {
+    const user = await h.createUser();
+    await setDayXp(user, '2026-07-27', 200);
+    await setDayXp(user, '2026-07-27', 25);
+    expect((await xpState(user)).total_xp).toBe(25);
+  });
+
+  it('follows a deleted day', async () => {
+    const user = await h.createUser();
+    await setDayXp(user, '2026-07-27', 120);
+    await h.asService('delete from public.daily_scores where user_id = $1', [user]);
+    expect((await xpState(user)).total_xp).toBe(0);
+  });
+
+  it('derives a level that agrees with kairo-core', async () => {
+    // Cross-language check: the SQL formula and levelForXp() must not drift.
+    const user = await h.createUser();
+    for (const xp of [0, 24, 25, 100, 624, 625, 2_500, 9_999, 10_000]) {
+      await setDayXp(user, '2026-07-27', xp);
+      const state = await xpState(user);
+      expect(state.total_xp).toBe(xp);
+      expect(state.level).toBe(levelForXp(xp));
+    }
+  });
+});
+
+describe('anti-cheat bucket columns', () => {
+  it('default to false so an ordinary sync needs no extra fields', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps)
+       values ($1, '2026-07-27', 7, 500)`,
+      [user],
+    );
+    const rows = await h.asService<{
+      had_workout: boolean;
+      elevated_heart_rate: boolean;
+    }>(
+      `select had_workout, elevated_heart_rate from public.health_buckets
+       where user_id = $1`,
+      [user],
+    );
+    expect(rows[0]).toEqual({ had_workout: false, elevated_heart_rate: false });
+  });
+
+  it('persist corroborating signals for later re-evaluation', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.health_buckets
+         (user_id, local_date, hour, steps, had_workout, elevated_heart_rate)
+       values ($1, '2026-07-27', 18, 9500, true, true)`,
+      [user],
+    );
+    const rows = await h.asService<{ had_workout: boolean }>(
+      'select had_workout from public.health_buckets where user_id = $1',
+      [user],
+    );
+    expect(rows[0]!.had_workout).toBe(true);
+  });
+});
 
 describe('migrations', () => {
   it('apply cleanly in order', async () => {
