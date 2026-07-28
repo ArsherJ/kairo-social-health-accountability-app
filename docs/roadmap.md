@@ -43,14 +43,31 @@ Hours track the spec's 305–430h MVP estimate (§16).
 
 ### 🟨 Phase 0 — Foundation · 20–30h
 - ✅ Root npm workspace, `packages/kairo-core`, vitest in node
-- ✅ Supabase schema + RLS migrations (`supabase/migrations/`), verified against PGlite
+- ✅ Supabase schema + RLS migrations, verified against PGlite **and** against the live project
+- ✅ Schema deployed to `lplmsagrtxbvpcywvyzm` (ap-south-1), all 7 migrations recorded
 - ✅ Expo SDK 57 + Expo Router app, bundle ID `com.arsherj.kairo`
 - ✅ HealthKit background-delivery entitlement confirmed in generated `ios/`
 - ✅ Supabase client with Keychain-backed session storage
 - ⬜ EAS dev client built and running on the physical iPhone
-- ⬜ `supabase link` + `supabase db push` to project `lplmsagrtxbvpcywvyzm`
 - ⬜ **Enable HealthKit capability on the App ID** at developer.apple.com
 - ⬜ Firebase `GoogleService-Info.plist` + APNs auth key
+
+**Dev environment constraint — read before debugging connection errors.**
+Outbound Postgres `:5432` is blocked on the current network, and Supabase's
+direct host (`db.<ref>.supabase.co`) resolves IPv6-only with no IPv4 route. So
+`supabase db push`, `psql` and `supabase start` all fail here, and none of it
+indicates a problem with the project.
+
+Working paths, all HTTPS:
+- **SQL against the live project:** `./supabase/scripts/remote-sql.sh "<sql>"`
+  (Management API; auth from the CLI's Keychain entry)
+- **Schema tests:** `npm run test:schema` (PGlite, no Docker, no network)
+- **Edge Functions:** `supabase functions deploy` works over HTTPS
+
+`supabase start` additionally needs Docker. Podman Desktop is installed but its
+VM does not mount the project directory, producing
+`workdir ... does not exist on container`. OrbStack is the low-friction fix if a
+local stack is ever genuinely needed — so far nothing has required one.
 
 ### ⬜ Phase 1 — Auth + onboarding · 35–45h
 - Apple Sign-In (Google optional — see open questions)
