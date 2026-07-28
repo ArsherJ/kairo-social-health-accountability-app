@@ -12,3 +12,7 @@ android/
 !.env.example
 GoogleService-Info.plist
 google-services.json
+
+# Supabase CLI scratch
+supabase/.temp/
+supabase/.branches/
