@@ -37,8 +37,18 @@ export function startSessionListener(): () => void {
  * Clearing the query cache is not optional: profile and score rows are cached
  * per user id, and a second sign-in on the same device would otherwise render
  * the previous account's data until each query refetched.
+ *
+ * The clear runs in `finally` because `signOut()` can throw: GoTrueClient
+ * catches auth-domain errors and returns them as `{ error }`, but a genuine
+ * network failure (device offline mid-request) is rethrown. If the clear only
+ * ran after a successful await, that rethrow would skip it and leave the
+ * previous user's rows — including profile height, weight and birth year —
+ * resident in the cache for the next sign-in on the same device.
  */
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
-  queryClient.clear();
+  try {
+    await supabase.auth.signOut();
+  } finally {
+    queryClient.clear();
+  }
 }
