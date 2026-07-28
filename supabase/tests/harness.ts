@@ -24,6 +24,23 @@ import { PGlite } from '@electric-sql/pglite';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
+/**
+ * Migrations this harness cannot apply, with the reason.
+ *
+ * Keep this list as short as possible — every entry is schema that no test
+ * covers. An entry is only justified when the migration contains no testable
+ * semantics, and it must be verified against the live project instead.
+ */
+const UNSUPPORTED_MIGRATIONS = new Map<string, string>([
+  [
+    '20260728150000_schedule_finalize_days.sql',
+    // PGlite ships no pg_cron or pg_net, and there is nothing to assert here
+    // beyond "the schedule exists" — which was checked against the real project
+    // via supabase/scripts/remote-sql.sh (cron.job row, '5 * * * *', active).
+    'requires pg_cron and pg_net extensions',
+  ],
+]);
+
 /** Recreates just enough of the Supabase platform for the migrations to run. */
 const PLATFORM_STUB = `
   create schema if not exists auth;
@@ -127,6 +144,8 @@ export async function setupHarness(): Promise<Harness> {
   const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
 
   for (const file of files) {
+    if (UNSUPPORTED_MIGRATIONS.has(file)) continue;
+
     const sql = await readFile(join(MIGRATIONS_DIR, file), 'utf8');
     try {
       await db.exec(sql);

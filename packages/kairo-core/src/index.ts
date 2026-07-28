@@ -15,3 +15,4 @@ export * from './sabotage.ts';
 export * from './anticheat.ts';
 export * from './progression.ts';
 export * from './compute.ts';
+export * from './streak.ts';

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { addDays, isFinalizable } from '../../packages/kairo-core/src/day.ts';
 import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
@@ -107,6 +108,248 @@ describe('anti-cheat bucket columns', () => {
       [user],
     );
     expect(rows[0]!.had_workout).toBe(true);
+  });
+});
+
+describe('account deletion', () => {
+  async function seedSquadWithHistory() {
+    const leader = await h.createUser({ characterName: 'Leader' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Deletable')`,
+    );
+    const member = await h.createUser({ characterName: 'Member' });
+    await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+
+    await h.asService(
+      `insert into public.sabotage_events
+         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
+       values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27')`,
+      [leader, member, squad[0]!.id],
+    );
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps)
+       values ($1, '2026-07-27', 9, 4000)`,
+      [leader],
+    );
+    return { leader, member, squadId: squad[0]!.id };
+  }
+
+  it('lets a squad leader delete their account', async () => {
+    // Right to erasure. Previously impossible: leader_id was ON DELETE RESTRICT
+    // and the append-only trigger rejected the sabotage cascade.
+    const { leader } = await seedSquadWithHistory();
+    await h.asService('delete from public.profiles where id = $1', [leader]);
+    const rows = await h.asService(
+      'select id from public.profiles where id = $1',
+      [leader],
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('transfers leadership to the longest-tenured remaining member', async () => {
+    const { leader, member, squadId } = await seedSquadWithHistory();
+    await h.asService('delete from public.profiles where id = $1', [leader]);
+    const rows = await h.asService<{ leader_id: string }>(
+      'select leader_id from public.squads where id = $1',
+      [squadId],
+    );
+    expect(rows[0]!.leader_id).toBe(member);
+  });
+
+  it('deletes the squad when the last member leaves', async () => {
+    const solo = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      solo,
+      `select id from public.create_squad('Solo')`,
+    );
+    await h.asService('delete from public.profiles where id = $1', [solo]);
+    const rows = await h.asService('select id from public.squads where id = $1', [
+      squad[0]!.id,
+    ]);
+    expect(rows).toEqual([]);
+  });
+
+  it('erases the deleted user’s health and sabotage rows', async () => {
+    const { leader } = await seedSquadWithHistory();
+    await h.asService('delete from public.profiles where id = $1', [leader]);
+    const rows = await h.asService<{ buckets: number; events: number }>(
+      `select
+         (select count(*)::int from public.health_buckets where user_id = $1) as buckets,
+         (select count(*)::int from public.sabotage_events where actor_id = $1) as events`,
+      [leader],
+    );
+    expect(rows[0]).toEqual({ buckets: 0, events: 0 });
+  });
+
+  it('survives a bulk purge that deletes a whole squad at once', async () => {
+    // What an admin "delete these accounts" operation actually looks like. The
+    // profiles go in ONE statement, so succession can be asked to promote a
+    // member whose own profile is already gone.
+    const { leader, member, squadId } = await seedSquadWithHistory();
+    const third = await h.createUser();
+    await h.asService(
+      'insert into public.squad_members (squad_id, user_id) values ($1, $2)',
+      [squadId, third],
+    );
+
+    await h.asService('delete from public.profiles where id = any($1)', [
+      [leader, member, third],
+    ]);
+
+    const rows = await h.asService<{ profiles: number; squads: number }>(
+      `select
+         (select count(*)::int from public.profiles where id = any($1)) as profiles,
+         (select count(*)::int from public.squads where id = $2) as squads`,
+      [[leader, member, third], squadId],
+    );
+    expect(rows[0]).toEqual({ profiles: 0, squads: 0 });
+  });
+
+  it('leaves no squad pointing at a deleted leader', async () => {
+    const { leader, member } = await seedSquadWithHistory();
+    await h.asService('delete from public.profiles where id = any($1)', [
+      [leader, member],
+    ]);
+    const orphans = await h.asService(
+      `select s.id from public.squads s
+       left join public.profiles p on p.id = s.leader_id
+       where p.id is null`,
+    );
+    expect(orphans).toEqual([]);
+  });
+
+  it('still refuses a casual delete of the sabotage log', async () => {
+    // The audit guarantee has to survive the erasure escape hatch.
+    const { squadId } = await seedSquadWithHistory();
+    await rejects(
+      h.asService('delete from public.sabotage_events where squad_id = $1', [squadId]),
+      /append-only/,
+    );
+  });
+
+  it('still refuses UPDATE on the sabotage log unconditionally', async () => {
+    const { squadId } = await seedSquadWithHistory();
+    await rejects(
+      h.asService(
+        `update public.sabotage_events set item = 'banana' where squad_id = $1`,
+        [squadId],
+      ),
+      /append-only/,
+    );
+  });
+});
+
+describe('finalizable_days', () => {
+  /**
+   * Timezones spanning UTC-11 to UTC+14. For any given instant these put the
+   * same calendar date at wildly different finalization moments, which is
+   * exactly the OFW situation the per-user-day design exists to handle.
+   */
+  const ZONES = [
+    'Pacific/Kiritimati', // UTC+14
+    'Asia/Manila', // UTC+8
+    'Asia/Dubai', // UTC+4
+    'Europe/London',
+    'America/New_York',
+    'Pacific/Midway', // UTC-11
+  ];
+
+  it('agrees with isFinalizable() in kairo-core across the whole timezone range', async () => {
+    // A differential test: the SQL grace window and the TypeScript one must
+    // never drift, or days would finalize at a different moment than the app
+    // told the user they would.
+    // Read the clock as epoch millis: now()::text carries a "+00" offset, so
+    // string-patching it into an ISO instant produces an invalid date.
+    const nowRows = await h.asService<{ ms: string }>(
+      'select (extract(epoch from now()) * 1000)::bigint::text as ms',
+    );
+    const dbNow = new Date(Number(nowRows[0]!.ms));
+
+    const today = dbNow.toISOString().slice(0, 10);
+    // Span the boundary: -1 and 0 are the interesting ones, since whether they
+    // have cleared the grace window depends entirely on the zone.
+    const dates = [-3, -2, -1, 0].map((offset) => addDays(today, offset));
+
+    const myUsers = new Set<string>();
+    const expected = new Set<string>();
+
+    for (const zone of ZONES) {
+      const user = await h.createUser({ timezone: zone });
+      myUsers.add(user);
+      for (const date of dates) {
+        await h.asService(
+          `insert into public.daily_scores (user_id, local_date, total)
+           values ($1, $2, 100)`,
+          [user, date],
+        );
+        if (isFinalizable(date, zone, dbNow)) expected.add(`${user}:${date}`);
+      }
+    }
+
+    const rows = await h.asService<{ user_id: string; local_date: string }>(
+      'select user_id, local_date::text as local_date from public.finalizable_days(10000)',
+    );
+
+    // Other suites seed rows too, so narrow to the users created here — then
+    // compare exactly, so a spurious extra row fails just as loudly as a
+    // missing one.
+    const actual = new Set(
+      rows
+        .filter((r) => myUsers.has(r.user_id))
+        .map((r) => `${r.user_id}:${r.local_date}`),
+    );
+
+    expect(actual).toEqual(expected);
+    // Guard against the whole assertion passing because both sets are empty.
+    expect(expected.size).toBeGreaterThan(0);
+    expect(expected.size).toBeLessThan(myUsers.size * dates.length);
+  });
+
+  it('excludes days that already finalized', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const longAgo = addDays(new Date().toISOString().slice(0, 10), -10);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total, status, finalized_at)
+       values ($1, $2, 100, 'final', now())`,
+      [user, longAgo],
+    );
+    const rows = await h.asService<{ user_id: string }>(
+      'select user_id from public.finalizable_days(1000) where user_id = $1',
+      [user],
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('returns oldest days first so a backlog drains in order', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const today = new Date().toISOString().slice(0, 10);
+    for (const offset of [-2, -5, -3]) {
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, total) values ($1, $2, 50)`,
+        [user, addDays(today, offset)],
+      );
+    }
+    const rows = await h.asService<{ local_date: string }>(
+      `select local_date::text as local_date from public.finalizable_days(1000)
+       where user_id = $1`,
+      [user],
+    );
+    const dates = rows.map((r) => r.local_date);
+    expect(dates).toEqual([...dates].sort());
+  });
+
+  it('honours the limit', async () => {
+    const rows = await h.asService('select * from public.finalizable_days(2)');
+    expect(rows.length).toBeLessThanOrEqual(2);
+  });
+
+  it('is not callable by a client', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'select * from public.finalizable_days(10)'),
+      /permission denied/i,
+    );
   });
 });
 

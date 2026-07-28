@@ -91,13 +91,18 @@ local stack is ever genuinely needed — so far nothing has required one.
 - Create/join by 6-digit code, `squad_leaderboard` RPC, Realtime broadcast
 - Tiers + score UI only (§5)
 
-### ⬜ Phase 5 — Sabotage + push · 40–55h
-- Banana, immutable event log, deploy caps, real-time FCM push, squad feed
+### 🟨 Phase 5 — Sabotage + push · 40–55h
+- ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
+  membership, self-target, and replay of a hit that predates the target's data
+- ⬜ Real-time FCM push (needs Firebase credentials), squad feed UI
 - **Start beta recruitment during this phase** — stranger squads have a long lead time
 
-### ⬜ Phase 6 — Day lifecycle · 40–55h
-- `finalize-days` cron, provisional → final, XP/level
-- Personal streak + N-of-M squad streak, Streak Shield
+### 🟨 Phase 6 — Day lifecycle · 40–55h
+- ✅ `finalize-days` cron — hourly at `5 * * * *`, per-user grace window,
+  provisional → final, XP/level, personal streak + Streak Shield
+- ✅ Account deletion / right-to-erasure with leadership succession
+- ⬜ N-of-M squad streak (needs a `squad_streaks` table)
+- ⬜ Coin awards — deferred with the coin economy to V1
 
 ### ⬜ Phase 7 — Solo mode + polish · 35–50h
 - Locked squad slots, profile screen, notification budget engine (§14)
@@ -127,7 +132,17 @@ Strict red-green-refactor on the money logic. UI verified by hand on device.
 
 ## Open questions
 
-| Question | Default if unanswered |
+| Question | Status |
 |---|---|
-| Google Sign-In in the beta? | Apple-only. Apple requires Apple Sign-In anyway; Google adds work for little beta value. |
+| Google Sign-In in the beta? | ✅ **Decided: Apple only.** Apple mandates Sign in with Apple anyway; Google is deferred to the Android work in V1.5. |
 | Streak milestones (§19) pay coins, but the beta has no coin economy (§15) | Milestones award **XP + badges only** in MVP; coins arrive at V1 with the shop. |
+| Database region | 🔴 **Moving to Singapore.** Project currently sits in `ap-south-1` (Mumbai), ~90–120ms from Manila vs ~35ms to `ap-southeast-1`. Supabase cannot relocate a project, so this means a new project. Cheap now (DB verified empty), painful after beta users have history. Blocked on the free-tier 2-project limit — one existing project must go first. |
+
+### Deviations introduced during implementation
+
+Both are live and deliberate. Flagged here so they are decisions, not drift.
+
+| # | Spec says | We do | Why |
+|---|---|---|---|
+| 5 | "Coins + XP distributed at finalization" (§12) | XP accrues **live** as the day progresses; only coins would wait for finalization | XP within a day is monotonic — more activity only ever adds — so live accrual has no downside and makes the character respond while you walk. `profiles.total_xp` is a rollup of `sum(xp_awarded)`, so it self-corrects. One-line change if you want strict spec behaviour: filter the rollup to `status = 'final'`. |
+| 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC does not have yet — **owed in Phase 4.** |
