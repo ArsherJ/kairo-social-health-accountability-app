@@ -29,7 +29,7 @@ const config: ExpoConfig = {
     supportsTablet: false,
     infoPlist: {
       // HealthKit is iPhone-only; declaring it keeps the App Store listing honest.
-      UIRequiredDeviceCapabilities: ['armv7', 'healthkit'],
+      UIRequiredDeviceCapabilities: ['healthkit'],
     },
   },
 
@@ -41,6 +41,7 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-secure-store',
+    './plugins/withIosBuildWarningFixes',
     [
       '@kingstinct/react-native-healthkit',
       {
