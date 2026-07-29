@@ -1,7 +1,15 @@
 import { Tabs } from 'expo-router';
+import { useSessionStore } from '@/features/auth/session.ts';
+import { useProfile } from '@/features/profile/queries.ts';
+import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { colors } from '@/theme.ts';
 
 export default function TabsLayout() {
+  const session = useSessionStore((s) => s.session);
+  const profile = useProfile(session?.user.id);
+
+  useTimezoneSync(session?.user.id, profile.data?.timezone);
+
   return (
     <Tabs
       screenOptions={{
