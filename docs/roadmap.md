@@ -184,3 +184,20 @@ these are decisions, not forgotten work.
 | 6 | **Cold start renders `(tabs)` for one frame before redirecting.** `app/index.tsx` was deleted, so `/` resolves to the tab group and mounts before the redirect effect fires. | The `cancelled` guard in `HealthPermissionSheet` is what stops the HealthKit sheet flashing over sign-in — it is load-bearing, not defensive. A `<Redirect>` in the render pass would remove the flash. Unverified: nobody has run the simulator. |
 | 7 | **`resolveRoute` has no test for `profileError` and `profileLoading` both true.** The ordering comment claims `profileError` wins; TanStack v5 makes the states mutually exclusive, so it is unreachable today. | Low risk, but the defensive ordering it argues for is untested. |
 | 8 | **`Profile` and `TodayScore` select columns no screen reads** (`class`, `has_wearable`, `rec_points`, `consistency_points`, `sabotage_delta`, `tiers`, `status`). | Not a privacy hole — owner-only rows. But from Phase 3 the displayed `total` will include REC and consistency points that appear in no stat bar, so the bars will visibly not sum to the total. Decide the UI answer then. |
+
+---
+
+## Phase 4 backend follow-ups (deferred, not blocking)
+
+From the reviews of `squad_leaderboard`'s completed-day mode and `seed-health`.
+Recorded here because the review artifacts were scratch.
+
+| # | Item | Why deferred |
+|---|---|---|
+| 1 | **`MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is the un-featured maximum.** §6's weekly specialization multiplies one stat by 1.5, so a featured Gold stat scores 1,350 and the true ceiling is **4,850** (5,350 with a wearable). Surfaced by a seeded athlete on the first run. | The constants are exported but **unenforced** — nothing clamps a score to them. Their only consumers are two tests (which correctly assert the un-featured ceiling) and `StatBar.tsx`'s bar-fill ratio, where a featured Gold stat simply renders as a full bar. Pre-existing and orthogonal to this branch; belongs in its own change alongside the `StatBar` fix. |
+| 2 | **`current_streak` is joined un-scoped to the leaderboard's mode.** In `'completed'` mode the row shows *today's* streak beside *yesterday's* score. | Pre-existing, not introduced by the mode. But whoever builds the leaderboard screen must know: it will read as a mismatch without explanation. Decide then whether to scope the streak to the displayed day or label it. |
+| 3 | **`seed-health` skips the OPTIONS/405 handling its sibling functions use.** A non-POST request falls through to `req.json()` and returns a generic `invalid JSON body` 400. | No security impact — it is curl-only and secret-gated. Pattern drift worth matching if the function is ever scripted. |
+| 4 | **`assertAllowlisted` returns 403 when the allowlist *lookup itself* fails.** "We could not check" is reported as "you are not allowed". | Cosmetic; a 500 would be more accurate. |
+| 5 | **`seed-days` has no cap on `userIds.length`** (unlike `create-users`, capped at 20). With `MAX_SEED_DAYS = 90` and a sequential user × date loop doing a bucket upsert plus a 4-query rescore each iteration, a careless call risks an Edge Function timeout. | Squads cap at 6 members and this is a manual tool. Worth a cap if seeding gets scripted. |
+| 6 | **`create-users` partial failure returns no list of already-created ids.** | Recovery depends on where it failed: a user that reached the allowlist insert is findable in `seed_test_users`, but one that failed at the `profiles` insert is findable only by querying `auth.users` for the `seed-%@kairo.test` email pattern. |
+| 7 | **Unreachable defensive code in `seed-plan.ts`** — the 60-minute clamp and `Math.max(0, steps)` cannot fire with current constants (peak is ~19 minutes against a cap of 60). | Cheap insurance if `HOUR_WEIGHTS` or the jitter band change later. Their active paths have no test coverage. |
