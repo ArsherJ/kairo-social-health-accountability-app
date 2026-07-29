@@ -97,9 +97,15 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ⬜ Observer queries + background delivery, anchored reads with persisted anchors
 - ⬜ Local-tz hourly bucketing, MMKV offline queue, foreground flush on app open
 
-### ⬜ Phase 4 — Squads + leaderboard · 45–60h
-- Create/join by 6-digit code, `squad_leaderboard` RPC, Realtime broadcast
-- Tiers + score UI only (§5)
+### 🟨 Phase 4 — Squads + leaderboard · 45–60h
+- ✅ `squad_leaderboard` **completed-day mode** — each member ranked on their own
+  yesterday, so a mixed-timezone squad compares like with like (closes deviation #6)
+- ✅ `seed-health` dev-only function — personas write hourly buckets, scores come
+  from the real engine via `rescoreDay`, guarded by `SEED_SECRET` plus the
+  `seed_test_users` allowlist
+- ⬜ Create/join by 6-digit code (RPCs exist; no UI yet)
+- ⬜ Leaderboard UI — tiers and scores only (§5)
+- ⬜ Realtime broadcast wired to the squad screen
 
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
 - ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
@@ -121,6 +127,8 @@ local stack is ever genuinely needed — so far nothing has required one.
 ### ⬜ Phase 8 — TestFlight + beta · 20–30h
 - `app_events` instrumentation, privacy nutrition labels
 - Internal → external testers, beta ops
+- ⬜ **Undeploy `seed-health` before external testers join** — it fabricates
+  activity, and the beta measures real behaviour
 
 **Why Phase 2 precedes Phase 3:** scoring is the highest-risk logic in the product and needs no device, HealthKit or network. Green tests first means every later phase debugs *plumbing* against known-correct math, instead of debugging math and plumbing at the same time.
 
@@ -155,7 +163,7 @@ All three are live and deliberate. Flagged here so they are decisions, not drift
 | # | Spec says | We do | Why |
 |---|---|---|---|
 | 5 | "Coins + XP distributed at finalization" (§12) | XP accrues **live** as the day progresses; only coins would wait for finalization | XP within a day is monotonic — more activity only ever adds — so live accrual has no downside and makes the character respond while you walk. `profiles.total_xp` is a rollup of `sum(xp_awarded)`, so it self-corrects. One-line change if you want strict spec behaviour: filter the rollup to `status = 'final'`. |
-| 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC does not have yet — **owed in Phase 4.** |
+| 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC now also has — **delivered in Phase 4** via the `'completed'` mode parameter. |
 | 7 | Apple/Google sign-in (§15) | **Anonymous sign-in in development builds only** | The Apple Developer Program is not yet purchased, so Sign in with Apple cannot be enabled on the App ID. Anonymous is one tap with no form — the same shape Apple's flow will have — so onboarding is rehearsed against the flow that ships. `availableProviders()` returns an empty list outside `__DEV__`, so it cannot reach TestFlight. **Disable anonymous sign-ins on the project when Apple lands.** |
 
 ---
@@ -176,3 +184,20 @@ these are decisions, not forgotten work.
 | 6 | **Cold start renders `(tabs)` for one frame before redirecting.** `app/index.tsx` was deleted, so `/` resolves to the tab group and mounts before the redirect effect fires. | The `cancelled` guard in `HealthPermissionSheet` is what stops the HealthKit sheet flashing over sign-in — it is load-bearing, not defensive. A `<Redirect>` in the render pass would remove the flash. Unverified: nobody has run the simulator. |
 | 7 | **`resolveRoute` has no test for `profileError` and `profileLoading` both true.** The ordering comment claims `profileError` wins; TanStack v5 makes the states mutually exclusive, so it is unreachable today. | Low risk, but the defensive ordering it argues for is untested. |
 | 8 | **`Profile` and `TodayScore` select columns no screen reads** (`class`, `has_wearable`, `rec_points`, `consistency_points`, `sabotage_delta`, `tiers`, `status`). | Not a privacy hole — owner-only rows. But from Phase 3 the displayed `total` will include REC and consistency points that appear in no stat bar, so the bars will visibly not sum to the total. Decide the UI answer then. |
+
+---
+
+## Phase 4 backend follow-ups (deferred, not blocking)
+
+From the reviews of `squad_leaderboard`'s completed-day mode and `seed-health`.
+Recorded here because the review artifacts were scratch.
+
+| # | Item | Why deferred |
+|---|---|---|
+| 1 | **`MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is the un-featured maximum.** §6's weekly specialization multiplies one stat by 1.5, so a featured Gold stat scores 1,350 and the true ceiling is **4,850** (5,350 with a wearable). Surfaced by a seeded athlete on the first run. | The constants are exported but **unenforced** — nothing clamps a score to them. Their only consumers are two tests (which correctly assert the un-featured ceiling) and `StatBar.tsx`'s bar-fill ratio, where a featured Gold stat simply renders as a full bar. Pre-existing and orthogonal to this branch; belongs in its own change alongside the `StatBar` fix. |
+| 2 | **`current_streak` is joined un-scoped to the leaderboard's mode.** In `'completed'` mode the row shows *today's* streak beside *yesterday's* score. | Pre-existing, not introduced by the mode. But whoever builds the leaderboard screen must know: it will read as a mismatch without explanation. Decide then whether to scope the streak to the displayed day or label it. |
+| 3 | **`seed-health` skips the OPTIONS/405 handling its sibling functions use.** A non-POST request falls through to `req.json()` and returns a generic `invalid JSON body` 400. | No security impact — it is curl-only and secret-gated. Pattern drift worth matching if the function is ever scripted. |
+| 4 | **`assertAllowlisted` returns 403 when the allowlist *lookup itself* fails.** "We could not check" is reported as "you are not allowed". | Cosmetic; a 500 would be more accurate. |
+| 5 | **`seed-days` has no cap on `userIds.length`** (unlike `create-users`, capped at 20). With `MAX_SEED_DAYS = 90` and a sequential user × date loop doing a bucket upsert plus a 4-query rescore each iteration, a careless call risks an Edge Function timeout. | Squads cap at 6 members and this is a manual tool. Worth a cap if seeding gets scripted. |
+| 6 | **`create-users` partial failure returns no list of already-created ids.** | Recovery depends on where it failed: a user that reached the allowlist insert is findable in `seed_test_users`, but one that failed at the `profiles` insert is findable only by querying `auth.users` for the `seed-%@kairo.test` email pattern. |
+| 7 | **Unreachable defensive code in `seed-plan.ts`** — the 60-minute clamp and `Math.max(0, steps)` cannot fire with current constants (peak is ~19 minutes against a cap of 60). | Cheap insurance if `HOUR_WEIGHTS` or the jitter band change later. Their active paths have no test coverage. |
