@@ -97,9 +97,15 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ⬜ Observer queries + background delivery, anchored reads with persisted anchors
 - ⬜ Local-tz hourly bucketing, MMKV offline queue, foreground flush on app open
 
-### ⬜ Phase 4 — Squads + leaderboard · 45–60h
-- Create/join by 6-digit code, `squad_leaderboard` RPC, Realtime broadcast
-- Tiers + score UI only (§5)
+### 🟨 Phase 4 — Squads + leaderboard · 45–60h
+- ✅ `squad_leaderboard` **completed-day mode** — each member ranked on their own
+  yesterday, so a mixed-timezone squad compares like with like (closes deviation #6)
+- ✅ `seed-health` dev-only function — personas write hourly buckets, scores come
+  from the real engine via `rescoreDay`, guarded by `SEED_SECRET` plus the
+  `seed_test_users` allowlist
+- ⬜ Create/join by 6-digit code (RPCs exist; no UI yet)
+- ⬜ Leaderboard UI — tiers and scores only (§5)
+- ⬜ Realtime broadcast wired to the squad screen
 
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
 - ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
@@ -121,6 +127,8 @@ local stack is ever genuinely needed — so far nothing has required one.
 ### ⬜ Phase 8 — TestFlight + beta · 20–30h
 - `app_events` instrumentation, privacy nutrition labels
 - Internal → external testers, beta ops
+- ⬜ **Undeploy `seed-health` before external testers join** — it fabricates
+  activity, and the beta measures real behaviour
 
 **Why Phase 2 precedes Phase 3:** scoring is the highest-risk logic in the product and needs no device, HealthKit or network. Green tests first means every later phase debugs *plumbing* against known-correct math, instead of debugging math and plumbing at the same time.
 
@@ -155,7 +163,7 @@ All three are live and deliberate. Flagged here so they are decisions, not drift
 | # | Spec says | We do | Why |
 |---|---|---|---|
 | 5 | "Coins + XP distributed at finalization" (§12) | XP accrues **live** as the day progresses; only coins would wait for finalization | XP within a day is monotonic — more activity only ever adds — so live accrual has no downside and makes the character respond while you walk. `profiles.total_xp` is a rollup of `sum(xp_awarded)`, so it self-corrects. One-line change if you want strict spec behaviour: filter the rollup to `status = 'final'`. |
-| 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC does not have yet — **owed in Phase 4.** |
+| 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC now also has — **delivered in Phase 4** via the `'completed'` mode parameter. |
 | 7 | Apple/Google sign-in (§15) | **Anonymous sign-in in development builds only** | The Apple Developer Program is not yet purchased, so Sign in with Apple cannot be enabled on the App ID. Anonymous is one tap with no form — the same shape Apple's flow will have — so onboarding is rehearsed against the flow that ships. `availableProviders()` returns an empty list outside `__DEV__`, so it cannot reach TestFlight. **Disable anonymous sign-ins on the project when Apple lands.** |
 
 ---
