@@ -4,6 +4,7 @@ import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@
 import { HunterSilhouette } from '@/features/character/HunterSilhouette.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { useTodayScore } from '@/features/character/queries.ts';
+import { HealthPermissionSheet } from '@/features/health/HealthPermissionSheet.tsx';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
@@ -66,6 +67,8 @@ export default function Character() {
           featured={today?.featured_stat === stat}
         />
       ))}
+
+      <HealthPermissionSheet />
     </ScrollView>
   );
 }
