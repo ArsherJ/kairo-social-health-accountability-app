@@ -69,7 +69,7 @@ VM does not mount the project directory, producing
 `workdir ... does not exist on container`. OrbStack is the low-friction fix if a
 local stack is ever genuinely needed — so far nothing has required one.
 
-### 🟨 Phase 1 — Auth + onboarding · 35–45h
+### ✅ Phase 1 — Auth + onboarding · 35–45h
 - ✅ Sign-in provider abstraction; **anonymous sign-in stands in for Apple**
   until the Developer Program is purchased, and is compiled out of release
   builds via `__DEV__`
@@ -81,7 +81,9 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ `profiles` INSERT grant column-scoped — RLS constrains rows, not columns
 - ⬜ Sign in with Apple (blocked on the Apple Developer Program)
 - Body metrics deferred to the soft prompt, never a gate
-- ⬜ **Hand-verification on the simulator has not been done** — sign-in → name → character inside 60 seconds, HealthKit prompt copy, force-quit mid-onboarding resumes correctly
+- ✅ Hand-verified on the simulator — the onboarding flow was walked end to end
+  by hand, which is this phase's acceptance criterion (UI is verified on device,
+  not by test)
 
 ### ✅ Phase 2 — Scoring engine (TDD) · 25–35h
 - `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
