@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addDays, isFinalizable } from '../../packages/kairo-core/src/day.ts';
+import { addDays, isFinalizable, mostRecentlyCompletedLocalDate } from '../../packages/kairo-core/src/day.ts';
 import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
@@ -1059,5 +1059,133 @@ describe('realtime broadcast', () => {
     await h.db.exec('commit');
 
     expect(visible.rows).toEqual([]);
+  });
+});
+
+describe('squad_leaderboard completed-day mode', () => {
+  /** Creates a squad owned by `ownerId` and returns its id and invite code. */
+  async function createSquad(ownerId: string, name: string) {
+    // asUser's signature is (userId, sql, params) — the user id comes first.
+    const created = await h.asUser<{ id: string }>(
+      ownerId,
+      `select (public.create_squad($1)).id as id`,
+      [name],
+    );
+    const squadId = created[0]!.id;
+    const codes = await h.asService<{ invite_code: string }>(
+      'select invite_code from public.squads where id = $1',
+      [squadId],
+    );
+    return { squadId, inviteCode: codes[0]!.invite_code };
+  }
+
+  it('ranks each member on their OWN yesterday', async () => {
+    const manila = await h.createUser({ characterName: 'Aeon', timezone: 'Asia/Manila' });
+    const newYork = await h.createUser({ characterName: 'Bex', timezone: 'America/New_York' });
+
+    const { squadId, inviteCode } = await createSquad(manila, 'Zone Test');
+    await h.asUser(newYork, `select public.join_squad($1)`, [inviteCode]);
+
+    const rows = await h.asUser<{ user_id: string; local_date: string }>(
+      manila,
+      `select user_id, local_date::text as local_date
+       from public.squad_leaderboard($1, null, 'completed')`,
+      [squadId],
+    );
+
+    const expected = await h.asService<{ mnl: string; nyc: string }>(
+      `select ((now() at time zone 'Asia/Manila')::date - 1)::text as mnl,
+              ((now() at time zone 'America/New_York')::date - 1)::text as nyc`,
+    );
+
+    const byUser = new Map(rows.map((r) => [r.user_id, r.local_date]));
+    expect(byUser.get(manila)).toBe(expected[0]!.mnl);
+    expect(byUser.get(newYork)).toBe(expected[0]!.nyc);
+  });
+
+  it('rejects an unknown mode rather than silently defaulting', async () => {
+    const user = await h.createUser();
+    const { squadId } = await createSquad(user, 'Mode Test');
+
+    await rejects(
+      h.asUser(
+        user,
+        `select * from public.squad_leaderboard($1, null, 'yesterdayish')`,
+        [squadId],
+      ),
+      /unknown leaderboard mode/i,
+    );
+  });
+
+  it('still defaults to each member’s current day', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const { squadId } = await createSquad(user, 'Current Test');
+
+    const rows = await h.asUser<{ local_date: string }>(
+      user,
+      `select local_date::text as local_date
+       from public.squad_leaderboard($1)`,
+      [squadId],
+    );
+    const today = await h.asService<{ d: string }>(
+      `select (now() at time zone 'Asia/Manila')::date::text as d`,
+    );
+
+    expect(rows[0]!.local_date).toBe(today[0]!.d);
+  });
+
+  it('lets an explicit pinned date override the mode', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const { squadId } = await createSquad(user, 'Pin Test');
+
+    const rows = await h.asUser<{ local_date: string }>(
+      user,
+      `select local_date::text as local_date
+       from public.squad_leaderboard($1, '2026-01-15'::date, 'completed')`,
+      [squadId],
+    );
+    expect(rows[0]!.local_date).toBe('2026-01-15');
+  });
+
+  it('is not executable by anon after the function was recreated', async () => {
+    // A dropped SECURITY DEFINER function comes back with EXECUTE granted to
+    // PUBLIC. If the migration forgets to re-revoke, this passes silently in
+    // every test that runs as `authenticated`.
+    const granted = await h.asService<{ has: boolean }>(
+      `select has_function_privilege('anon',
+         'public.squad_leaderboard(uuid, date, text)', 'execute') as has`,
+    );
+    expect(granted[0]!.has).toBe(false);
+
+    const authed = await h.asService<{ has: boolean }>(
+      `select has_function_privilege('authenticated',
+         'public.squad_leaderboard(uuid, date, text)', 'execute') as has`,
+    );
+    expect(authed[0]!.has).toBe(true);
+  });
+});
+
+describe('completed-day date agrees with kairo-core', () => {
+  // The SQL expression and mostRecentlyCompletedLocalDate() are two
+  // implementations of one rule. A single captured instant is passed to both,
+  // so this cannot flake by straddling a midnight between the two reads.
+  it('matches mostRecentlyCompletedLocalDate across zones', async () => {
+    const now = new Date();
+    const zones = [
+      'Asia/Manila',
+      'America/New_York',
+      'Europe/London',
+      'Pacific/Kiritimati',
+      'Pacific/Niue',
+      'Australia/Adelaide',
+    ];
+
+    for (const zone of zones) {
+      const rows = await h.asService<{ d: string }>(
+        `select (($1::timestamptz at time zone $2)::date - 1)::text as d`,
+        [now.toISOString(), zone],
+      );
+      expect(rows[0]!.d).toBe(mostRecentlyCompletedLocalDate(now, zone));
+    }
   });
 });
