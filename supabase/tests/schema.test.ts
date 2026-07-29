@@ -359,7 +359,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(12);
+    expect(rows[0]!.count).toBe(13);
   });
 
   it('enable row level security on every public table', async () => {
@@ -1187,5 +1187,58 @@ describe('completed-day date agrees with kairo-core', () => {
       );
       expect(rows[0]!.d).toBe(mostRecentlyCompletedLocalDate(now, zone));
     }
+  });
+});
+
+describe('seed_test_users allowlist', () => {
+  it('is unreachable by an authenticated client', async () => {
+    const user = await h.createUser();
+
+    await rejects(
+      h.asUser(user, 'select * from public.seed_test_users'),
+      /permission denied/i,
+    );
+    await rejects(
+      h.asUser(
+        user,
+        `insert into public.seed_test_users (user_id, label) values ($1, 'self')`,
+        [user],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('accepts a service-role insert and cascades on user deletion', async () => {
+    const user = await h.createUser();
+
+    await h.asService(
+      `insert into public.seed_test_users (user_id, label) values ($1, 'squadmate-1')`,
+      [user],
+    );
+    const before = await h.asService<{ n: string }>(
+      'select count(*)::text as n from public.seed_test_users where user_id = $1',
+      [user],
+    );
+    expect(before[0]!.n).toBe('1');
+
+    await h.asService(`set local kairo.allow_purge = 'on'`);
+    await h.asService('delete from auth.users where id = $1', [user]);
+
+    const after = await h.asService<{ n: string }>(
+      'select count(*)::text as n from public.seed_test_users where user_id = $1',
+      [user],
+    );
+    expect(after[0]!.n).toBe('0');
+  });
+
+  it('rejects a blank label', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asService(
+        `insert into public.seed_test_users (user_id, label) values ($1, '   ')`,
+        [user],
+      ),
+      /check constraint/i,
+    );
   });
 });
