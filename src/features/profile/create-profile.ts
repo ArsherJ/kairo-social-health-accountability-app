@@ -4,6 +4,16 @@ import { supabase } from '@/lib/supabase.ts';
 import { deviceTimeZone } from './device-timezone.ts';
 import { profileKey } from './queries.ts';
 
+// Postgres error codes worth distinguishing from a generic failure. Keyed by
+// code, not by matching `error.message` text, because PostgREST's message
+// wording isn't a contract and the raw text must never reach the UI (it can
+// say things like `duplicate key value violates unique constraint
+// "profiles_pkey"` or `permission denied for table profiles`).
+const UNIQUE_VIOLATION = '23505';
+const INSUFFICIENT_PRIVILEGE = '42501';
+
+const GENERIC_ERROR_COPY = "Couldn't create your Hunter. Check your connection and try again.";
+
 export function useCreateProfile(userId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -20,7 +30,26 @@ export function useCreateProfile(userId: string | undefined) {
         timezone: deviceTimeZone(),
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        // 23505 (unique violation on profiles_pkey) means the INSERT from an
+        // earlier, successful attempt already landed the row — this happens
+        // when the insert succeeds but the onSuccess invalidation refetch is
+        // what fails (dropped connection between the two), leaving the name
+        // screen looking untouched and Begin still enabled. The row
+        // demonstrably exists, which is exactly the state a fresh success
+        // would produce, so treat it as one: refresh the profile and let the
+        // gate carry the user forward instead of surfacing a Postgres string.
+        if (error.code === UNIQUE_VIOLATION) return;
+
+        // Logged, never rendered — see the comment above on why raw
+        // PostgrestError text can't reach the screen.
+        console.warn('[createProfile] insert failed', error.code, error.message);
+
+        if (error.code === INSUFFICIENT_PRIVILEGE) {
+          throw new Error("You don't have permission to do that. Please try again later.");
+        }
+        throw new Error(GENERIC_ERROR_COPY);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
   });
