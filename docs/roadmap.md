@@ -69,10 +69,17 @@ VM does not mount the project directory, producing
 `workdir ... does not exist on container`. OrbStack is the low-friction fix if a
 local stack is ever genuinely needed — so far nothing has required one.
 
-### ⬜ Phase 1 — Auth + onboarding · 35–45h
-- Apple Sign-In only (decided — Google deferred to V1.5 Android)
-- Character-first flow: name + Hunter on screen inside 60 seconds (§5)
-- HealthKit permission framed as "power your character with real life"
+### ✅ Phase 1 — Auth + onboarding · 35–45h
+- ✅ Sign-in provider abstraction; **anonymous sign-in stands in for Apple**
+  until the Developer Program is purchased, and is compiled out of release
+  builds via `__DEV__`
+- ✅ Character-first flow: name + Hunter on screen inside 60 seconds (§5)
+- ✅ HealthKit permission asked as a sheet over the character screen, using
+  `getRequestStatusForAuthorization` since HealthKit never reveals read authorization
+- ✅ Device timezone captured at profile creation and reconciled on foreground
+- ✅ Pure decision logic (route gate, permission state, timezone rule) unit-tested in Node; native and rendering code kept thin
+- ✅ `profiles` INSERT grant column-scoped — RLS constrains rows, not columns
+- ⬜ Sign in with Apple (blocked on the Apple Developer Program)
 - Body metrics deferred to the soft prompt, never a gate
 
 ### ✅ Phase 2 — Scoring engine (TDD) · 25–35h
@@ -146,3 +153,4 @@ Both are live and deliberate. Flagged here so they are decisions, not drift.
 |---|---|---|---|
 | 5 | "Coins + XP distributed at finalization" (§12) | XP accrues **live** as the day progresses; only coins would wait for finalization | XP within a day is monotonic — more activity only ever adds — so live accrual has no downside and makes the character respond while you walk. `profiles.total_xp` is a rollup of `sum(xp_awarded)`, so it self-corrects. One-line change if you want strict spec behaviour: filter the rollup to `status = 'final'`. |
 | 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC does not have yet — **owed in Phase 4.** |
+| 7 | Apple/Google sign-in (§15) | **Anonymous sign-in in development builds only** | The Apple Developer Program is not yet purchased, so Sign in with Apple cannot be enabled on the App ID. Anonymous is one tap with no form — the same shape Apple's flow will have — so onboarding is rehearsed against the flow that ships. `availableProviders()` returns an empty list outside `__DEV__`, so it cannot reach TestFlight. **Disable anonymous sign-ins on the project when Apple lands.** |
