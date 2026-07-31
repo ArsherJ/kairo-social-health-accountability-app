@@ -107,7 +107,9 @@ local stack is ever genuinely needed — so far nothing has required one.
   codes mapped to human copy
 - ✅ Leaderboard UI — tiers and scores only (§5), Today/Yesterday toggle, and
   mixed-timezone dates surfaced rather than implied away
-- ⬜ Realtime broadcast wired to the squad screen
+- ✅ Realtime broadcast wired to the squad screen — broadcasts refresh the board
+  through `squad_leaderboard`, with reconnect and foreground refetches covering
+  the events Realtime drops
 
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
 - ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
@@ -203,5 +205,5 @@ Recorded here because the review artifacts were scratch.
 | 5 | **`seed-days` has no cap on `userIds.length`** (unlike `create-users`, capped at 20). With `MAX_SEED_DAYS = 90` and a sequential user × date loop doing a bucket upsert plus a 4-query rescore each iteration, a careless call risks an Edge Function timeout. | Squads cap at 6 members and this is a manual tool. Worth a cap if seeding gets scripted. |
 | 6 | **`create-users` partial failure returns no list of already-created ids.** | Recovery depends on where it failed: a user that reached the allowlist insert is findable in `seed_test_users`, but one that failed at the `profiles` insert is findable only by querying `auth.users` for the `seed-%@kairo.test` email pattern. |
 | 7 | **Unreachable defensive code in `seed-plan.ts`** — the 60-minute clamp and `Math.max(0, steps)` cannot fire with current constants (peak is ~19 minutes against a cap of 60). | Cheap insurance if `HOUR_WEIGHTS` or the jitter band change later. Their active paths have no test coverage. |
-| 8 | **Realtime is not wired to the squad screen.** The broadcast trigger and its RLS policy exist server-side; the board refreshes on mount and on pull-to-refresh only. | PGlite cannot verify that Supabase's Realtime *server* delivers a broadcast, so this needs live testing against the hosted project — a different kind of work than the rest of the squad UI, and worth doing in one pass with the subscription lifecycle (foreground/background, squad change, sign-out). |
+| 8 | **Realtime is now wired to the squad screen** — verified live against the hosted project: a broadcast reorders the board with no interaction, and reconnect/foreground refetches cover the events Realtime drops. **What remains:** membership changes still do not broadcast, so a new member appears on the next refetch rather than instantly. | Broadcasting membership changes is a separate, smaller follow-up — the trigger only fires on `daily_scores`, and joins/leaves would need their own trigger and topic wiring. |
 | 9 | **Leaving a squad has no UI.** The `squad_members_delete_self` policy makes it client-possible today. | The policy is the easy half. The decisions are not: what happens to a squad when its *leader* leaves (the account-deletion path already implements succession — leaving should reuse it, not invent a second rule), and whether a leave is confirmable or undoable. Also note `app/(tabs)/squad.tsx` keeps its create/join pane in local state, which would need resetting once a board can disappear. |
