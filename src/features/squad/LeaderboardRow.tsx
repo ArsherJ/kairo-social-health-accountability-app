@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  self: { borderColor: colors.accent, backgroundColor: '#15131F' },
+  self: { borderColor: colors.accent },
   rank: {
     width: 28,
     color: colors.muted,
