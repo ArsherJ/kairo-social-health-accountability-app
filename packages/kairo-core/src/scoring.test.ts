@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FEATURED_STAT_MULTIPLIER,
   MAX_DAILY_SCORE_PHONE_ONLY,
+  MAX_DAILY_SCORE_PHONE_ONLY_FEATURED,
   MAX_DAILY_SCORE_WITH_WEARABLE,
+  MAX_DAILY_SCORE_WITH_WEARABLE_FEATURED,
+  STAT_POINTS_MAX,
+  STAT_POINTS_MAX_FEATURED,
   VIT_ACTIVE_HOUR_STEPS,
   aggregateBuckets,
   computeDailyScore,
@@ -349,6 +354,47 @@ describe('score ceilings', () => {
     });
     expect(result.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
     expect(result.healthTotal).toBe(4_900);
+  });
+
+  it('exposes the per-stat ceilings, featured and not', () => {
+    expect(STAT_POINTS_MAX).toBe(900);
+    expect(STAT_POINTS_MAX_FEATURED).toBe(
+      Math.round(STAT_POINTS_MAX * FEATURED_STAT_MULTIPLIER),
+    );
+  });
+
+  it('exposes daily ceilings that account for the featured multiplier', () => {
+    // Three stats at Gold, one featured Gold, plus the consistency bonus.
+    expect(MAX_DAILY_SCORE_PHONE_ONLY_FEATURED).toBe(
+      MAX_DAILY_SCORE_PHONE_ONLY + (STAT_POINTS_MAX_FEATURED - STAT_POINTS_MAX),
+    );
+    expect(MAX_DAILY_SCORE_WITH_WEARABLE_FEATURED).toBe(
+      MAX_DAILY_SCORE_WITH_WEARABLE + (STAT_POINTS_MAX_FEATURED - STAT_POINTS_MAX),
+    );
+  });
+
+  it('keeps the un-featured ceilings as the spec states them', () => {
+    // §5 quotes 4,400 and 4,900; those remain correct for a day with no
+    // featured stat, which is why the names above are additive rather than
+    // replacements.
+    expect(MAX_DAILY_SCORE_PHONE_ONLY).toBe(4_400);
+    expect(MAX_DAILY_SCORE_WITH_WEARABLE).toBe(4_900);
+  });
+
+  it('reaches the featured ceiling from a real maximal day', () => {
+    // Not a restatement of the constants: this drives computeDailyScore to the
+    // top and proves the arithmetic the constants document is the arithmetic
+    // the engine performs.
+    const result = computeDailyScore({
+      buckets: dayWith({
+        steps: 40_000,
+        activeKcal: 2_000,
+        activeMinutes: 600,
+        activeHours: 24,
+      }),
+      featuredStat: 'AGI',
+    });
+    expect(result.healthTotal).toBe(MAX_DAILY_SCORE_PHONE_ONLY_FEATURED);
   });
 });
 

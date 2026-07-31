@@ -1,9 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { STAT_POINTS_MAX, STAT_POINTS_MAX_FEATURED } from '@kairo/core';
 import { colors, font, radius, space } from '@/theme.ts';
-
-/** Highest points a single stat can contribute in a day, before the featured
- *  multiplier — the Gold tier ceiling from §6. Used only to size the bar. */
-const STAT_MAX = 900;
 
 export function StatBar({
   stat,
@@ -16,7 +13,12 @@ export function StatBar({
   points: number;
   featured: boolean;
 }) {
-  const fill = Math.max(0, Math.min(1, points / STAT_MAX));
+  // A featured stat scores at 1.5x (§6), so a featured Gold reaches 1,350.
+  // Sizing every bar against 900 would peg a featured Gold at 100% and make it
+  // indistinguishable from an ordinary Gold — which is exactly the difference
+  // the weekly meta exists to create.
+  const ceiling = featured ? STAT_POINTS_MAX_FEATURED : STAT_POINTS_MAX;
+  const fill = Math.max(0, Math.min(1, points / ceiling));
 
   return (
     <View style={styles.row}>

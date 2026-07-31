@@ -15,15 +15,36 @@ export const VIT_ACTIVE_HOUR_STEPS = 250;
 /** The weekly featured stat scores at this multiple. */
 export const FEATURED_STAT_MULTIPLIER = 1.5;
 
-export const MAX_DAILY_SCORE_PHONE_ONLY = 4_400;
-export const MAX_DAILY_SCORE_WITH_WEARABLE = 4_900;
-
 const TIER_POINTS: Record<Tier, number> = {
   none: 0,
   bronze: 200,
   silver: 500,
   gold: 900,
 };
+
+/**
+ * A single stat's Gold ceiling (§6). Derived from the tier table rather than
+ * repeated, so raising Gold cannot leave a UI sizing bars against the old
+ * number with no test to catch it.
+ */
+export const STAT_POINTS_MAX = TIER_POINTS.gold;
+
+/** The same stat when it is the week's featured stat. */
+export const STAT_POINTS_MAX_FEATURED = Math.round(
+  STAT_POINTS_MAX * FEATURED_STAT_MULTIPLIER,
+);
+
+/** Maximum for a day with NO featured stat. §5 quotes this figure. */
+export const MAX_DAILY_SCORE_PHONE_ONLY = 4_400;
+/** Maximum for a day with NO featured stat. §5 quotes this figure. */
+export const MAX_DAILY_SCORE_WITH_WEARABLE = 4_900;
+
+// The weekly featured stat (§6) scores at 1.5x, so the true ceilings sit
+// 450 points higher than the figures §5 quotes. Nothing clamps to any of
+// these — they exist so UI can size against a real maximum rather than one
+// a featured stat quietly exceeds.
+export const MAX_DAILY_SCORE_PHONE_ONLY_FEATURED = 4_850;
+export const MAX_DAILY_SCORE_WITH_WEARABLE_FEATURED = 5_350;
 
 const TIER_XP: Record<Tier, number> = {
   none: 0,
