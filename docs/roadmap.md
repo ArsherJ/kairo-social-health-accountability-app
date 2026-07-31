@@ -103,8 +103,10 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ `seed-health` dev-only function — personas write hourly buckets, scores come
   from the real engine via `rescoreDay`, guarded by `SEED_SECRET` plus the
   `seed_test_users` allowlist
-- ⬜ Create/join by 6-digit code (RPCs exist; no UI yet)
-- ⬜ Leaderboard UI — tiers and scores only (§5)
+- ✅ Create/join by 6-digit code — empty state, both forms, and the RPC error
+  codes mapped to human copy
+- ✅ Leaderboard UI — tiers and scores only (§5), Today/Yesterday toggle, and
+  mixed-timezone dates surfaced rather than implied away
 - ⬜ Realtime broadcast wired to the squad screen
 
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
@@ -194,10 +196,12 @@ Recorded here because the review artifacts were scratch.
 
 | # | Item | Why deferred |
 |---|---|---|
-| 1 | **`MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is the un-featured maximum.** §6's weekly specialization multiplies one stat by 1.5, so a featured Gold stat scores 1,350 and the true ceiling is **4,850** (5,350 with a wearable). Surfaced by a seeded athlete on the first run. | The constants are exported but **unenforced** — nothing clamps a score to them. Their only consumers are two tests (which correctly assert the un-featured ceiling) and `StatBar.tsx`'s bar-fill ratio, where a featured Gold stat simply renders as a full bar. Pre-existing and orthogonal to this branch; belongs in its own change alongside the `StatBar` fix. |
-| 2 | **`current_streak` is joined un-scoped to the leaderboard's mode.** In `'completed'` mode the row shows *today's* streak beside *yesterday's* score. | Pre-existing, not introduced by the mode. But whoever builds the leaderboard screen must know: it will read as a mismatch without explanation. Decide then whether to scope the streak to the displayed day or label it. |
+| 1 | ~~**`MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is the un-featured maximum**~~ — **the UI half is fixed.** `STAT_POINTS_MAX`, `STAT_POINTS_MAX_FEATURED` and the two `*_FEATURED` daily ceilings are now exported and `StatBar` sizes against the right one, so a featured Gold no longer renders identically to an ordinary Gold. | **What remains:** the daily constants are still *unenforced* — nothing clamps a score to them, and their only consumers are tests. That is fine (scores are replayed, not clamped), so this is documentation accuracy rather than a defect. `STAT_POINTS_MAX` is now derived from `TIER_POINTS.gold`, so the original drift risk is gone. |
+| 2 | **`current_streak` is joined un-scoped to the leaderboard's mode.** In `'completed'` mode the row shows *today's* streak beside *yesterday's* score. | **Decided in the squad UI:** the client renders `current_streak` only on the live (`'current'`) board, which removes the mismatch at zero cost. The SQL is still un-scoped, so any *future* surface that wants a streak alongside a completed day must fix it there — the client's answer does not generalise. |
 | 3 | **`seed-health` skips the OPTIONS/405 handling its sibling functions use.** A non-POST request falls through to `req.json()` and returns a generic `invalid JSON body` 400. | No security impact — it is curl-only and secret-gated. Pattern drift worth matching if the function is ever scripted. |
 | 4 | **`assertAllowlisted` returns 403 when the allowlist *lookup itself* fails.** "We could not check" is reported as "you are not allowed". | Cosmetic; a 500 would be more accurate. |
 | 5 | **`seed-days` has no cap on `userIds.length`** (unlike `create-users`, capped at 20). With `MAX_SEED_DAYS = 90` and a sequential user × date loop doing a bucket upsert plus a 4-query rescore each iteration, a careless call risks an Edge Function timeout. | Squads cap at 6 members and this is a manual tool. Worth a cap if seeding gets scripted. |
 | 6 | **`create-users` partial failure returns no list of already-created ids.** | Recovery depends on where it failed: a user that reached the allowlist insert is findable in `seed_test_users`, but one that failed at the `profiles` insert is findable only by querying `auth.users` for the `seed-%@kairo.test` email pattern. |
 | 7 | **Unreachable defensive code in `seed-plan.ts`** — the 60-minute clamp and `Math.max(0, steps)` cannot fire with current constants (peak is ~19 minutes against a cap of 60). | Cheap insurance if `HOUR_WEIGHTS` or the jitter band change later. Their active paths have no test coverage. |
+| 8 | **Realtime is not wired to the squad screen.** The broadcast trigger and its RLS policy exist server-side; the board refreshes on mount and on pull-to-refresh only. | PGlite cannot verify that Supabase's Realtime *server* delivers a broadcast, so this needs live testing against the hosted project — a different kind of work than the rest of the squad UI, and worth doing in one pass with the subscription lifecycle (foreground/background, squad change, sign-out). |
+| 9 | **Leaving a squad has no UI.** The `squad_members_delete_self` policy makes it client-possible today. | The policy is the easy half. The decisions are not: what happens to a squad when its *leader* leaves (the account-deletion path already implements succession — leaving should reuse it, not invent a second rule), and whether a leave is confirmable or undoable. Also note `app/(tabs)/squad.tsx` keeps its create/join pane in local state, which would need resetting once a board can disappear. |
