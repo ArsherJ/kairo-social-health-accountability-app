@@ -33,6 +33,15 @@ export const squadKeys = {
   mine: (userId: string | undefined) => ['squad', 'mine', userId ?? 'none'] as const,
   board: (squadId: string | undefined, mode: LeaderboardMode) =>
     ['squad', 'board', squadId ?? 'none', mode] as const,
+  /**
+   * Prefix of every `board` key for this squad, both modes.
+   *
+   * A score change can move either board, and the user can toggle to the mode
+   * that was not invalidated — so one broadcast refreshes both rather than
+   * leaving a stale board one tap away.
+   */
+  boardAll: (squadId: string | undefined) =>
+    ['squad', 'board', squadId ?? 'none'] as const,
 };
 
 /**

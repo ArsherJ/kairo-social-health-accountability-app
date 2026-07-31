@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { useSquadLeaderboard, type LeaderboardMode, type Squad } from './queries.ts';
+import { useSquadRealtime } from './useSquadRealtime.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
@@ -22,6 +23,11 @@ export function Leaderboard({ squad }: { squad: Squad }) {
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
+
+  // Subscribed for as long as the board is mounted. Expo Router keeps tab
+  // screens mounted, so the channel survives tab switches, which is both
+  // correct and free.
+  useSquadRealtime(squad.id);
 
   const rows = board.data ?? [];
 
