@@ -9,6 +9,7 @@ import {
   type RealtimePolicyInput,
   type RealtimePolicyState,
 } from './realtime-policy.ts';
+import { squadTopic } from './squad-topic.ts';
 
 /**
  * Keeps the squad board current.
@@ -60,7 +61,7 @@ export function useSquadRealtime(squadId: string | undefined): void {
     }
 
     const channel = supabase
-      .channel(`squad:${squadId}`, { config: { private: true } })
+      .channel(squadTopic(squadId), { config: { private: true } })
       // The payload is deliberately not a parameter. broadcast_changes ships a
       // whole daily_scores row — per-stat points, sabotage_delta, xp_awarded —
       // which is more than squad_leaderboard exposes. Reading it would make the

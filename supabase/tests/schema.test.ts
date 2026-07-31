@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addDays, isFinalizable, mostRecentlyCompletedLocalDate } from '../../packages/kairo-core/src/day.ts';
 import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
+import { squadTopic } from '../../src/features/squad/squad-topic.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
 let h: Harness;
@@ -994,7 +995,7 @@ describe('realtime broadcast', () => {
       'select topic, payload from realtime.messages',
     );
     expect(messages).toHaveLength(1);
-    expect(messages[0]!.topic).toBe(`squad:${squadId}`);
+    expect(messages[0]!.topic).toBe(squadTopic(squadId));
     expect(messages[0]!.payload.record.total).toBe(1300);
   });
 

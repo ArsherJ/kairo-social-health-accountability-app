@@ -55,6 +55,22 @@ describe('broadcasts', () => {
       `refetch-after:${COALESCE_WINDOW_MS}`,
     ]);
   });
+
+  it('does not swallow a broadcast arriving exactly at pendingUntil', () => {
+    // The guard is a strict `>`. The hook's timer callback refetches without
+    // clearing pendingUntil, so at the instant pendingUntil equals `at`, the
+    // scheduled refetch has already run — this broadcast must schedule a
+    // fresh one. Relaxing the guard to `!==null` would pass all other tests
+    // here while swallowing every broadcast after the first, forever.
+    const { commands } = run([
+      { kind: 'broadcast', at: 0 },
+      { kind: 'broadcast', at: COALESCE_WINDOW_MS },
+    ]);
+    expect(commands).toEqual([
+      `refetch-after:${COALESCE_WINDOW_MS}`,
+      `refetch-after:${COALESCE_WINDOW_MS}`,
+    ]);
+  });
 });
 
 describe('connection', () => {
