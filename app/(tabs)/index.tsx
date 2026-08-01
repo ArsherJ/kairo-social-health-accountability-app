@@ -3,7 +3,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
 import { HunterSilhouette } from '@/features/character/HunterSilhouette.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
-import { useTodayScore } from '@/features/character/queries.ts';
+import {
+  DOMINANCE_WINDOW_DAYS,
+  useDominantStat,
+  useTodayScore,
+} from '@/features/character/queries.ts';
 import { HealthPermissionSheet } from '@/features/health/HealthPermissionSheet.tsx';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
@@ -16,11 +20,25 @@ const STAT_LABELS: Record<CoreStat, string> = {
   VIT: 'Hourly movement',
 };
 
+/**
+ * §6's evolution table, said out loud. The silhouette differences are real but
+ * subtle on placeholder art, and a character that quietly changes shape reads
+ * as a rendering glitch rather than as a reward.
+ */
+const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
+  AGI: 'AGILITY BUILD',
+  STR: 'STRENGTH BUILD',
+  END: 'ENDURANCE BUILD',
+  VIT: 'VITALITY BUILD',
+  balanced: 'ALL-ROUNDER',
+};
+
 export default function Character() {
   const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
   const score = useTodayScore(session?.user.id, profile.data?.timezone);
+  const dominance = useDominantStat(session?.user.id, profile.data?.timezone);
 
   const totalXp = profile.data?.total_xp ?? 0;
   const level = profile.data?.level ?? levelForXp(totalXp);
@@ -48,7 +66,21 @@ export default function Character() {
       <Text style={styles.label}>LEVEL {level}</Text>
       <Text style={styles.name}>{profile.data?.character_name ?? '—'}</Text>
 
-      <HunterSilhouette stage={stage} />
+      <HunterSilhouette stage={stage} dominance={dominance.data} />
+
+      {/* Null means an unstarted character, which has no build to name — and
+          saying "All-Rounder" to someone who has done nothing would cheapen
+          the one visual §6 says must be earned. */}
+      {dominance.data != null && (
+        <View style={styles.dominance}>
+          <Text style={styles.dominanceLabel}>
+            {DOMINANCE_LABELS[dominance.data]}
+          </Text>
+          <Text style={styles.meta}>
+            from your last {DOMINANCE_WINDOW_DAYS} days
+          </Text>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.label}>TODAY</Text>
@@ -99,4 +131,6 @@ const styles = StyleSheet.create({
   },
   total: { color: colors.accent, fontSize: 48, fontWeight: '800', marginTop: space.sm },
   meta: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
+  dominance: { alignItems: 'center', marginTop: space.sm },
+  dominanceLabel: { color: colors.accent, ...font.label },
 });
