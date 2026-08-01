@@ -121,6 +121,8 @@ begin
     btrim(p_name),
     public.generate_invite_code(),
     v_user,
+    -- §7's capacity table. Mirrored in packages/kairo-core/src/squad.ts as
+    -- FREE_SQUAD_MAX_MEMBERS / LEGENDARY_SQUAD_MAX_MEMBERS; change both.
     case when v_is_legendary then 15 else 6 end
   )
   returning * into v_squad;

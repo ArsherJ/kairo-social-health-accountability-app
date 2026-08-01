@@ -47,6 +47,13 @@ export const squadKeys = {
    * the sync does not know which squad they are looking at.
    */
   allBoards: () => ['squad', 'board'] as const,
+  /**
+   * How many people are *in* the squad, which is not how many are on the
+   * board. Separate from `board` because it answers a different question and
+   * changes for a different reason — someone joining, not someone scoring.
+   */
+  members: (squadId: string | undefined) =>
+    ['squad', 'members', squadId ?? 'none'] as const,
 };
 
 /**
@@ -70,6 +77,33 @@ export function useMySquad(userId: string | undefined) {
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data as Squad | null) ?? null;
+    },
+  });
+}
+
+/**
+ * How many people belong to the squad — the number the locked slots are
+ * derived from (§7).
+ *
+ * Deliberately not `leaderboard.length`. `squad_leaderboard`'s `member_day`
+ * CTE joins `daily_scores`, so it returns only members who have *scored*: a
+ * squadmate who joined and has not moved yet is missing from the board but is
+ * emphatically not an empty slot.
+ *
+ * `squad_members_select_visible` already lets a member see their own squad's
+ * rows, so a bare `count` needs no policy change and exposes no identity.
+ */
+export function useSquadMemberCount(squadId: string | undefined) {
+  return useQuery({
+    queryKey: squadKeys.members(squadId),
+    enabled: Boolean(squadId),
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('squad_members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('squad_id', squadId as string);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
     },
   });
 }

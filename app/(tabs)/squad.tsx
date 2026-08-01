@@ -5,7 +5,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { CreateSquadForm } from '@/features/squad/CreateSquadForm.tsx';
 import { JoinSquadForm } from '@/features/squad/JoinSquadForm.tsx';
 import { Leaderboard } from '@/features/squad/Leaderboard.tsx';
-import { SquadEmptyState } from '@/features/squad/SquadEmptyState.tsx';
+import { SoloBoard } from '@/features/squad/SoloBoard.tsx';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
@@ -44,8 +44,11 @@ export default function Squad() {
 
       {squad.isSuccess && squad.data && <Leaderboard squad={squad.data} />}
 
+      {/* Solo mode replaces the old empty state: the tab is worth opening
+          before the barkada joins (§7). Create and join stay one tap away. */}
       {squad.isSuccess && !squad.data && pane === 'choose' && (
-        <SquadEmptyState
+        <SoloBoard
+          userId={userId}
           onCreate={() => setPane('create')}
           onJoin={() => setPane('join')}
         />

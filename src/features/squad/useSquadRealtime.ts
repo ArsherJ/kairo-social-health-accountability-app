@@ -42,6 +42,13 @@ export function useSquadRealtime(squadId: string | undefined): void {
       void queryClient.invalidateQueries({
         queryKey: squadKeys.boardAll(squadId),
       });
+      // Membership changes do not broadcast (Phase 4 follow-up #8), so the
+      // member count has no signal of its own. Riding along here means the
+      // locked slots — and the unlock reveal — land on the next foreground
+      // rather than waiting for a manual pull.
+      void queryClient.invalidateQueries({
+        queryKey: squadKeys.members(squadId),
+      });
     }
 
     function dispatch(input: RealtimePolicyInput) {

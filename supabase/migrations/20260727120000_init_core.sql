@@ -112,7 +112,10 @@ create table public.squads (
 
   leader_id uuid not null references public.profiles (id) on delete restrict,
 
-  -- 6 for free squads, 15 for Legendary (§7).
+  -- 6 for free squads, 15 for Legendary (§7). Duplicated deliberately as
+  -- FREE_SQUAD_MAX_MEMBERS / LEGENDARY_SQUAD_MAX_MEMBERS in
+  -- packages/kairo-core/src/squad.ts — a migration cannot import TypeScript,
+  -- so the two must be changed together.
   max_members smallint not null default 6 check (max_members between 2 and 15),
 
   created_at timestamptz not null default now(),

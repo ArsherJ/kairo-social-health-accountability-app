@@ -9,7 +9,15 @@ import {
   View,
 } from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
-import { useSquadLeaderboard, type LeaderboardMode, type Squad } from './queries.ts';
+import { LockedSlot } from './LockedSlot.tsx';
+import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
+import {
+  useSquadLeaderboard,
+  useSquadMemberCount,
+  type LeaderboardMode,
+  type Squad,
+} from './queries.ts';
+import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
@@ -23,6 +31,16 @@ export function Leaderboard({ squad }: { squad: Squad }) {
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
+
+  // Not `board.data.length`: the RPC returns only members who have scored, so
+  // deriving slots from it would render a squadmate who has not moved today as
+  // an empty seat and invite them again.
+  const memberCount = useSquadMemberCount(squad.id);
+  const { locked } = resolveSlots({
+    memberCount: memberCount.data,
+    maxMembers: squad.max_members,
+  });
+  const reveal = useSlotUnlockReveal(memberCount.data);
 
   // Subscribed for as long as the board is mounted. Expo Router keeps tab
   // screens mounted, so the channel survives tab switches, which is both
@@ -44,7 +62,12 @@ export function Leaderboard({ squad }: { squad: Squad }) {
       refreshControl={
         <RefreshControl
           refreshing={board.isRefetching}
-          onRefresh={() => void board.refetch()}
+          onRefresh={() => {
+            void board.refetch();
+            // Membership has no broadcast to ride on, so a pull is one of the
+            // two moments a new squadmate can appear (§7's reveal).
+            void memberCount.refetch();
+          }}
           tintColor={colors.subtle}
         />
       }
@@ -54,7 +77,7 @@ export function Leaderboard({ squad }: { squad: Squad }) {
           {squad.name}
         </Text>
         <Text style={styles.members}>
-          {rows.length || '—'} of {squad.max_members}
+          {memberCount.data ?? '—'} of {squad.max_members}
         </Text>
       </View>
 
@@ -124,6 +147,15 @@ export function Leaderboard({ squad }: { squad: Squad }) {
 
       {rows.map((row) => (
         <LeaderboardRow key={row.user_id} row={row} mode={mode} />
+      ))}
+
+      {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
+
+      {/* §7: locked slots are visible every day, not only when solo — the
+          constant pull to invite the rest of the barkada. Ranked after every
+          member, scored or not, so the numbering never skips or repeats. */}
+      {Array.from({ length: locked }, (_, index) => (
+        <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
       ))}
     </ScrollView>
   );
