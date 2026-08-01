@@ -42,6 +42,11 @@ export const squadKeys = {
    */
   boardAll: (squadId: string | undefined) =>
     ['squad', 'board', squadId ?? 'none'] as const,
+  /**
+   * Every board, every squad. A health sync moves the caller's own row, and
+   * the sync does not know which squad they are looking at.
+   */
+  allBoards: () => ['squad', 'board'] as const,
 };
 
 /**

@@ -48,13 +48,22 @@ const config: ExpoConfig = {
         // Framed as the spec's onboarding copy: the ask has a visible why (§5).
         NSHealthShareUsageDescription:
           'Kairo reads your steps, distance, active calories and active minutes to power your character and your squad leaderboard.',
-        // Kairo never writes to Health. Declared because iOS requires the string
-        // whenever the entitlement is present.
+        // Declared because iOS requires the string whenever the entitlement is
+        // present. Shipped builds never request write access at all — only the
+        // `__DEV__` simulator seeder in src/features/health/dev-seed.ts does,
+        // and it is compiled out of release. Worded to stay true in both.
         NSHealthUpdateUsageDescription:
-          'Kairo does not write any data to Apple Health.',
+          'Kairo does not write to Apple Health. Internal development builds write sample activity data for testing.',
         background: true,
       },
     ],
+    // The other half of `background: true`. That flag only writes the
+    // entitlement — the plugin above never touches the AppDelegate, and Apple
+    // requires observer queries to be registered in
+    // didFinishLaunchingWithOptions for the app to be woken after termination.
+    // Listed after the HealthKit plugin so the pairing is obvious; the two
+    // touch different mods, so the order is not load-bearing.
+    './plugins/withHealthKitBackgroundObservers',
   ],
 
   experiments: {

@@ -1,26 +1,16 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { CORE_STATS } from '@kairo/core';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
-import { colors, radius, space } from '@/theme.ts';
+import { colors, radius, space, tierColor } from '@/theme.ts';
 
 /**
- * Tier colours. Deliberately the only per-stat detail on this screen: §5 lets
+ * Tiers are deliberately the only per-stat detail on this screen: §5 lets
  * squadmates see tiers and totals, never raw steps or hourly movement, so
  * there is no number here to accidentally widen into one.
  *
  * Pills rather than StatBar — four bars across six rows is twenty-four bars,
- * and the row stops being scannable. Same stat names, same tier vocabulary.
+ * and the row stops being scannable. Same stat names, same tier colours.
  */
-const TIER_COLORS: Record<string, string> = {
-  gold: '#E3B341',
-  silver: '#C7CBD6',
-  bronze: '#B87333',
-  none: colors.border,
-};
-
-function tierColor(tier: string | undefined): string {
-  return TIER_COLORS[tier ?? 'none'] ?? TIER_COLORS.none!;
-}
 
 export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode }) {
   return (

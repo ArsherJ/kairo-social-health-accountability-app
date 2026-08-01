@@ -18,6 +18,17 @@ export type TodayScore = {
 };
 
 /**
+ * Twin of `profileKey()`. `sync-health` invalidates this the moment it writes
+ * a bucket, so the key has to be reconstructable outside the hook.
+ */
+export function todayScoreKey(
+  userId: string | undefined,
+  localDate: string | undefined,
+) {
+  return ['today-score', userId ?? 'none', localDate ?? 'none'] as const;
+}
+
+/**
  * Today's row, in the user's own timezone (§2) — not the device's calendar
  * date, and not UTC. A squad spans several calendar dates at any instant.
  */
@@ -25,7 +36,7 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
   const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
 
   return useQuery({
-    queryKey: ['today-score', userId ?? 'none', localDate ?? 'none'],
+    queryKey: todayScoreKey(userId, localDate),
     enabled: Boolean(userId && localDate),
     queryFn: async (): Promise<TodayScore | null> => {
       const { data, error } = await supabase

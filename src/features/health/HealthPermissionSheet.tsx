@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, font, radius, space } from '@/theme.ts';
+import { configureHealthBackgroundDelivery } from './background.ts';
 import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
+import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
 /**
  * The in-context ask (§5). Presented over the character screen so the prompt
@@ -29,6 +31,10 @@ export function HealthPermissionSheet() {
     setBusy(true);
     try {
       await requestHealthPermission();
+      await configureHealthBackgroundDelivery();
+      // Sync straight away rather than waiting for the next foreground. The
+      // user just connected Health and is looking at a screen showing zero.
+      notifyHealthPermissionGranted();
     } finally {
       setBusy(false);
       setVisible(false);

@@ -27,6 +27,8 @@ export default function Character() {
   const stage = evolutionStageForLevel(level);
   const today = score.data;
 
+  const bonus = (today?.consistency_points ?? 0) + (today?.rec_points ?? 0);
+
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
     STR: today?.str_points ?? 0,
@@ -56,6 +58,15 @@ export default function Character() {
             ? `${today.contributing_stats} of 4 stats contributing`
             : 'No activity synced yet today.'}
         </Text>
+        {bonus > 0 && (
+          // Without this the four bars visibly do not sum to the total: the
+          // consistency bonus and REC are both real points with no stat of
+          // their own (§5).
+          <Text style={styles.meta}>
+            includes +{bonus.toLocaleString()} for consistency
+            {(today?.rec_points ?? 0) > 0 ? ' and recovery' : ''}
+          </Text>
+        )}
       </View>
 
       {CORE_STATS.map((stat) => (
@@ -65,6 +76,7 @@ export default function Character() {
           label={STAT_LABELS[stat]}
           points={points[stat]}
           featured={today?.featured_stat === stat}
+          tier={today?.tiers?.[stat]}
         />
       ))}
 
