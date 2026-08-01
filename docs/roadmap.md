@@ -157,9 +157,26 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ⬜ N-of-M squad streak (needs a `squad_streaks` table)
 - ⬜ Coin awards — deferred with the coin economy to V1
 
-### ⬜ Phase 7 — Solo mode + polish · 35–50h
-- Locked squad slots, profile screen, notification budget engine (§14)
-- AI placeholder Hunter art, visual evolution by dominant stat
+### 🟨 Phase 7 — Solo mode + polish · 35–50h
+- ✅ **Solo mode + locked squad slots (§7)** — `SoloBoard` renders the caller's
+  own day beside five locked slots; slots also show under a real board, since
+  §7 wants them visible every day. Slot counts come from a `squad_members`
+  count, never from `squad_leaderboard`'s rows — the RPC returns only members
+  who have *scored*, so a squadmate who has not moved yet would otherwise
+  render as an empty seat. The old `{rows.length} of {max_members}` header had
+  the same bug and is fixed with it. `SquadEmptyState` is absorbed.
+- ✅ **"Squad slot unlocked" reveal** — an `Animated` fade + scale fired when a
+  refetch observes the member count rise. Not Realtime: membership changes do
+  not broadcast (Phase 4 follow-up #8), so it lands on the next foreground or
+  pull rather than instantly.
+- ✅ **Profile screen (§15)** — level with an XP progress bar, current/longest
+  streak and whether a Streak Shield is banked, editable body metrics behind
+  §5's soft prompt, timezone read-only, `__DEV__` seeder kept.
+- ✅ **Visual evolution by dominant stat (§6)** — `dominantStat()` in
+  `@kairo/core` owns the All-Rounder predicate (all within 20%); the Hunter
+  varies frame, aura and stance by it, with a label on the character screen.
+- ⬜ Notification budget engine (§14) — no notification system exists yet
+- ⬜ AI-generated placeholder Hunter art — still plain `View` primitives (§15)
 
 ### ⬜ Phase 8 — TestFlight + beta · 20–30h
 - `app_events` instrumentation, privacy nutrition labels
@@ -257,3 +274,19 @@ deliberate; none blocks simulator verification.
 | 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
 | 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. | Phase 1 follow-up #1's territory — one `app_events` type would cover this, the timezone reconcile and the permission path together. |
 | 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 8 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
+
+---
+
+## Phase 7 follow-ups (deferred, not blocking)
+
+From building solo mode, the profile screen and dominant-stat evolution on
+2026-08-01.
+
+| # | Item | Why deferred |
+|---|---|---|
+| 1 | **The All-Rounder is not visible to the squad.** §6 is explicit that it should be ("visible to entire squad… creates a long-term goal visible on others' characters"), but `squad_leaderboard`'s projection carries no such field. | Adding one widens the §5 privacy surface — dominance is derived from per-stat points, which squadmates are deliberately never shown — so it deserves its own review rather than riding along with a visual. Note it is also *derived*, so the projection would have to compute it server-side or the client would need other people's `daily_scores`. |
+| 2 | **Dominance is measured over a 14-day window, not lifetime.** §6 implies lifetime ("which stats they grinded"). | No lifetime per-stat rollup exists: `profiles.total_xp` rolls up `xp_awarded`, not per-stat points. Adding one is a table plus a trigger for a visual. `DOMINANCE_WINDOW_DAYS` in `src/features/character/queries.ts` is one edit to change. |
+| 3 | **`FREE_SQUAD_MAX_MEMBERS` is duplicated in SQL.** The number 6 lives in `squads.max_members`'s default and in `create_squad`, as well as in `packages/kairo-core/src/squad.ts`. | Migrations cannot import TypeScript. All three sites now carry cross-reference comments, so the duplication is deliberate; nothing enforces it. |
+| 4 | **`profiles.sex` is selected but never editable.** `useProfile` reads it (the column-level UPDATE grant covers it) but `BodyMetricsCard` edits only height, weight and birth year. | §5's soft prompt names height and weight; nothing in MVP scoring reads `sex`. Adding a picker for an unused column is UI for its own sake. |
+| 5 | **The unlock reveal is unverified on the simulator.** The count comparison is unit-tested (`slots.test.ts`), but nobody has watched the animation fire — it needs a second account joining a non-full squad. | The live test squad is at 6 of 6, and emptying a seat to test it would mutate real squad data. Verify when a squad with spare capacity next exists. |
+| 6 | **`BodyMetricsCard` seeds its drafts once and never re-syncs.** If the profile row changes on another device while the screen is mounted, the fields keep the stale values until remount. | Deliberate: re-syncing on every refetch would yank characters out from under someone mid-edit. Single-device MVP, so the race is theoretical. |
