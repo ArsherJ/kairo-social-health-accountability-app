@@ -1,16 +1,28 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
-import { useProfile } from '@/features/profile/queries.ts';
+import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
+import { StreakCard } from '@/features/profile/StreakCard.tsx';
+import { XpBar } from '@/features/profile/XpBar.tsx';
+import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
-  const profile = useProfile(session?.user.id);
+  const userId = session?.user.id;
+  const profile = useProfile(userId);
+  const streak = useStreak(userId);
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
 
   async function seed() {
@@ -33,10 +45,46 @@ export default function ProfileTab() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space.lg }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{
+        paddingTop: insets.top + space.lg,
+        paddingBottom: insets.bottom + space.xl,
+        paddingHorizontal: space.lg,
+      }}
+    >
       <Text style={styles.title}>{profile.data?.character_name ?? 'Profile'}</Text>
-      <Text style={styles.body}>Timezone {profile.data?.timezone ?? '—'}</Text>
-      <Text style={styles.body}>Level {profile.data?.level ?? 1}</Text>
+
+      {profile.isPending && (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      )}
+
+      {profile.data && (
+        <>
+          <XpBar totalXp={profile.data.total_xp} />
+
+          {/* Streak errors are silent by design: a failed streak fetch must
+              not stop the rest of the screen rendering, and StreakCard reads
+              a missing row as zeros — which is what a new user has anyway. */}
+          <StreakCard streak={streak.data} />
+
+          <BodyMetricsCard userId={userId} profile={profile.data} />
+
+          <View style={styles.card}>
+            <Text style={styles.label}>TIMEZONE</Text>
+            <Text style={styles.value}>{profile.data.timezone}</Text>
+            {/* Read-only on purpose. §2 ranks everyone on their own local day,
+                and the zone follows the device so travelling does not need a
+                settings visit — or let anyone shop for a longer day. */}
+            <Text style={styles.help}>
+              Follows your device. Your day runs midnight to midnight here, so
+              travelling moves your day with you.
+            </Text>
+          </View>
+        </>
+      )}
 
       {__DEV__ && (
         // Simulator affordance only. A fresh simulator's Health app is empty,
@@ -61,14 +109,25 @@ export default function ProfileTab() {
       >
         <Text style={styles.buttonLabel}>Sign out</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: space.lg },
+  container: { flex: 1, backgroundColor: colors.bg },
   title: { color: colors.text, ...font.title },
-  body: { color: colors.muted, ...font.body, marginTop: space.sm },
+  centered: { paddingVertical: space.xl, alignItems: 'center' },
+  card: {
+    marginTop: space.lg,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  label: { color: colors.muted, ...font.label },
+  value: { color: colors.text, fontSize: 16, fontWeight: '600', marginTop: space.xs },
+  help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   button: {
     marginTop: space.xl,
     borderWidth: 1,
