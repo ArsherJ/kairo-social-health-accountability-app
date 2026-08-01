@@ -1,0 +1,131 @@
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { currentLocalDate } from '@kairo/core';
+import { todayScoreKey } from '@/features/character/queries.ts';
+import { profileKey } from '@/features/profile/queries.ts';
+import { squadKeys } from '@/features/squad/queries.ts';
+import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
+import {
+  initialSyncPolicyState,
+  reduceSyncPolicy,
+  type SyncPolicyInput,
+  type SyncPolicyState,
+} from './sync-policy.ts';
+import { runHealthSync } from './sync.ts';
+
+/**
+ * Set by the mounted hook so the permission sheet can demand an immediate sync.
+ *
+ * A module-level registry rather than a prop or context: the sheet is rendered
+ * on the character screen while the hook lives in the tab layout, and threading
+ * a callback between them would put React plumbing in the way of one event.
+ */
+const permissionListeners = new Set<() => void>();
+
+/** Called when the user finishes the HealthKit prompt. */
+export function notifyHealthPermissionGranted(): void {
+  for (const listener of permissionListeners) listener();
+}
+
+/**
+ * Keeps the server's copy of the user's health data current.
+ *
+ * Every decision about *when* to sync lives in `sync-policy.ts`, which is
+ * testable in plain Node. This hook is the I/O around it — the same split as
+ * `useSquadRealtime.ts`.
+ *
+ * The observer subscription is a bare "something changed" signal; the payload
+ * is never read, because the window is recomputed from scratch on every sync.
+ */
+export function useHealthSync(
+  userId: string | undefined,
+  timeZone: string | undefined,
+): void {
+  const queryClient = useQueryClient();
+  const state = useRef<SyncPolicyState>(initialSyncPolicyState);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!userId || !timeZone) return;
+
+    state.current = initialSyncPolicyState;
+    let cancelled = false;
+
+    function clearTimer() {
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    }
+
+    async function sync() {
+      const outcome = await runHealthSync(
+        userId as string,
+        timeZone as string,
+        new Date(),
+      );
+      if (cancelled) return;
+
+      if (outcome.ok) {
+        // The score, the level it rolls up into, and the board the user is
+        // ranked on are all downstream of the buckets that just landed.
+        void queryClient.invalidateQueries({
+          queryKey: todayScoreKey(
+            userId,
+            currentLocalDate(new Date(), timeZone as string),
+          ),
+        });
+        void queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+        void queryClient.invalidateQueries({ queryKey: squadKeys.allBoards() });
+      }
+
+      dispatch(
+        outcome.ok
+          ? { kind: 'sync-succeeded', at: Date.now() }
+          : { kind: 'sync-failed', at: Date.now(), retryable: outcome.retryable },
+      );
+    }
+
+    function dispatch(input: SyncPolicyInput) {
+      const [next, command] = reduceSyncPolicy(state.current, input);
+      state.current = next;
+
+      if (command.kind === 'sync-now') {
+        clearTimer();
+        void sync();
+      } else if (command.kind === 'sync-after') {
+        clearTimer();
+        timer.current = setTimeout(() => {
+          timer.current = null;
+          dispatch({ kind: 'timer', at: Date.now() });
+        }, command.delayMs);
+      }
+    }
+
+    dispatch({ kind: 'mount', at: Date.now() });
+
+    const subscriptions = KAIRO_OBSERVED_TYPES.map((identifier) =>
+      subscribeToHealthChanges(identifier, () => {
+        dispatch({ kind: 'observer', at: Date.now() });
+      }),
+    );
+
+    const appState = AppState.addEventListener('change', (next) => {
+      if (next === 'active') dispatch({ kind: 'foreground', at: Date.now() });
+    });
+
+    const onPermissionGranted = () => {
+      dispatch({ kind: 'permission-granted', at: Date.now() });
+    };
+    permissionListeners.add(onPermissionGranted);
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      appState.remove();
+      permissionListeners.delete(onPermissionGranted);
+      for (const subscription of subscriptions) subscription.remove();
+    };
+  }, [userId, timeZone, queryClient]);
+}

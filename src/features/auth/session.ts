@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
+import { clearSyncState } from '@/features/health/storage.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { supabase } from '@/lib/supabase.ts';
 
@@ -46,9 +47,15 @@ export function startSessionListener(): () => void {
  * resident in the cache for the next sign-in on the same device.
  */
 export async function signOut(): Promise<void> {
+  // Captured before the sign-out clears it. The health sync state is keyed per
+  // user and holds local dates in *that* user's timezone, so inheriting it
+  // would make the next account re-read someone else's window.
+  const userId = useSessionStore.getState().session?.user.id;
+
   try {
     await supabase.auth.signOut();
   } finally {
     queryClient.clear();
+    if (userId) clearSyncState(userId);
   }
 }
