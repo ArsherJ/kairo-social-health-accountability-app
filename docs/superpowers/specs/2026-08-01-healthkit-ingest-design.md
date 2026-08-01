@@ -166,11 +166,11 @@ little as possible on the untestable side.
 
 ## What this deliberately does not do
 
-- **No background-delivery verification.** The registration is written, but the
-  dev machine has no paid Apple Developer Program and no dev client on a
-  physical iPhone. Background delivery and observer wake-ups from a terminated
-  state cannot be observed on the simulator. Phase 3 stays 🟨 with that bullet
-  open rather than being ticked on faith.
+- **No background-delivery verification.** Registration is now wired end to end
+  — entitlement, `configureBackgroundTypes`, and the AppDelegate call — but
+  being *woken after termination* cannot be observed on a simulator, and needs
+  the HealthKit capability on the App ID. Phase 3 stays 🟨 with that bullet open
+  rather than being ticked on faith.
 - **No retry UI.** A failed sync leaves the date dirty and retries on the next
   foreground. `lastError` is persisted for the Phase 7 profile screen to surface;
   nothing renders it yet.
@@ -197,15 +197,19 @@ little as possible on the untestable side.
   value means "all".
 - `react-native-mmkv` 4.x exports `createMMKV(config)`, not a `MMKV` class, and
   the delete method is `remove(key)`.
-- **`configureBackgroundTypes` does not survive termination in this build.** It
-  persists its configuration and registers observers for the *running* process,
-  but the library's Expo plugin runs only `withEntitlementsPlist` and
-  `withInfoPlist` — it never patches the AppDelegate — and nothing in the pod
-  self-registers. `BackgroundDeliveryManager.swift` documents that
-  `setupBackgroundObservers()` must be called from
-  `didFinishLaunchingWithOptions`, and `ios/Kairo/AppDelegate.swift` has no
-  HealthKit reference. A project-owned config plugin is needed. Recorded as
-  Phase 3 follow-up #1 and as a correction to deviation #1.
+- **`configureBackgroundTypes` alone does not survive termination.** It persists
+  its configuration and registers observers for the *running* process, but the
+  library's Expo plugin runs only `withEntitlementsPlist` and `withInfoPlist` —
+  it never patches the AppDelegate — and nothing in the pod self-registers.
+  `BackgroundDeliveryManager.swift` documents that `setupBackgroundObservers()`
+  must be called from `didFinishLaunchingWithOptions`, and the generated
+  `AppDelegate.swift` had no HealthKit reference at all.
+
+  **Closed by `plugins/withHealthKitBackgroundObservers.js`**, which injects the
+  import and the call. Calling it unconditionally at launch is safe: it bails
+  out when HealthKit is unavailable and reads its type list from UserDefaults,
+  which is empty until JS has called `configureBackgroundTypes()` after the user
+  granted permission — so it never triggers a permission prompt at launch.
 - Even once wired, the native observer calls iOS's completion handler as soon as
   JS is notified rather than when the sync finishes, so the process can be
   suspended mid-request. **Background delivery is best-effort; the foreground

@@ -55,6 +55,13 @@ const config: ExpoConfig = {
         background: true,
       },
     ],
+    // The other half of `background: true`. That flag only writes the
+    // entitlement — the plugin above never touches the AppDelegate, and Apple
+    // requires observer queries to be registered in
+    // didFinishLaunchingWithOptions for the app to be woken after termination.
+    // Listed after the HealthKit plugin so the pairing is obvious; the two
+    // touch different mods, so the order is not load-bearing.
+    './plugins/withHealthKitBackgroundObservers',
   ],
 
   experiments: {

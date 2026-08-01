@@ -100,11 +100,18 @@ local stack is ever genuinely needed — so far nothing has required one.
   foreground flush. 91 tests across six pure modules.
 - ⬜ **Verify on the simulator** — steps entered in Health reaching
   `health_buckets`, and a re-sync leaving the total unchanged
-- ⬜ **Background delivery is written but does not work yet.** The entitlement is
-  present and `configureBackgroundTypes` is called, but nothing invokes
-  `BackgroundDeliveryManager.setupBackgroundObservers()` from the AppDelegate —
-  see the correction to deviation #1. Needs a project-owned config plugin, and a
-  physical device to verify. Foreground sync is unaffected and is the guarantee.
+- ✅ `plugins/withHealthKitBackgroundObservers.js` — injects
+  `BackgroundDeliveryManager.shared.setupBackgroundObservers()` into
+  `didFinishLaunchingWithOptions`, which the library's own plugin never does
+  (see the correction to deviation #1). Verified by a real `expo prebuild`: the
+  generated `AppDelegate.swift` carries the import and the call, and the mod is
+  idempotent across repeated prebuilds.
+- ⬜ **Background delivery behaviour is still unverified.** The registration gap
+  is closed, but being woken after termination cannot be observed on a
+  simulator and needs the HealthKit capability on the App ID. Note also that the
+  native observer calls iOS's completion handler as soon as JS is notified, not
+  when the sync finishes — so background delivery is best-effort by design and
+  the foreground flush remains the guarantee.
 - ⬜ Verify `AppleExerciseTime` is populated on a phone-only device. If it is
   Watch-only, END is permanently zero for most beta users, `contributing_stats`
   caps at 3, the 800-point consistency bonus is unreachable, and
@@ -234,7 +241,7 @@ deliberate; none blocks simulator verification.
 
 | # | Item | Why deferred |
 |---|---|---|
-| 1 | **Background delivery does not survive termination.** The entitlement is on and `configureBackgroundTypes` runs, but nothing calls `BackgroundDeliveryManager.setupBackgroundObservers()` from the AppDelegate — the library's Expo plugin only writes plists. Needs a project-owned config plugin, following `plugins/withIosBuildWarningFixes.js`. | Unverifiable on a simulator, and the foreground flush is the actual guarantee. Also note the native observer calls iOS's completion handler as soon as JS is notified, not when the sync finishes — so even once wired, background delivery is best-effort and the product must never depend on it. |
+| 1 | ~~**Background delivery does not survive termination**~~ — **plugin written 2026-08-01.** `plugins/withHealthKitBackgroundObservers.js` injects the AppDelegate call the library's own plugin omits. **What remains:** the *behaviour* is unverified. Being woken after termination needs a physical device and the HealthKit capability on the App ID. | The native observer calls iOS's completion handler as soon as JS is notified, not when the sync finishes, so the process can be suspended mid-request. Background delivery is best-effort by design; the foreground flush is the guarantee and the product must never depend on the wake-up. |
 | 2 | **`profiles.has_wearable` is never written.** Nothing in any Edge Function sets it; only `src/features/profile/queries.ts` reads it. `sync-health` receiving a `sleep` entry is the natural signal. | A server change outside this phase's scope. `MAX_DAILY_SCORE_WITH_WEARABLE` and any wearable affordance on the leaderboard both depend on it, so do it before REC matters. |
 | 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
 | 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. | Phase 1 follow-up #1's territory — one `app_events` type would cover this, the timezone reconcile and the permission path together. |
