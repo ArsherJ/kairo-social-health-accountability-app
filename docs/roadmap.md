@@ -14,7 +14,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 
 | # | Spec says | We build | Why |
 |---|---|---|---|
-| 1 | `react-native-health` (§12) | **`@kingstinct/react-native-healthkit`** | **Blocking.** `react-native-health`'s Expo config plugin does not support background processing. §12/§15 require background delivery for *all* users. Kingstinct's plugin takes `background: true`, registers observer queries in `didFinishLaunchingWithOptions` per Apple's guidance, is TypeScript-first and Nitro-based (New Architecture). |
+| 1 | `react-native-health` (§12) | **`@kingstinct/react-native-healthkit`** | **Blocking.** `react-native-health`'s Expo config plugin does not support background processing. §12/§15 require background delivery for *all* users. Kingstinct's is TypeScript-first and Nitro-based (New Architecture), and its `background: true` adds the background-delivery entitlement. **Correction (2026-08-01):** this row originally claimed the plugin "registers observer queries in `didFinishLaunchingWithOptions`". It does not. `app.plugin.js` runs only `withEntitlementsPlist` and `withInfoPlist`, nothing in the pod self-registers, and `ios/Kairo/AppDelegate.swift` has no HealthKit reference. The library *supports* it — `BackgroundDeliveryManager.setupBackgroundObservers()` — but something has to call it. See Phase 3. |
 | 2 | React Navigation v6 + Zustand (§12) | **Expo Router + TanStack Query + Zustand** | Expo Router *is* React Navigation underneath; typed routes and deep-link handling cover §14's eight notification deep-links. TanStack Query owns server cache, Zustand owns session/UI/sync-queue. |
 | 3 | Buckets as `(user, date, hour, metric)` rows (§11) | **One row per hour, four metric columns** | 24 rows/user/day instead of 96. One upsert statement, no metric-name typos, VIT is `count(*) where steps >= 250`. Idempotency against Apple's retroactive revisions is identical. |
 | 4 | "Squadmates see tiers and scores only" (§5) | **`SECURITY DEFINER` RPC**, not client filtering | Makes the privacy rule structural — squadmates cannot reach raw buckets even with a forged client. |
@@ -94,8 +94,23 @@ local stack is ever genuinely needed — so far nothing has required one.
   live project: idempotent re-sync, whole-day rescoring from a partial payload,
   §19 backfill freeze, anti-cheat flag with false-positive control
 - ✅ XP rollup and level derivation
-- ⬜ Observer queries + background delivery, anchored reads with persisted anchors
-- ⬜ Local-tz hourly bucketing, MMKV offline queue, foreground flush on app open
+- ✅ Client ingest pipeline — window reads over persisted anchors (**deviation
+  #8**), local-tz hourly bucketing with DST handled, sleep attribution with
+  cross-source dedup, MMKV dirty-date state, observer subscription and
+  foreground flush. 91 tests across six pure modules.
+- ⬜ **Verify on the simulator** — steps entered in Health reaching
+  `health_buckets`, and a re-sync leaving the total unchanged
+- ⬜ **Background delivery is written but does not work yet.** The entitlement is
+  present and `configureBackgroundTypes` is called, but nothing invokes
+  `BackgroundDeliveryManager.setupBackgroundObservers()` from the AppDelegate —
+  see the correction to deviation #1. Needs a project-owned config plugin, and a
+  physical device to verify. Foreground sync is unaffected and is the guarantee.
+- ⬜ Verify `AppleExerciseTime` is populated on a phone-only device. If it is
+  Watch-only, END is permanently zero for most beta users, `contributing_stats`
+  caps at 3, the 800-point consistency bonus is unreachable, and
+  `MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is arithmetically wrong. That would be a
+  `kairo-core` scoring decision, not an ingest fix. The simulator cannot answer
+  it — samples are entered by hand there.
 
 ### 🟨 Phase 4 — Squads + leaderboard · 45–60h
 - ✅ `squad_leaderboard` **completed-day mode** — each member ranked on their own
@@ -168,6 +183,8 @@ All three are live and deliberate. Flagged here so they are decisions, not drift
 |---|---|---|---|
 | 5 | "Coins + XP distributed at finalization" (§12) | XP accrues **live** as the day progresses; only coins would wait for finalization | XP within a day is monotonic — more activity only ever adds — so live accrual has no downside and makes the character respond while you walk. `profiles.total_xp` is a rollup of `sum(xp_awarded)`, so it self-corrects. One-line change if you want strict spec behaviour: filter the rollup to `status = 'final'`. |
 | 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC now also has — **delivered in Phase 4** via the `'completed'` mode parameter. |
+| 8 | "Observer queries + background delivery, **anchored reads with persisted anchors**" (this roadmap, Phase 3) | **Hourly statistics-collection queries over a bounded window; no anchors at all.** State is a dirty *date* set, and every dirty day is sent whole — all 24 hours, zeros included. | Four reasons. (a) `HKStatisticsCollectionQuery` with `cumulativeSum` applies Apple's cross-source dedup, so an iPhone and a paired Watch do not double-count steps; raw anchored samples would mean reimplementing it, and getting it wrong inflates scores for the most competitive users. (b) Hourly bucketing falls out of the query — raw samples would need proportional splitting of a walk spanning 08:50–09:10. (c) Apple's retroactive revisions are free, because re-reading returns corrected totals into an endpoint that already rescores the whole day. (d) A stale anchor is silent, permanent data loss; a window high-water mark's worst case is re-reading data already sent, which the idempotent upsert absorbs. **Whole-day emission is what replaces `deletedSamples`:** an hour revised *downward* is sent as an explicit zero, so the stale bucket is overwritten rather than stranded. 31 days × 24 = 744 is what sizes the window against `MAX_BUCKETS_PER_SYNC = 750`. |
+| 9 | — | **A DST day contributes 23 or 25 wall-clock hours but only 24 buckets** | `health_buckets.hour` is `check (hour between 0 and 23)` with a PK on `(user, local_date, hour)`. On a fall-back day the two 01:00 hours are summed into one bucket, so VIT sees 24 candidate hours instead of 25; spring-forward gives 23. ±1 activeHour, twice a year, DST users only. The alternative is a schema change plus a disambiguator column. Not worth it — the day's *total* is preserved either way. |
 | 7 | Apple/Google sign-in (§15) | **Anonymous sign-in in development builds only** | The Apple Developer Program is not yet purchased, so Sign in with Apple cannot be enabled on the App ID. Anonymous is one tap with no form — the same shape Apple's flow will have — so onboarding is rehearsed against the flow that ships. `availableProviders()` returns an empty list outside `__DEV__`, so it cannot reach TestFlight. **Disable anonymous sign-ins on the project when Apple lands.** |
 
 ---
@@ -182,12 +199,12 @@ these are decisions, not forgotten work.
 |---|---|---|
 | 1 | **No telemetry anywhere in the client.** The timezone reconcile swallows its write error (`timezone-sync.ts`), and `HealthPermissionSheet.ask()` swallows a rejected `requestAuthorization`. A persistent failure of either would never surface. | Both retry on next foreground, so transient failures self-heal. `app_events` already exists with a client INSERT policy — one follow-up should cover both, plus the HealthKit device path, which currently fails silently when the App ID lacks the capability. |
 | 2 | **`STAT_MAX = 900` in `StatBar.tsx` duplicates `TIER_POINTS.gold`**, which `kairo-core` does not export. Changing the gold tier would silently mis-scale every stat bar with no test failure. | Harmless while all values are zero. Fix by exporting `TIER_POINTS` or a `STAT_POINTS_MAX` from core. Note a featured gold stat stores 1350 and pins the bar at 100%, so featured and non-featured gold look identical. |
-| 3 | **`useTodayScore` builds its query key inline**; there is no `todayScoreKey()` twin to `profileKey()`. Phase 3's `sync-health` will need to invalidate it and would hand-reconstruct the shape. | Cheap to fix; do it when Phase 3 needs the invalidation. |
+| 3 | ~~**`useTodayScore` builds its query key inline**~~ — **done (2026-08-01).** `todayScoreKey()` is exported and `useHealthSync` invalidates it after every successful sync, alongside `profileKey()` and `squadKeys.allBoards()`. | — |
 | 4 | **Midnight rollover only re-derives the local date on re-render.** It works today *incidentally*: foregrounding triggers `startAutoRefresh()` → token refresh → `onAuthStateChange` → new session object → re-render. | Nothing deliberate guarantees it. Do not "optimize" session-object identity without replacing this path. |
 | 5 | **No unit test for the error-code mapping in `create-profile.ts`** (`23505` → success, `42501` → mapped copy). | The repo has no pattern for mocking the Supabase client inside a mutation hook. Straight-line code, outside the scoring/day-boundary logic TDD targets here. |
 | 6 | **Cold start renders `(tabs)` for one frame before redirecting.** `app/index.tsx` was deleted, so `/` resolves to the tab group and mounts before the redirect effect fires. | The `cancelled` guard in `HealthPermissionSheet` is what stops the HealthKit sheet flashing over sign-in — it is load-bearing, not defensive. A `<Redirect>` in the render pass would remove the flash. Unverified: nobody has run the simulator. |
 | 7 | **`resolveRoute` has no test for `profileError` and `profileLoading` both true.** The ordering comment claims `profileError` wins; TanStack v5 makes the states mutually exclusive, so it is unreachable today. | Low risk, but the defensive ordering it argues for is untested. |
-| 8 | **`Profile` and `TodayScore` select columns no screen reads** (`class`, `has_wearable`, `rec_points`, `consistency_points`, `sabotage_delta`, `tiers`, `status`). | Not a privacy hole — owner-only rows. But from Phase 3 the displayed `total` will include REC and consistency points that appear in no stat bar, so the bars will visibly not sum to the total. Decide the UI answer then. |
+| 8 | **`Profile` and `TodayScore` select columns no screen reads** (`class`, `has_wearable`, `rec_points`, `consistency_points`, `sabotage_delta`, `tiers`, `status`). | **Half-closed (2026-08-01).** The sum problem is answered: the TODAY card now shows an "includes +N for consistency and recovery" line, so the bars visibly reconcile with the total. `class`, `has_wearable`, `sabotage_delta`, `tiers` and `status` are still selected and unrendered — harmless, owner-only rows. |
 
 ---
 
@@ -207,3 +224,18 @@ Recorded here because the review artifacts were scratch.
 | 7 | **Unreachable defensive code in `seed-plan.ts`** — the 60-minute clamp and `Math.max(0, steps)` cannot fire with current constants (peak is ~19 minutes against a cap of 60). | Cheap insurance if `HOUR_WEIGHTS` or the jitter band change later. Their active paths have no test coverage. |
 | 8 | **Realtime is now wired to the squad screen** — verified live against the hosted project: a broadcast reorders the board with no interaction, and reconnect/foreground refetches cover the events Realtime drops. **What remains:** membership changes still do not broadcast, so a new member appears on the next refetch rather than instantly. | Broadcasting membership changes is a separate, smaller follow-up — the trigger only fires on `daily_scores`, and joins/leaves would need their own trigger and topic wiring. |
 | 9 | **Leaving a squad has no UI.** The `squad_members_delete_self` policy makes it client-possible today. | The policy is the easy half. The decisions are not: what happens to a squad when its *leader* leaves (the account-deletion path already implements succession — leaving should reuse it, not invent a second rule), and whether a leave is confirmable or undoable. Also note `app/(tabs)/squad.tsx` keeps its create/join pane in local state, which would need resetting once a board can disappear. |
+
+---
+
+## Phase 3 follow-ups (deferred, not blocking)
+
+From building the client ingest pipeline on 2026-08-01. All are known and
+deliberate; none blocks simulator verification.
+
+| # | Item | Why deferred |
+|---|---|---|
+| 1 | **Background delivery does not survive termination.** The entitlement is on and `configureBackgroundTypes` runs, but nothing calls `BackgroundDeliveryManager.setupBackgroundObservers()` from the AppDelegate — the library's Expo plugin only writes plists. Needs a project-owned config plugin, following `plugins/withIosBuildWarningFixes.js`. | Unverifiable on a simulator, and the foreground flush is the actual guarantee. Also note the native observer calls iOS's completion handler as soon as JS is notified, not when the sync finishes — so even once wired, background delivery is best-effort and the product must never depend on it. |
+| 2 | **`profiles.has_wearable` is never written.** Nothing in any Edge Function sets it; only `src/features/profile/queries.ts` reads it. `sync-health` receiving a `sleep` entry is the natural signal. | A server change outside this phase's scope. `MAX_DAILY_SCORE_WITH_WEARABLE` and any wearable affordance on the leaderboard both depend on it, so do it before REC matters. |
+| 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
+| 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. | Phase 1 follow-up #1's territory — one `app_events` type would cover this, the timezone reconcile and the permission path together. |
+| 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 8 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
