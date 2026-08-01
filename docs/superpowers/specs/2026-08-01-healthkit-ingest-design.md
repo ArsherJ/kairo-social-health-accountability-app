@@ -205,11 +205,31 @@ little as possible on the untestable side.
   must be called from `didFinishLaunchingWithOptions`, and the generated
   `AppDelegate.swift` had no HealthKit reference at all.
 
-  **Closed by `plugins/withHealthKitBackgroundObservers.js`**, which injects the
-  import and the call. Calling it unconditionally at launch is safe: it bails
-  out when HealthKit is unavailable and reads its type list from UserDefaults,
-  which is empty until JS has called `configureBackgroundTypes()` after the user
-  granted permission — so it never triggers a permission prompt at launch.
+  **Closed by `plugins/withHealthKitBackgroundObservers.js`.** Calling it
+  unconditionally at launch is safe: it bails out when HealthKit is unavailable
+  and reads its type list from UserDefaults, which is empty until JS has called
+  `configureBackgroundTypes()` after the user granted permission — so it never
+  triggers a permission prompt at launch.
+
+  **The obvious implementation does not compile.** `import ReactNativeHealthkit`
+  drags that module's umbrella header in, which transitively includes
+  NitroModules' C++ headers, and building it as an Objective-C module from a
+  Swift file fails with `'functional' file not found` →
+  `could not build Objective-C module 'NitroModules'`. A control build with the
+  import removed succeeded, isolating it. Enabling C++ interop across the whole
+  app target would fix it, but that is a large blast radius for one call at
+  launch — so the manager is reached by selector instead. It is `@objc public`
+  with an `@objc public static let shared`, and the generated
+  `ReactNativeHealthkit-Swift.h` confirms `+shared` and `-setupBackgroundObservers`
+  are real Objective-C entry points on
+  `_TtC20ReactNativeHealthkit25BackgroundDeliveryManager`.
+
+  Reaching the *library's* manager rather than registering our own observers is
+  deliberate: its `pendingEvents` queue buffers changes arriving before JS is
+  ready, and `subscribeToChanges` drains it. Separate observers would leave the
+  JS side never hearing about a background wake. The lookup logs loudly if it
+  ever returns nil, so an upstream rename cannot disable background delivery
+  silently.
 - Even once wired, the native observer calls iOS's completion handler as soon as
   JS is notified rather than when the sync finishes, so the process can be
   suspended mid-request. **Background delivery is best-effort; the foreground

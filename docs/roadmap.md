@@ -100,12 +100,16 @@ local stack is ever genuinely needed — so far nothing has required one.
   foreground flush. 91 tests across six pure modules.
 - ⬜ **Verify on the simulator** — steps entered in Health reaching
   `health_buckets`, and a re-sync leaving the total unchanged
-- ✅ `plugins/withHealthKitBackgroundObservers.js` — injects
-  `BackgroundDeliveryManager.shared.setupBackgroundObservers()` into
-  `didFinishLaunchingWithOptions`, which the library's own plugin never does
-  (see the correction to deviation #1). Verified by a real `expo prebuild`: the
-  generated `AppDelegate.swift` carries the import and the call, and the mod is
-  idempotent across repeated prebuilds.
+- ✅ `plugins/withHealthKitBackgroundObservers.js` — registers the observer
+  queries in `didFinishLaunchingWithOptions`, which the library's own plugin
+  never does (see the correction to deviation #1). It reaches
+  `BackgroundDeliveryManager` **through the Objective-C runtime**, not
+  `import ReactNativeHealthkit`: that module's umbrella header pulls in
+  NitroModules' C++ headers and fails to build as an Objective-C module from
+  Swift (`'functional' file not found` → `could not build Objective-C module
+  'NitroModules'`). The import version does not compile, which a control build
+  confirmed. Verified by clean prebuild, a green simulator build, and a launch
+  probe showing the real singleton resolved.
 - ⬜ **Background delivery behaviour is still unverified.** The registration gap
   is closed, but being woken after termination cannot be observed on a
   simulator and needs the HealthKit capability on the App ID. Note also that the

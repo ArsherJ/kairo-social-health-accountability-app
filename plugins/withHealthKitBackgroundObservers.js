@@ -20,10 +20,30 @@ const { withAppDelegate } = require('@expo/config-plugins');
 // UserDefaults — which are only written once JS has called
 // `configureBackgroundTypes()` after the user granted permission. Before that it
 // is a no-op, so this never triggers a permission prompt at launch.
-const IMPORT_MARKER = '// KAIRO: HealthKit background observers';
+// ## Why the Objective-C runtime instead of `import ReactNativeHealthkit`
+//
+// The obvious implementation — import the pod's Swift module and call
+// `BackgroundDeliveryManager.shared.setupBackgroundObservers()` — does not
+// compile. That module's umbrella header transitively pulls in NitroModules'
+// C++ headers, and building it as an Objective-C module from a Swift file
+// fails:
+//
+//     Null.hpp:8:10: error: 'functional' file not found
+//     <unknown>:0: error: could not build Objective-C module 'NitroModules'
+//
+// Fixing that properly would mean enabling C++ interop across the whole app
+// target, which is a large blast radius for one call at launch. The manager is
+// `@objc public` with an `@objc public static let shared`, so it is reachable
+// by selector without importing anything — `NSClassFromString` needs the
+// module-qualified name because Swift classes carry it in the runtime.
+//
+// Deliberately reaching the *library's* manager rather than registering our own
+// observers: its `pendingEvents` queue is what buffers changes that arrive
+// before JS is ready, and `subscribeToChanges` drains it. Registering separate
+// observers would leave the JS side never hearing about a background wake.
 const CALL_MARKER = '// KAIRO: register HealthKit observer queries before the JS bridge exists';
 
-const HEALTHKIT_MODULE = 'ReactNativeHealthkit';
+const MANAGER_CLASS = 'ReactNativeHealthkit.BackgroundDeliveryManager';
 
 function withHealthKitBackgroundObservers(config) {
   return withAppDelegate(config, (config) => {
@@ -36,26 +56,6 @@ function withHealthKitBackgroundObservers(config) {
     }
 
     let contents = config.modResults.contents;
-
-    if (!contents.includes(IMPORT_MARKER)) {
-      // The block of imports at the very top of the file. Matching the block
-      // rather than one known import keeps this working if Expo adds or
-      // reorders imports in a future template.
-      const importBlock = /^((?:(?:\w+ )?import [^\n]+\n)+)/;
-
-      if (!importBlock.test(contents)) {
-        throw new Error(
-          'withHealthKitBackgroundObservers: could not find the import block at the ' +
-            'top of AppDelegate.swift. The Expo template may have changed — update ' +
-            'plugins/withHealthKitBackgroundObservers.js.'
-        );
-      }
-
-      contents = contents.replace(
-        importBlock,
-        (_m, block) => `${block}${IMPORT_MARKER}\nimport ${HEALTHKIT_MODULE}\n`
-      );
-    }
 
     if (!contents.includes(CALL_MARKER)) {
       // Anchored on the `return super.application(...)` that closes
@@ -73,13 +73,28 @@ function withHealthKitBackgroundObservers(config) {
         );
       }
 
-      contents = contents.replace(
-        returnAnchor,
-        (_m, indent, returnLine) =>
-          `${indent}${CALL_MARKER}\n` +
-          `${indent}BackgroundDeliveryManager.shared.setupBackgroundObservers()\n\n` +
-          `${indent}${returnLine}`
-      );
+      const snippet =
+        `${CALL_MARKER}\n` +
+        `// Reached by selector rather than \`import ${MANAGER_CLASS.split('.')[0]}\`:\n` +
+        `// that module's umbrella header pulls in NitroModules' C++ headers, which\n` +
+        `// cannot be built as an Objective-C module from Swift. See\n` +
+        `// plugins/withHealthKitBackgroundObservers.js.\n` +
+        `if let managerClass = NSClassFromString("${MANAGER_CLASS}") as? NSObject.Type,\n` +
+        `   let manager = managerClass.value(forKey: "shared") as? NSObject {\n` +
+        `  manager.perform(NSSelectorFromString("setupBackgroundObservers"))\n` +
+        `} else {\n` +
+        `  // Loud rather than silent. An upstream rename would otherwise disable\n` +
+        `  // background delivery with no symptom whatsoever.\n` +
+        `  NSLog("[Kairo] HealthKit background observers NOT registered - ${MANAGER_CLASS} lookup failed.")\n` +
+        `}`;
+
+      contents = contents.replace(returnAnchor, (_m, indent, returnLine) => {
+        const indented = snippet
+          .split('\n')
+          .map((line) => (line.length > 0 ? `${indent}${line}` : line))
+          .join('\n');
+        return `${indented}\n\n${indent}${returnLine}`;
+      });
     }
 
     config.modResults.contents = contents;
