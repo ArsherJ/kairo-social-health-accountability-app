@@ -15,6 +15,22 @@ export const colors = {
   danger: '#FF6B6B',
 } as const;
 
+/**
+ * Tier colours (§6). A token rather than a per-component constant because two
+ * screens speak this vocabulary — your own stat bars and your squadmates' tier
+ * pills — and a Gold that is not the same Gold in both places reads as a bug.
+ */
+export const tierColors = {
+  gold: '#E3B341',
+  silver: '#C7CBD6',
+  bronze: '#B87333',
+  none: colors.border,
+} as const;
+
+export function tierColor(tier: string | undefined): string {
+  return tierColors[(tier ?? 'none') as keyof typeof tierColors] ?? tierColors.none;
+}
+
 export const space = {
   xs: 4,
   sm: 8,

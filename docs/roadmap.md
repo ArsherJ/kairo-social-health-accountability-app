@@ -98,8 +98,12 @@ local stack is ever genuinely needed — so far nothing has required one.
   #8**), local-tz hourly bucketing with DST handled, sleep attribution with
   cross-source dedup, MMKV dirty-date state, observer subscription and
   foreground flush. 91 tests across six pure modules.
-- ⬜ **Verify on the simulator** — steps entered in Health reaching
-  `health_buckets`, and a re-sync leaving the total unchanged
+- ✅ **Verified on the simulator, end to end (2026-08-01).** Real HealthKit
+  samples → `health_buckets` (48 rows: today and yesterday, 24 hours each) →
+  `daily_scores` → the character screen. Landed exactly the predicted 3,200:
+  AGI gold 900, STR silver 500, END 0, VIT gold 900, consistency 400, REC 500,
+  125 XP, level 3. Seeded by the `__DEV__` writer in
+  `src/features/health/dev-seed.ts`.
 - ✅ `plugins/withHealthKitBackgroundObservers.js` — registers the observer
   queries in `didFinishLaunchingWithOptions`, which the library's own plugin
   never does (see the correction to deviation #1). It reaches
@@ -116,12 +120,15 @@ local stack is ever genuinely needed — so far nothing has required one.
   native observer calls iOS's completion handler as soon as JS is notified, not
   when the sync finishes — so background delivery is best-effort by design and
   the foreground flush remains the guarantee.
-- ⬜ Verify `AppleExerciseTime` is populated on a phone-only device. If it is
-  Watch-only, END is permanently zero for most beta users, `contributing_stats`
-  caps at 3, the 800-point consistency bonus is unreachable, and
-  `MAX_DAILY_SCORE_PHONE_ONLY = 4_400` is arithmetically wrong. That would be a
-  `kairo-core` scoring decision, not an ingest fix. The simulator cannot answer
-  it — samples are entered by hand there.
+- ⬜ **Verify `AppleExerciseTime` is populated on a phone-only device.** The
+  simulator provably cannot answer this: the identifier is absent from
+  HealthKit's *writeable* list — it is Apple-derived, never third-party
+  written — so END reads zero there no matter what, as the run above shows. If
+  it turns out Watch-only in the wild, END is permanently zero for most beta
+  users, `contributing_stats` caps at 3, the 800-point four-stat consistency
+  bonus is unreachable, and `MAX_DAILY_SCORE_PHONE_ONLY = 4_400` (which assumes
+  4 × 900 + 800) is arithmetically wrong. That would be a `kairo-core` scoring
+  decision, not an ingest fix.
 
 ### 🟨 Phase 4 — Squads + leaderboard · 45–60h
 - ✅ `squad_leaderboard` **completed-day mode** — each member ranked on their own
@@ -215,7 +222,7 @@ these are decisions, not forgotten work.
 | 5 | **No unit test for the error-code mapping in `create-profile.ts`** (`23505` → success, `42501` → mapped copy). | The repo has no pattern for mocking the Supabase client inside a mutation hook. Straight-line code, outside the scoring/day-boundary logic TDD targets here. |
 | 6 | **Cold start renders `(tabs)` for one frame before redirecting.** `app/index.tsx` was deleted, so `/` resolves to the tab group and mounts before the redirect effect fires. | The `cancelled` guard in `HealthPermissionSheet` is what stops the HealthKit sheet flashing over sign-in — it is load-bearing, not defensive. A `<Redirect>` in the render pass would remove the flash. Unverified: nobody has run the simulator. |
 | 7 | **`resolveRoute` has no test for `profileError` and `profileLoading` both true.** The ordering comment claims `profileError` wins; TanStack v5 makes the states mutually exclusive, so it is unreachable today. | Low risk, but the defensive ordering it argues for is untested. |
-| 8 | **`Profile` and `TodayScore` select columns no screen reads** (`class`, `has_wearable`, `rec_points`, `consistency_points`, `sabotage_delta`, `tiers`, `status`). | **Half-closed (2026-08-01).** The sum problem is answered: the TODAY card now shows an "includes +N for consistency and recovery" line, so the bars visibly reconcile with the total. `class`, `has_wearable`, `sabotage_delta`, `tiers` and `status` are still selected and unrendered — harmless, owner-only rows. |
+| 8 | ~~**`Profile` and `TodayScore` select columns no screen reads**~~ — **closed (2026-08-01).** The TODAY card shows an "includes +N for consistency and recovery" line, so the bars reconcile with the total; and `tiers` now colours the stat bars. Found by hand-verification: the character screen painted every bar one colour while the squad screen showed gold/silver pills for the same stats. `tierColors`/`tierColor()` moved from inside `LeaderboardRow.tsx` into `src/theme.ts` so the two screens cannot drift. | `class`, `has_wearable`, `sabotage_delta` and `status` remain selected and unrendered — harmless on owner-only rows, and `has_wearable` is Phase 3 follow-up #2. |
 
 ---
 

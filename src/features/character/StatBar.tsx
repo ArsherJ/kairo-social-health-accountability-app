@@ -1,17 +1,20 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { STAT_POINTS_MAX, STAT_POINTS_MAX_FEATURED } from '@kairo/core';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, radius, space, tierColor } from '@/theme.ts';
 
 export function StatBar({
   stat,
   label,
   points,
   featured,
+  tier,
 }: {
   stat: string;
   label: string;
   points: number;
   featured: boolean;
+  /** Bronze/silver/gold from `daily_scores.tiers`. Undefined before any sync. */
+  tier: string | undefined;
 }) {
   // A featured stat scores at 1.5x (§6), so a featured Gold reaches 1,350.
   // Sizing every bar against 900 would peg a featured Gold at 100% and make it
@@ -31,11 +34,15 @@ export function StatBar({
       </View>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.track}>
+        {/* Colour is the tier, width is the magnitude. The squad screen shows
+            squadmates' tiers in these exact colours, so your own stats have to
+            use the same vocabulary — a Gold that looks grey here and gold there
+            reads as a bug. Featured is carried by the ×1.5 label and the wider
+            ceiling, not by recolouring the fill. */}
         <View
           style={[
             styles.fill,
-            { width: `${fill * 100}%` },
-            featured && { backgroundColor: colors.accent },
+            { width: `${fill * 100}%`, backgroundColor: tierColor(tier) },
           ]}
         />
       </View>
@@ -57,5 +64,7 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
     overflow: 'hidden',
   },
-  fill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.subtle },
+  // No default background: the tier colour is always supplied inline, and a
+  // fallback here would only ever mask a missing tier.
+  fill: { height: '100%', borderRadius: radius.pill },
 });

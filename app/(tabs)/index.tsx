@@ -76,6 +76,7 @@ export default function Character() {
           label={STAT_LABELS[stat]}
           points={points[stat]}
           featured={today?.featured_stat === stat}
+          tier={today?.tiers?.[stat]}
         />
       ))}
 
