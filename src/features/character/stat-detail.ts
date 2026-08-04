@@ -69,11 +69,15 @@ export function resolveStatDetail({
     const next = nextTierFor(stat, raw);
     // null means this stat is already at Gold, which has nothing to ask for.
     if (!next) continue;
+    // The true band width is (threshold - bandLow), not (threshold - 0):
+    // gap / (gap + raw) is a fraction of the target value, which only equals
+    // "share of band remaining" in the first band, where bandLow is 0.
+    const bandWidth = next.gap + raw - next.bandLow;
     open.push({
       stat,
       tier: next.tier,
       gap: next.gap,
-      remaining: next.gap / (next.gap + raw),
+      remaining: next.gap / bandWidth,
     });
   }
 

@@ -427,15 +427,15 @@ describe('XP', () => {
 
 describe('nextTierFor', () => {
   it('names bronze and the gap for a stat with no tier yet', () => {
-    expect(nextTierFor('AGI', 0)).toEqual({ tier: 'bronze', gap: 1_000 });
+    expect(nextTierFor('AGI', 0)).toEqual({ tier: 'bronze', gap: 1_000, bandLow: 0 });
   });
 
   it('names silver from inside bronze', () => {
-    expect(nextTierFor('AGI', 4_760)).toEqual({ tier: 'silver', gap: 240 });
+    expect(nextTierFor('AGI', 4_760)).toEqual({ tier: 'silver', gap: 240, bandLow: 1_000 });
   });
 
   it('names gold from inside silver', () => {
-    expect(nextTierFor('AGI', 8_760)).toEqual({ tier: 'gold', gap: 1_240 });
+    expect(nextTierFor('AGI', 8_760)).toEqual({ tier: 'gold', gap: 1_240, bandLow: 5_000 });
   });
 
   // Gold is the ceiling (§6). There is no Diamond.
@@ -445,21 +445,46 @@ describe('nextTierFor', () => {
   });
 
   it("uses each stat's own thresholds and units", () => {
-    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80 });
-    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1 });
-    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1 });
+    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80, bandLow: 50 });
+    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1, bandLow: 0 });
+    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1, bandLow: 3 });
   });
 
   // active_minutes is numeric(6,2), so raw values arrive fractional. Telling
   // someone they need 0.4 more minutes is not an instruction.
   it('rounds a fractional gap up to a whole unit', () => {
-    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1 });
+    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1, bandLow: 10 });
   });
 
   // The boundary is inclusive in tierFor, so it must be inclusive here too or
   // the two disagree about what "at silver" means.
   it('agrees with tierFor on the boundary', () => {
     expect(tierFor('STR', 200)).toBe('silver');
-    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200 });
+    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200, bandLow: 200 });
+  });
+
+  // `bandLow` is the current band's floor — the tier threshold `raw` is at or
+  // above, or 0 below bronze — so a caller can compute a true fraction
+  // through the band (`gap / (threshold - bandLow)`) instead of a fraction of
+  // the target value, which only agreed with "share of band" in the first band.
+  describe('bandLow', () => {
+    it('is 0 below bronze', () => {
+      expect(nextTierFor('VIT', 0)?.bandLow).toBe(0);
+      expect(nextTierFor('VIT', 2)?.bandLow).toBe(0);
+    });
+
+    it('is the bronze threshold inside the bronze band (heading to silver)', () => {
+      // VIT bronze = 3, silver = 6. raw=4 is inside bronze, heading to silver.
+      expect(nextTierFor('VIT', 4)).toEqual({ tier: 'silver', gap: 2, bandLow: 3 });
+    });
+
+    it('is the silver threshold inside the silver band (heading to gold)', () => {
+      // VIT silver = 6, gold = 9. raw=7 is inside silver, heading to gold.
+      expect(nextTierFor('VIT', 7)).toEqual({ tier: 'gold', gap: 2, bandLow: 6 });
+    });
+
+    it('is moot at gold — nextTierFor returns null, there is nothing to band', () => {
+      expect(nextTierFor('VIT', 9)).toBeNull();
+    });
   });
 });

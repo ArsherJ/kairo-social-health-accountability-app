@@ -12,7 +12,7 @@ import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { XpBar } from '@/features/profile/XpBar.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
-import { Button, Panel, Screen } from '@/ui/index.ts';
+import { Button, Label, Panel, Screen } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 
 export default function ProfileTab() {
@@ -63,7 +63,7 @@ export default function ProfileTab() {
           <BodyMetricsCard userId={userId} profile={profile.data} />
 
           <Panel>
-            <Text style={styles.label}>Timezone</Text>
+            <Label>Timezone</Label>
             <Text style={styles.value}>{profile.data.timezone}</Text>
             {/* Read-only on purpose. §2 ranks everyone on their own local day,
                 and the zone follows the device so travelling does not need a
@@ -102,7 +102,6 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   title: { color: colors.text, ...font.body.title },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  label: { color: colors.muted, ...font.body.label },
   value: { color: colors.text, fontSize: 16, fontWeight: '600', marginTop: space.xs },
   help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   devStatus: { color: colors.subtle, fontSize: 13, marginTop: space.sm },

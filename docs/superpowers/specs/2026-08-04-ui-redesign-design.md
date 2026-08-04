@@ -59,9 +59,12 @@ health data. That becomes the app's only decorative device, under one rule:
 
 > Glow is never applied to something the user has not earned.
 
-Applies to: the Hunter's aura, the leading squadmate's row, a Gold-or-better tier
-chip, the Streak Shield when banked, the active tab. Everything else is flat and
-hairline. The rule's job is to make refusing decoration elsewhere the default.
+Applies to: the Hunter's aura, the leading squadmate's row, a Gold tier chip, and
+a banked Streak Shield. Everything else is flat and hairline. The rule's job is
+to make refusing decoration elsewhere the default.
+
+Not the active tab: tapping a tab is navigation, not something earned, and
+`TabPill` renders a flat accent dot on purpose — no glow.
 
 ## Tokens (`src/theme.ts`)
 

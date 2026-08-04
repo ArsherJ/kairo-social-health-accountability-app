@@ -27,7 +27,7 @@ export function Button({
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        style={[styles.base, styles[variant], disabled && styles.disabled]}
+        style={[styles.base, styles[variant], inert && styles.disabled]}
       >
         {busy ? (
           <ActivityIndicator color={variant === 'primary' ? colors.bg : colors.accent} />

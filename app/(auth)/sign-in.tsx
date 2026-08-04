@@ -34,7 +34,6 @@ export default function SignIn() {
             label={provider.label}
             onPress={() => void run(provider)}
             variant="primary"
-            disabled={false}
             busy={busy}
           />
         ))}

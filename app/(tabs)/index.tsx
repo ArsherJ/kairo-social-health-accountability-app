@@ -81,7 +81,9 @@ function detailCopy(detail: StatDetail): string | null {
       const gap = detail.gap.toLocaleString();
       const tier = tierLabel(detail.tier);
       if (detail.featured) {
-        return `${detail.stat} ×1.5 this week — ${gap} more ${detail.unit} for ${tier}.`;
+        // `·` matches standingCopy's separator above — one rhetorical pattern
+        // (clause · clause), one glyph, across this screen's two copy lines.
+        return `${detail.stat} ×1.5 this week · ${gap} more ${detail.unit} for ${tier}.`;
       }
       return `${gap} more ${detail.unit} for ${tier} on ${detail.stat}.`;
     }
@@ -146,13 +148,22 @@ export default function Character() {
         </View>
       )}
 
-      <Numeral value={today?.total ?? 0} size="hero" color={colors.accent} animate style={styles.hero} />
+      {/* A pending score query is not an answer, and the hero number is the
+          single most emphasised element on this screen — `today?.total ?? 0`
+          would confidently claim zero for the one moment it is not true, then
+          jump to the real total. Same discipline as the standing and detail
+          lines below: render nothing rather than something false. */}
+      {!score.isPending && (
+        <Numeral value={today?.total ?? 0} size="hero" color={colors.accent} animate style={styles.hero} />
+      )}
 
       {/* A pending standing query is not an answer. Rendering nothing beats a
           placeholder or a dash, both of which would state something false. */}
       {standingLine != null && <Text style={styles.standing}>{standingLine}</Text>}
 
-      <StatRow points={points} tiers={today?.tiers} featuredStat={featuredStat} />
+      {!score.isPending && (
+        <StatRow points={points} tiers={today?.tiers} featuredStat={featuredStat} />
+      )}
 
       {detailLine != null && <Text style={styles.detail}>{detailLine}</Text>}
 
@@ -175,7 +186,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, ...font.body.title, marginTop: space.xs },
   dominance: { alignItems: 'center', marginTop: space.sm },
   dominanceLabel: { color: colors.accent, ...font.body.label },
-  meta: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
+  meta: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
   hero: { marginTop: space.lg },
   standing: { color: colors.text, ...font.body.body, marginTop: space.sm },
   detail: { color: colors.subtle, ...font.body.body, marginTop: space.md },

@@ -22,9 +22,12 @@ const LABELS: Record<string, string> = {
  * Height is fixed at 72 to agree with `Screen`'s `TAB_PILL_CLEARANCE` (72pt
  * of pill + 24pt of gap). Changing one without the other misaligns content.
  */
-export function TabPill({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
   return (
-    <View style={[styles.pill, { bottom: insets.bottom + space.md }]}>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.pill, { bottom: insets.bottom + space.md }]}
+    >
       {state.routes.map((route, index) => {
         const focused = state.index === index;
         const label = LABELS[route.name] ?? route.name.toUpperCase();

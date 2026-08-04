@@ -143,13 +143,16 @@ export function useFillIn(fraction: number): Animated.Value {
       return;
     }
 
-    Animated.timing(fill, {
+    const animation = Animated.timing(fill, {
       toValue: Math.max(0, Math.min(1, fraction)),
       duration: animationDuration(500, reduceMotion),
       easing: Easing.out(Easing.cubic),
       // Width is not a transform, so this cannot run on the native driver.
       useNativeDriver: false,
-    }).start();
+    });
+    animation.start();
+
+    return () => animation.stop();
   }, [fill, fraction, reduceMotion, reduceMotionReady]);
 
   return fill;
@@ -159,6 +162,14 @@ export function useFillIn(fraction: number): Animated.Value {
 export function usePressScale() {
   const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const scale = useRef(new Animated.Value(1)).current;
+  // No effect exists to hang unmount cleanup on — press handlers fire from
+  // user gestures, not renders — so the most recently started animation is
+  // tracked here and stopped directly on unmount instead.
+  const current = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    return () => current.current?.stop();
+  }, []);
 
   const to = (toValue: number) => () => {
     // User-triggered handlers typically run after Reduce Motion is resolved,
@@ -167,11 +178,13 @@ export function usePressScale() {
       return;
     }
 
-    Animated.timing(scale, {
+    const animation = Animated.timing(scale, {
       toValue,
       duration: animationDuration(120, reduceMotion),
       useNativeDriver: true,
-    }).start();
+    });
+    current.current = animation;
+    animation.start();
   };
 
   return { scale, onPressIn: to(0.97), onPressOut: to(1) };

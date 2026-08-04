@@ -4,7 +4,14 @@ import { radius } from '../theme.ts';
 /**
  * A glowing disc, optionally ringed with a halo. "Glow means earned" —
  * originally the Hunter's level/build indicator, general enough to also mark
- * the leading squadmate's row or the active tab.
+ * the leading squadmate's row. Not the active tab: `TabPill` renders a flat
+ * accent dot with no glow, deliberately — tapping a tab earns nothing.
+ */
+/**
+ * `aura` and `halo` are `position: 'absolute'` with no top/left offsets, so
+ * they stack centred only because their parent centres its children (e.g.
+ * `alignItems: 'center'` on a same-sized box). A parent that does not center
+ * will render them pinned to a corner instead of concentric.
  */
 export function Aura({
   size,

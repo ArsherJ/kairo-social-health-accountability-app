@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { colors, radius, space } from '../theme.ts';
+import { colors, radius, space, tierColors } from '../theme.ts';
 
 /**
  * The only card in the app.
@@ -49,8 +49,13 @@ const styles = StyleSheet.create({
     left: space.lg,
     right: space.lg,
     height: 2,
-    backgroundColor: colors.accent,
-    shadowColor: colors.accent,
+    // The app has three colour families with one job each: violet
+    // `colors.accent` means "you", `tierColors` means "earned", red means
+    // sabotage. This edge marks the squad leader's row and a banked Streak
+    // Shield — both "earned", neither "you" — so it belongs to `tierColors`,
+    // and Gold specifically since that is the top tier this app has.
+    backgroundColor: tierColors.gold,
+    shadowColor: tierColors.gold,
     shadowOpacity: 0.7,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },

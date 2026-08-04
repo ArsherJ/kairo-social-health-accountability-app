@@ -6,10 +6,10 @@
 
 import type { TextStyle } from 'react-native';
 
-/** Raised surface, for a panel sitting on a panel without a border. */
 export const colors = {
   bg: '#08080C',
   surface: '#12121A',
+  /** Raised surface, for a panel sitting on a panel without a border. */
   surfaceLift: '#191922',
   // An 8-digit hex is a real colour to RN — #222230 at 25% alpha. Kept as the
   // hairline, with an opaque partner so borders and focus rings stop competing.
@@ -75,7 +75,9 @@ export const font = {
     hero: { fontFamily: DISPLAY, fontSize: 64, letterSpacing: -1, ...NUM },
     major: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: -0.5, ...NUM },
     minor: { fontFamily: DISPLAY, fontSize: 20, ...NUM },
-    label: { fontFamily: DISPLAY_MEDIUM, fontSize: 12, letterSpacing: 1.5 },
+    // ...NUM: tier and level labels ("GOLD", "LEVEL 12") can carry digits, so
+    // this needs tabular figures like every other display role that renders numbers.
+    label: { fontFamily: DISPLAY_MEDIUM, fontSize: 12, letterSpacing: 1.5, ...NUM },
     // No `...NUM`: the wordmark is not a numeral, so tabular figures do not apply.
     brand: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: 4 },
   },
