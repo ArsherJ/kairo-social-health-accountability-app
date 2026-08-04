@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space.sm,
   },
-  squadName: { color: colors.text, ...font.title, flexShrink: 1 },
+  squadName: { color: colors.text, ...font.body.title, flexShrink: 1 },
   members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   codeCard: {
     marginTop: space.md,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
   },
-  codeLabel: { color: colors.muted, ...font.label },
+  codeLabel: { color: colors.muted, ...font.body.label },
   code: {
     color: colors.accent,
     fontSize: 34,
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
   toggleLabelActive: { color: colors.bg },
   note: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  error: { color: colors.danger, ...font.body, textAlign: 'center' },
-  empty: { color: colors.muted, ...font.body, textAlign: 'center' },
+  error: { color: colors.danger, ...font.body.body, textAlign: 'center' },
+  empty: { color: colors.muted, ...font.body.body, textAlign: 'center' },
   retry: {
     marginTop: space.md,
     paddingVertical: space.sm,

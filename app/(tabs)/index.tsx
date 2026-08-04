@@ -119,8 +119,8 @@ export default function Character() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  label: { color: colors.muted, ...font.label },
-  name: { color: colors.text, ...font.title, marginTop: space.xs },
+  label: { color: colors.muted, ...font.body.label },
+  name: { color: colors.text, ...font.body.title, marginTop: space.xs },
   card: {
     marginTop: space.lg,
     padding: space.lg,
@@ -132,5 +132,5 @@ const styles = StyleSheet.create({
   total: { color: colors.accent, fontSize: 48, fontWeight: '800', marginTop: space.sm },
   meta: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
   dominance: { alignItems: 'center', marginTop: space.sm },
-  dominanceLabel: { color: colors.accent, ...font.label },
+  dominanceLabel: { color: colors.accent, ...font.body.label },
 });

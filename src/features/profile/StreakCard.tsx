@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  label: { color: colors.muted, ...font.label },
+  label: { color: colors.muted, ...font.body.label },
   figures: { flexDirection: 'row', gap: space.xl, marginTop: space.sm },
   big: { color: colors.accent, fontSize: 36, fontWeight: '800' },
   bigMuted: { color: colors.text, fontSize: 36, fontWeight: '800' },

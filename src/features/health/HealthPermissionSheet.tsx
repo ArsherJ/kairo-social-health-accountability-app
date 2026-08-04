@@ -84,9 +84,9 @@ const styles = StyleSheet.create({
     padding: space.lg,
     paddingBottom: space.xl,
   },
-  label: { color: colors.accent, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  body: { color: colors.subtle, ...font.body, marginTop: space.md },
+  label: { color: colors.accent, ...font.body.label },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
   button: {
     marginTop: space.lg,
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
   later: {
     color: colors.muted,
-    ...font.body,
+    ...font.body.body,
     textAlign: 'center',
     marginTop: space.md,
   },

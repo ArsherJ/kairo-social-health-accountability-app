@@ -4,10 +4,17 @@
  * hunter aesthetic.
  */
 
+import type { TextStyle } from 'react-native';
+
+/** Raised surface, for a panel sitting on a panel without a border. */
 export const colors = {
   bg: '#08080C',
   surface: '#12121A',
+  surfaceLift: '#191922',
+  // An 8-digit hex is a real colour to RN — #222230 at 25% alpha. Kept as the
+  // hairline, with an opaque partner so borders and focus rings stop competing.
   border: '#22223040',
+  borderStrong: '#2E2E3E',
   text: '#F5F5FF',
   subtle: '#9A9AB0',
   muted: '#6E6E85',
@@ -46,9 +53,33 @@ export const radius = {
   pill: 999,
 } as const;
 
+/**
+ * Two type roles with a hard boundary (see the redesign spec).
+ *
+ * `display` is Chakra Petch and is for numerals, levels and tier names only —
+ * every screen's focal point in Kairo is a number, and this is what stops them
+ * reading like system-font bold. `body` is SF Pro and owns all prose.
+ *
+ * Everything numeric is tabular: boards refetch on realtime broadcasts, and
+ * proportional digits make a live number visibly jitter.
+ */
+const DISPLAY = 'ChakraPetch-Bold';
+const DISPLAY_MEDIUM = 'ChakraPetch-SemiBold';
+// Typed, not `as const`: `as const` would make this a readonly tuple, which is
+// not assignable to TextStyle['fontVariant'].
+const NUM: Pick<TextStyle, 'fontVariant'> = { fontVariant: ['tabular-nums'] };
+
 export const font = {
-  brand: { fontSize: 34, fontWeight: '800', letterSpacing: 6 },
-  title: { fontSize: 24, fontWeight: '700' },
-  body: { fontSize: 15, fontWeight: '400' },
-  label: { fontSize: 12, fontWeight: '600', letterSpacing: 1.5 },
+  display: {
+    hero: { fontFamily: DISPLAY, fontSize: 64, letterSpacing: -1, ...NUM },
+    major: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: -0.5, ...NUM },
+    minor: { fontFamily: DISPLAY, fontSize: 20, ...NUM },
+    label: { fontFamily: DISPLAY_MEDIUM, fontSize: 12, letterSpacing: 1.5 },
+  },
+  body: {
+    title: { fontSize: 22, fontWeight: '700' },
+    body: { fontSize: 15, fontWeight: '400' },
+    label: { fontSize: 12, fontWeight: '600', letterSpacing: 1.5 },
+    button: { fontSize: 16, fontWeight: '700' },
+  },
 } as const;

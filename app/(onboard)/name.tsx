@@ -104,9 +104,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   top: { flex: 1 },
-  label: { color: colors.muted, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body, marginTop: space.sm },
+  label: { color: colors.muted, ...font.body.label },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm },
   input: {
     marginTop: space.xl,
     borderBottomWidth: 2,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body, marginTop: space.md },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,

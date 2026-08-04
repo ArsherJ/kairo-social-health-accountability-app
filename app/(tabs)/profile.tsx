@@ -115,7 +115,7 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  title: { color: colors.text, ...font.title },
+  title: { color: colors.text, ...font.body.title },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   card: {
     marginTop: space.lg,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  label: { color: colors.muted, ...font.label },
+  label: { color: colors.muted, ...font.body.label },
   value: { color: colors.text, fontSize: 16, fontWeight: '600', marginTop: space.xs },
   help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   button: {

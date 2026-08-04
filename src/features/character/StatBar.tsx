@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { STAT_POINTS_MAX, STAT_POINTS_MAX_FEATURED } from '@kairo/core';
-import { colors, font, radius, space, tierColor } from '@/theme.ts';
+import { colors, radius, space, tierColor } from '@/theme.ts';
 
 export function StatBar({
   stat,

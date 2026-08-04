@@ -134,11 +134,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space.sm,
   },
-  title: { color: colors.text, ...font.title, flexShrink: 1 },
+  title: { color: colors.text, ...font.body.title, flexShrink: 1 },
   members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   help: {
     color: colors.subtle,
-    ...font.body,
+    ...font.body.body,
     marginTop: space.sm,
     marginBottom: space.sm,
     lineHeight: 22,

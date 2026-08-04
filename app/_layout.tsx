@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -11,6 +12,15 @@ import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 export default function RootLayout() {
+  // A font error proceeds rather than blocking: RN falls back to the system
+  // face for an unknown family, and a degraded screen beats a dead app.
+  const [fontsLoaded, fontError] = useFonts({
+    'ChakraPetch-Bold': require('../assets/fonts/ChakraPetch-Bold.ttf'),
+    'ChakraPetch-SemiBold': require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
+  });
+
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
@@ -93,10 +103,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  errorTitle: { color: colors.text, ...font.title, textAlign: 'center' },
+  errorTitle: { color: colors.text, ...font.body.title, textAlign: 'center' },
   errorBody: {
     color: colors.subtle,
-    ...font.body,
+    ...font.body.body,
     textAlign: 'center',
     marginTop: space.sm,
   },

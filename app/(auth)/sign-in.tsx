@@ -64,8 +64,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   hero: { flex: 1, justifyContent: 'center' },
-  brand: { color: colors.text, ...font.brand },
-  tagline: { color: colors.muted, ...font.body, marginTop: space.sm },
+  brand: { color: colors.text, ...font.display.major },
+  tagline: { color: colors.muted, ...font.body.body, marginTop: space.sm },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
@@ -74,5 +74,5 @@ const styles = StyleSheet.create({
   },
   buttonPressed: { opacity: 0.85 },
   buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  error: { color: colors.danger, ...font.body, marginTop: space.md, textAlign: 'center' },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md, textAlign: 'center' },
 });

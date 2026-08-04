@@ -123,9 +123,9 @@ export function CreateSquadForm({
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   top: { flex: 1 },
-  label: { color: colors.muted, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body, marginTop: space.sm, lineHeight: 22 },
+  label: { color: colors.muted, ...font.body.label },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm, lineHeight: 22 },
   input: {
     marginTop: space.xl,
     borderBottomWidth: 2,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body, marginTop: space.md },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
   actions: { paddingBottom: space.xl },
   primary: {
     backgroundColor: colors.accent,

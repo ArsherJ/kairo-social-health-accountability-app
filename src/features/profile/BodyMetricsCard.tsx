@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  label: { color: colors.muted, ...font.label },
+  label: { color: colors.muted, ...font.body.label },
   prompt: { color: colors.accent, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
   field: { marginTop: space.md },
   fieldLabel: { color: colors.subtle, fontSize: 13, fontWeight: '600' },
