@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { availableProviders, type SignInProvider } from '@/features/auth/providers.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 
 export default function SignIn() {
   const insets = useSafeAreaInsets();
@@ -28,19 +29,14 @@ export default function SignIn() {
 
       <View style={{ paddingBottom: insets.bottom + space.xl }}>
         {providers.map((provider) => (
-          <Pressable
+          <Button
             key={provider.id}
-            accessibilityRole="button"
-            disabled={busy}
+            label={provider.label}
             onPress={() => void run(provider)}
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.bg} />
-            ) : (
-              <Text style={styles.buttonLabel}>{provider.label}</Text>
-            )}
-          </Pressable>
+            variant="primary"
+            disabled={false}
+            busy={busy}
+          />
         ))}
 
         {providers.length === 0 && (
@@ -66,13 +62,5 @@ const styles = StyleSheet.create({
   hero: { flex: 1, justifyContent: 'center' },
   brand: { color: colors.text, ...font.display.brand },
   tagline: { color: colors.muted, ...font.body.body, marginTop: space.sm },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonPressed: { opacity: 0.85 },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
   error: { color: colors.danger, ...font.body.body, marginTop: space.md, textAlign: 'center' },
 });

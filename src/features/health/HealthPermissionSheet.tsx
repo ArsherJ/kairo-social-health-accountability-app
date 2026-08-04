@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Panel, Button } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
 import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
@@ -44,7 +45,7 @@ export function HealthPermissionSheet() {
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <Panel variant="plain" style={styles.panelOverride}>
           <Text style={styles.label}>POWER YOUR CHARACTER</Text>
           <Text style={styles.title}>Your real life is the game</Text>
           <Text style={styles.body}>
@@ -57,45 +58,34 @@ export function HealthPermissionSheet() {
             never when you move. Kairo writes nothing back to Health.
           </Text>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy}
+          <Button
+            label="Connect Apple Health"
             onPress={() => void ask()}
-            style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.buttonLabel}>Connect Apple Health</Text>
-          </Pressable>
+            variant="primary"
+            disabled={false}
+            busy={busy}
+          />
 
           <Pressable accessibilityRole="button" onPress={() => setVisible(false)}>
             <Text style={styles.later}>Not now</Text>
           </Pressable>
-        </View>
+        </Panel>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000AA' },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: space.lg,
-    paddingBottom: space.xl,
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: `${colors.bg}CC`,
   },
+  panelOverride: { marginTop: 0, marginBottom: space.lg, marginHorizontal: space.lg },
   label: { color: colors.accent, ...font.body.label },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
-  button: {
-    marginTop: space.lg,
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
   later: {
     color: colors.muted,
     ...font.body.body,
