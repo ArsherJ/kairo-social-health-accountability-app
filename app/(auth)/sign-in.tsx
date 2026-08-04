@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   hero: { flex: 1, justifyContent: 'center' },
-  brand: { color: colors.text, ...font.display.major },
+  brand: { color: colors.text, ...font.display.brand },
   tagline: { color: colors.muted, ...font.body.body, marginTop: space.sm },
   button: {
     backgroundColor: colors.accent,

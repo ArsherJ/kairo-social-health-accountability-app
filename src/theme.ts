@@ -56,9 +56,10 @@ export const radius = {
 /**
  * Two type roles with a hard boundary (see the redesign spec).
  *
- * `display` is Chakra Petch and is for numerals, levels and tier names only —
- * every screen's focal point in Kairo is a number, and this is what stops them
- * reading like system-font bold. `body` is SF Pro and owns all prose.
+ * `display` is Chakra Petch and is for numerals, levels, tier names and the
+ * wordmark only — every screen's focal point in Kairo is a number, and this
+ * is what stops them reading like system-font bold. `body` is SF Pro and
+ * owns all prose.
  *
  * Everything numeric is tabular: boards refetch on realtime broadcasts, and
  * proportional digits make a live number visibly jitter.
@@ -75,9 +76,11 @@ export const font = {
     major: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: -0.5, ...NUM },
     minor: { fontFamily: DISPLAY, fontSize: 20, ...NUM },
     label: { fontFamily: DISPLAY_MEDIUM, fontSize: 12, letterSpacing: 1.5 },
+    // No `...NUM`: the wordmark is not a numeral, so tabular figures do not apply.
+    brand: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: 4 },
   },
   body: {
-    title: { fontSize: 22, fontWeight: '700' },
+    title: { fontSize: 24, fontWeight: '700' },
     body: { fontSize: 15, fontWeight: '400' },
     label: { fontSize: 12, fontWeight: '600', letterSpacing: 1.5 },
     button: { fontSize: 16, fontWeight: '700' },
