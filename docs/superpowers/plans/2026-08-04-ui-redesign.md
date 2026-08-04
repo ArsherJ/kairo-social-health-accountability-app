@@ -93,7 +93,8 @@ describe('nextTierFor', () => {
   it('uses each stat’s own thresholds and units', () => {
     expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80 });
     expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1 });
-    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'gold', gap: 4 });
+    // VIT is bronze 3 / silver 6 / gold 9, so 5 active hours is inside bronze.
+    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1 });
   });
 
   // active_minutes is numeric(6,2), so raw values arrive fractional. Telling
