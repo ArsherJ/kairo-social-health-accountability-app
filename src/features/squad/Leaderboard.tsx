@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,6 +10,7 @@ import {
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
+import { resolveSquadStanding, type SquadStanding } from './standing.ts';
 import {
   useSquadLeaderboard,
   useSquadMemberCount,
@@ -20,11 +20,81 @@ import {
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
 import { colors, font, radius, space } from '@/theme.ts';
+import { Button, Numeral, Panel, Screen } from '@/ui/index.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },
   { mode: 'completed', label: 'Yesterday' },
 ];
+
+/** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
+function ordinal(n: number): string {
+  const teens = n % 100;
+  if (teens >= 11 && teens <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+/**
+ * 'YYYY-MM-DD' -> 'Aug 4'. Parsed as UTC on purpose: these strings are already
+ * the correct local calendar date for the member(s) they describe, and
+ * letting `Date` reinterpret them against the device's own offset could shift
+ * the printed date by a day in either direction.
+ */
+function formatLocalDate(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!match) return isoDate;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+/**
+ * The hero line beneath the rank. `back === null` means nobody is ahead;
+ * `back === 0` means tied with the row directly above — two different facts
+ * that must not collapse into the same sentence.
+ */
+function standingSubline(standing: SquadStanding): string | null {
+  switch (standing.kind) {
+    case 'unknown':
+      return null;
+    case 'unranked':
+      return `of ${standing.of}`;
+    case 'ranked': {
+      const of = `of ${standing.of}`;
+      if (standing.back === null) return `${of} · leading`;
+      if (standing.back === 0) return `${of} · tied with the player above`;
+      return `${of} · ${standing.back.toLocaleString()} back`;
+    }
+  }
+}
+
+/**
+ * The invite-code block, shared by the empty state and the head of the
+ * locked-slot section — the two places on this screen where the reason to
+ * read the code actually is (§9).
+ */
+function InviteCode({ code }: { code: string }) {
+  return (
+    <Panel variant="plain" style={styles.codeCard}>
+      <Text style={styles.codeLabel}>INVITE CODE</Text>
+      <Text style={styles.code} selectable>
+        {code}
+      </Text>
+    </Panel>
+  );
+}
 
 export function Leaderboard({ squad }: { squad: Squad }) {
   // The live board is the default: §2's hooks assume a board you check during
@@ -49,16 +119,28 @@ export function Leaderboard({ squad }: { squad: Squad }) {
 
   const rows = board.data ?? [];
 
+  const standing = resolveSquadStanding({ rows: board.data, memberCount: memberCount.data });
+  const heroValue =
+    standing.kind === 'ranked'
+      ? ordinal(standing.rank)
+      : standing.kind === 'unranked'
+        ? 'Unranked'
+        : null;
+  const subline = standingSubline(standing);
+
   // In completed mode every member is ranked on their OWN yesterday, so a
   // squad spanning timezones legitimately compares two calendar dates. Saying
   // so is the honest option; rendering them under one heading is not.
   const dates = [...new Set(rows.map((r) => r.local_date))].sort();
   const mixedDates = mode === 'completed' && dates.length > 1;
+  // The header date is only shown when it is unambiguous — a mixed board
+  // already says so explicitly in the note below, and guessing one date out
+  // of several here would just be a second, contradicting claim.
+  const [onlyDate] = dates;
+  const headerDate = dates.length === 1 && onlyDate ? formatLocalDate(onlyDate) : null;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+    <Screen
       refreshControl={
         <RefreshControl
           refreshing={board.isRefetching}
@@ -76,19 +158,17 @@ export function Leaderboard({ squad }: { squad: Squad }) {
         <Text style={styles.squadName} numberOfLines={1}>
           {squad.name}
         </Text>
-        <Text style={styles.members}>
-          {memberCount.data ?? '—'} of {squad.max_members}
-        </Text>
+        {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
       </View>
 
-      {/* This is how a squad grows (§9), so the code is a headline, not a
-          settings row: large enough to read aloud and to survive a screenshot. */}
-      <View style={styles.codeCard}>
-        <Text style={styles.codeLabel}>INVITE CODE</Text>
-        <Text style={styles.code} selectable>
-          {squad.invite_code}
-        </Text>
-      </View>
+      {/* A pending standing query must never render a claim: nothing beats a
+          placeholder or a dash, both of which would state something false. */}
+      {heroValue != null && (
+        <View style={styles.hero}>
+          <Numeral value={heroValue} size="hero" color={colors.accent} />
+          {subline != null && <Text style={styles.standing}>{subline}</Text>}
+        </View>
+      )}
 
       <View style={styles.toggle}>
         {MODES.map(({ mode: value, label }) => (
@@ -127,21 +207,14 @@ export function Leaderboard({ squad }: { squad: Squad }) {
       {board.isError && (
         <View style={styles.centered}>
           <Text style={styles.error}>{board.error.message}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void board.refetch()}
-            style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
-          >
-            <Text style={styles.retryLabel}>Try again</Text>
-          </Pressable>
+          <Button label="Try again" variant="secondary" onPress={() => void board.refetch()} />
         </View>
       )}
 
       {board.isSuccess && rows.length === 0 && (
         <View style={styles.centered}>
-          <Text style={styles.empty}>
-            Nobody on the board yet. Send the code above.
-          </Text>
+          <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
+          <InviteCode code={squad.invite_code} />
         </View>
       )}
 
@@ -154,16 +227,16 @@ export function Leaderboard({ squad }: { squad: Squad }) {
       {/* §7: locked slots are visible every day, not only when solo — the
           constant pull to invite the rest of the barkada. Ranked after every
           member, scored or not, so the numbering never skips or repeats. */}
+      {locked > 0 && <InviteCode code={squad.invite_code} />}
+
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
       ))}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingBottom: space.xl },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -171,16 +244,10 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   squadName: { color: colors.text, ...font.body.title, flexShrink: 1 },
-  members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  codeCard: {
-    marginTop: space.md,
-    padding: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
+  date: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  hero: { marginTop: space.lg },
+  standing: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
+  codeCard: { alignItems: 'center' },
   codeLabel: { color: colors.muted, ...font.body.label },
   code: {
     color: colors.accent,
@@ -203,7 +270,9 @@ const styles = StyleSheet.create({
   },
   toggleOption: {
     flex: 1,
-    paddingVertical: space.sm,
+    // ≥44pt touch target: the pill's own vertical padding plus its text line
+    // height, with no reliance on hitSlop.
+    paddingVertical: space.md,
     borderRadius: radius.pill,
     alignItems: 'center',
   },
@@ -214,14 +283,4 @@ const styles = StyleSheet.create({
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   error: { color: colors.danger, ...font.body.body, textAlign: 'center' },
   empty: { color: colors.muted, ...font.body.body, textAlign: 'center' },
-  retry: {
-    marginTop: space.md,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  retryLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  pressed: { opacity: 0.85 },
 });

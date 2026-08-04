@@ -1,15 +1,9 @@
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
+import { Button, Numeral, Screen } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';
@@ -74,9 +68,7 @@ export function SoloBoard({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+    <Screen
       refreshControl={
         <RefreshControl
           refreshing={score.isRefetching}
@@ -85,11 +77,11 @@ export function SoloBoard({
         />
       }
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Your squad</Text>
-        <Text style={styles.members}>
-          1 of {FREE_SQUAD_MAX_MEMBERS}
-        </Text>
+      <Text style={styles.title}>Your squad</Text>
+
+      <View style={styles.hero}>
+        <Numeral value="1st" size="hero" color={colors.accent} />
+        <Text style={styles.standing}>of 1</Text>
       </View>
 
       <Text style={styles.help}>
@@ -105,60 +97,22 @@ export function SoloBoard({
       ))}
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onCreate}
-          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryLabel}>Create a squad</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={onJoin}
-          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-        >
-          <Text style={styles.secondaryLabel}>Join with a code</Text>
-        </Pressable>
+        <Button label="Create a squad" variant="primary" onPress={onCreate} />
+        <Button label="Join with a code" variant="secondary" onPress={onJoin} />
       </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingBottom: space.xl },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: space.sm,
-  },
-  title: { color: colors.text, ...font.body.title, flexShrink: 1 },
-  members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  title: { color: colors.text, ...font.body.title },
+  hero: { marginTop: space.lg },
+  standing: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
   help: {
     color: colors.subtle,
     ...font.body.body,
-    marginTop: space.sm,
-    marginBottom: space.sm,
+    marginTop: space.md,
     lineHeight: 22,
   },
   actions: { marginTop: space.lg },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  secondary: {
-    marginTop: space.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  secondaryLabel: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  pressed: { opacity: 0.85 },
 });

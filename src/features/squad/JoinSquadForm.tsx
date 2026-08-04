@@ -1,17 +1,9 @@
 import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { INVITE_CODE_LENGTH, isValidInviteCode } from './invite-code.ts';
 import { useJoinSquad } from './mutations.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
+import { Button, Label, Panel } from '@/ui/index.ts';
 
 export function JoinSquadForm({
   userId,
@@ -48,8 +40,8 @@ export function JoinSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.top}>
-        <Text style={styles.label}>JOIN A SQUAD</Text>
+      <Panel variant="plain" style={styles.panel}>
+        <Label>JOIN A SQUAD</Label>
         <Text style={styles.title}>Enter the code.</Text>
         <Text style={styles.help}>
           Six characters, from whoever runs the squad. Dashes and spaces are fine.
@@ -74,34 +66,11 @@ export function JoinSquadForm({
         />
 
         {joinSquad.error && <Text style={styles.error}>{joinSquad.error.message}</Text>}
-      </View>
+      </Panel>
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!valid || busy}
-          onPress={submit}
-          style={({ pressed }) => [
-            styles.primary,
-            (!valid || busy) && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.bg} />
-          ) : (
-            <Text style={styles.primaryLabel}>Join</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={busy}
-          onPress={onCancel}
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={styles.cancelLabel}>Back</Text>
-        </Pressable>
+        <Button label="Join" variant="primary" busy={busy} disabled={!valid} onPress={submit} />
+        <Button label="Back" variant="ghost" disabled={busy} onPress={onCancel} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -109,8 +78,7 @@ export function JoinSquadForm({
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
-  top: { flex: 1 },
-  label: { color: colors.muted, ...font.body.label },
+  panel: { flex: 1 },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   help: { color: colors.subtle, ...font.body.body, marginTop: space.sm, lineHeight: 22 },
   input: {
@@ -128,15 +96,4 @@ const styles = StyleSheet.create({
   },
   error: { color: colors.danger, ...font.body.body, marginTop: space.md },
   actions: { paddingBottom: space.xl },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.35 },
-  pressed: { opacity: 0.85 },
-  cancel: { paddingVertical: space.md, alignItems: 'center' },
-  cancelLabel: { color: colors.muted, fontSize: 15, fontWeight: '600' },
 });
