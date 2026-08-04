@@ -2,23 +2,34 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing } from 'react-native';
 import { animationDuration, shouldRecount } from './motion-policy.ts';
 
-/** Live Reduce Motion state. Read once here so no screen can forget it. */
-export function useReduceMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
+/**
+ * Internal: tracks both Reduce Motion state and whether it has been resolved.
+ * Separate from the public useReduceMotion so that useCountUp can know when the
+ * value is actually known (not just the initial false from useState).
+ */
+function _useReduceMotionFull() {
+  const [state, setState] = useState({ reduce: false, ready: false });
 
   useEffect(() => {
     let alive = true;
     void AccessibilityInfo.isReduceMotionEnabled().then((on) => {
-      if (alive) setReduce(on);
+      if (alive) setState({ reduce: on, ready: true });
     });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (on) => {
+      setState({ reduce: on, ready: true });
+    });
     return () => {
       alive = false;
       sub.remove();
     };
   }, []);
 
-  return reduce;
+  return state;
+}
+
+/** Live Reduce Motion state. Read once here so no screen can forget it. */
+export function useReduceMotion(): boolean {
+  return _useReduceMotionFull().reduce;
 }
 
 /**
@@ -29,8 +40,8 @@ export function useReduceMotion(): boolean {
  * static numbers.
  */
 export function useCountUp(value: number, enabled = true): number {
-  const reduceMotion = useReduceMotion();
-  const [shown, setShown] = useState(value);
+  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
+  const [shown, setShown] = useState<number>(0);
   const previous = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -39,6 +50,14 @@ export function useCountUp(value: number, enabled = true): number {
       setShown(value);
       return;
     }
+
+    // No animation may start before the Reduce Motion state is actually known.
+    // Until ready, the hook returns false (initial state), which could cause
+    // animations to start on devices with Reduce Motion enabled.
+    if (!reduceMotionReady) {
+      return;
+    }
+
     if (!shouldRecount(previous.current, value)) return;
 
     const from = previous.current ?? 0;
@@ -54,15 +73,21 @@ export function useCountUp(value: number, enabled = true): number {
     const id = driver.addListener(({ value: t }) =>
       setShown(Math.round(from + (value - from) * t)),
     );
-    Animated.timing(driver, {
+    const animation = Animated.timing(driver, {
       toValue: 1,
       duration: ms,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start(() => setShown(value));
+    });
+    animation.start(({ finished }) => {
+      if (finished) setShown(value);
+    });
 
-    return () => driver.removeListener(id);
-  }, [value, enabled, reduceMotion]);
+    return () => {
+      animation.stop();
+      driver.removeListener(id);
+    };
+  }, [value, enabled, reduceMotion, reduceMotionReady]);
 
   return shown;
 }
