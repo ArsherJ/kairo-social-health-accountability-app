@@ -1,6 +1,8 @@
-import { StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
-import { colors, radius, tierColors } from '@/theme.ts';
+import { colors, tierColors } from '@/theme.ts';
+import { Aura } from '@/ui/Aura.tsx';
+import { useFloat } from '@/ui/motion.ts';
 
 /**
  * Placeholder Hunter, drawn with plain Views — no asset pipeline and no new
@@ -76,30 +78,12 @@ export function HunterSilhouette({
   const auraSize = 160 + stage * 14;
   const auraOpacity = 0.1 + stage * 0.12 + build.glow;
 
-  return (
-    <View style={styles.frame}>
-      <View
-        style={[
-          styles.aura,
-          {
-            width: auraSize,
-            height: auraSize,
-            opacity: auraOpacity,
-            backgroundColor: build.aura,
-          },
-        ]}
-      />
+  const float = useFloat();
+  const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
-      {/* The All-Rounder's halo. A ring rather than more glow, so it survives
-          being screenshotted next to a bright STR aura. */}
-      {dominance === 'balanced' && (
-        <View
-          style={[
-            styles.halo,
-            { width: auraSize + 22, height: auraSize + 22, borderColor: build.aura },
-          ]}
-        />
-      )}
+  return (
+    <Animated.View style={[styles.frame, { transform: [{ translateY }] }]}>
+      <Aura size={auraSize} color={build.aura} opacity={auraOpacity} halo={dominance === 'balanced'} />
 
       <View style={styles.figure}>
         <View style={styles.head} />
@@ -123,19 +107,12 @@ export function HunterSilhouette({
           </View>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   frame: { height: 220, alignItems: 'center', justifyContent: 'flex-end' },
-  aura: { position: 'absolute', borderRadius: radius.pill },
-  halo: {
-    position: 'absolute',
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    opacity: 0.55,
-  },
   figure: { alignItems: 'center' },
   head: {
     width: 46,
