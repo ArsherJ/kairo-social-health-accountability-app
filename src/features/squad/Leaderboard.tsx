@@ -81,9 +81,11 @@ function standingSubline(standing: SquadStanding): string | null {
 }
 
 /**
- * The invite-code block, shared by the empty state and the head of the
- * locked-slot section — the two places on this screen where the reason to
- * read the code actually is (§9).
+ * The invite-code block. Exactly one of its two call sites ever renders at
+ * once — the point is "put it where the reason to read it actually is", not
+ * "put it everywhere": an empty board wants it beside "nobody's here yet",
+ * a board with open seats wants it above the seats, and a full, scored
+ * squad has no seat left to invite anyone into, so neither fires.
  */
 function InviteCode({ code }: { code: string }) {
   return (
@@ -226,8 +228,10 @@ export function Leaderboard({ squad }: { squad: Squad }) {
 
       {/* §7: locked slots are visible every day, not only when solo — the
           constant pull to invite the rest of the barkada. Ranked after every
-          member, scored or not, so the numbering never skips or repeats. */}
-      {locked > 0 && <InviteCode code={squad.invite_code} />}
+          member, scored or not, so the numbering never skips or repeats.
+          Gated on `rows.length > 0`: an empty board already showed the code
+          above, and showing it twice was the earlier bug here. */}
+      {rows.length > 0 && locked > 0 && <InviteCode code={squad.invite_code} />}
 
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
