@@ -128,7 +128,7 @@ bars or buttons of their own any more.
 | `Meter` | The one bar idiom. `StatBar` and `XpBar` already duplicate this geometry on purpose ("two bar idioms in one app is one too many"); this makes it structural. |
 | `TierChip` | Stat letter + tier colour. Glows at Gold+, flat below. |
 | `Button` | `primary` / `secondary` / `ghost`, with press-scale and disabled state. |
-| `Aura` | Glow extracted from `HunterSilhouette` so the leading row and active tab share the language. |
+| `Aura` | Glow extracted from `HunterSilhouette` so the leading squadmate's row can speak the same language. Not the tab bar — see the glow rule above. |
 | `TabPill` | Floating bottom nav, replacing the default `Tabs` bar. |
 
 `Aura` extraction must preserve `HunterSilhouette`'s existing behaviour exactly:
