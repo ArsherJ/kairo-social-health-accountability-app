@@ -90,8 +90,14 @@ Typography becomes two roles with a hard boundary:
 
 - **Display** — Chakra Petch, loaded through `expo-font` (already present in
   `node_modules` as an Expo dependency; add it to `package.json` explicitly).
-  Numerals, level, tier names. Two weights, ~200KB, OFL.
+  Numerals, level, tier names, and the KAIRO wordmark. Two weights, ~157KB, OFL.
 - **Body** — SF Pro (system). All prose, buttons, labels, inputs.
+
+The wordmark is the one non-numeric thing in the display face, and it gets its
+own `font.display.brand` token rather than borrowing a numeral's: `major` carries
+negative tracking tuned for large figures, which squashes a word. Ruled
+2026-08-04 after the boundary as first written ("numerals, levels and tier names
+only") turned out to exclude the wordmark it was always meant to cover.
 
 The existing `font` object is restructured to match these two roles — `font.brand`,
 `font.title`, `font.body` and `font.label` become `font.display.*` and

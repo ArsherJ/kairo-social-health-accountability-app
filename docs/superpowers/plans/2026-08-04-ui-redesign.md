@@ -212,12 +212,14 @@ export const colors = {
 /**
  * Two type roles with a hard boundary (see the redesign spec).
  *
- * `display` is Chakra Petch and is for numerals, levels and tier names only —
- * every screen's focal point in Kairo is a number, and this is what stops them
- * reading like system-font bold. `body` is SF Pro and owns all prose.
+ * `display` is Chakra Petch and covers numerals, levels, tier names and the
+ * wordmark — every screen's focal point in Kairo is a number, and this is what
+ * stops them reading like system-font bold. `body` is SF Pro and owns all prose.
  *
  * Everything numeric is tabular: boards refetch on realtime broadcasts, and
- * proportional digits make a live number visibly jitter.
+ * proportional digits make a live number visibly jitter. `brand` is the one
+ * display entry that is not a numeral, so it takes neither tabular figures nor
+ * `major`'s negative tracking, which squashes a word.
  */
 const DISPLAY = 'ChakraPetch-Bold';
 const DISPLAY_MEDIUM = 'ChakraPetch-SemiBold';
@@ -231,9 +233,10 @@ export const font = {
     major: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: -0.5, ...NUM },
     minor: { fontFamily: DISPLAY, fontSize: 20, ...NUM },
     label: { fontFamily: DISPLAY_MEDIUM, fontSize: 12, letterSpacing: 1.5 },
+    brand: { fontFamily: DISPLAY, fontSize: 34, letterSpacing: 4 },
   },
   body: {
-    title: { fontSize: 22, fontWeight: '700' },
+    title: { fontSize: 24, fontWeight: '700' },
     body: { fontSize: 15, fontWeight: '400' },
     label: { fontSize: 12, fontWeight: '600', letterSpacing: 1.5 },
     button: { fontSize: 16, fontWeight: '700' },
@@ -1729,7 +1732,7 @@ git commit -m "Rebuild the Profile screen around level and streak"
 
 **Logic that must not change.** `name.tsx`'s synchronous `submitting` ref guards a real double-insert caused by TanStack's `notifyManager` scheduling updates through `setTimeout(fn, 0)` — keep the ref, the guard and the comment exactly. Keep sign-in's "no sign-in method is configured" message and its provider loop.
 
-- [ ] **Step 1:** `sign-in.tsx` — `KAIRO` in `font.display.major` with the tagline beneath, vertically centred, and the provider buttons as `Button variant="primary" busy={busy}`. Nothing else on the screen.
+- [ ] **Step 1:** `sign-in.tsx` — `KAIRO` in `font.display.brand` (already pointed there by Task 2; do not switch it to `major`, whose negative tracking is tuned for numerals) with the tagline beneath, vertically centred, and the provider buttons as `Button variant="primary" busy={busy}`. Nothing else on the screen.
 - [ ] **Step 2:** `name.tsx` — `Label` "NAME YOUR HUNTER", the question in `font.body.title`, the help line, the input (keeping `autoFocus`, `CHARACTER_NAME_MAX`, `selectionColor`, `onSubmitEditing`), and one `Button` "Begin". Input underline moves to `colors.borderStrong`, becoming `colors.accent` on focus.
 - [ ] **Step 3:** `HealthPermissionSheet.tsx` — restyle onto `Panel` and `Button` over a dimmed backdrop (`colors.bg` at 80% opacity). Keep its permission-state logic untouched.
 - [ ] **Step 4:** `app/_layout.tsx` — the `profile-error` branch moves onto `Panel` and `Button`, keeping its copy and the comment explaining that `profile-error` renders in place because it has nowhere to navigate to.
