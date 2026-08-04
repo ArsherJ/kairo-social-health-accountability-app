@@ -4,6 +4,7 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { colors } from '@/theme.ts';
+import { TabPill } from '@/ui/TabPill.tsx';
 
 export default function TabsLayout() {
   const session = useSessionStore((s) => s.session);
@@ -17,11 +18,10 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <TabPill {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
+        sceneStyle: { backgroundColor: colors.bg },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Character' }} />
