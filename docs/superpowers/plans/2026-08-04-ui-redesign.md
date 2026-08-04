@@ -1045,6 +1045,9 @@ describe('resolveStanding', () => {
 
   // Ties share a rank in the RPC's output, so "the row above" is not always
   // rank - 1, and a naive lookup would find nothing and claim first place.
+  // When two players are tied both on rank and on total, either is equally
+  // "the one above" — the sort is stable, so the first such row in the board's
+  // order wins. Deterministic, and the choice carries no meaning.
   it('finds the nearest higher-placed player when ranks tie', () => {
     const tied = [
       row(1, 'Ligaya', 6_240),
@@ -1054,7 +1057,7 @@ describe('resolveStanding', () => {
     expect(resolveStanding({ hasSquad: true, rows: tied })).toEqual({
       kind: 'ranked',
       rank: 3,
-      ahead: { name: 'Jun', gap: 1_420 },
+      ahead: { name: 'Ligaya', gap: 1_420 },
     });
   });
 
