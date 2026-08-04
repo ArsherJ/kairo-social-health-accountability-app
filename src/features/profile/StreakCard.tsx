@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
+import { Label, Numeral, Panel } from '@/ui/index.ts';
 import type { Streak } from './queries.ts';
 
 /**
@@ -20,16 +21,16 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
   const shieldBanked = streak ? streak.shield_available_on === null : false;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>STREAK</Text>
+    <Panel variant={shieldBanked ? 'earned' : 'plain'}>
+      <Label>Streak</Label>
 
       <View style={styles.figures}>
         <View>
-          <Text style={styles.big}>{current}</Text>
+          <Numeral value={current} size="major" />
           <Text style={styles.caption}>current</Text>
         </View>
         <View>
-          <Text style={styles.bigMuted}>{longest}</Text>
+          <Numeral value={longest} size="major" />
           <Text style={styles.caption}>longest</Text>
         </View>
       </View>
@@ -41,23 +42,12 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
             ? `Streak Shield recharges ${streak.shield_available_on}.`
             : 'Score once to start a streak.'}
       </Text>
-    </View>
+    </Panel>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  label: { color: colors.muted, ...font.body.label },
   figures: { flexDirection: 'row', gap: space.xl, marginTop: space.sm },
-  big: { color: colors.accent, fontSize: 36, fontWeight: '800' },
-  bigMuted: { color: colors.text, fontSize: 36, fontWeight: '800' },
   caption: { color: colors.muted, fontSize: 12 },
   shieldReady: { color: colors.text, fontSize: 13, marginTop: space.md, lineHeight: 18 },
   shieldSpent: { color: colors.muted, fontSize: 13, marginTop: space.md, lineHeight: 18 },

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space } from '@/theme.ts';
+import { colors, space } from '@/theme.ts';
+import { Meter, Numeral } from '@/ui/index.ts';
 import { xpProgress } from './xp-progress.ts';
 
 /**
@@ -10,9 +11,6 @@ import { xpProgress } from './xp-progress.ts';
  * shown alongside the fill because the curve is quadratic: at level 20 the
  * bar creeps while the XP total climbs fast, and without the figures that
  * reads as the screen being broken.
- *
- * Track and fill deliberately match `StatBar`'s geometry; two bar idioms in
- * one app is one too many.
  */
 export function XpBar({ totalXp }: { totalXp: number }) {
   const progress = xpProgress(totalXp);
@@ -20,15 +18,15 @@ export function XpBar({ totalXp }: { totalXp: number }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.level}>LEVEL {progress.level}</Text>
+        <Numeral value={progress.level} size="hero" />
         <Text style={styles.figures}>
           {progress.intoLevel.toLocaleString()} /{' '}
           {progress.neededForNext.toLocaleString()} XP
         </Text>
       </View>
 
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${progress.fraction * 100}%` }]} />
+      <View style={styles.meterWrapper}>
+        <Meter fraction={progress.fraction} color={colors.accent} />
       </View>
 
       <Text style={styles.meta}>
@@ -46,15 +44,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
   },
-  level: { color: colors.text, fontSize: 14, fontWeight: '700', letterSpacing: 1 },
   figures: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
-  track: {
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    marginTop: space.xs,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.accent },
+  meterWrapper: { marginTop: space.xs },
   meta: { color: colors.muted, fontSize: 12, marginTop: space.xs },
 });

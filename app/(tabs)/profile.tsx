@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
@@ -15,10 +12,10 @@ import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { XpBar } from '@/features/profile/XpBar.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button, Panel, Screen } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 
 export default function ProfileTab() {
-  const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -45,14 +42,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        paddingTop: insets.top + space.lg,
-        paddingBottom: insets.bottom + space.xl,
-        paddingHorizontal: space.lg,
-      }}
-    >
+    <Screen>
       <Text style={styles.title}>{profile.data?.character_name ?? 'Profile'}</Text>
 
       {profile.isPending && (
@@ -72,8 +62,8 @@ export default function ProfileTab() {
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
 
-          <View style={styles.card}>
-            <Text style={styles.label}>TIMEZONE</Text>
+          <Panel>
+            <Text style={styles.label}>Timezone</Text>
             <Text style={styles.value}>{profile.data.timezone}</Text>
             {/* Read-only on purpose. §2 ranks everyone on their own local day,
                 and the zone follows the device so travelling does not need a
@@ -82,7 +72,7 @@ export default function ProfileTab() {
               Follows your device. Your day runs midnight to midnight here, so
               travelling moves your day with you.
             </Text>
-          </View>
+          </Panel>
         </>
       )}
 
@@ -91,60 +81,29 @@ export default function ProfileTab() {
         // so without this a working ingest pipeline and a broken one both
         // render zero. Compiled out of release builds.
         <>
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label="Seed Apple Health (dev)"
             onPress={() => void seed()}
-            style={({ pressed }) => [styles.devButton, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.devLabel}>Seed Apple Health (dev)</Text>
-          </Pressable>
+            variant="secondary"
+          />
           {seedStatus !== null && <Text style={styles.devStatus}>{seedStatus}</Text>}
         </>
       )}
 
-      <Pressable
-        accessibilityRole="button"
+      <Button
+        label="Sign out"
         onPress={() => void signOut()}
-        style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={styles.buttonLabel}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+        variant="ghost"
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
   title: { color: colors.text, ...font.body.title },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  card: {
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   label: { color: colors.muted, ...font.body.label },
   value: { color: colors.text, fontSize: 16, fontWeight: '600', marginTop: space.xs },
   help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
-  button: {
-    marginTop: space.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonLabel: { color: colors.danger, fontSize: 16, fontWeight: '700' },
-  devButton: {
-    marginTop: space.lg,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  devLabel: { color: colors.accent, fontSize: 15, fontWeight: '700' },
   devStatus: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
 });

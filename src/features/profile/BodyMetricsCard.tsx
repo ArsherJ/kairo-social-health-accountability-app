@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { colors, font, space } from '@/theme.ts';
+import { Button, Label, Panel } from '@/ui/index.ts';
 import {
   BODY_METRIC_LIMITS,
   parseBodyMetric,
@@ -86,8 +87,8 @@ export function BodyMetricsCard({
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>BODY METRICS</Text>
+    <Panel>
+      <Label>Body Metrics</Label>
 
       {missingBodyMetrics && (
         <Text style={styles.prompt}>
@@ -121,33 +122,17 @@ export function BodyMetricsCard({
       {error !== null && <Text style={styles.error}>{error}</Text>}
       {saved && !update.isPending && <Text style={styles.saved}>Saved.</Text>}
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={update.isPending}
+      <Button
+        label={update.isPending ? 'Saving…' : 'Save'}
         onPress={save}
-        style={({ pressed }) => [
-          styles.button,
-          (pressed || update.isPending) && styles.pressed,
-        ]}
-      >
-        <Text style={styles.buttonLabel}>
-          {update.isPending ? 'Saving…' : 'Save'}
-        </Text>
-      </Pressable>
-    </View>
+        disabled={update.isPending}
+        busy={update.isPending}
+      />
+    </Panel>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  label: { color: colors.muted, ...font.body.label },
   prompt: { color: colors.accent, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
   field: { marginTop: space.md },
   fieldLabel: { color: colors.subtle, fontSize: 13, fontWeight: '600' },
@@ -155,7 +140,7 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: 8,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     color: colors.text,
@@ -164,13 +149,4 @@ const styles = StyleSheet.create({
   optional: { color: colors.muted, fontSize: 12, marginTop: space.sm },
   error: { color: colors.danger, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
   saved: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
-  button: {
-    marginTop: space.md,
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  pressed: { opacity: 0.85 },
 });
