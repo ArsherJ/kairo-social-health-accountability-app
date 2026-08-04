@@ -3,11 +3,12 @@ import { AccessibilityInfo, Animated, Easing } from 'react-native';
 import { animationDuration, shouldRecount } from './motion-policy.ts';
 
 /**
- * Internal: tracks both Reduce Motion state and whether it has been resolved.
- * Separate from the public useReduceMotion so that useCountUp can know when the
- * value is actually known (not just the initial false from useState).
+ * Tracks both Reduce Motion state and whether it has been resolved.
+ * Separate from the public useReduceMotion so that useCountUp and Numeral
+ * can know when the accessibility check has actually resolved (not just the
+ * initial false from useState).
  */
-function _useReduceMotionFull() {
+export function useReduceMotionState(): { reduce: boolean; ready: boolean } {
   const [state, setState] = useState({ reduce: false, ready: false });
 
   useEffect(() => {
@@ -29,7 +30,7 @@ function _useReduceMotionFull() {
 
 /** Live Reduce Motion state. Read once here so no screen can forget it. */
 export function useReduceMotion(): boolean {
-  return _useReduceMotionFull().reduce;
+  return useReduceMotionState().reduce;
 }
 
 /**
@@ -40,7 +41,7 @@ export function useReduceMotion(): boolean {
  * static numbers.
  */
 export function useCountUp(value: number, enabled = true): number {
-  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const [shown, setShown] = useState<number>(() => (enabled ? 0 : value));
   const previous = useRef<number | undefined>(undefined);
 
@@ -94,7 +95,7 @@ export function useCountUp(value: number, enabled = true): number {
 
 /** The Hunter's idle float. ±6px, 4.5s, forever. Nothing else uses this. */
 export function useFloat(): Animated.Value {
-  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const drift = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -132,7 +133,7 @@ export function useFloat(): Animated.Value {
 
 /** Grows a meter from zero to `fraction` (0–1). */
 export function useFillIn(fraction: number): Animated.Value {
-  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const fill = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -156,7 +157,7 @@ export function useFillIn(fraction: number): Animated.Value {
 
 /** Press feedback for cards and buttons — scale, not the old opacity flicker. */
 export function usePressScale() {
-  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const scale = useRef(new Animated.Value(1)).current;
 
   const to = (toValue: number) => () => {
