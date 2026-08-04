@@ -71,7 +71,11 @@ Existing `colors`, `tierColors`, `space`, `radius` are kept. Additions:
 - Split `border` — the current `'#22223040'` is an 8-digit hex RN reads as
   `#222230` at 25% alpha. Becomes explicit `border` (hairline) and
   `borderStrong` (focus / selected), so the two stop competing.
-- `tierColors.diamond: '#7FD4E8'` — §6 defines the tier; nothing renders it yet.
+
+`tierColors` is **not** extended. Gold is the ceiling: §6's four tier tables end
+at Gold and `Tier` in `@kairo/core` is `none | bronze | silver | gold`. An
+earlier draft of this spec proposed a Diamond tier — it does not exist, and no
+copy anywhere may imply one.
 
 Three colour families, each with exactly one job, so a screen's meaning is
 legible from colour alone:
@@ -167,7 +171,19 @@ with the Squad tab, so this adds no network cost. States:
 
 **Stat row.** Four chips across: stat letter, points, tier colour, thin fill.
 Below it one detail line, chosen in this order: the featured ×1.5 stat if there
-is one, otherwise the stat closest to its next tier. Tapping the row toggles an
+is one, otherwise the stat closest to its next tier. It names the gap in the
+stat's own raw unit — "1,240 more steps for Gold", "88 more kcal for Silver" —
+because points are not something a user can go outside and do.
+
+**Second new data dependency.** `daily_scores` stores points and tiers, not raw
+values, so the gap is not derivable from `useTodayScore`. It needs the caller's
+own `health_buckets` rows for the day, aggregated through `aggregateBuckets()`
+from `@kairo/core`. This requires no migration: `health_buckets_select_own`
+already grants the owner SELECT on their own rows, and §5's projection is
+untouched — squadmates reach nothing new. A stat already at Gold has no gap and
+is skipped when choosing the line; if every stat is at Gold the line says so.
+
+Tapping the row toggles an
 inline expansion below it — four `Meter` rows carrying the same information
 `StatBar` shows today, including the human-readable stat labels ("Steps and
 distance"). Collapsed is the default on every mount; the state is local to the
