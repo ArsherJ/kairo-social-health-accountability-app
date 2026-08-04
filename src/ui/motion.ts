@@ -41,7 +41,7 @@ export function useReduceMotion(): boolean {
  */
 export function useCountUp(value: number, enabled = true): number {
   const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
-  const [shown, setShown] = useState<number>(0);
+  const [shown, setShown] = useState<number>(() => (enabled ? 0 : value));
   const previous = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -94,10 +94,15 @@ export function useCountUp(value: number, enabled = true): number {
 
 /** The Hunter's idle float. ±6px, 4.5s, forever. Nothing else uses this. */
 export function useFloat(): Animated.Value {
-  const reduceMotion = useReduceMotion();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
   const drift = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Do not start the loop until the Reduce Motion state is known.
+    if (!reduceMotionReady) {
+      return;
+    }
+
     if (animationDuration(2_250, reduceMotion) === 0) {
       drift.setValue(0);
       return;
@@ -120,17 +125,23 @@ export function useFloat(): Animated.Value {
     );
     loop.start();
     return () => loop.stop();
-  }, [drift, reduceMotion]);
+  }, [drift, reduceMotion, reduceMotionReady]);
 
   return drift;
 }
 
 /** Grows a meter from zero to `fraction` (0–1). */
 export function useFillIn(fraction: number): Animated.Value {
-  const reduceMotion = useReduceMotion();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
   const fill = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Do not animate until the Reduce Motion state is known. A meter sitting at
+    // 0 width for one bridge round trip is correct; it is what "grows from zero" means.
+    if (!reduceMotionReady) {
+      return;
+    }
+
     Animated.timing(fill, {
       toValue: Math.max(0, Math.min(1, fraction)),
       duration: animationDuration(500, reduceMotion),
@@ -138,17 +149,23 @@ export function useFillIn(fraction: number): Animated.Value {
       // Width is not a transform, so this cannot run on the native driver.
       useNativeDriver: false,
     }).start();
-  }, [fill, fraction, reduceMotion]);
+  }, [fill, fraction, reduceMotion, reduceMotionReady]);
 
   return fill;
 }
 
 /** Press feedback for cards and buttons — scale, not the old opacity flicker. */
 export function usePressScale() {
-  const reduceMotion = useReduceMotion();
+  const { reduce: reduceMotion, ready: reduceMotionReady } = _useReduceMotionFull();
   const scale = useRef(new Animated.Value(1)).current;
 
   const to = (toValue: number) => () => {
+    // User-triggered handlers typically run after Reduce Motion is resolved,
+    // but gate on readiness for correctness and uniformity with other hooks.
+    if (!reduceMotionReady) {
+      return;
+    }
+
     Animated.timing(scale, {
       toValue,
       duration: animationDuration(120, reduceMotion),
