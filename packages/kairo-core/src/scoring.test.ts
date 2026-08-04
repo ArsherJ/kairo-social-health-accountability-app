@@ -10,6 +10,8 @@ import {
   VIT_ACTIVE_HOUR_STEPS,
   aggregateBuckets,
   computeDailyScore,
+  nextTierFor,
+  tierFor,
 } from './scoring.ts';
 import type { CoreStat, HourBucket } from './types.ts';
 
@@ -420,5 +422,44 @@ describe('XP', () => {
     expect(computeDailyScore({ buckets }).xp).toBe(
       computeDailyScore({ buckets, featuredStat: 'AGI' }).xp,
     );
+  });
+});
+
+describe('nextTierFor', () => {
+  it('names bronze and the gap for a stat with no tier yet', () => {
+    expect(nextTierFor('AGI', 0)).toEqual({ tier: 'bronze', gap: 1_000 });
+  });
+
+  it('names silver from inside bronze', () => {
+    expect(nextTierFor('AGI', 4_760)).toEqual({ tier: 'silver', gap: 240 });
+  });
+
+  it('names gold from inside silver', () => {
+    expect(nextTierFor('AGI', 8_760)).toEqual({ tier: 'gold', gap: 1_240 });
+  });
+
+  // Gold is the ceiling (§6). There is no Diamond.
+  it('returns null at gold', () => {
+    expect(nextTierFor('AGI', 10_000)).toBeNull();
+    expect(nextTierFor('AGI', 25_000)).toBeNull();
+  });
+
+  it("uses each stat's own thresholds and units", () => {
+    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80 });
+    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1 });
+    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1 });
+  });
+
+  // active_minutes is numeric(6,2), so raw values arrive fractional. Telling
+  // someone they need 0.4 more minutes is not an instruction.
+  it('rounds a fractional gap up to a whole unit', () => {
+    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1 });
+  });
+
+  // The boundary is inclusive in tierFor, so it must be inclusive here too or
+  // the two disagree about what "at silver" means.
+  it('agrees with tierFor on the boundary', () => {
+    expect(tierFor('STR', 200)).toBe('silver');
+    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200 });
   });
 });
