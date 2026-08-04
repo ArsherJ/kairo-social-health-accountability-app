@@ -180,8 +180,9 @@ local stack is ever genuinely needed — so far nothing has required one.
 
 ### ✅ Phase 8 — UI redesign · 40–50h
 - ✅ **Shared `src/ui` primitive layer** — nine components (`Screen`, `Panel`, `Numeral`, `Label`, `Meter`, `TierChip`, `Button`, `Aura`, `TabPill`) with a unified design language, motion policy, and zero dependencies
-- ✅ **Four pure decision modules with tests** — motion policy, tier colours, standing/leaderboard logic, and character stat detail, all unit-tested and deterministic
-- ✅ **Every screen rebuilt on the primitive layer** — 13 parallel task implementation across tabs, onboarding, auth, squad forms, and feature cards
+- ✅ **Five pure decision modules, 37 new tests** — `ui/motion-policy` (7), `character/standing` (10), `character/stat-detail` (7), `character/stat-fraction` (8), `squad/standing` (5). Every UI *decision* runs in plain node; rendering stays thin, as with the Edge Functions' `*-plan.ts` split
+- ✅ **`nextTierFor` added to `kairo-core`** so tier thresholds stay in one place — the stat detail line needs a gap in raw units, which `daily_scores` does not store
+- ✅ **Every screen rebuilt on the primitive layer** — the three tabs, onboarding, auth, the health sheet, squad forms and feature cards
 - ✅ **Spec reference:** `docs/superpowers/specs/2026-08-04-ui-redesign-design.md`
 - ⬜ **Device verification** — end-to-end UI rendering on the physical iPhone (outstanding, batched separately)
 
@@ -280,7 +281,7 @@ deliberate; none blocks simulator verification.
 | 2 | **`profiles.has_wearable` is never written.** Nothing in any Edge Function sets it; only `src/features/profile/queries.ts` reads it. `sync-health` receiving a `sleep` entry is the natural signal. | A server change outside this phase's scope. `MAX_DAILY_SCORE_WITH_WEARABLE` and any wearable affordance on the leaderboard both depend on it, so do it before REC matters. |
 | 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
 | 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. | Phase 1 follow-up #1's territory — one `app_events` type would cover this, the timezone reconcile and the permission path together. |
-| 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 8 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
+| 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 9 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
 
 ---
 
