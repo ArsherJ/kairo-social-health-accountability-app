@@ -178,7 +178,14 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ⬜ Notification budget engine (§14) — no notification system exists yet
 - ⬜ AI-generated placeholder Hunter art — still plain `View` primitives (§15)
 
-### ⬜ Phase 8 — TestFlight + beta · 20–30h
+### ✅ Phase 8 — UI redesign · 40–50h
+- ✅ **Shared `src/ui` primitive layer** — nine components (`Screen`, `Panel`, `Numeral`, `Label`, `Meter`, `TierChip`, `Button`, `Aura`, `TabPill`) with a unified design language, motion policy, and zero dependencies
+- ✅ **Four pure decision modules with tests** — motion policy, tier colours, standing/leaderboard logic, and character stat detail, all unit-tested and deterministic
+- ✅ **Every screen rebuilt on the primitive layer** — 13 parallel task implementation across tabs, onboarding, auth, squad forms, and feature cards
+- ✅ **Spec reference:** `docs/superpowers/specs/2026-08-04-ui-redesign-design.md`
+- ⬜ **Device verification** — end-to-end UI rendering on the physical iPhone (outstanding, batched separately)
+
+### ⬜ Phase 9 — TestFlight + beta · 20–30h
 - `app_events` instrumentation, privacy nutrition labels
 - Internal → external testers, beta ops
 - ⬜ **Undeploy `seed-health` before external testers join** — it fabricates

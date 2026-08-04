@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space } from '@/theme.ts';
+import { colors, space } from '@/theme.ts';
 import { Panel } from '@/ui/index.ts';
 
 /**
