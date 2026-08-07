@@ -12,6 +12,7 @@ import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
+import { FocusCard } from '@/features/profile/FocusCard.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { XpBar } from '@/features/profile/XpBar.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -71,6 +72,8 @@ export default function ProfileTab() {
           <StreakCard streak={streak.data} />
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
+
+          <FocusCard userId={userId} profile={profile.data} />
 
           <View style={styles.card}>
             <Text style={styles.label}>TIMEZONE</Text>

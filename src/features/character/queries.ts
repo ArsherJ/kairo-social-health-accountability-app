@@ -20,7 +20,6 @@ export type TodayScore = {
   total: number;
   tiers: Record<string, string>;
   contributing_stats: number;
-  featured_stat: string | null;
   status: 'provisional' | 'final';
 };
 
@@ -51,7 +50,7 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
         .select(
           'agi_points, str_points, end_points, vit_points, rec_points, ' +
             'consistency_points, sabotage_delta, total, tiers, ' +
-            'contributing_stats, featured_stat, status',
+            'contributing_stats, status',
         )
         .eq('user_id', userId as string)
         .eq('local_date', localDate as string)
@@ -121,6 +120,47 @@ export function useDominantStat(
       }
 
       return dominantStat(totals);
+    },
+  });
+}
+
+/**
+ * Today's step count, summed from the caller's own hourly buckets.
+ *
+ * Only the first-sync callout needs this — `daily_scores` stores points and
+ * tiers, not raw measurements, and "4,300 steps" is the number a person
+ * recognises as their day. The caller's own `health_buckets` rows only; §5's
+ * projection exists precisely so nobody else's are reachable.
+ */
+export function todayStepsKey(
+  userId: string | undefined,
+  localDate: string | undefined,
+) {
+  return ['today-steps', userId ?? 'none', localDate ?? 'none'] as const;
+}
+
+export function useTodaySteps(
+  userId: string | undefined,
+  timeZone: string | undefined,
+  enabled: boolean,
+) {
+  const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
+
+  return useQuery({
+    queryKey: todayStepsKey(userId, localDate),
+    enabled: enabled && Boolean(userId && localDate),
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('health_buckets')
+        .select('steps')
+        .eq('user_id', userId as string)
+        .eq('local_date', localDate as string);
+
+      if (error) throw new Error(error.message);
+      return ((data ?? []) as ReadonlyArray<{ steps: number }>).reduce(
+        (sum, row) => sum + Number(row.steps),
+        0,
+      );
     },
   });
 }

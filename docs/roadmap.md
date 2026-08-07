@@ -111,25 +111,24 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ Hand-verified on the simulator — the onboarding flow was walked end to end
   by hand, which is this phase's acceptance criterion (UI is verified on device,
   not by test)
-- ⬜ **[SP] `profiles.focus` column** — nullable text,
-  `check (focus in ('running','gym','walking','general'))`; null means
-  skipped/unset. Add to the column-scoped INSERT **and** UPDATE grants
-  (repo rule: revoke the table grant, re-grant the columns — a column-level
-  `REVOKE` against a table grant is silently a no-op).
-- ⬜ **[SP] Focus screen** — `app/(onboard)/focus.tsx` between the name step
-  and the tabs. Single-select chips: Running / Gym / Walking / A bit of
-  everything; skippable. Writes an UPDATE after profile creation; skip writes
-  nothing. **Route gate unchanged** — profile-row existence stays the
-  onboarding marker, so a force-quit between name and focus resumes into the
-  tabs with focus unset (acceptable by design; editable in Profile, Phase 7).
-  Copy must state the rule: *"Every stat still counts — focus changes what
-  Kairo highlights for you, not the score."*
-- ⬜ **[SP] Sign-in value prop** — two lines under the tagline saying what the
-  app is; copy only, no new screen.
-- ⬜ **[SP] `app_events`: `focus_selected` (with value) / `focus_skipped`** —
-  written from the focus screen; the client INSERT policy already exists.
-  This is the segmentation §15's risk questions need — ship before external
-  testers join.
+- ✅ **[SP] `profiles.focus` column** — `20260807100000_profiles_focus_and_wearable.sql`.
+  Nullable, `check (focus in ('running','gym','walking','general'))`, added to
+  both column-scoped grants by the revoke-then-re-grant rule. Mirrored as
+  `UserFocus` in `packages/kairo-core/src/program.ts`.
+- ✅ **[SP] Focus screen** — `app/(onboard)/focus.tsx`, single-select and
+  skippable; skip writes nothing. Profile-row existence is still the onboarding
+  marker, so the gate reads 'ready' while the question is on screen — the
+  navigation rule moved out of `_layout.tsx` into `redirectTarget()` in
+  `features/auth/route.ts`, tested in Node, held off by an **in-memory**
+  `finishingOnboarding` flag. A force-quit between the two steps therefore
+  resumes into the tabs with focus unset, exactly as specified. Chips are
+  shared with the Profile edit row (`FocusChips.tsx`) so the question cannot
+  come to mean two things.
+- ✅ **[SP] Sign-in value prop** — two lines under the tagline. Copy only.
+- ✅ **[SP] `app_events`: `focus_selected` / `focus_skipped`** — plus
+  `squad_program_selected`, through a new fire-and-forget
+  `src/features/telemetry/events.ts` that never throws into a screen. The
+  client INSERT policy already existed; no server change.
 
 ### ✅ Phase 2 — Scoring engine (TDD) · 25–35h
 - `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
@@ -175,23 +174,24 @@ local stack is ever genuinely needed — so far nothing has required one.
   bonus is unreachable, and `MAX_DAILY_SCORE_PHONE_ONLY = 4_400` (which assumes
   4 × 900 + 800) is arithmetically wrong. That would be a `kairo-core` scoring
   decision, not an ingest fix.
-- ⬜ **[SP] Base-points switch (deviations #10 + #11).** Change the default
-  **in `kairo-core` itself**: `computeDailyScore` treats an undefined
-  `featuredStat` as `null` instead of calling `featuredStatFor(localDate)`,
-  so no future caller can reintroduce the rotation by accident.
-  `sync-plan` then stores pre-multiplier per-stat points and writes
-  `featured_stat` as null. Update the affected fixtures (`sync-plan.test.ts`
-  expects `'END'`; the §5 worked-scenario totals are unaffected because none
-  of them assume a featured stat). Rescore or reseed every dev
-  `daily_scores` row the same day this deploys — stored rows currently hold
-  post-multiplier points.
-- ⬜ **[SP] `has_wearable` becomes server-observed** (decision #5 in the
-  assessment; closes Phase 3 follow-up #2). `sync-health` sets it `true`
-  (sticky — never back to false automatically) on the first payload carrying
-  sleep data. **In the same migration, remove `has_wearable` from the client
-  INSERT and UPDATE grants** — it is client-writable today, which contradicts
-  observed-from-data and lets a forged client fake the 🔗 wearable icon on
-  the leaderboard.
+- ✅ **[SP] Base-points switch (deviations #10 + #11).** The rotation default
+  lived in `computeDay` (`compute.ts`), not `computeDailyScore` — which
+  already defaulted to null — so that is where it was removed; `planDay` now
+  also passes `featuredStat: null` explicitly, so a future change to
+  `computeDay`'s default cannot silently reintroduce a stored multiplier.
+  `STAT_POINTS_MAX_FEATURED` and both `MAX_DAILY_SCORE_*_FEATURED` constants
+  were deleted rather than stranded; `FEATURED_STAT_MULTIPLIER` stays, tested,
+  for a V1 read-time projection.
+  **Still owed: deploy `sync-health` and rescore or reseed the live dev
+  `daily_scores` rows** — stored rows hold post-multiplier points until then,
+  and the Phase 4 board reads per-stat columns.
+- ✅ **[SP] `has_wearable` becomes server-observed** (closes Phase 3 follow-up
+  #2). `observesWearable()` in `sync-plan.ts` is the decision — sleep minutes
+  greater than zero, since a zero-minute night is indistinguishable from no
+  data and the flag is sticky. The handler's write is filtered
+  `.eq('has_wearable', false)`, so it only ever flips false → true and is a
+  no-op for everyone already flagged. Both client grants dropped it in
+  `20260807100000_profiles_focus_and_wearable.sql`.
 
 ### 🟨 Phase 4 — Squads + leaderboard · 45–60h (+15–22h [SP])
 - ✅ `squad_leaderboard` **completed-day mode** — each member ranked on their own
@@ -206,17 +206,22 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ Realtime broadcast wired to the squad screen — broadcasts refresh the board
   through `squad_leaderboard`, with reconnect and foreground refetches covering
   the events Realtime drops
-- ⬜ **[SP] `squads.program`** —
-  `check (program in ('all_around','running','gym','walking'))`, default
-  `'all_around'`, **no UPDATE path** (fixed at creation for MVP —
-  delete-and-recreate is the escape hatch; per-day program history is V1's
-  problem). `create_squad(p_name, p_program)` with `p_program` defaulting to
-  `'all_around'`.
-- ⬜ **[SP] Program weights in `@kairo/core`** — a `PROGRAM_WEIGHTS` table
-  (running → AGI ×1.5, gym → STR ×1.5, walking → VIT ×1.5, all_around → none)
-  plus a pure weighted-total function, TDD'd. END is deliberately never
-  boosted (Phase 3's `AppleExerciseTime` risk).
-- ⬜ **[SP] Read-time weighting in `squad_leaderboard()` (deviation #11)** —
+- ✅ **[SP] `squads.program`** — `20260807100100_squads_program.sql`.
+  "No UPDATE path" is enforced by **column-scoping the client's UPDATE grant on
+  `squads` to `name` alone** — `squads_update_leader` is an RLS policy, and a
+  policy constrains rows, not columns. `create_squad` was dropped and recreated
+  as `(text, text)` rather than gaining a defaulted parameter, which would have
+  left a second overload behind; a schema test asserts exactly one
+  `create_squad` exists. **Also added: `preview_squad(p_invite_code)`** — the
+  join confirmation cannot show a squad's program otherwise, because
+  `squads_select_member` hides the row from the person about to join. Holding a
+  valid code is the authorisation; the projection carries no member identities,
+  no scores and no invite code.
+- ✅ **[SP] Program weights in `@kairo/core`** — `packages/kairo-core/src/program.ts`:
+  `PROGRAM_WEIGHTS`, `weightedBoardTotal()`, and the personal-focus vocabulary
+  (`UserFocus`, `focusToProgram`, `focusStat`) alongside it. 19 tests, END
+  never boosted on any program.
+- ✅ **[SP] Read-time weighting in `squad_leaderboard()` (deviation #11)** —
   board total = round(Σ per-stat points × weight) + consistency + rec +
   sabotage_delta, floored at 0; ranked in both `'current'` and `'completed'`
   modes; the returned `total` becomes this weighted number and the RPC also
@@ -226,8 +231,13 @@ local stack is ever genuinely needed — so far nothing has required one.
   `FREE_SQUAD_MAX_MEMBERS` precedent): cross-reference comments on both
   sides, plus a **differential test in the schema suite** asserting SQL and
   `@kairo/core` agree on fixture days (the `finalizable_days()` /
-  `isFinalizable()` precedent).
-- ⬜ **[SP] Program in the squad UI** — chip row in the create form (lead with
+  `isFinalizable()` precedent). **As built:** the weights live in one SQL
+  function, `program_weighted_total()`, so the differential test exercises the
+  same expression the board uses rather than a copy of it. The board no longer
+  reads `daily_scores.total` at all — it recomputes from the per-stat columns,
+  which is why the one existing schema test that seeded a bare `total` had to
+  start seeding points.
+- ✅ **[SP] Program in the squad UI** — chip row in the create form (lead with
   the three focused programs; All-around offered as "a bit of everything");
   the join confirmation shows the squad's name **and program** before joining
   (the program is the game rule — consent to it is part of joining; personal
@@ -235,10 +245,13 @@ local stack is ever genuinely needed — so far nothing has required one.
   user's own row, surface the boost (e.g. an "AGI ×1.5" chip) — the character
   screen shows the unweighted own-day total, so the difference must be
   explained, not hidden. **Gym-squad creation copy:** *"Gym tracking is most
-  accurate with a watch or band"* — the honest-capability rule.
-- ⬜ **[SP] Remove featured-stat UI scaling** — `STAT_POINTS_MAX_FEATURED` and
-  `StatBar`'s featured sizing become dead code with deviation #10; delete
-  rather than strand (supersedes what remains of Phase 4 backend follow-up #1).
+  accurate with a watch or band"* — the honest-capability rule. Copy lives in
+  `src/features/squad/program-copy.ts`, tested for coverage of every program
+  the core declares.
+- ✅ **[SP] Remove featured-stat UI scaling** — `StatBar`'s `featured` prop is
+  gone, replaced by `lane` (Phase 7's focus highlight), which marks the bar
+  without rescaling it. `TodayScore` no longer selects `featured_stat`. Closes
+  Phase 4 backend follow-up #1 and Phase 1 follow-up #2's featured half.
 
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
 - ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
@@ -278,28 +291,32 @@ local stack is ever genuinely needed — so far nothing has required one.
   varies frame, aura and stance by it, with a label on the character screen.
 - ⬜ Notification budget engine (§14) — no notification system exists yet
 - ⬜ AI-generated placeholder Hunter art — still plain `View` primitives (§15)
-- ⬜ **[SP] Focus edit row in Profile** — beside the body-metrics card; writes
-  the same `profiles.focus` column the onboarding screen does.
-- ⬜ **[SP] "Your lane" highlight** — the character screen highlights the
-  focus stat and its empty-state copy speaks the focus's language ("Your next
-  run fills this bar"). Presentation only; reads `profiles.focus`, touches no
-  scoring.
-- ⬜ **[SP] First-sync moment** — a one-time callout when the first successful
-  sync lands: "Today already counted: 4,300 steps → AGI Silver." The data
-  already floods in; this makes the best moment in the funnel visible.
-- ⬜ **[SP] "Have an invite code?" affordance on the solo board** — low-key
-  link into the join form; solo mode stays the funnel, never a gate.
+- ✅ **[SP] Focus edit row in Profile** — `FocusCard.tsx`, beside the
+  body-metrics card, reusing the onboarding chips.
+- ✅ **[SP] "Your lane" highlight** — `src/features/character/lane.ts`, tested.
+  Presentation only: the lane bar gets a tag and a border, never a wider
+  ceiling or a different colour.
+- ✅ **[SP] First-sync moment** — `FirstSyncCallout.tsx` over a pure
+  `firstSyncHeadline()`. Steps come from the caller's own `health_buckets`
+  (`daily_scores` stores points, not measurements) and are only queried while
+  the callout is still owed. One-shot per user in its own MMKV instance, so
+  signing out does not resurrect it. Handles the lifter case: a gym session is
+  calories, not steps, so "0 steps" never leads.
+- ✅ **[SP] "Have an invite code?" affordance on the solo board** — the
+  equal-weight "Join with a code" button was demoted to a link. Create stays
+  the funnel.
 
 ### ⬜ Phase 8 — TestFlight + beta · 20–30h
 - `app_events` instrumentation, privacy nutrition labels
 - Internal → external testers, beta ops
 - ⬜ **Undeploy `seed-health` before external testers join** — it fabricates
   activity, and the beta measures real behaviour
-- ⬜ **[SP] Segment beta metrics by squad program and personal focus** —
-  D7/D21 per program; declared focus vs `dominantStat()` mismatch (a user who
-  said Running but lands VIT-dominant is being scored as someone they don't
-  identify as — sustained mismatch predicts "not winnable for my lifestyle"
-  before an interview surfaces it).
+- 🟨 **[SP] Segment beta metrics by squad program and personal focus** —
+  the instrumentation is in place (`profiles.focus`, `squads.program`, the
+  three `app_events` types) and the four queries are checked in at
+  `supabase/analytics/beta-segmentation.sql`: D7/D21 per program, gym viability
+  wearable vs phone-only, declared focus vs observed dominance, and the focus
+  question's own funnel. Running them is beta-time work.
 
 **Why Phase 2 precedes Phase 3:** scoring is the highest-risk logic in the product and needs no device, HealthKit or network. Green tests first means every later phase debugs *plumbing* against known-correct math, instead of debugging math and plumbing at the same time.
 

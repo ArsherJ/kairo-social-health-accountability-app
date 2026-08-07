@@ -1,8 +1,10 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
+import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { HunterSilhouette } from '@/features/character/HunterSilhouette.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
+import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
   DOMINANCE_WINDOW_DAYS,
   useDominantStat,
@@ -46,6 +48,11 @@ export default function Character() {
   const today = score.data;
 
   const bonus = (today?.consistency_points ?? 0) + (today?.rec_points ?? 0);
+
+  // Presentation only (§5's focus question). Nothing here touches scoring —
+  // the squad's program is what changes points, and it does so on the board.
+  const lane = laneStat(profile.data?.focus ?? null);
+  const laneCopy = laneEmptyCopy(profile.data?.focus ?? null);
 
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
@@ -101,14 +108,23 @@ export default function Character() {
         )}
       </View>
 
+      <FirstSyncCallout
+        userId={session?.user.id}
+        timeZone={profile.data?.timezone}
+        points={points}
+        tiers={today?.tiers ?? {}}
+        hasScore={today != null}
+      />
+
       {CORE_STATS.map((stat) => (
         <StatBar
           key={stat}
           stat={stat}
           label={STAT_LABELS[stat]}
           points={points[stat]}
-          featured={today?.featured_stat === stat}
           tier={today?.tiers?.[stat]}
+          lane={stat === lane}
+          laneEmptyCopy={laneCopy}
         />
       ))}
 
