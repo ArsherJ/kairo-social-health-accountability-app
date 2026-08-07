@@ -2,7 +2,11 @@ import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { track } from '@/features/telemetry/events.ts';
-import { readNotificationPermission, registerDeviceToken } from './permission.ts';
+import {
+  readNotificationPermission,
+  registerDeviceToken,
+  upsertDeviceToken,
+} from './permission.ts';
 
 /**
  * Keeps this device's push registration current.
@@ -11,6 +15,12 @@ import { readNotificationPermission, registerDeviceToken } from './permission.ts
  * than from our sheet, and APNs may rotate the token at any time. Neither
  * produces an error anywhere — the server simply stops reaching the device —
  * so both are watched rather than assumed.
+ *
+ * **The listener writes the token it was handed and never asks for one.**
+ * `getDevicePushTokenAsync()` asks iOS to register for remote notifications,
+ * and the resulting token fires this very listener — so a handler that calls it
+ * feeds itself. Hand verification on the simulator caught exactly that: 66
+ * registration attempts in 25 seconds, each logging a warning.
  */
 export function useDeviceTokenRegistration(userId: string | undefined): void {
   useEffect(() => {
@@ -22,8 +32,8 @@ export function useDeviceTokenRegistration(userId: string | undefined): void {
       if (!cancelled && permission === 'granted') void registerDeviceToken();
     });
 
-    const subscription = Notifications.addPushTokenListener(() => {
-      void registerDeviceToken();
+    const subscription = Notifications.addPushTokenListener((token) => {
+      void upsertDeviceToken(String(token.data ?? ''));
     });
 
     return () => {
@@ -37,9 +47,11 @@ export function useDeviceTokenRegistration(userId: string | undefined): void {
  * Records that the app was opened (§11), which is what makes §14's "Day starts"
  * conditional: it fires mid-morning **only if the app has not been opened yet**.
  *
- * Deduped per device calendar day purely to keep `app_events` lean — the
- * dispatcher does the real comparison against each user's own local date, and
- * only cares whether a row exists.
+ * Deduped per calendar day **within a session** — the marker is module state,
+ * so a cold start writes another row. That is deliberate rather than sloppy:
+ * collapsing foreground churn is worth it, and cold starts are the signal §11
+ * most wants. The dispatcher only asks whether a row exists on the user's own
+ * local date, so duplicates cost a row and change nothing.
  */
 let lastTrackedDay: string | null = null;
 

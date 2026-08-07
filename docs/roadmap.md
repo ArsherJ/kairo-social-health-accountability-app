@@ -292,8 +292,25 @@ local stack is ever genuinely needed — so far nothing has required one.
   `squad_leaderboard` gains `p_as_user` (`20260807110400`) so the JWT-less cron
   reads rank through the *same* projection the screen does, honoured only when
   `auth.uid()` is null.
-  **Still owed:** hand verification on the simulator, and the last hop — see
-  the FCM-vs-APNs token note in `_shared/push.deno.ts`.
+  **Hand-verified on the simulator 2026-08-07** (prebuild + `npm run ios`,
+  iPhone 17 Pro): the sheet stays hidden with no squad and appears on joining
+  one, the OS grant is real (`didGrant: 1` in the device log), the token lands
+  in `device_tokens` and re-registers on cold start, `app_open` lands, and a
+  live `deploy-sabotage` returned `ok: true` while writing `push_failed`
+  (`not_configured`) and **no** `notification_log` row — the wrap holds and an
+  unsent push does not spend the budget.
+  **It also caught a real bug** — see the token-listener loop below.
+  **Still owed:** the last hop — see the FCM-vs-APNs token note in
+  `_shared/push.deno.ts`.
+- ✅ **Bug found by hand verification: the push-token listener fed itself.**
+  `getDevicePushTokenAsync()` asks iOS to register for remote notifications,
+  and the token that arrives *fires the push-token listener*. The listener's
+  handler called `registerDeviceToken()`, which calls
+  `getDevicePushTokenAsync()` again — **66 registration attempts in 25
+  seconds** on the simulator, each one a warning and a network round trip. The
+  listener now writes the token it is handed and never asks for one; sign-out
+  deletes a remembered token for the same reason. No test would have caught
+  this: the loop only exists inside the native module's callback.
 - ✅ **Live defect found while wiring the second cron: both crons were 401ing.**
   From 2026-08-07 06:05 UTC the Functions gateway began rejecting
   `net.http_post` calls that carry no `Authorization` header —
