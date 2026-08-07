@@ -3,6 +3,7 @@ import {
   MAX_BUCKETS_PER_SYNC,
   affectedDates,
   isDayFlagged,
+  observesWearable,
   planDay,
   validateSyncRequest,
   type DayPlanInput,
@@ -304,8 +305,61 @@ describe('planDay', () => {
     expect(withSleep.row.rec_points).toBe(500);
   });
 
-  it('applies the week’s featured stat', () => {
+  it('stores pre-multiplier points and no featured stat (deviation #11)', () => {
+    // All weighting is read-time in squad_leaderboard(), so stored scores stay
+    // canonical and program-independent.
     const { row } = planDay(input());
-    expect(row.featured_stat).toBe('END');
+    expect(row.featured_stat).toBeNull();
+    expect(row.end_points).toBe(500);
+  });
+});
+
+describe('observesWearable', () => {
+  // Wearable capability is observed from synced data, never asked (decision #5
+  // in the onboarding assessment). Sleep is the signal: an iPhone alone does
+  // not record it.
+  it('is true when the payload carries sleep', () => {
+    expect(
+      observesWearable({
+        timezone: MANILA,
+        buckets: [],
+        sleep: [{ localDate: DAY, minutes: 7 * 60 }],
+      }),
+    ).toBe(true);
+  });
+
+  it('is false for a phone-only payload', () => {
+    expect(observesWearable({ timezone: MANILA, buckets: [bucket()] })).toBe(false);
+  });
+
+  it('is false for an empty sleep array', () => {
+    expect(
+      observesWearable({ timezone: MANILA, buckets: [bucket()], sleep: [] }),
+    ).toBe(false);
+  });
+
+  it('does not count a zero-minute night as a wearable', () => {
+    // Zero minutes is indistinguishable from no data, and the flag is sticky —
+    // a false positive is permanent.
+    expect(
+      observesWearable({
+        timezone: MANILA,
+        buckets: [],
+        sleep: [{ localDate: DAY, minutes: 0 }],
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when any night in a multi-day payload has sleep', () => {
+    expect(
+      observesWearable({
+        timezone: MANILA,
+        buckets: [],
+        sleep: [
+          { localDate: '2026-07-26', minutes: 0 },
+          { localDate: DAY, minutes: 400 },
+        ],
+      }),
+    ).toBe(true);
   });
 });

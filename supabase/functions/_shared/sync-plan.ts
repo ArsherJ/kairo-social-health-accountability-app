@@ -217,6 +217,22 @@ export interface DayPlanInput {
   existingStatus: DayStatus | null;
 }
 
+/**
+ * Whether this payload proves the user has a wearable.
+ *
+ * Capability is **observed from synced data, never asked** — an onboarding
+ * question about hardware is a question people answer aspirationally, and it
+ * would gate nothing useful. Sleep is the honest signal: an iPhone on its own
+ * does not record it.
+ *
+ * Zero minutes does not count. It is indistinguishable from no data, and the
+ * flag is sticky — a false positive is permanent, and it would light the 🔗
+ * icon on the leaderboard for someone who has no wearable at all.
+ */
+export function observesWearable(request: SyncRequest): boolean {
+  return (request.sleep ?? []).some((s) => s.minutes > 0);
+}
+
 /** The row `sync-health` will upsert into daily_scores. */
 export interface DayScoreRow {
   user_id: string;
@@ -267,6 +283,10 @@ export function planDay(input: DayPlanInput): DayPlan {
     buckets: input.buckets,
     sabotageEvents: input.sabotageEvents,
     sleepMinutes: input.sleepMinutes,
+    // Deviation #11: stored per-stat points are **base** — pre-multiplier and
+    // program-independent. All weighting happens at read time in
+    // squad_leaderboard(). Never pass a featuredStat from a write path.
+    featuredStat: null,
   });
 
   const frozen = input.existingStatus === 'final';

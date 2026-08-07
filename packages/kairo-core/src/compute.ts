@@ -1,4 +1,4 @@
-import { featuredStatFor, isFinalizable } from './day.ts';
+import { isFinalizable } from './day.ts';
 import { applySabotage, replaySabotageDelta, type SabotageEvent } from './sabotage.ts';
 import { computeDailyScore } from './scoring.ts';
 import type { CoreStat, DailyScore, HourBucket } from './types.ts';
@@ -25,8 +25,15 @@ export interface ComputeDayInput {
   /** Wearable users only. */
   sleepMinutes?: number | null;
   /**
-   * Omit to use the week's rotation. Pass `null` to score with no featured
-   * stat at all; pass a stat to force one.
+   * Defaults to `null` — **no featured stat** (deviation #10). The weekly
+   * rotation is retired from stored scoring: squad programs carry the meta now
+   * and they weight at *read* time, so a stored multiplier would stack with a
+   * program weight (an AGI week in a running squad = 2.25×).
+   *
+   * `featuredStatFor` still exists and is still tested, so V1 can resurrect the
+   * rotation as a read-time projection. Passing a stat here forces one, which
+   * is how the multiplier stays exercised by tests — but nothing on the write
+   * path may do so.
    */
   featuredStat?: CoreStat | null;
 }
@@ -40,15 +47,10 @@ export interface ComputeDayResult {
 }
 
 export function computeDay(input: ComputeDayInput): ComputeDayResult {
-  const featuredStat =
-    input.featuredStat === undefined
-      ? featuredStatFor(input.localDate)
-      : input.featuredStat;
-
   const score = computeDailyScore({
     buckets: input.buckets,
     sleepMinutes: input.sleepMinutes ?? null,
-    featuredStat,
+    featuredStat: input.featuredStat ?? null,
   });
 
   const sabotageDelta = replaySabotageDelta(

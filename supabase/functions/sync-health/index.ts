@@ -3,6 +3,7 @@ import { corsHeaders, fail, json } from '../_shared/http.ts';
 import type { HourBucket, SabotageEvent } from '../_shared/core.ts';
 import {
   affectedDates,
+  observesWearable,
   planDay,
   validateSyncRequest,
   type DayScoreRow,
@@ -92,6 +93,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       { onConflict: 'user_id,local_date,hour' },
     );
     if (error) return fail(`bucket upsert failed: ${error.message}`, 500);
+  }
+
+  // Wearable capability is observed here, never asked in onboarding. Sticky by
+  // construction: the filter only ever flips false -> true, so a watch left on
+  // the charger for a week does not read as a watch you stopped owning. The
+  // `.eq` also makes this a no-op write for everyone already flagged.
+  if (observesWearable(request)) {
+    await admin
+      .from('profiles')
+      .update({ has_wearable: true })
+      .eq('id', userId)
+      .eq('has_wearable', false);
   }
 
   if (request.sleep && request.sleep.length > 0) {

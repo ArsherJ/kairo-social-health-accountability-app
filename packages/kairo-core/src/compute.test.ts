@@ -43,7 +43,6 @@ describe('computeDay', () => {
       now: new Date('2026-07-27T12:00:00Z'),
       buckets: gymDay(),
       sabotageEvents: [banana()],
-      featuredStat: null, // isolate the sabotage split from the weekly meta
     });
 
     expect(result.score.healthTotal).toBe(2_900);
@@ -75,8 +74,10 @@ describe('computeDay', () => {
     expect(result.status).toBe('final');
   });
 
-  it('applies the week’s featured stat automatically', () => {
-    // 2026-07-27 is a Monday in ISO week 31; 31 - 1 = 30, 30 % 4 = 2 -> END.
+  it('scores base points with no featured stat by default (deviation #10)', () => {
+    // 2026-07-27 is a Monday in ISO week 31, which the retired rotation would
+    // have made an END week (31 - 1 = 30, 30 % 4 = 2 -> END). Squad programs
+    // carry the meta now, at read time, so stored points must be pre-multiplier.
     const result = computeDay({
       userId: 'me',
       localDate: DAY,
@@ -85,9 +86,9 @@ describe('computeDay', () => {
       buckets: gymDay(),
       sabotageEvents: [],
     });
-    expect(result.score.featuredStat).toBe('END');
+    expect(result.score.featuredStat).toBeNull();
     expect(result.score.stats.END.base).toBe(500);
-    expect(result.score.stats.END.points).toBe(750);
+    expect(result.score.stats.END.points).toBe(500);
   });
 
   it('honours an explicitly supplied featured stat', () => {
