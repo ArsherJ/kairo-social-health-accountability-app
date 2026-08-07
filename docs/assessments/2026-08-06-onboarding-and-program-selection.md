@@ -536,24 +536,25 @@ at the top of its 305–430h range; the alternative — discovering after the
 beta that the squad game was tested in a shape you don't intend to ship —
 costs a second beta.
 
-## 14. Deviations to record when built
+## 14. Deviations — recorded
 
-For `docs/roadmap.md`'s approved-deviations table at implementation time (not
-before — they aren't deviations until code exists):
+**Recorded 2026-08-07** as approved deviations **#10, #11, #12** in
+`docs/roadmap.md`, with the implementation itemized into Phases 1, 3, 4, 5, 7
+and 8 (tagged `[SP]`):
 
 1. *Spec §6: weekly featured stat rotates the meta* → retired from stored
-   scoring; squad programs carry the meta; rotation may return read-time at V1.
+   scoring; squad programs carry the meta; rotation may return read-time at
+   V1 (**deviation #10**).
 2. *Spec §5/§12: `daily_scores` stores post-multiplier points* → stores base
-   points; all weighting is a read-time projection in `squad_leaderboard()`.
+   points; all weighting is a read-time projection in `squad_leaderboard()`
+   (**deviation #11**).
 3. *Spec §7: squads have no type* → `squads.program`, same-focus squads,
-   fixed at creation for MVP.
+   fixed at creation for MVP (**deviation #12**).
 
-## 15. Remaining confirmations (small, non-blocking)
+## 15. Confirmations — closed
 
-1. **All-around stays as the default fourth program?** (§11.4 — recommended
-   yes; removing it later is trivial, adding it back after launch is not.)
-2. **Walking → VIT** rather than a second AGI program? (§11.2.)
-3. **Program fixed at creation** acceptable for the beta? (§11.4.)
+All three **confirmed by the founder on 2026-08-07**:
 
-Silence on these is consent to the recommendation; each is a one-line change
-before build starts.
+1. ✅ **All-around stays** as the default fourth program (§11.4).
+2. ✅ **Walking → VIT** (§11.2).
+3. ✅ **Program fixed at creation** for the beta (§11.4).
