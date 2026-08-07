@@ -29,6 +29,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 10 | Weekly featured stat rotates the meta (§6) | **Rotation retired from stored scoring** — `computeDailyScore` defaults `featuredStat` to `null`; `daily_scores.featured_stat` written as null | Squad programs (deviation #12) carry the meta permanently, and leaving the rotation in stored points would stack multiplicatively with program weights (AGI week in a running squad = 2.25×). `featuredStatFor` stays in `kairo-core`, tested; V1 may resurrect the rotation as a read-time projection on All-around boards. |
 | 11 | Stored per-stat points include the featured multiplier (§11/§12 as built) | **`daily_scores` stores base (pre-multiplier) points; ALL weighting is read-time in `squad_leaderboard()`** | Stored scores stay canonical and program-independent: score replay never learns programs exist, a program change can never corrupt stored data, and one Legendary user in three squads gets three weighted views of the same rows for free. |
 | 13 | One free item granted per day, deploy cap 2/day (§8) | **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
+| 14 | No notifications between 10 PM and 7 AM local **except sabotage** (§14) | **Three exempt triggers** — `sabotaged`, `day_ending_soon`, `day_ends` — expressed as `QUIET_HOURS_EXEMPT`, a set, and kept separate from `BUDGET_EXEMPT` | Plan decision #2 (2026-08-07). §14 forbids the window and then schedules "Day ending soon" at 23:00 and "Day ends" at 00:00 *inside* it, so read literally the rule suppresses the two notifications that drive the evening loop — leaving an engine that only sends V1 triggers. Those two are the core loop, not discretionary, so they are exempt on the same footing rather than as an exception to an exception. The two lists stay separate because the rules are independent in §14: merging them would make the day-boundary pair budget-exempt as a side effect of a quiet-hours decision, and `countsAgainstBudget()` is the one predicate both the planner and the `sentToday` query use. |
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
@@ -276,7 +277,37 @@ local stack is ever genuinely needed — so far nothing has required one.
   broadcast — a hit always rescores its target — so no second trigger or topic.
   **Still owed:** hand verification on the simulator, and the two-client check
   that a hit's broadcast actually reaches a subscriber.
-- ⬜ Real-time FCM push (needs Firebase credentials)
+- ✅ **Notification engine (workstream C, 2026-08-07)** — three triggers, not
+  §14's eight (§15 scopes MVP push to sabotage + day end + conditional day
+  start). `planNotifications` in `@kairo/core` owns the §14 rules: quiet hours
+  as a **wrapping** window, and two separate exempt lists, because quiet-hours
+  exemption and budget exemption are independent rules and collapsing them
+  would make the day-boundary pair budget-exempt as a side effect (deviation
+  #14). `dispatch-notifications` is a **second hourly cron**, not a branch in
+  `finalize-days`: that function's window is local midnight *plus two hours*,
+  so riding it would fire "Day ends" at 02:00 local, two hours late and inside
+  quiet hours. Sabotage fires inline from `deploy-sabotage`, wrapped so a
+  failed push can never fail a deploy that has already spent the item.
+  `users_at_local_hour()` and `register_device_token()` in `20260807110200`;
+  `squad_leaderboard` gains `p_as_user` (`20260807110400`) so the JWT-less cron
+  reads rank through the *same* projection the screen does, honoured only when
+  `auth.uid()` is null.
+  **Still owed:** hand verification on the simulator, and the last hop — see
+  the FCM-vs-APNs token note in `_shared/push.deno.ts`.
+- ✅ **Live defect found while wiring the second cron: both crons were 401ing.**
+  From 2026-08-07 06:05 UTC the Functions gateway began rejecting
+  `net.http_post` calls that carry no `Authorization` header —
+  `{"code":"UNAUTHORIZED_NO_AUTH_HEADER"}` — *before* the handler runs, so the
+  `x-cron-secret` check never happened and **no day finalized for six hours**.
+  Nothing in the database recorded a failure; the only evidence was in
+  `net._http_response`. `20260807110500` reschedules both jobs with the
+  publishable key (which already ships in the app and authenticates nothing on
+  its own) read from Vault; `CRON_SECRET` remains the actual guard. Verified by
+  running the scheduled command verbatim: 200, and the backlog of 58 days
+  finalized in one pass. **Check `net._http_response` when adding any future
+  cron → Function.**
+- ⬜ Real-time FCM push (needs Firebase credentials) — everything above it runs
+  end to end today and returns `not_configured` at the provider boundary
 - **Start beta recruitment during this phase** — stranger squads have a long lead time
 - **[SP] Recruit per program:** beyond the friend squads (likely All-around),
   at least one running, one gym and one walking squad — ideally **two gym
@@ -309,7 +340,8 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ **Visual evolution by dominant stat (§6)** — `dominantStat()` in
   `@kairo/core` owns the All-Rounder predicate (all within 20%); the Hunter
   varies frame, aura and stance by it, with a label on the character screen.
-- ⬜ Notification budget engine (§14) — no notification system exists yet
+- ✅ **Notification budget engine (§14)** — `packages/kairo-core/src/notifications.ts`,
+  pure and TDD'd. See Phase 5 for the delivery half.
 - ⬜ AI-generated placeholder Hunter art — still plain `View` primitives (§15)
 - ✅ **[SP] Focus edit row in Profile** — `FocusCard.tsx`, beside the
   body-metrics card, reusing the onboarding chips.

@@ -20,3 +20,4 @@ export * from './progression.ts';
 export * from './dominance.ts';
 export * from './compute.ts';
 export * from './streak.ts';
+export * from './notifications.ts';

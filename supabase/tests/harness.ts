@@ -39,6 +39,22 @@ const UNSUPPORTED_MIGRATIONS = new Map<string, string>([
     // via supabase/scripts/remote-sql.sh (cron.job row, '5 * * * *', active).
     'requires pg_cron and pg_net extensions',
   ],
+  [
+    '20260807110300_schedule_dispatch_notifications.sql',
+    // Same reason, same verification: the cron.job row ('7 * * * *', active)
+    // is checked against the real project via supabase/scripts/remote-sql.sh.
+    // The schedule is deliberately in its own file so the tables and functions
+    // it depends on stay inside the harness.
+    'requires pg_cron and pg_net extensions',
+  ],
+  [
+    '20260807110500_cron_auth_header.sql',
+    // Reschedules both jobs with the Authorization header the Functions
+    // gateway began requiring on 2026-08-07. Verified against the real project:
+    // both cron.job rows active, and a manual invocation returning 200 rather
+    // than UNAUTHORIZED_NO_AUTH_HEADER.
+    'requires pg_cron and pg_net extensions',
+  ],
 ]);
 
 /** Recreates just enough of the Supabase platform for the migrations to run. */

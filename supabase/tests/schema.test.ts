@@ -1165,13 +1165,13 @@ describe('squad_leaderboard completed-day mode', () => {
     // every test that runs as `authenticated`.
     const granted = await h.asService<{ has: boolean }>(
       `select has_function_privilege('anon',
-         'public.squad_leaderboard(uuid, date, text)', 'execute') as has`,
+         'public.squad_leaderboard(uuid, date, text, uuid)', 'execute') as has`,
     );
     expect(granted[0]!.has).toBe(false);
 
     const authed = await h.asService<{ has: boolean }>(
       `select has_function_privilege('authenticated',
-         'public.squad_leaderboard(uuid, date, text)', 'execute') as has`,
+         'public.squad_leaderboard(uuid, date, text, uuid)', 'execute') as has`,
     );
     expect(authed[0]!.has).toBe(true);
   });
@@ -2047,5 +2047,229 @@ describe('leave_squad', () => {
       /permission denied/,
     );
     expect((await memberIds(squadId)).length).toBe(2);
+  });
+});
+
+describe('users_at_local_hour', () => {
+  interface HourRow {
+    user_id: string;
+    local_date: string;
+    timezone: string;
+  }
+
+  // 16:05 UTC is 00:05 the NEXT day in Manila and 12:05 the SAME day in New
+  // York — one instant, two local dates and two local hours, which is the whole
+  // reason this function exists.
+  const INSTANT = '2026-08-07T16:05:00Z';
+
+  async function at(hour: number, instant = INSTANT) {
+    return h.asService<HourRow>(
+      // local_date as text: the driver hands back a Date otherwise, and the
+      // whole point of the column is the calendar date, not an instant.
+      `select user_id, local_date::text, timezone
+         from public.users_at_local_hour($1, $2::timestamptz)`,
+      [hour, instant],
+    );
+  }
+
+  it('selects only the users whose own local hour matches', async () => {
+    const manila = await h.createUser({ timezone: 'Asia/Manila' });
+    const newYork = await h.createUser({ timezone: 'America/New_York' });
+
+    const midnight = await at(0);
+    const noon = await at(12);
+
+    expect(midnight.map((r) => r.user_id)).toContain(manila);
+    expect(midnight.map((r) => r.user_id)).not.toContain(newYork);
+    expect(noon.map((r) => r.user_id)).toContain(newYork);
+    expect(noon.map((r) => r.user_id)).not.toContain(manila);
+  });
+
+  it('returns the local date the user is living in, not the UTC date', async () => {
+    const manila = await h.createUser({ timezone: 'Asia/Manila' });
+    const row = (await at(0)).find((r) => r.user_id === manila);
+    // UTC is still 2026-08-07; Manila has already rolled over.
+    expect(row?.local_date).toBe('2026-08-08');
+    expect(row?.timezone).toBe('Asia/Manila');
+  });
+
+  it('places a half-hour zone unambiguously inside one local hour', async () => {
+    // The cron fires at seven past, so +05:30 and +05:45 still land cleanly.
+    const kolkata = await h.createUser({ timezone: 'Asia/Kolkata' });
+    const rows = await at(21, '2026-08-07T16:07:00Z');
+    expect(rows.map((r) => r.user_id)).toContain(kolkata);
+  });
+
+  it('is cron-only — no client role may execute it', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'select * from public.users_at_local_hour(0)'),
+      /permission denied/,
+    );
+  });
+});
+
+describe('device_tokens', () => {
+  interface TokenRow {
+    token: string;
+    user_id: string;
+    platform: string;
+  }
+
+  async function tokenRows(token: string) {
+    return h.asService<TokenRow>(
+      'select token, user_id, platform from public.device_tokens where token = $1',
+      [token],
+    );
+  }
+
+  it('registers the calling user against a token', async () => {
+    const user = await h.createUser();
+    await h.asUser(user, `select public.register_device_token($1, 'ios')`, ['tok-a']);
+    expect(await tokenRows('tok-a')).toEqual([
+      { token: 'tok-a', user_id: user, platform: 'ios' },
+    ]);
+  });
+
+  it('re-points a token that changed hands instead of erroring or duplicating', async () => {
+    // A phone sold or handed on keeps its APNs token. Accumulating a second row
+    // would push one person's sabotage alerts to another person's phone.
+    const first = await h.createUser();
+    const second = await h.createUser();
+    await h.asUser(first, `select public.register_device_token($1, 'ios')`, ['tok-b']);
+    await h.asUser(second, `select public.register_device_token($1, 'ios')`, ['tok-b']);
+
+    expect(await tokenRows('tok-b')).toEqual([
+      { token: 'tok-b', user_id: second, platform: 'ios' },
+    ]);
+  });
+
+  it('rejects a platform the sender cannot address', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, `select public.register_device_token($1, 'blackberry')`, ['tok-c']),
+      /platform/,
+    );
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    await rejects(
+      h.asService(`select public.register_device_token('tok-d', 'ios')`),
+      /authentication required/,
+    );
+  });
+
+  it('hides one user\'s token from another', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await h.asUser(owner, `select public.register_device_token($1, 'ios')`, ['tok-e']);
+
+    const seen = await h.asUser<TokenRow>(
+      stranger,
+      'select token from public.device_tokens where token = $1',
+      ['tok-e'],
+    );
+    expect(seen).toEqual([]);
+  });
+
+  it('lets a user delete their own registration on sign-out', async () => {
+    const user = await h.createUser();
+    await h.asUser(user, `select public.register_device_token($1, 'ios')`, ['tok-f']);
+    await h.asUser(user, 'delete from public.device_tokens where token = $1', ['tok-f']);
+    expect(await tokenRows('tok-f')).toEqual([]);
+  });
+});
+
+describe('notification_log', () => {
+  it('is server-written only — no client may insert a send', async () => {
+    // sentToday is read from this table. A client that could insert could
+    // silence its own notifications, or inflate someone else's budget.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(
+        user,
+        `insert into public.notification_log (user_id, kind, local_date)
+         values ($1, 'day_ends', '2026-08-07')`,
+        [user],
+      ),
+      /permission denied/,
+    );
+  });
+
+  it('shows a user only their own sends', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await h.asService(
+      `insert into public.notification_log (user_id, kind, local_date)
+       values ($1, 'day_ends', '2026-08-07')`,
+      [owner],
+    );
+
+    const own = await h.asUser(owner, 'select id from public.notification_log');
+    const theirs = await h.asUser(stranger, 'select id from public.notification_log');
+    expect(own.length).toBe(1);
+    expect(theirs).toEqual([]);
+  });
+});
+
+describe('squad_leaderboard viewed on behalf of a user', () => {
+  // dispatch-notifications runs as the cron, with no JWT, and has to tell a
+  // user what rank they are in. Reproducing the ordering rule in the dispatcher
+  // would be a second copy of it, and the number in the push would drift from
+  // the number on the screen.
+  async function seedSquad() {
+    const leader = await h.createUser({ characterName: 'Alpha' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Dispatch')`,
+    );
+    const member = await h.createUser({ characterName: 'Beta' });
+    await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+    return { leader, member, squadId: squad[0]!.id };
+  }
+
+  it('lets a caller with no JWT name the viewer', async () => {
+    const { leader, member, squadId } = await seedSquad();
+    const rows = await h.asService<{ character_name: string; is_self: boolean }>(
+      `select character_name, is_self
+         from public.squad_leaderboard($1, null, 'current', $2)`,
+      [squadId, member],
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.is_self).map((r) => r.character_name)).toEqual(['Beta']);
+    expect(leader).toBeTruthy();
+  });
+
+  it('ignores the named viewer when the caller has a JWT', async () => {
+    // Otherwise any member could read the board as somebody else. The parameter
+    // is a cron affordance, not an impersonation grant.
+    const { leader, member, squadId } = await seedSquad();
+    const rows = await h.asUser<{ character_name: string; is_self: boolean }>(
+      leader,
+      `select character_name, is_self
+         from public.squad_leaderboard($1, null, 'current', $2)`,
+      [squadId, member],
+    );
+    expect(rows.filter((r) => r.is_self).map((r) => r.character_name)).toEqual(['Alpha']);
+  });
+
+  it('still refuses a caller who is neither authenticated nor named', async () => {
+    const { squadId } = await seedSquad();
+    await rejects(
+      h.asService('select * from public.squad_leaderboard($1)', [squadId]),
+      /authentication required/,
+    );
+  });
+
+  it('still refuses a named viewer who is not in the squad', async () => {
+    const { squadId } = await seedSquad();
+    const outsider = await h.createUser();
+    await rejects(
+      h.asService(`select * from public.squad_leaderboard($1, null, 'current', $2)`, [
+        squadId,
+        outsider,
+      ]),
+      /not a member of this squad/,
+    );
   });
 });

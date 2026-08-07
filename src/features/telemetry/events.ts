@@ -17,7 +17,11 @@ export type AppEventType =
   | 'focus_selected'
   | 'focus_skipped'
   | 'first_sync_seen'
-  | 'squad_program_selected';
+  | 'squad_program_selected'
+  // Read by dispatch-notifications, not only by analysis: §14's "Day starts"
+  // fires mid-morning *only if the app has not been opened yet*, and this row
+  // is the entire signal behind that condition.
+  | 'app_open';
 
 export function track(
   userId: string | undefined,

@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { clearSyncState } from '@/features/health/storage.ts';
+import { unregisterDeviceToken } from '@/features/notifications/permission.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { supabase } from '@/lib/supabase.ts';
 
@@ -53,6 +54,11 @@ export async function signOut(): Promise<void> {
   const userId = useSessionStore.getState().session?.user.id;
 
   try {
+    // Before the token goes, while the RLS policy still recognises this user as
+    // the row's owner. Left registered, the next account on this phone would
+    // keep receiving the previous one's sabotage alerts — and nothing would
+    // ever report an error, because the token is perfectly alive.
+    await unregisterDeviceToken();
     await supabase.auth.signOut();
   } finally {
     queryClient.clear();

@@ -1,7 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
-import { currentLocalDate, type SabotageEvent } from '../_shared/core.ts';
+import { BANANA_SCORE_DELTA, currentLocalDate, type SabotageEvent } from '../_shared/core.ts';
 import { rescoreDay } from '../_shared/rescore.deno.ts';
+import { sabotageCopy } from '../_shared/notification-copy.ts';
+import { sendToUser } from '../_shared/push.deno.ts';
 import {
   blockMessage,
   dailyGrantFor,
@@ -196,10 +198,49 @@ Deno.serve(async (req: Request): Promise<Response> => {
     },
   ]);
 
-  // Push notification is deliberately absent until Firebase credentials exist.
-  // §14 calls this the emotional core — "[Name] hit you with a banana!" always
-  // sends, exempt from the daily notification budget — so it is wired in Phase 5
-  // rather than stubbed here in a way that could silently swallow sends.
+  // §14 calls this the emotional core, and it is the one trigger with no
+  // decision to make: it bypasses both quiet hours and the daily budget, so it
+  // never goes through planNotifications.
+  //
+  // **The send must not fail the deploy.** By this point the event is an
+  // immutable fact and the item is spent. A user whose push failed has lost a
+  // notification; a user whose deploy 500s has lost an item they cannot get
+  // back until tomorrow.
+  try {
+    const message = sabotageCopy({
+      actorName: actorProfile.data.character_name as string,
+      scoreDelta: BANANA_SCORE_DELTA,
+    });
+    const { delivered, failures } = await sendToUser(admin, targetId, message, {
+      trigger: 'sabotaged',
+      localDate: plan.targetLocalDate,
+      screen: 'squad',
+    });
+
+    if (delivered > 0) {
+      // Logged even though sabotage is budget-exempt: the row is how the beta
+      // answers "was anything suppressed?", and countsAgainstBudget() keeps it
+      // from crowding out the scheduled three.
+      await admin.from('notification_log').insert({
+        user_id: targetId,
+        kind: 'sabotaged',
+        local_date: plan.targetLocalDate,
+      });
+    } else if (failures.length > 0) {
+      await admin.from('app_events').insert({
+        user_id: targetId,
+        type: 'push_failed',
+        payload: { trigger: 'sabotaged', error: failures[0] },
+      });
+    }
+  } catch (error) {
+    await admin.from('app_events').insert({
+      user_id: targetId,
+      type: 'push_failed',
+      payload: { trigger: 'sabotaged', error: (error as Error).message },
+    });
+  }
+
   return json({
     ok: true,
     eventId: inserted.id,
