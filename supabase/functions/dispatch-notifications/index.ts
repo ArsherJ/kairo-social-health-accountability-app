@@ -8,7 +8,7 @@ import {
   type DispatchUser,
 } from '../_shared/notification-plan.ts';
 import { notificationCopy } from '../_shared/notification-copy.ts';
-import { pushConfigured, sendToUser } from '../_shared/push.deno.ts';
+import { sendToUser } from '../_shared/push.deno.ts';
 
 /**
  * dispatch-notifications — the three scheduled pushes of §14.
@@ -149,7 +149,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   return json({
     ranAt: now.toISOString(),
-    pushConfigured: pushConfigured(),
     candidates: candidates.length,
     sent,
     suppressed,

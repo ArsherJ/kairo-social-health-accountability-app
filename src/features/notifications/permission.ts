@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase.ts';
 import type { NotificationPermission } from './ask-policy.ts';
@@ -63,32 +64,73 @@ export async function upsertDeviceToken(token: string): Promise<boolean> {
 }
 
 /**
- * Ask the OS for this device's token, then register it.
+ * The EAS project the Expo push service issues tokens against.
+ *
+ * Populated by `eas init`, which writes `extra.eas.projectId` into the app
+ * config. Until that has been run there is no id to ask with, and
+ * `getExpoPushTokenAsync` throws — so this is checked explicitly and reported
+ * once, rather than surfacing as a mystery at every launch.
+ */
+function easProjectId(): string | undefined {
+  return (
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    // Present in builds produced by EAS even when the config is not.
+    (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId
+  );
+}
+
+/**
+ * Ask Expo for this device's push token, then register it.
  *
  * **Call this once, from a mount effect — never from the push-token listener.**
- * `getDevicePushTokenAsync()` asks iOS to register for remote notifications,
- * and a token arriving from that request *fires the listener*. A listener that
- * responds by calling this function feeds itself: hand verification on the
- * simulator produced 66 registration attempts in 25 seconds. The listener has
- * the new token in its argument and must use it directly.
+ * Getting a token asks iOS to register for remote notifications, and the token
+ * that arrives from that request *fires the listener*. A listener that responds
+ * by calling this function feeds itself: hand verification on the simulator
+ * produced 66 registration attempts in 25 seconds before this was split apart.
  *
- * ⚠️ **What this returns is an APNs device token**, and the server currently
- * sends through FCM, which addresses FCM registration tokens. Closing that gap
- * is a decision for the Apple gate — add `@react-native-firebase/messaging` to
- * mint an FCM token, or send through Expo's push service, which speaks APNs
- * directly. `device_tokens` stores an opaque string and is indifferent; the
- * change is this function and `_shared/push.deno.ts`.
+ * An **Expo** push token, not the raw APNs one — `ExponentPushToken[...]`.
+ * Expo's service holds the APNs key and relays for us (deviation #15), which is
+ * why nothing here or on the server needs a push credential.
  */
 export async function registerDeviceToken(): Promise<boolean> {
+  const projectId = easProjectId();
+  if (!projectId) {
+    console.warn(
+      '[notifications] no EAS projectId — run `eas init`. Push is registered but undeliverable until then.',
+    );
+    return false;
+  }
+
   try {
-    const { data: token } = await Notifications.getDevicePushTokenAsync();
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     return await upsertDeviceToken(String(token ?? ''));
   } catch (error) {
     // Routine on a simulator with no APNs path, and survivable on a device:
-    // the next foreground tries again.
+    // Expo's docs call this out as expected when offline, and the next
+    // foreground tries again.
     console.warn('[notifications] could not read a push token', (error as Error).message);
     return false;
   }
+}
+
+/** The last native token the rotation listener acted on. See below. */
+let lastSeenDeviceToken: string | null = null;
+
+/**
+ * React to APNs handing this device a new native token.
+ *
+ * The listener reports the *native* token, but the server addresses Expo
+ * tokens, so the new one has to be exchanged — which means calling back into
+ * `registerDeviceToken()`, which asks for a token, which fires this listener
+ * again. That is the same cycle that produced 66 attempts in 25 seconds.
+ *
+ * The dedupe is what breaks it: the echo carries the token we just acted on, so
+ * it stops here. Only a genuinely different native token gets exchanged.
+ */
+export async function handleDeviceTokenRotation(deviceToken: string): Promise<void> {
+  if (!deviceToken || deviceToken === lastSeenDeviceToken) return;
+  lastSeenDeviceToken = deviceToken;
+  await registerDeviceToken();
 }
 
 /**
@@ -110,5 +152,6 @@ export async function unregisterDeviceToken(): Promise<void> {
     // Best effort. Signing out must not be blocked by a push registration.
   } finally {
     lastWrittenToken = null;
+    lastSeenDeviceToken = null;
   }
 }

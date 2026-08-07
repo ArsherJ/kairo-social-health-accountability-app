@@ -3,9 +3,9 @@ import { AppState, type AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { track } from '@/features/telemetry/events.ts';
 import {
+  handleDeviceTokenRotation,
   readNotificationPermission,
   registerDeviceToken,
-  upsertDeviceToken,
 } from './permission.ts';
 
 /**
@@ -16,11 +16,11 @@ import {
  * produces an error anywhere — the server simply stops reaching the device —
  * so both are watched rather than assumed.
  *
- * **The listener writes the token it was handed and never asks for one.**
- * `getDevicePushTokenAsync()` asks iOS to register for remote notifications,
- * and the resulting token fires this very listener — so a handler that calls it
- * feeds itself. Hand verification on the simulator caught exactly that: 66
- * registration attempts in 25 seconds, each logging a warning.
+ * The listener reports the *native* token while the server addresses Expo
+ * tokens, so a rotation has to be exchanged — and asking for a token fires this
+ * listener again. `handleDeviceTokenRotation` owns the dedupe that breaks that
+ * cycle; hand verification on the simulator caught the un-broken version doing
+ * 66 registration attempts in 25 seconds.
  */
 export function useDeviceTokenRegistration(userId: string | undefined): void {
   useEffect(() => {
@@ -33,7 +33,7 @@ export function useDeviceTokenRegistration(userId: string | undefined): void {
     });
 
     const subscription = Notifications.addPushTokenListener((token) => {
-      void upsertDeviceToken(String(token.data ?? ''));
+      void handleDeviceTokenRotation(String(token.data ?? ''));
     });
 
     return () => {

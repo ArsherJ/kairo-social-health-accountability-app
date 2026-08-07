@@ -30,6 +30,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 11 | Stored per-stat points include the featured multiplier (§11/§12 as built) | **`daily_scores` stores base (pre-multiplier) points; ALL weighting is read-time in `squad_leaderboard()`** | Stored scores stay canonical and program-independent: score replay never learns programs exist, a program change can never corrupt stored data, and one Legendary user in three squads gets three weighted views of the same rows for free. |
 | 13 | One free item granted per day, deploy cap 2/day (§8) | **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
 | 14 | No notifications between 10 PM and 7 AM local **except sabotage** (§14) | **Three exempt triggers** — `sabotaged`, `day_ending_soon`, `day_ends` — expressed as `QUIET_HOURS_EXEMPT`, a set, and kept separate from `BUDGET_EXEMPT` | Plan decision #2 (2026-08-07). §14 forbids the window and then schedules "Day ending soon" at 23:00 and "Day ends" at 00:00 *inside* it, so read literally the rule suppresses the two notifications that drive the evening loop — leaving an engine that only sends V1 triggers. Those two are the core loop, not discretionary, so they are exempt on the same footing rather than as an exception to an exception. The two lists stay separate because the rules are independent in §14: merging them would make the day-boundary pair budget-exempt as a side effect of a quiet-hours decision, and `countsAgainstBudget()` is the one predicate both the planner and the `sentToday` query use. |
+| 15 | Push is delivered through **FCM** (spec C, §14 support) | **Expo's push service** — `getExpoPushTokenAsync()` on the client, `POST exp.host/--/api/v2/push/send` on the server | Founder decision 2026-08-07. The specced pairing could not have delivered a single notification: FCM addresses *FCM registration tokens*, and `expo-notifications` on iOS returns an **APNs device token** — only the Firebase Messaging SDK bridges the two. Hand verification made this concrete rather than theoretical (the token that landed in `device_tokens` was 80 bytes of APNs hex). Of the three ways out, Expo was the only one that *deleted* code: no service-account JWT, no OAuth exchange, no `GoogleService-Info.plist`, no extra native modules, and Android comes free at V1.5. The privacy argument for going direct to APNs was considered and rejected as weak — Apple relays the payload in every option, and push bodies carry a character name, a rank and a score total, none of which is in §5's protected set. **The server holds no push credential at all**; what the Developer Program still gates is the APNs key Expo needs, uploaded with `eas credentials`. Reversal is confined to `_shared/push.deno.ts` and `registerDeviceToken()`. |
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
@@ -300,8 +301,21 @@ local stack is ever genuinely needed — so far nothing has required one.
   (`not_configured`) and **no** `notification_log` row — the wrap holds and an
   unsent push does not spend the budget.
   **It also caught a real bug** — see the token-listener loop below.
-  **Still owed:** the last hop — see the FCM-vs-APNs token note in
-  `_shared/push.deno.ts`.
+  **Transport swapped to Expo push (deviation #15)** and verified against the
+  live service: a deploy with a well-formed `ExponentPushToken` in
+  `device_tokens` returned `ok: true`, Expo answered with a
+  `DeviceNotRegistered` ticket, and the dead token was purged with **no**
+  `push_failed` row — an unregistered device is a cleanup, not a retryable
+  failure. That exercises the whole path except Apple's last hop.
+  **Still owed at the gate:** `eas init` (there is no `extra.eas.projectId`, so
+  `getExpoPushTokenAsync` cannot mint a token yet — the client says so plainly
+  instead of throwing), then the APNs key via `eas credentials`.
+- ⚠️ **Noted, deliberately not fixed:** iOS logs *"you still need to add
+  `remote-notification` to UIBackgroundModes"* because `expo-notifications`
+  implements the background-notification delegate method. MVP sends only
+  user-visible alerts, never `content-available`, so the capability would be an
+  unused background mode — the kind of thing App Review asks about. Add it if
+  and when a silent push actually ships.
 - ✅ **Bug found by hand verification: the push-token listener fed itself.**
   `getDevicePushTokenAsync()` asks iOS to register for remote notifications,
   and the token that arrives *fires the push-token listener*. The listener's
