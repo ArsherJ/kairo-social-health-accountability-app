@@ -74,11 +74,57 @@ describe('validateDeployRequest', () => {
 });
 
 describe('dailyGrantFor', () => {
-  it('gives free users one item and Legendary three', () => {
+  it('gives free users two items and Legendary three', () => {
     expect(dailyGrantFor(false)).toBe(DAILY_ITEM_GRANT_FREE);
     expect(dailyGrantFor(true)).toBe(DAILY_ITEM_GRANT_LEGENDARY);
-    expect(DAILY_ITEM_GRANT_FREE).toBe(1);
+    expect(DAILY_ITEM_GRANT_FREE).toBe(2);
     expect(DAILY_ITEM_GRANT_LEGENDARY).toBe(3);
+  });
+});
+
+describe('what the grant of 2 makes reachable', () => {
+  // At a grant of 1 a free user could never hit anyone twice in a day, so the
+  // three-hour cooldown and its copy were dead code. The cooldown tests above
+  // only fire because they pass `granted: 5`, an inventory MVP never issues.
+  // These run at the real number.
+  it('lets the cooldown reject a free user’s second hit on one target', () => {
+    const recent = [event({ createdAt: '2026-07-27T12:30:00Z' })]; // 90m ago
+    const plan = planDeploy(
+      input({
+        todaysDeploys: recent,
+        granted: dailyGrantFor(false),
+        deployed: 1,
+      }),
+    );
+    expect(plan).toEqual({ ok: false, reason: 'item_cooldown' });
+  });
+
+  it('lets a free user hit a second, different squadmate', () => {
+    const other = '44444444-4444-4444-8444-444444444444';
+    const plan = planDeploy(
+      input({
+        todaysDeploys: [event({ createdAt: '2026-07-27T12:30:00Z' })],
+        granted: dailyGrantFor(false),
+        deployed: 1,
+        targetId: other,
+      }),
+    );
+    expect(plan.ok).toBe(true);
+  });
+
+  it('shows a spent free user the cap, never the empty inventory', () => {
+    // Grant and cap now bind simultaneously at 2, and planDeploy checks
+    // structural rules before inventory — so `no_items_remaining` is
+    // unreachable for a free user. "You have used all your deploys for today"
+    // is the more informative of the two, so this ordering is deliberate.
+    const spent = [
+      event({ id: 'a', createdAt: '2026-07-27T02:00:00Z' }),
+      event({ id: 'b', targetId: 'someone-else', createdAt: '2026-07-27T06:00:00Z' }),
+    ];
+    const plan = planDeploy(
+      input({ todaysDeploys: spent, granted: dailyGrantFor(false), deployed: 2 }),
+    );
+    expect(plan).toEqual({ ok: false, reason: 'deploy_cap_reached' });
   });
 });
 

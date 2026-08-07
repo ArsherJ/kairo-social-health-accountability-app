@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
+import { sabotageKeys } from '@/features/sabotage/queries.ts';
 import { squadKeys } from './queries.ts';
 import {
   initialPolicyState,
@@ -48,6 +49,13 @@ export function useSquadRealtime(squadId: string | undefined): void {
       // rather than waiting for a manual pull.
       void queryClient.invalidateQueries({
         queryKey: squadKeys.members(squadId),
+      });
+      // A hit always rescores its target, which writes daily_scores, which
+      // fires the very broadcast this hook listens to — so the feed's signal
+      // is the board's signal. Nothing broadcasts sabotage_events itself, and
+      // a second trigger and topic for it would buy nothing.
+      void queryClient.invalidateQueries({
+        queryKey: sabotageKeys.feed(squadId),
       });
     }
 

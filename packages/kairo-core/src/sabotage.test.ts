@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   BANANA_SCORE_DELTA,
+  DAILY_ITEM_GRANT_FREE,
+  DAILY_ITEM_GRANT_LEGENDARY,
   DEPLOY_CAP_FREE,
   DEPLOY_CAP_LEGENDARY,
   MAX_HITS_PER_TARGET_PER_DAY,
   SAME_ITEM_COOLDOWN_MS,
   applySabotage,
+  dailyGrantFor,
   replaySabotageDelta,
   validateDeploy,
 } from './sabotage.ts';
@@ -41,6 +44,23 @@ function context(overrides: Partial<DeployContext> = {}): DeployContext {
     ...overrides,
   };
 }
+
+describe('daily item grant', () => {
+  it('gives a free user two and a Legendary user three', () => {
+    expect(dailyGrantFor(false)).toBe(DAILY_ITEM_GRANT_FREE);
+    expect(dailyGrantFor(true)).toBe(DAILY_ITEM_GRANT_LEGENDARY);
+    expect(DAILY_ITEM_GRANT_FREE).toBe(2);
+    expect(DAILY_ITEM_GRANT_LEGENDARY).toBe(3);
+  });
+
+  it('never grants more than the deploy cap allows to be used', () => {
+    // The grant binding *before* the §8 cap is what made sabotage too quiet to
+    // beta-test at one hit per person per day; the grant exceeding the cap
+    // would be the opposite mistake — items that cannot be thrown.
+    expect(DAILY_ITEM_GRANT_FREE).toBe(DEPLOY_CAP_FREE);
+    expect(DAILY_ITEM_GRANT_LEGENDARY).toBe(DEPLOY_CAP_LEGENDARY);
+  });
+});
 
 describe('replaySabotageDelta', () => {
   it('is zero with no events', () => {

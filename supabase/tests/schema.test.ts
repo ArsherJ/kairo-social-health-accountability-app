@@ -1738,6 +1738,193 @@ describe('program weights agree with kairo-core', () => {
   });
 });
 
+describe('squad_feed', () => {
+  interface FeedRow {
+    id: string;
+    actor_id: string;
+    actor_name: string;
+    target_id: string;
+    target_name: string;
+    item: string;
+    created_at: Date;
+    actor_is_self: boolean;
+    target_is_self: boolean;
+  }
+
+  /** A squad of three, so "between two other people" is expressible. */
+  async function seedFeedSquad() {
+    const leader = await h.createUser({ characterName: 'Ana' });
+    const rows = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Feed')`,
+    );
+    const squadId = rows[0]!.id;
+    const jomar = await h.createUser({ characterName: 'Jomar' });
+    const ali = await h.createUser({ characterName: 'Ali' });
+    for (const u of [jomar, ali]) {
+      await h.asUser(u, 'select public.join_squad($1)', [rows[0]!.invite_code]);
+    }
+    return { leader, jomar, ali, squadId };
+  }
+
+  async function hit(
+    actor: string,
+    target: string,
+    squadId: string,
+    createdAt = '2026-08-07T10:00:00Z',
+  ) {
+    await h.asService(
+      `insert into public.sabotage_events
+         (actor_id, target_id, squad_id, item, created_at,
+          actor_local_date, target_local_date)
+       values ($1, $2, $3, 'banana', $4, '2026-08-07', '2026-08-07')`,
+      [actor, target, squadId, createdAt],
+    );
+  }
+
+  it('shows a member hits between two OTHER squadmates', async () => {
+    // Decision #3: the drama is the product. sabotage_events_select_involved
+    // returns only rows the caller is party to, which is why this projection
+    // has to exist at all.
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    await hit(jomar, ali, squadId);
+
+    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
+      squadId,
+    ]);
+    expect(feed).toHaveLength(1);
+    expect(feed[0]).toMatchObject({
+      actor_name: 'Jomar',
+      target_name: 'Ali',
+      item: 'banana',
+      actor_is_self: false,
+      target_is_self: false,
+    });
+  });
+
+  it('projects names and the item only — no scores, no health, no outcome', async () => {
+    // Asserted as a key SET so a future `select *` widening fails here rather
+    // than in review. §5's privacy rule is a projection, not a convention.
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    await hit(jomar, ali, squadId);
+    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
+      squadId,
+    ]);
+    expect(Object.keys(feed[0]!).sort()).toEqual([
+      'actor_id',
+      'actor_is_self',
+      'actor_name',
+      'created_at',
+      'id',
+      'item',
+      'target_id',
+      'target_is_self',
+      'target_name',
+    ]);
+  });
+
+  it('marks the caller on both sides of a hit', async () => {
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    await hit(leader, ali, squadId, '2026-08-07T09:00:00Z');
+    await hit(jomar, leader, squadId, '2026-08-07T10:00:00Z');
+
+    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
+      squadId,
+    ]);
+    expect(feed.map((r) => [r.actor_is_self, r.target_is_self])).toEqual([
+      [false, true],
+      [true, false],
+    ]);
+  });
+
+  it('orders newest first', async () => {
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    await hit(jomar, ali, squadId, '2026-08-07T08:00:00Z');
+    await hit(ali, jomar, squadId, '2026-08-07T12:00:00Z');
+    await hit(jomar, ali, squadId, '2026-08-07T10:00:00Z');
+
+    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
+      squadId,
+    ]);
+    const times = feed.map((r) => new Date(r.created_at).toISOString());
+    expect(times).toEqual([...times].sort().reverse());
+    expect(times[0]).toBe('2026-08-07T12:00:00.000Z');
+  });
+
+  it('honours p_limit', async () => {
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    for (let i = 0; i < 5; i += 1) {
+      await hit(jomar, ali, squadId, `2026-08-07T0${i}:00:00Z`);
+    }
+    const feed = await h.asUser<FeedRow>(
+      leader,
+      'select * from public.squad_feed($1, $2)',
+      [squadId, 2],
+    );
+    expect(feed).toHaveLength(2);
+  });
+
+  it('clamps an absurd p_limit rather than trusting it', async () => {
+    // A client-supplied bound on a SECURITY DEFINER function is an input, not
+    // a promise.
+    const { leader, jomar, ali, squadId } = await seedFeedSquad();
+    await h.asService(
+      `insert into public.sabotage_events
+         (actor_id, target_id, squad_id, item, created_at,
+          actor_local_date, target_local_date)
+       select $1, $2, $3, 'banana',
+              timestamptz '2026-08-07T00:00:00Z' + (n || ' seconds')::interval,
+              '2026-08-07', '2026-08-07'
+       from generate_series(1, 205) as n`,
+      [jomar, ali, squadId],
+    );
+    const feed = await h.asUser<FeedRow>(
+      leader,
+      'select * from public.squad_feed($1, $2)',
+      [squadId, 10_000],
+    );
+    expect(feed).toHaveLength(200);
+  });
+
+  it('rejects a non-member', async () => {
+    const { squadId } = await seedFeedSquad();
+    const outsider = await h.createUser();
+    await rejects(
+      h.asUser(outsider, 'select * from public.squad_feed($1)', [squadId]),
+      /not a member of this squad/,
+    );
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    const { squadId } = await seedFeedSquad();
+    await rejects(
+      h.asService('select * from public.squad_feed($1)', [squadId]),
+      /permission denied|authentication required/,
+    );
+  });
+
+  it('never leaks another squad’s events, even ones aimed at the caller', async () => {
+    // MVP allows one squad per user, but the function is keyed by squad and
+    // has to behave that way regardless.
+    const { leader, squadId } = await seedFeedSquad();
+    const stranger = await h.createUser({ characterName: 'Stranger' });
+    const other = await h.asUser<{ id: string }>(
+      stranger,
+      `select id from public.create_squad('Elsewhere')`,
+    );
+    await hit(stranger, leader, other[0]!.id);
+
+    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
+      squadId,
+    ]);
+    expect(feed).toEqual([]);
+    await rejects(
+      h.asUser(leader, 'select * from public.squad_feed($1)', [other[0]!.id]),
+      /not a member of this squad/,
+    );
+  });
+});
+
 describe('leave_squad', () => {
   /** A squad with `extra` joined members beyond the leader. */
   async function seedSquad(extra: number) {

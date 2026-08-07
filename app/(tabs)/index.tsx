@@ -106,6 +106,16 @@ export default function Character() {
             {(today?.rec_points ?? 0) > 0 ? ' and recovery' : ''}
           </Text>
         )}
+        {(today?.sabotage_delta ?? 0) < 0 && (
+          // The same reconciliation failure as the bonus line, in the other
+          // direction: sabotage_delta has always been selected and never
+          // rendered, so a squadmate's banana silently made the bars stop
+          // adding up. Being hit is also the moment §14 cares most about, and
+          // the app should not be the last place to mention it.
+          <Text style={styles.penalty}>
+            −{Math.abs(today?.sabotage_delta ?? 0).toLocaleString()} from sabotage
+          </Text>
+        )}
       </View>
 
       <FirstSyncCallout
@@ -147,6 +157,7 @@ const styles = StyleSheet.create({
   },
   total: { color: colors.accent, fontSize: 48, fontWeight: '800', marginTop: space.sm },
   meta: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
+  penalty: { color: colors.danger, fontSize: 13, marginTop: space.xs },
   dominance: { alignItems: 'center', marginTop: space.sm },
   dominanceLabel: { color: colors.accent, ...font.label },
 });

@@ -8,16 +8,20 @@
  */
 
 import {
+  DAILY_ITEM_GRANT_FREE,
+  DAILY_ITEM_GRANT_LEGENDARY,
   currentLocalDate,
+  dailyGrantFor,
   validateDeploy,
   type DeployRejection,
   type SabotageEvent,
   type SabotageItem,
 } from './core.ts';
 
-/** MVP grants items daily; there is no coin economy in the beta (§15). */
-export const DAILY_ITEM_GRANT_FREE = 1;
-export const DAILY_ITEM_GRANT_LEGENDARY = 3;
+// The grant policy lives in kairo-core beside DEPLOY_CAP_FREE, because the
+// client has to render the remaining count before this function has ever run.
+// Re-exported so deploy-sabotage/index.ts imports it from one place.
+export { DAILY_ITEM_GRANT_FREE, DAILY_ITEM_GRANT_LEGENDARY, dailyGrantFor };
 
 const VALID_ITEMS: readonly SabotageItem[] = ['banana'];
 
@@ -51,10 +55,6 @@ export function validateDeployRequest(body: unknown): RequestValidation {
   }
 
   return { ok: true, value: { targetId: raw['targetId'], item: item as SabotageItem } };
-}
-
-export function dailyGrantFor(isLegendary: boolean): number {
-  return isLegendary ? DAILY_ITEM_GRANT_LEGENDARY : DAILY_ITEM_GRANT_FREE;
 }
 
 /** Everything `deploy-sabotage` reads before deciding. */

@@ -22,6 +22,26 @@ export const DEPLOY_CAP_LEGENDARY = 3;
 export const SAME_ITEM_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 export const MAX_HITS_PER_TARGET_PER_DAY = 3;
 
+/**
+ * How many items a user is handed each local day. MVP grants them daily; there
+ * is no coin economy in the beta (§15).
+ *
+ * These live here rather than beside the Edge Function that spends them
+ * because the *client* needs the number to render "2 bananas today" before the
+ * first deploy — the ledger row is materialised lazily and does not exist
+ * until then. Pure policy with no I/O, by the same rule as the tier tables.
+ *
+ * The grant deliberately equals the deploy cap above. At a grant of 1 the
+ * grant bound first, a free user could never hit anyone twice in a day, and
+ * SAME_ITEM_COOLDOWN_MS was unreachable dead code.
+ */
+export const DAILY_ITEM_GRANT_FREE = 2;
+export const DAILY_ITEM_GRANT_LEGENDARY = 3;
+
+export function dailyGrantFor(isLegendary: boolean): number {
+  return isLegendary ? DAILY_ITEM_GRANT_LEGENDARY : DAILY_ITEM_GRANT_FREE;
+}
+
 export interface SabotageEvent {
   id: string;
   actorId: string;

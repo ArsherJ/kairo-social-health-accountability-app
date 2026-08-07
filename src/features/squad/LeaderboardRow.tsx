@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CORE_STATS } from '@kairo/core';
 import { boostChipLabel } from './program-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
@@ -13,7 +13,19 @@ import { colors, radius, space, tierColor } from '@/theme.ts';
  * and the row stops being scannable. Same stat names, same tier colours.
  */
 
-export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode }) {
+export function LeaderboardRow({
+  row,
+  mode,
+  remaining = 0,
+  onDeploy,
+}: {
+  row: Row;
+  mode: LeaderboardMode;
+  /** The caller's own bananas left today. Gates the affordance, shown on self. */
+  remaining?: number;
+  /** Absent on the solo board, where there is nobody to throw at. */
+  onDeploy?: (row: Row) => void;
+}) {
   // Only on your own row. The character screen shows the *unweighted* total
   // for the same day — stored scores are program-independent (deviation #11) —
   // so anyone who compares the two numbers will find them different. The chip
@@ -60,6 +72,15 @@ export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode 
               <Text style={styles.boostLabel}>{boost}</Text>
             </View>
           )}
+
+          {/* Your own ammunition, where you already look for your own row.
+              Rendered from the ledger's default when no row exists yet, so a
+              new user sees what they have before spending any of it. */}
+          {row.is_self && onDeploy && (
+            <View style={styles.itemChip}>
+              <Text style={styles.itemLabel}>🍌 {remaining}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.tiers}>
@@ -82,6 +103,33 @@ export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode 
       <Text style={[styles.total, row.is_self && styles.totalSelf]}>
         {row.total.toLocaleString()}
       </Text>
+
+      {/* Target and intent in one gesture. A single CTA plus a target picker
+          would be two steps, and a long-press would make the mechanic §20.4
+          calls the soul of the product undiscoverable.
+
+          Deliberately still active on the "Yesterday" board: a hit always
+          lands on the target's CURRENT day, resolved server-side from their
+          timezone. Disabling it there would imply you can sabotage the past. */}
+      {!row.is_self && onDeploy && (
+        <Pressable
+          accessibilityRole="button"
+          // The emoji alone announces as "banana", which says nothing about
+          // what tapping it does.
+          accessibilityLabel={`Throw a banana at ${row.character_name}`}
+          accessibilityState={{ disabled: remaining === 0 }}
+          disabled={remaining === 0}
+          onPress={() => onDeploy(row)}
+          hitSlop={space.sm}
+          style={({ pressed }) => [
+            styles.deploy,
+            remaining === 0 && styles.deploySpent,
+            pressed && styles.deployPressed,
+          ]}
+        >
+          <Text style={styles.deployLabel}>🍌</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -133,6 +181,28 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   boostLabel: { color: colors.accent, fontSize: 10, fontWeight: '800' },
+  itemChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 2,
+  },
+  itemLabel: { color: colors.subtle, fontSize: 10, fontWeight: '800' },
+  deploy: {
+    marginLeft: space.sm,
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deploySpent: { opacity: 0.3 },
+  deployPressed: { opacity: 0.6, borderColor: colors.accent },
+  deployLabel: { fontSize: 16 },
   tiers: { flexDirection: 'row', gap: space.xs, marginTop: space.sm },
   pill: {
     borderWidth: 1,

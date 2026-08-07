@@ -20,6 +20,11 @@ export type Profile = {
    */
   has_wearable: boolean;
   /**
+   * Server-owned; everyone is free at MVP. Read here so the daily item grant
+   * has one code path rather than a Legendary special case invented later.
+   */
+  is_legendary: boolean;
+  /**
    * Self-declared training focus. Presentation only: it highlights a stat and
    * changes copy, and touches no scoring. Null means skipped or never asked.
    */
@@ -45,7 +50,7 @@ export function useProfile(userId: string | undefined) {
         .from('profiles')
         .select(
           'id, character_name, class, timezone, level, total_xp, has_wearable, ' +
-            'focus, height_cm, weight_kg, birth_year, sex',
+            'is_legendary, focus, height_cm, weight_kg, birth_year, sex',
         )
         .eq('id', userId as string)
         .maybeSingle();

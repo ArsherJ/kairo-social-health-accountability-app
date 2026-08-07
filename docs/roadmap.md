@@ -28,6 +28,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 4 | "Squadmates see tiers and scores only" (§5) | **`SECURITY DEFINER` RPC**, not client filtering | Makes the privacy rule structural — squadmates cannot reach raw buckets even with a forged client. |
 | 10 | Weekly featured stat rotates the meta (§6) | **Rotation retired from stored scoring** — `computeDailyScore` defaults `featuredStat` to `null`; `daily_scores.featured_stat` written as null | Squad programs (deviation #12) carry the meta permanently, and leaving the rotation in stored points would stack multiplicatively with program weights (AGI week in a running squad = 2.25×). `featuredStatFor` stays in `kairo-core`, tested; V1 may resurrect the rotation as a read-time projection on All-around boards. |
 | 11 | Stored per-stat points include the featured multiplier (§11/§12 as built) | **`daily_scores` stores base (pre-multiplier) points; ALL weighting is read-time in `squad_leaderboard()`** | Stored scores stay canonical and program-independent: score replay never learns programs exist, a program change can never corrupt stored data, and one Legendary user in three squads gets three weighted views of the same rows for free. |
+| 13 | One free item granted per day, deploy cap 2/day (§8) | **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
@@ -264,7 +265,18 @@ local stack is ever genuinely needed — so far nothing has required one.
 ### 🟨 Phase 5 — Sabotage + push · 40–55h
 - ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
   membership, self-target, and replay of a hit that predates the target's data
-- ⬜ Real-time FCM push (needs Firebase credentials), squad feed UI
+- ✅ **Sabotage client (workstream A, 2026-08-07)** — a 🍌 on every squadmate's
+  row opens a one-step confirm sheet; the caller's remaining count rides in
+  their own row's meta line; `squad_feed()` (`20260807110000`) is a new
+  `SECURITY DEFINER` projection returning **names and item only**, because
+  `sabotage_events_select_involved` hides exactly the hits between two *other*
+  people that make the mechanic social; the TODAY card finally renders
+  `sabotage_delta`, which was selected and unrendered since Phase 1 (closes the
+  other half of follow-up #8). The feed rides the existing `daily_scores`
+  broadcast — a hit always rescores its target — so no second trigger or topic.
+  **Still owed:** hand verification on the simulator, and the two-client check
+  that a hit's broadcast actually reaches a subscriber.
+- ⬜ Real-time FCM push (needs Firebase credentials)
 - **Start beta recruitment during this phase** — stranger squads have a long lead time
 - **[SP] Recruit per program:** beyond the friend squads (likely All-around),
   at least one running, one gym and one walking squad — ideally **two gym
