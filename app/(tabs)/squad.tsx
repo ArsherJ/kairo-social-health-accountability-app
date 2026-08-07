@@ -42,7 +42,17 @@ export default function Squad() {
         </View>
       )}
 
-      {squad.isSuccess && squad.data && <Leaderboard squad={squad.data} />}
+      {/* `pane` is written on the assumption that a board never disappears
+          underneath it, and leaving breaks that: someone who opened Create,
+          joined by deep link without backing out, then leaves would land on
+          the create form with no board and no way back. Reset on the way out. */}
+      {squad.isSuccess && squad.data && (
+        <Leaderboard
+          squad={squad.data}
+          userId={userId}
+          onLeave={() => setPane('choose')}
+        />
+      )}
 
       {/* Solo mode replaces the old empty state: the tab is worth opening
           before the barkada joins (§7). Create and join stay one tap away. */}

@@ -1737,3 +1737,128 @@ describe('program weights agree with kairo-core', () => {
     }
   });
 });
+
+describe('leave_squad', () => {
+  /** A squad with `extra` joined members beyond the leader. */
+  async function seedSquad(extra: number) {
+    const leader = await h.createUser({ characterName: 'Leader' });
+    const rows = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Leavable')`,
+    );
+    const squadId = rows[0]!.id;
+
+    const members: string[] = [];
+    for (let i = 0; i < extra; i += 1) {
+      const member = await h.createUser({ characterName: `Member${i}` });
+      await h.asUser(member, 'select public.join_squad($1)', [rows[0]!.invite_code]);
+      members.push(member);
+    }
+    return { leader, members, squadId };
+  }
+
+  async function memberIds(squadId: string): Promise<string[]> {
+    const rows = await h.asService<{ user_id: string }>(
+      'select user_id from public.squad_members where squad_id = $1',
+      [squadId],
+    );
+    return rows.map((r) => r.user_id);
+  }
+
+  async function leaderOf(squadId: string): Promise<string | undefined> {
+    const rows = await h.asService<{ leader_id: string }>(
+      'select leader_id from public.squads where id = $1',
+      [squadId],
+    );
+    return rows[0]?.leader_id;
+  }
+
+  it('removes an ordinary member and leaves the squad standing', async () => {
+    const { leader, members, squadId } = await seedSquad(2);
+
+    await h.asUser(members[0]!, 'select public.leave_squad($1)', [squadId]);
+
+    expect((await memberIds(squadId)).sort()).toEqual([leader, members[1]!].sort());
+    expect(await leaderOf(squadId)).toBe(leader);
+  });
+
+  it('passes leadership to the longest-tenured remaining member', async () => {
+    const { leader, members, squadId } = await seedSquad(2);
+    // Against joined_at, not insertion order: members[1] is made the elder, so
+    // a succession that picked "the next row" rather than the oldest tenure
+    // would name members[0] and fail here.
+    await h.asService(
+      `update public.squad_members set joined_at = now() - interval '10 days'
+       where squad_id = $1 and user_id = $2`,
+      [squadId, members[1]!],
+    );
+
+    await h.asUser(leader, 'select public.leave_squad($1)', [squadId]);
+
+    expect(await leaderOf(squadId)).toBe(members[1]!);
+    expect(await memberIds(squadId)).not.toContain(leader);
+  });
+
+  it('never leaves the squad led by the member who just left', async () => {
+    // The membership delete runs before succession, so the leaver is not a
+    // candidate to inherit their own squad.
+    const { leader, members, squadId } = await seedSquad(1);
+    await h.asUser(leader, 'select public.leave_squad($1)', [squadId]);
+    expect(await leaderOf(squadId)).toBe(members[0]!);
+  });
+
+  it('deletes the squad, and its sabotage log, when the last member leaves', async () => {
+    const { leader, members, squadId } = await seedSquad(1);
+    await h.asService(
+      `insert into public.sabotage_events
+         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
+       values ($1, $2, $3, 'banana', '2026-08-07', '2026-08-07')`,
+      [leader, members[0]!, squadId],
+    );
+
+    await h.asUser(members[0]!, 'select public.leave_squad($1)', [squadId]);
+    await h.asUser(leader, 'select public.leave_squad($1)', [squadId]);
+
+    const rows = await h.asService<{ squads: number; events: number }>(
+      `select
+         (select count(*)::int from public.squads where id = $1) as squads,
+         (select count(*)::int from public.sabotage_events where squad_id = $1) as events`,
+      [squadId],
+    );
+    expect(rows[0]).toEqual({ squads: 0, events: 0 });
+  });
+
+  it('rejects a non-member and changes nothing', async () => {
+    const { leader, squadId } = await seedSquad(1);
+    const outsider = await h.createUser();
+
+    await rejects(
+      h.asUser(outsider, 'select public.leave_squad($1)', [squadId]),
+      /not a member of this squad/,
+    );
+    expect((await memberIds(squadId)).length).toBe(2);
+    expect(await leaderOf(squadId)).toBe(leader);
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    const { squadId } = await seedSquad(1);
+    await rejects(
+      h.asService('select public.leave_squad($1)', [squadId]),
+      /permission denied|authentication required/,
+    );
+  });
+
+  it('is the only exit: a raw DELETE on squad_members is refused', async () => {
+    // The regression test for dropping squad_members_delete_self. That policy
+    // let a leader leave without succession, stranding squads.leader_id on a
+    // non-member.
+    const { members, squadId } = await seedSquad(1);
+    await rejects(
+      h.asUser(members[0]!, 'delete from public.squad_members where squad_id = $1', [
+        squadId,
+      ]),
+      /permission denied/,
+    );
+    expect((await memberIds(squadId)).length).toBe(2);
+  });
+});

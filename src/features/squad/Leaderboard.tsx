@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,6 +18,7 @@ import {
   type LeaderboardMode,
   type Squad,
 } from './queries.ts';
+import { useLeaveSquad } from './mutations.ts';
 import { boostChipLabel, programLabel } from './program-copy.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
@@ -27,11 +29,21 @@ const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'completed', label: 'Yesterday' },
 ];
 
-export function Leaderboard({ squad }: { squad: Squad }) {
+export function Leaderboard({
+  squad,
+  userId,
+  onLeave,
+}: {
+  squad: Squad;
+  userId: string | undefined;
+  /** Fires after the squad is left, so the screen behind can reset its pane. */
+  onLeave?: () => void;
+}) {
   // The live board is the default: §2's hooks assume a board you check during
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
+  const leave = useLeaveSquad(userId);
 
   // Not `board.data.length`: the RPC returns only members who have scored, so
   // deriving slots from it would render a squadmate who has not moved today as
@@ -56,6 +68,30 @@ export function Leaderboard({ squad }: { squad: Squad }) {
   // so is the honest option; rendering them under one heading is not.
   const dates = [...new Set(rows.map((r) => r.local_date))].sort();
   const mixedDates = mode === 'completed' && dates.length > 1;
+
+  function confirmLeave() {
+    // Say what is lost before it is lost. Leaving is not undoable and the
+    // invite code is the only way back, which is not something to discover
+    // afterwards from an empty tab.
+    const lines = [
+      'You lose your place on this board and your history with this squad.',
+      'You will need the invite code to come back.',
+    ];
+    if (memberCount.data === 1) {
+      lines.push('You are the last member, so the squad will be deleted.');
+    } else if (squad.leader_id === userId) {
+      lines.push('Leadership passes to the longest-standing member.');
+    }
+
+    Alert.alert(`Leave ${squad.name}?`, lines.join('\n\n'), [
+      { text: 'Stay', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: () => leave.mutate({ squadId: squad.id }, { onSuccess: onLeave }),
+      },
+    ]);
+  }
 
   return (
     <ScrollView
@@ -170,6 +206,23 @@ export function Leaderboard({ squad }: { squad: Squad }) {
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
       ))}
+
+      {/* Deliberately at the foot of the scroll and styled as quiet text, not
+          a header icon: this is rare, irreversible, and must not sit next to
+          the invite code someone taps every day. */}
+      <View style={styles.leaveBlock}>
+        {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
+        <Pressable
+          accessibilityRole="button"
+          disabled={leave.isPending}
+          onPress={confirmLeave}
+          style={({ pressed }) => [styles.leave, pressed && styles.pressed]}
+        >
+          <Text style={[styles.leaveLabel, leave.isPending && styles.leaveLabelBusy]}>
+            {leave.isPending ? 'Leaving…' : 'Leave squad'}
+          </Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -251,5 +304,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   retryLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  leaveBlock: { marginTop: space.xl, alignItems: 'center' },
+  leave: { paddingVertical: space.sm, paddingHorizontal: space.lg },
+  leaveLabel: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  leaveLabelBusy: { color: colors.muted },
   pressed: { opacity: 0.85 },
 });

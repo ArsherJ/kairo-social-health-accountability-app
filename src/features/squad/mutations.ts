@@ -52,6 +52,40 @@ export function useCreateSquad(userId: string | undefined) {
   });
 }
 
+/**
+ * 42501 means something different on the way out than on the way in.
+ *
+ * Going in, it is "no profile yet". Coming out, leave_squad raises it for
+ * "authentication required" and "not a member of this squad" — both of which
+ * the user reads as *you are already not in this squad*, which is what a
+ * second device or a squad deleted underneath them produces. Every other code
+ * keeps the shared mapping.
+ */
+function leaveErrorMessage(code: string | undefined): string {
+  if (code === '42501') return 'You are not in this squad anymore.';
+  return squadErrorMessage(code, 'Could not leave the squad. Try again.');
+}
+
+export function useLeaveSquad(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ squadId }: { squadId: string }): Promise<void> => {
+      // An RPC rather than a DELETE on squad_members: leadership succession
+      // and the membership delete have to be one server-side transaction, and
+      // the client has no write grant on that table at all.
+      const { error } = await supabase.rpc('leave_squad', { p_squad_id: squadId });
+      if (error) throw new Error(leaveErrorMessage(error.code));
+    },
+    onSuccess: async () => {
+      // The board is gone, not stale — mine() flips to null and the screen
+      // falls back to solo mode. allBoards() clears the board this user can no
+      // longer read, so a rejoin does not flash the old rows.
+      await queryClient.invalidateQueries({ queryKey: squadKeys.mine(userId) });
+      await queryClient.invalidateQueries({ queryKey: squadKeys.allBoards() });
+    },
+  });
+}
+
 export function useJoinSquad(userId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
