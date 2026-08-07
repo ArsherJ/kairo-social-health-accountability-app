@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { SquadProgram } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 import { normalizeInviteCode } from './invite-code.ts';
 import { squadKeys, type Squad } from './queries.ts';
@@ -26,9 +27,18 @@ function squadErrorMessage(code: string | undefined, fallback: string): string {
 export function useCreateSquad(userId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string): Promise<Squad> => {
+    mutationFn: async ({
+      name,
+      program,
+    }: {
+      name: string;
+      program: SquadProgram;
+    }): Promise<Squad> => {
+      // The program is fixed at creation — there is no UPDATE path, by design
+      // (changing it would silently re-rank every day already on the board).
       const { data, error } = await supabase.rpc('create_squad', {
         p_name: name.trim(),
+        p_program: program,
       });
       if (error) {
         throw new Error(

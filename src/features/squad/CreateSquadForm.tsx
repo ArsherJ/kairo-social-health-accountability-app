@@ -4,12 +4,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { DEFAULT_SQUAD_PROGRAM, type SquadProgram } from '@kairo/core';
 import { useCreateSquad } from './mutations.ts';
+import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 const SQUAD_NAME_MIN = 2;
@@ -34,6 +38,7 @@ export function CreateSquadForm({
 }) {
   const createSquad = useCreateSquad(userId);
   const [name, setName] = useState('');
+  const [program, setProgram] = useState<SquadProgram>(DEFAULT_SQUAD_PROGRAM);
 
   const valid = isValidSquadName(name);
 
@@ -48,11 +53,15 @@ export function CreateSquadForm({
   function submit() {
     if (!valid || createSquad.isPending || submitting.current) return;
     submitting.current = true;
-    createSquad.mutate(name, {
-      onSettled: () => {
-        submitting.current = false;
+    track(userId, 'squad_program_selected', { program });
+    createSquad.mutate(
+      { name, program },
+      {
+        onSettled: () => {
+          submitting.current = false;
+        },
       },
-    });
+    );
   }
 
   const busy = createSquad.isPending;
@@ -62,7 +71,13 @@ export function CreateSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.top}>
+      {/* Scrollable: the name field plus four programs overflows a small
+          screen once the keyboard is up. */}
+      <ScrollView
+        style={styles.top}
+        contentContainerStyle={styles.topContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.label}>CREATE A SQUAD</Text>
         <Text style={styles.title}>Name it.</Text>
         <Text style={styles.help}>
@@ -84,10 +99,52 @@ export function CreateSquadForm({
           onSubmitEditing={submit}
         />
 
+        <Text style={styles.sectionLabel}>WHAT IS THIS SQUAD PLAYING?</Text>
+        <Text style={styles.sectionHelp}>
+          The program boosts one stat for everyone on this board. It cannot be
+          changed later.
+        </Text>
+
+        <View style={styles.programs}>
+          {PROGRAM_OPTIONS.map((option) => {
+            const selected = option.value === program;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected, disabled: busy }}
+                accessibilityLabel={`${option.label}. ${option.blurb}`}
+                disabled={busy}
+                onPress={() => setProgram(option.value)}
+                style={({ pressed }) => [
+                  styles.program,
+                  selected && styles.programSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.programLabel,
+                    selected && styles.programLabelSelected,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                <Text style={styles.programBlurb}>{option.blurb}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* The honest-capability rule, at the moment the choice is made. */}
+        {programNote(program) && (
+          <Text style={styles.note}>{programNote(program)}</Text>
+        )}
+
         {createSquad.error && (
           <Text style={styles.error}>{createSquad.error.message}</Text>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         <Pressable
@@ -123,11 +180,33 @@ export function CreateSquadForm({
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   top: { flex: 1 },
+  topContent: { paddingBottom: space.lg },
+  sectionLabel: { color: colors.muted, ...font.label, marginTop: space.xl },
+  sectionHelp: {
+    color: colors.subtle,
+    fontSize: 13,
+    marginTop: space.xs,
+    lineHeight: 19,
+  },
+  programs: { gap: space.sm, marginTop: space.md },
+  program: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: space.sm + 2,
+    paddingHorizontal: space.md,
+  },
+  programSelected: { borderColor: colors.accent },
+  programLabel: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  programLabelSelected: { color: colors.accent },
+  programBlurb: { color: colors.subtle, fontSize: 12, marginTop: 2 },
+  note: { color: colors.muted, fontSize: 12, marginTop: space.md, lineHeight: 18 },
   label: { color: colors.muted, ...font.label },
   title: { color: colors.text, ...font.title, marginTop: space.sm },
   help: { color: colors.subtle, ...font.body, marginTop: space.sm, lineHeight: 22 },
   input: {
-    marginTop: space.xl,
+    marginTop: space.lg,
     borderBottomWidth: 2,
     borderBottomColor: colors.accent,
     color: colors.text,

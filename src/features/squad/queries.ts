@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import type { SquadProgram } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
+import { normalizeInviteCode } from './invite-code.ts';
 
 export type Squad = {
   id: string;
@@ -7,6 +9,8 @@ export type Squad = {
   invite_code: string;
   leader_id: string;
   max_members: number;
+  /** Fixed at creation. Weights the board at read time; stored scores never. */
+  program: SquadProgram;
 };
 
 export type LeaderboardMode = 'current' | 'completed';
@@ -27,6 +31,13 @@ export type LeaderboardRow = {
   status: 'provisional' | 'final';
   current_streak: number;
   is_self: boolean;
+  /**
+   * The squad's program, repeated on every row. `total` above is already
+   * weighted by it (deviation #11) — the row carries the program so the UI can
+   * explain *why* the number differs from the unweighted one on the character
+   * screen.
+   */
+  program: SquadProgram;
 };
 
 export const squadKeys = {
@@ -54,6 +65,8 @@ export const squadKeys = {
    */
   members: (squadId: string | undefined) =>
     ['squad', 'members', squadId ?? 'none'] as const,
+  /** Keyed by the *normalized* code, so `ab1-2cd` and `AB12CD` share a cache entry. */
+  preview: (code: string) => ['squad', 'preview', code] as const,
 };
 
 /**
@@ -73,7 +86,7 @@ export function useMySquad(userId: string | undefined) {
     queryFn: async (): Promise<Squad | null> => {
       const { data, error } = await supabase
         .from('squads')
-        .select('id, name, invite_code, leader_id, max_members')
+        .select('id, name, invite_code, leader_id, max_members, program')
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data as Squad | null) ?? null;
@@ -123,6 +136,43 @@ export function useSquadLeaderboard(
       });
       if (error) throw new Error(error.message);
       return (data ?? []) as LeaderboardRow[];
+    },
+  });
+}
+
+/**
+ * What an invite code points at, before committing to it.
+ *
+ * The program is a game rule — an AGI ×1.5 board rewards a different kind of
+ * day than the one you may be having — so consenting to it is part of joining,
+ * not something to discover afterwards. `squads` is member-only readable, so
+ * this goes through the `preview_squad` SECURITY DEFINER RPC; holding a valid
+ * six-character code is the authorisation.
+ *
+ * `null` means the code matches no squad. That is a normal answer to a typo,
+ * not an error state.
+ */
+export type SquadPreview = {
+  name: string;
+  program: SquadProgram;
+  member_count: number;
+  max_members: number;
+  is_full: boolean;
+  already_member: boolean;
+};
+
+export function useSquadPreview(rawCode: string, enabled: boolean) {
+  const code = normalizeInviteCode(rawCode);
+  return useQuery({
+    queryKey: squadKeys.preview(code),
+    enabled,
+    queryFn: async (): Promise<SquadPreview | null> => {
+      const { data, error } = await supabase.rpc('preview_squad', {
+        p_invite_code: code,
+      });
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as SquadPreview[];
+      return rows[0] ?? null;
     },
   });
 }

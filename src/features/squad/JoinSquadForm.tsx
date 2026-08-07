@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { INVITE_CODE_LENGTH, isValidInviteCode } from './invite-code.ts';
 import { useJoinSquad } from './mutations.ts';
+import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
+import { useSquadPreview } from './queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 export function JoinSquadForm({
@@ -32,7 +34,7 @@ export function JoinSquadForm({
   const submitting = useRef(false);
 
   function submit() {
-    if (!valid || joinSquad.isPending || submitting.current) return;
+    if (!valid || blocked || joinSquad.isPending || submitting.current) return;
     submitting.current = true;
     joinSquad.mutate(code, {
       onSettled: () => {
@@ -41,7 +43,16 @@ export function JoinSquadForm({
     });
   }
 
+  // The program is the game rule, so consenting to it is part of joining —
+  // it must be visible *before* the tap, not discovered on the board.
+  const preview = useSquadPreview(code, valid);
+  const squad = preview.data;
   const busy = joinSquad.isPending;
+  const boost = squad ? boostChipLabel(squad.program) : null;
+  const note = squad ? programNote(squad.program) : null;
+  // Rejoining is idempotent and harmless, so only a genuinely full squad
+  // blocks the button. The server still enforces both.
+  const blocked = Boolean(squad?.is_full && !squad.already_member);
 
   return (
     <KeyboardAvoidingView
@@ -73,17 +84,58 @@ export function JoinSquadForm({
           onSubmitEditing={submit}
         />
 
+        {valid && preview.isPending && (
+          <View style={styles.previewCard}>
+            <ActivityIndicator color={colors.subtle} />
+          </View>
+        )}
+
+        {valid && preview.isSuccess && squad === null && (
+          <Text style={styles.error}>
+            That code does not match any squad. Check the six characters and try
+            again.
+          </Text>
+        )}
+
+        {squad && (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewName} numberOfLines={1}>
+              {squad.name}
+            </Text>
+            <View style={styles.previewMeta}>
+              <Text style={styles.previewProgram}>
+                {programLabel(squad.program)}
+              </Text>
+              {boost && (
+                <View style={styles.boostChip}>
+                  <Text style={styles.boostLabel}>{boost}</Text>
+                </View>
+              )}
+              <Text style={styles.previewCount}>
+                {squad.member_count} of {squad.max_members}
+              </Text>
+            </View>
+            {note && <Text style={styles.previewNote}>{note}</Text>}
+            {squad.already_member && (
+              <Text style={styles.previewNote}>You are already on this board.</Text>
+            )}
+            {squad.is_full && !squad.already_member && (
+              <Text style={styles.previewFull}>This squad is full.</Text>
+            )}
+          </View>
+        )}
+
         {joinSquad.error && <Text style={styles.error}>{joinSquad.error.message}</Text>}
       </View>
 
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          disabled={!valid || busy}
+          disabled={!valid || blocked || busy}
           onPress={submit}
           style={({ pressed }) => [
             styles.primary,
-            (!valid || busy) && styles.disabled,
+            (!valid || blocked || busy) && styles.disabled,
             pressed && styles.pressed,
           ]}
         >
@@ -127,6 +179,33 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   error: { color: colors.danger, ...font.body, marginTop: space.md },
+  previewCard: {
+    marginTop: space.lg,
+    padding: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  previewName: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  previewMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.xs,
+  },
+  previewProgram: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
+  boostChip: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  boostLabel: { color: colors.accent, fontSize: 11, fontWeight: '800' },
+  previewCount: { color: colors.muted, fontSize: 12, marginLeft: 'auto' },
+  previewNote: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
+  previewFull: { color: colors.danger, fontSize: 12, marginTop: space.sm },
   actions: { paddingBottom: space.xl },
   primary: {
     backgroundColor: colors.accent,

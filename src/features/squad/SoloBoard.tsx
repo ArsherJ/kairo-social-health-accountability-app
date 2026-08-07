@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
+import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
@@ -71,6 +71,10 @@ export function SoloBoard({
     current_streak: 0,
     status: today?.status ?? 'provisional',
     is_self: true,
+    // Solo has no squad, so there is no program tilting anything. The total
+    // above is the stored, unweighted one — which is exactly what all_around
+    // means.
+    program: DEFAULT_SQUAD_PROGRAM,
   };
 
   return (
@@ -113,12 +117,16 @@ export function SoloBoard({
           <Text style={styles.primaryLabel}>Create a squad</Text>
         </Pressable>
 
+        {/* Deliberately a link, not a second button. Creating is the funnel
+            — someone who already has a code knows they have one, and giving
+            the two actions equal weight makes the empty board read as a
+            two-way gate rather than a place you already belong. */}
         <Pressable
-          accessibilityRole="button"
+          accessibilityRole="link"
           onPress={onJoin}
-          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.inviteLink, pressed && styles.pressed]}
         >
-          <Text style={styles.secondaryLabel}>Join with a code</Text>
+          <Text style={styles.inviteLabel}>Have an invite code?</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -151,14 +159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  secondary: {
-    marginTop: space.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  secondaryLabel: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  inviteLink: { marginTop: space.sm, paddingVertical: space.md, alignItems: 'center' },
+  inviteLabel: { color: colors.accent, fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.85 },
 });

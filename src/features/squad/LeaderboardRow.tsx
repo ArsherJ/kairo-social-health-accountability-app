@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { CORE_STATS } from '@kairo/core';
+import { boostChipLabel } from './program-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { colors, radius, space, tierColor } from '@/theme.ts';
 
@@ -13,6 +14,12 @@ import { colors, radius, space, tierColor } from '@/theme.ts';
  */
 
 export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode }) {
+  // Only on your own row. The character screen shows the *unweighted* total
+  // for the same day — stored scores are program-independent (deviation #11) —
+  // so anyone who compares the two numbers will find them different. The chip
+  // is the explanation; hiding the gap would cost trust in the score.
+  const boost = row.is_self ? boostChipLabel(row.program) : null;
+
   return (
     <View style={[styles.row, row.is_self && styles.self]}>
       <Text style={[styles.rank, row.is_self && styles.rankSelf]}>{row.rank}</Text>
@@ -47,6 +54,12 @@ export function LeaderboardRow({ row, mode }: { row: Row; mode: LeaderboardMode 
               and never a score reduction — so it reads as a note, not a
               verdict. */}
           {row.flagged && <Text style={styles.flagged}>· flagged</Text>}
+
+          {boost && (
+            <View style={styles.boostChip}>
+              <Text style={styles.boostLabel}>{boost}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.tiers}>
@@ -111,6 +124,15 @@ const styles = StyleSheet.create({
   metaLine: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   meta: { color: colors.muted, fontSize: 12 },
   flagged: { color: colors.danger, fontSize: 12 },
+  boostChip: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 2,
+  },
+  boostLabel: { color: colors.accent, fontSize: 10, fontWeight: '800' },
   tiers: { flexDirection: 'row', gap: space.xs, marginTop: space.sm },
   pill: {
     borderWidth: 1,

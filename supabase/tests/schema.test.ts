@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addDays, isFinalizable, mostRecentlyCompletedLocalDate } from '../../packages/kairo-core/src/day.ts';
+import {
+  DEFAULT_SQUAD_PROGRAM,
+  SQUAD_PROGRAMS,
+  USER_FOCUSES,
+  weightedBoardTotal,
+} from '../../packages/kairo-core/src/program.ts';
 import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
 import { squadTopic } from '../../src/features/squad/squad-topic.ts';
 import { setupHarness, type Harness } from './harness.ts';
@@ -885,10 +891,15 @@ describe('squad_leaderboard', () => {
 
   it('ranks members by total, highest first', async () => {
     const { leader, member, squadId } = await seedSquad();
+    // The board recomputes its total from the per-stat columns rather than
+    // reading daily_scores.total (deviation #11), so the fixture has to carry
+    // points, not just a bottom line. This squad is all_around, so the two
+    // numbers coincide.
     await h.asService(
-      `insert into public.daily_scores (user_id, local_date, total, tiers)
-       values ($1, '2026-07-27', 1300, '{"AGI":"silver"}'),
-              ($2, '2026-07-27', 2900, '{"AGI":"bronze"}')`,
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, consistency_points, total, tiers)
+       values ($1, '2026-07-27', 900, 400, 1300, '{"AGI":"silver"}'),
+              ($2, '2026-07-27', 900, 2000, 2900, '{"AGI":"bronze"}')`,
       [leader, member],
     );
 
@@ -1241,5 +1252,488 @@ describe('seed_test_users allowlist', () => {
       ),
       /check constraint/i,
     );
+  });
+});
+
+describe('profiles.focus', () => {
+  it('starts null, because focus is skippable', async () => {
+    const user = await h.createUser();
+    const rows = await h.asService<{ focus: string | null }>(
+      'select focus from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.focus).toBeNull();
+  });
+
+  it('accepts every focus @kairo/core declares', async () => {
+    const user = await h.createUser();
+    for (const focus of USER_FOCUSES) {
+      await h.asUser(user, 'update public.profiles set focus = $2 where id = $1', [
+        user,
+        focus,
+      ]);
+    }
+    const rows = await h.asService<{ focus: string }>(
+      'select focus from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.focus).toBe(USER_FOCUSES[USER_FOCUSES.length - 1]);
+  });
+
+  it('rejects a focus the enum does not know', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, `update public.profiles set focus = 'cycling' where id = $1`, [
+        user,
+      ]),
+      /check constraint/i,
+    );
+  });
+
+  it('can be set at profile creation, so onboarding needs no second round-trip', async () => {
+    const seeded = await h.asService<{ id: string }>(
+      'insert into auth.users (email) values ($1) returning id',
+      ['focus-insert-probe@example.test'],
+    );
+    const id = seeded[0]!.id;
+
+    await h.asUser(
+      id,
+      `insert into public.profiles (id, character_name, timezone, focus)
+       values ($1, 'Lane', 'Asia/Manila', 'running')`,
+      [id],
+    );
+
+    const rows = await h.asService<{ focus: string }>(
+      'select focus from public.profiles where id = $1',
+      [id],
+    );
+    expect(rows[0]!.focus).toBe('running');
+  });
+});
+
+describe('has_wearable is server-observed', () => {
+  it('blocks a client from claiming a wearable it does not have', async () => {
+    // Capability is observed by sync-health from the presence of sleep data.
+    // Client-writable would let a forged client fake the leaderboard's wearable
+    // icon and the REC ceiling.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'update public.profiles set has_wearable = true where id = $1', [
+        user,
+      ]),
+      /permission denied/i,
+    );
+  });
+
+  it('blocks a client from claiming one at profile creation either', async () => {
+    const seeded = await h.asService<{ id: string }>(
+      'insert into auth.users (email) values ($1) returning id',
+      ['wearable-insert-probe@example.test'],
+    );
+    const id = seeded[0]!.id;
+    await rejects(
+      h.asUser(
+        id,
+        `insert into public.profiles (id, character_name, has_wearable)
+         values ($1, 'Faker', true)`,
+        [id],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('is still writable by the server', async () => {
+    const user = await h.createUser();
+    await h.asService('update public.profiles set has_wearable = true where id = $1', [
+      user,
+    ]);
+    const rows = await h.asService<{ has_wearable: boolean }>(
+      'select has_wearable from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.has_wearable).toBe(true);
+  });
+});
+
+describe('squads.program', () => {
+  it('defaults to all_around', async () => {
+    const leader = await h.createUser();
+    const rows = await h.asUser<{ program: string }>(
+      leader,
+      `select program from public.create_squad('Default Program')`,
+    );
+    expect(rows[0]!.program).toBe(DEFAULT_SQUAD_PROGRAM);
+  });
+
+  it('accepts every program @kairo/core declares', async () => {
+    for (const program of SQUAD_PROGRAMS) {
+      const leader = await h.createUser();
+      const rows = await h.asUser<{ program: string }>(
+        leader,
+        `select program from public.create_squad($1, $2)`,
+        [`Squad ${program}`, program],
+      );
+      expect(rows[0]!.program).toBe(program);
+    }
+  });
+
+  it('refuses a program nobody defined rather than silently defaulting', async () => {
+    const leader = await h.createUser();
+    await rejects(
+      h.asUser(leader, `select public.create_squad('Cyclists', 'cycling')`),
+      /unknown squad program/,
+    );
+  });
+
+  it('cannot be changed after creation, even by the leader', async () => {
+    // Fixed at creation for MVP: changing it would silently re-rank every day
+    // already on the board.
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Locked In', 'gym')`,
+    );
+    await rejects(
+      h.asUser(leader, `update public.squads set program = 'running' where id = $1`, [
+        squad[0]!.id,
+      ]),
+      /permission denied/i,
+    );
+  });
+
+  it('still lets a leader rename their squad', async () => {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Typo Squda')`,
+    );
+    await h.asUser(leader, `update public.squads set name = 'Typo Squad' where id = $1`, [
+      squad[0]!.id,
+    ]);
+    const rows = await h.asService<{ name: string }>(
+      'select name from public.squads where id = $1',
+      [squad[0]!.id],
+    );
+    expect(rows[0]!.name).toBe('Typo Squad');
+  });
+
+  it('is not executable by anon after create_squad was recreated', async () => {
+    const anon = await h.asService<{ has: boolean }>(
+      `select has_function_privilege('anon',
+         'public.create_squad(text, text)', 'execute') as has`,
+    );
+    expect(anon[0]!.has).toBe(false);
+    const authed = await h.asService<{ has: boolean }>(
+      `select has_function_privilege('authenticated',
+         'public.create_squad(text, text)', 'execute') as has`,
+    );
+    expect(authed[0]!.has).toBe(true);
+  });
+
+  it('left no single-argument overload behind', async () => {
+    // Adding a defaulted parameter creates a SECOND function rather than
+    // replacing the first, and two squad constructors is how the capacity rule
+    // drifts apart.
+    const rows = await h.asService<{ n: string }>(
+      `select count(*)::text as n from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'create_squad'`,
+    );
+    expect(rows[0]!.n).toBe('1');
+  });
+});
+
+describe('preview_squad', () => {
+  it('shows a non-member the name and program behind a valid code', async () => {
+    // The program is the game rule, so consenting to it is part of joining.
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ invite_code: string }>(
+      leader,
+      `select invite_code from public.create_squad('Runners PH', 'running')`,
+    );
+
+    const outsider = await h.createUser();
+    const rows = await h.asUser<{
+      name: string;
+      program: string;
+      member_count: number;
+      max_members: number;
+      is_full: boolean;
+      already_member: boolean;
+    }>(outsider, 'select * from public.preview_squad($1)', [squad[0]!.invite_code]);
+
+    expect(rows[0]).toMatchObject({
+      name: 'Runners PH',
+      program: 'running',
+      member_count: 1,
+      max_members: 6,
+      is_full: false,
+      already_member: false,
+    });
+  });
+
+  it('accepts a lowercase code, the way people type it', async () => {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ invite_code: string }>(
+      leader,
+      `select invite_code from public.create_squad('Case Test')`,
+    );
+    const outsider = await h.createUser();
+    const rows = await h.asUser<{ name: string }>(
+      outsider,
+      'select name from public.preview_squad($1)',
+      [` ${squad[0]!.invite_code.toLowerCase()} `],
+    );
+    expect(rows[0]!.name).toBe('Case Test');
+  });
+
+  it('returns nothing for an unknown code rather than raising', async () => {
+    const user = await h.createUser();
+    const rows = await h.asUser(user, 'select * from public.preview_squad($1)', [
+      'ZZZZZZ',
+    ]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('tells an existing member they already belong', async () => {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ invite_code: string }>(
+      leader,
+      `select invite_code from public.create_squad('Home')`,
+    );
+    const rows = await h.asUser<{ already_member: boolean }>(
+      leader,
+      'select already_member from public.preview_squad($1)',
+      [squad[0]!.invite_code],
+    );
+    expect(rows[0]!.already_member).toBe(true);
+  });
+
+  it('exposes no member identities and no invite code', async () => {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ invite_code: string }>(
+      leader,
+      `select invite_code from public.create_squad('Projection')`,
+    );
+    const outsider = await h.createUser();
+    const rows = await h.asUser<Record<string, unknown>>(
+      outsider,
+      'select * from public.preview_squad($1)',
+      [squad[0]!.invite_code],
+    );
+    const columns = Object.keys(rows[0]!);
+    for (const forbidden of ['id', 'leader_id', 'invite_code', 'user_id', 'total']) {
+      expect(columns).not.toContain(forbidden);
+    }
+  });
+
+  it('is not executable by anon', async () => {
+    const rows = await h.asService<{ has: boolean }>(
+      `select has_function_privilege('anon',
+         'public.preview_squad(text)', 'execute') as has`,
+    );
+    expect(rows[0]!.has).toBe(false);
+  });
+});
+
+describe('leaderboard program weighting', () => {
+  /** A squad on `program` whose leader has the given stored day. */
+  async function boardWith(
+    program: string,
+    day: {
+      agi: number;
+      str: number;
+      end: number;
+      vit: number;
+      consistency?: number;
+      rec?: number;
+      sabotage?: number;
+    },
+  ) {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad($1, $2)`,
+      [`Board ${program} ${Math.random().toString(36).slice(2, 8)}`, program],
+    );
+    const squadId = squad[0]!.id;
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, end_points, vit_points,
+          consistency_points, rec_points, sabotage_delta, total)
+       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, $8, 0)`,
+      [
+        leader,
+        day.agi,
+        day.str,
+        day.end,
+        day.vit,
+        day.consistency ?? 0,
+        day.rec ?? 0,
+        day.sabotage ?? 0,
+      ],
+    );
+    const rows = await h.asUser<{ total: number; program: string }>(
+      leader,
+      `select total, program from public.squad_leaderboard($1, '2026-07-27'::date)`,
+      [squadId],
+    );
+    return rows[0]!;
+  }
+
+  const DAY = { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 };
+
+  it('leaves an all_around board unweighted', async () => {
+    expect((await boardWith('all_around', DAY)).total).toBe(3_200);
+  });
+
+  it('boosts AGI on a running board', async () => {
+    expect((await boardWith('running', DAY)).total).toBe(3_650);
+  });
+
+  it('boosts STR on a gym board', async () => {
+    expect((await boardWith('gym', DAY)).total).toBe(3_450);
+  });
+
+  it('boosts VIT on a walking board', async () => {
+    expect((await boardWith('walking', DAY)).total).toBe(3_650);
+  });
+
+  it('never boosts END, on any program', async () => {
+    const endOnly = { agi: 0, str: 0, end: 900, vit: 0 };
+    for (const program of SQUAD_PROGRAMS) {
+      expect((await boardWith(program, endOnly)).total).toBe(900);
+    }
+  });
+
+  it('reports the squad’s program on every row', async () => {
+    expect((await boardWith('gym', DAY)).program).toBe('gym');
+  });
+
+  it('leaves tiers raw, so gold means the same on every board', async () => {
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Raw Tiers', 'running')`,
+    );
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, tiers)
+       values ($1, '2026-07-27', 900, '{"AGI":"gold"}')`,
+      [leader],
+    );
+    const rows = await h.asUser<{ tiers: Record<string, string>; total: number }>(
+      leader,
+      `select tiers, total from public.squad_leaderboard($1, '2026-07-27'::date)`,
+      [squad[0]!.id],
+    );
+    expect(rows[0]!.tiers).toEqual({ AGI: 'gold' });
+    expect(rows[0]!.total).toBe(1_350);
+  });
+
+  it('re-ranks members when the program tilts the board', async () => {
+    // A runner and a lifter with identical raw totals. On a gym board the
+    // lifter wins; the stored rows are untouched either way.
+    const lifter = await h.createUser({ characterName: 'Lifter' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      lifter,
+      `select id, invite_code from public.create_squad('Gym Rats', 'gym')`,
+    );
+    const runner = await h.createUser({ characterName: 'Runner' });
+    await h.asUser(runner, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, total)
+       values ($1, '2026-07-27', 0, 900, 900),
+              ($2, '2026-07-27', 900, 0, 900)`,
+      [lifter, runner],
+    );
+
+    const rows = await h.asUser<{ character_name: string; total: number }>(
+      lifter,
+      `select character_name, total from public.squad_leaderboard($1, '2026-07-27'::date)`,
+      [squad[0]!.id],
+    );
+    expect(rows.map((r) => r.character_name)).toEqual(['Lifter', 'Runner']);
+    expect(rows.map((r) => r.total)).toEqual([1_350, 900]);
+  });
+
+  it('does not rewrite the stored total', async () => {
+    // Deviation #11's whole point: weighting is a read, so stored scores stay
+    // canonical and program-independent.
+    const leader = await h.createUser();
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Read Only', 'running')`,
+    );
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, total)
+       values ($1, '2026-07-27', 900, 900)`,
+      [leader],
+    );
+    await h.asUser(
+      leader,
+      `select * from public.squad_leaderboard($1, '2026-07-27'::date)`,
+      [squad[0]!.id],
+    );
+    const stored = await h.asService<{ total: number; agi_points: number }>(
+      'select total, agi_points from public.daily_scores where user_id = $1',
+      [leader],
+    );
+    expect(stored[0]).toEqual({ total: 900, agi_points: 900 });
+  });
+});
+
+describe('program weights agree with kairo-core', () => {
+  // program_weighted_total() in SQL and weightedBoardTotal() in
+  // packages/kairo-core/src/program.ts are two implementations of one rule,
+  // because a migration cannot import TypeScript. This is the
+  // finalizable_days() / isFinalizable() precedent applied to the weights.
+  const FIXTURES = [
+    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: 0 },
+    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500, sabotage: 0 },
+    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500, sabotage: 0 },
+    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0, sabotage: -500 },
+    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: -500 },
+    // Odd points force the .5 that round() has to resolve identically on both
+    // sides. These cannot come out of the tier table, but nothing stops a
+    // future one from producing them.
+    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0, sabotage: 0 },
+    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0, sabotage: 0 },
+  ];
+
+  it('matches weightedBoardTotal for every program on every fixture day', async () => {
+    for (const program of SQUAD_PROGRAMS) {
+      for (const f of FIXTURES) {
+        const rows = await h.asService<{ total: number }>(
+          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7, $8) as total`,
+          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec, f.sabotage],
+        );
+        expect({ program, ...f, total: rows[0]!.total }).toEqual({
+          program,
+          ...f,
+          total: weightedBoardTotal({
+            program,
+            statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit },
+            consistencyBonus: f.consistency,
+            recBonus: f.rec,
+            sabotageDelta: f.sabotage,
+          }),
+        });
+      }
+    }
+  });
+
+  it('covers every program the TypeScript side declares', async () => {
+    // A program added in TS but not in SQL would otherwise be weighted 1x
+    // silently — the CHECK constraint is what catches it.
+    for (const program of SQUAD_PROGRAMS) {
+      const leader = await h.createUser();
+      await h.asUser(leader, `select public.create_squad($1, $2)`, [
+        `Coverage ${program}`,
+        program,
+      ]);
+    }
   });
 });

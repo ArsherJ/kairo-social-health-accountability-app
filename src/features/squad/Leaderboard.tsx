@@ -17,6 +17,7 @@ import {
   type LeaderboardMode,
   type Squad,
 } from './queries.ts';
+import { boostChipLabel, programLabel } from './program-copy.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
 import { colors, font, radius, space } from '@/theme.ts';
@@ -48,6 +49,7 @@ export function Leaderboard({ squad }: { squad: Squad }) {
   useSquadRealtime(squad.id);
 
   const rows = board.data ?? [];
+  const boost = boostChipLabel(squad.program);
 
   // In completed mode every member is ranked on their OWN yesterday, so a
   // squad spanning timezones legitimately compares two calendar dates. Saying
@@ -79,6 +81,17 @@ export function Leaderboard({ squad }: { squad: Squad }) {
         <Text style={styles.members}>
           {memberCount.data ?? '—'} of {squad.max_members}
         </Text>
+      </View>
+
+      {/* The program is the board's rule, so it belongs in the header rather
+          than in a settings screen nobody opens. */}
+      <View style={styles.programLine}>
+        <Text style={styles.program}>{programLabel(squad.program)}</Text>
+        {boost && (
+          <View style={styles.boostChip}>
+            <Text style={styles.boostLabel}>{boost}</Text>
+          </View>
+        )}
       </View>
 
       {/* This is how a squad grows (§9), so the code is a headline, not a
@@ -172,6 +185,21 @@ const styles = StyleSheet.create({
   },
   squadName: { color: colors.text, ...font.title, flexShrink: 1 },
   members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  programLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.xs,
+  },
+  program: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
+  boostChip: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  boostLabel: { color: colors.accent, fontSize: 11, fontWeight: '800' },
   codeCard: {
     marginTop: space.md,
     padding: space.md,
