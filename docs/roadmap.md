@@ -6,6 +6,14 @@ The beta exists to answer four risk questions: week-3 competitive stamina, sabot
 
 **Status legend:** ⬜ not started · 🟨 in progress · ✅ done
 
+**Remaining work is sequenced and specified in `docs/mvp-completion-plan.md`**
+(approved 2026-08-07, with an implementation spec per workstream under
+`docs/superpowers/specs/`). That document covers the four unblocked workstreams
+between here and feature-complete — sabotage UI, leaving a squad, the
+notification engine, and polish — plus the verification pass the Apple Developer
+Program unlocks. The phase list below stays the status index; the plan does not
+override it, and product decisions still live in `Kairo_Master_Summary.md`.
+
 ---
 
 ## Approved deviations from the spec
