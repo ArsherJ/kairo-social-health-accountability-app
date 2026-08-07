@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { UserFocus } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 import { profileKey } from './queries.ts';
 
@@ -15,6 +16,8 @@ export type ProfileEdit = {
   weight_kg?: number | null;
   birth_year?: number | null;
   sex?: 'male' | 'female' | 'other' | null;
+  /** Presentation only — see `profiles.focus`'s column comment. */
+  focus?: UserFocus | null;
 };
 
 const INSUFFICIENT_PRIVILEGE = '42501';

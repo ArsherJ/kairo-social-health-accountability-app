@@ -9,14 +9,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHARACTER_NAME_MAX, isValidCharacterName } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
+import { beginFocusStep } from '@/features/onboarding/store.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
 export default function NameYourHunter() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const createProfile = useCreateProfile(session?.user.id);
   const [name, setName] = useState('');
@@ -36,6 +39,14 @@ export default function NameYourHunter() {
     if (!valid || createProfile.isPending || submitting.current) return;
     submitting.current = true;
     createProfile.mutate(name, {
+      // The profile row now exists, so the route gate reads this user as
+      // onboarded. beginFocusStep() holds it off long enough to ask the focus
+      // question; without it the gate would replace this stack with the tabs
+      // before the next screen mounted.
+      onSuccess: () => {
+        beginFocusStep();
+        router.replace('/focus');
+      },
       onSettled: () => {
         submitting.current = false;
       },

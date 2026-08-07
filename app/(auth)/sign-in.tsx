@@ -24,6 +24,15 @@ export default function SignIn() {
       <View style={styles.hero}>
         <Text style={styles.brand}>KAIRO</Text>
         <Text style={styles.tagline}>Every day is a Kairo moment.</Text>
+        {/* The tagline is a mood, not an explanation. Two lines saying what
+            the app actually is — copy only, no new screen. */}
+        <Text style={styles.pitch}>
+          Your squad competes on real activity, straight from Apple Health.
+        </Text>
+        <Text style={styles.pitch}>
+          Your character levels up when you move — and your squadmates can sabotage
+          your day.
+        </Text>
       </View>
 
       <View style={{ paddingBottom: insets.bottom + space.xl }}>
@@ -66,6 +75,7 @@ const styles = StyleSheet.create({
   hero: { flex: 1, justifyContent: 'center' },
   brand: { color: colors.text, ...font.brand },
   tagline: { color: colors.muted, ...font.body, marginTop: space.sm },
+  pitch: { color: colors.subtle, ...font.body, marginTop: space.md, lineHeight: 22 },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,

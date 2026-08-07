@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { UserFocus } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 
 /**
@@ -13,7 +14,16 @@ export type Profile = {
   timezone: string;
   level: number;
   total_xp: number;
+  /**
+   * Observed by `sync-health` from the presence of sleep data, not claimed by
+   * the client — the column has no client write grant.
+   */
   has_wearable: boolean;
+  /**
+   * Self-declared training focus. Presentation only: it highlights a stat and
+   * changes copy, and touches no scoring. Null means skipped or never asked.
+   */
+  focus: UserFocus | null;
   // Body metrics (§5). Owner-only columns on an owner-only row, and null until
   // the user answers the soft prompt — never required, never asked twice.
   height_cm: number | null;
@@ -35,7 +45,7 @@ export function useProfile(userId: string | undefined) {
         .from('profiles')
         .select(
           'id, character_name, class, timezone, level, total_xp, has_wearable, ' +
-            'height_cm, weight_kg, birth_year, sex',
+            'focus, height_cm, weight_kg, birth_year, sex',
         )
         .eq('id', userId as string)
         .maybeSingle();

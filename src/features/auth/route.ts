@@ -31,3 +31,42 @@ export function resolveRoute(input: {
   if (input.profileLoading) return 'loading';
   return input.hasProfile ? 'ready' : 'needs-profile';
 }
+
+/** The Expo Router groups the app's shells live in. */
+export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
+
+/**
+ * Where the gate should send someone, or `null` to leave them alone.
+ *
+ * Split out of the layout's effect so the one rule that can strand a user on
+ * the wrong screen is testable in Node rather than only observable by hand on a
+ * simulator.
+ *
+ * `finishingOnboarding` is the one subtlety. The profile row exists the instant
+ * the name step commits, so `resolveRoute` reads 'ready' while the focus
+ * question (§5) is still on screen — without this flag the gate would yank the
+ * user into the tabs mid-question. The flag is deliberately in-memory: a
+ * force-quit between the two steps resumes into the tabs with focus unset,
+ * which is why profile-row existence can stay the onboarding marker.
+ */
+export function redirectTarget(input: {
+  route: AppRoute;
+  group: string | undefined;
+  finishingOnboarding: boolean;
+}): '/sign-in' | '/name' | '/' | null {
+  switch (input.route) {
+    case 'loading':
+    case 'profile-error':
+      // Both render in place, so the user lands back where they were once the
+      // state resolves.
+      return null;
+    case 'signed-out':
+      return input.group === '(auth)' ? null : '/sign-in';
+    case 'needs-profile':
+      return input.group === '(onboard)' ? null : '/name';
+    case 'ready':
+      if (input.group === '(tabs)') return null;
+      if (input.group === '(onboard)' && input.finishingOnboarding) return null;
+      return '/';
+  }
+}

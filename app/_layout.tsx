@@ -4,8 +4,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { resolveRoute } from '@/features/auth/route.ts';
+import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
 import { startSessionListener, useSessionStore } from '@/features/auth/session.ts';
+import { useOnboardingStore } from '@/features/onboarding/store.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, radius, space } from '@/theme.ts';
@@ -34,6 +35,7 @@ function Gate() {
   const session = useSessionStore((s) => s.session);
   const sessionLoading = useSessionStore((s) => s.loading);
   const profile = useProfile(session?.user.id);
+  const finishingOnboarding = useOnboardingStore((s) => s.finishingOnboarding);
 
   useEffect(() => startSessionListener(), []);
 
@@ -46,16 +48,16 @@ function Gate() {
   });
 
   useEffect(() => {
-    // 'profile-error' has nowhere to navigate to — it renders in place, same
-    // as 'loading', so the user lands back exactly where the fetch failed
-    // once they retry successfully.
-    if (route === 'loading' || route === 'profile-error') return;
-
-    const group = segments[0];
-    if (route === 'signed-out' && group !== '(auth)') router.replace('/sign-in');
-    else if (route === 'needs-profile' && group !== '(onboard)') router.replace('/name');
-    else if (route === 'ready' && group !== '(tabs)') router.replace('/');
-  }, [route, segments, router]);
+    // The whole rule — including 'profile-error' and 'loading' having nowhere
+    // to navigate to, since both render in place — lives in redirectTarget(),
+    // which is tested in Node. This effect only performs the answer.
+    const target = redirectTarget({
+      route,
+      group: segments[0],
+      finishingOnboarding,
+    });
+    if (target) router.replace(target);
+  }, [route, segments, router, finishingOnboarding]);
 
   if (route === 'loading') {
     return (

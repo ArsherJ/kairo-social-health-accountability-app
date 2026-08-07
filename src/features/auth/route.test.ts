@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveRoute } from './route.ts';
+import { redirectTarget, resolveRoute } from './route.ts';
 
 const base = {
   sessionLoading: false,
@@ -69,5 +69,51 @@ describe('resolveRoute', () => {
     expect(
       resolveRoute({ ...base, hasSession: true, profileError: true, hasProfile: false }),
     ).not.toBe('needs-profile');
+  });
+});
+
+describe('redirectTarget', () => {
+  const at = (
+    route: Parameters<typeof redirectTarget>[0]['route'],
+    group: string | undefined,
+    finishingOnboarding = false,
+  ) => redirectTarget({ route, group, finishingOnboarding });
+
+  it('navigates nowhere while loading or retrying', () => {
+    expect(at('loading', '(tabs)')).toBeNull();
+    expect(at('profile-error', '(tabs)')).toBeNull();
+  });
+
+  it('sends a signed-out user to sign-in, and leaves them there', () => {
+    expect(at('signed-out', '(tabs)')).toBe('/sign-in');
+    expect(at('signed-out', '(auth)')).toBeNull();
+  });
+
+  it('sends a user with no profile to the name step, and leaves them there', () => {
+    expect(at('needs-profile', '(auth)')).toBe('/name');
+    expect(at('needs-profile', '(onboard)')).toBeNull();
+  });
+
+  it('sends a ready user to the tabs', () => {
+    expect(at('ready', '(auth)')).toBe('/');
+    expect(at('ready', '(tabs)')).toBeNull();
+  });
+
+  it('lets the onboarding group finish the focus step before the tabs take over', () => {
+    // The profile row exists the moment the name step commits, so the gate
+    // reads 'ready' while the focus question is still on screen. Without this
+    // the user would be yanked to the tabs mid-question.
+    expect(at('ready', '(onboard)', true)).toBeNull();
+  });
+
+  it('does not strand a ready user in onboarding once the flow is done', () => {
+    // The flag is in-memory only. A force-quit between name and focus therefore
+    // resumes into the tabs with focus unset — acceptable by design, and the
+    // reason profile-row existence stays the onboarding marker.
+    expect(at('ready', '(onboard)', false)).toBe('/');
+  });
+
+  it('never holds a signed-out or profileless user in onboarding on that flag', () => {
+    expect(at('signed-out', '(onboard)', true)).toBe('/sign-in');
   });
 });
