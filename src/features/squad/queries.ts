@@ -98,10 +98,17 @@ export function useMySquad(userId: string | undefined) {
  * How many people belong to the squad — the number the locked slots are
  * derived from (§7).
  *
- * Deliberately not `leaderboard.length`. `squad_leaderboard`'s `member_day`
- * CTE joins `daily_scores`, so it returns only members who have *scored*: a
- * squadmate who joined and has not moved yet is missing from the board but is
- * emphatically not an empty slot.
+ * This used to say `leaderboard.length` was unusable because `squad_leaderboard`
+ * returns only members who have *scored*. **It never did.** `member_day` joins
+ * `squad_members → profiles` and reaches `daily_scores` by `left join` — the
+ * original (`20260727120500_rpc.sql`), the completed-mode rewrite
+ * (`20260729100000`) and the current program-weighted one
+ * (`20260807100200_leaderboard_program_weighting.sql:191`) all do. A member who
+ * has not moved today comes back with `total = 0`, not absent.
+ *
+ * The count is therefore redundant for slot maths and is kept only because
+ * unpicking it from `Leaderboard`'s data flow is a refactor rather than a fix.
+ * V1 cleanup.
  *
  * `squad_members_select_visible` already lets a member see their own squad's
  * rows, so a bare `count` needs no policy change and exposes no identity.

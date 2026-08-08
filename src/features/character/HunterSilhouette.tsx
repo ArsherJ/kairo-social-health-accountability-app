@@ -1,12 +1,13 @@
-import { StyleSheet, View } from 'react-native';
+import { Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
 import { colors, radius, tierColors } from '@/theme.ts';
 
 /**
- * Placeholder Hunter, drawn with plain Views — no asset pipeline and no new
- * dependency (react-native-svg, Rive and Reanimated are all deliberately not
- * installed; §15 scopes MVP to placeholder art, and pulling in an animation
- * runtime for a placeholder is the wrong trade).
+ * The Hunter. Static placeholder art where an asset exists for the
+ * (stage × dominance) pair, and the original View primitives everywhere else —
+ * still no new dependency (react-native-svg, Rive and Reanimated are all
+ * deliberately not installed; §15 scopes MVP to *static* placeholder art, and
+ * pulling in an animation runtime for a placeholder is the wrong trade).
  *
  * Two things drive it, and they are independent:
  *
@@ -18,6 +19,33 @@ import { colors, radius, tierColors } from '@/theme.ts';
  * The proportions below are the honest reading of that table within the
  * primitives available. Commissioned art and Rive replace all of it in V1.
  */
+
+/** `${stage}-${dominance}`, with `none` for an unstarted or in-flight one. */
+type ArtKey = `${1 | 2 | 3 | 4}-${Exclude<Dominance, null> | 'none'}`;
+
+function artKey(stage: 1 | 2 | 3 | 4, dominance: Dominance | undefined): ArtKey {
+  return `${stage}-${dominance ?? 'none'}`;
+}
+
+/**
+ * Placeholder art, keyed by the same two inputs the primitives switch on.
+ *
+ * **Deliberately incomplete, and safe that way.** A missing key renders the
+ * primitives below, so art can land one file at a time and nothing has to be
+ * generated in one sitting. That is also why the map is written out rather than
+ * built from the key: Metro resolves `require` statically, so a path with no
+ * file behind it is a bundling error, not a runtime miss.
+ *
+ * To add one, drop the PNG in `assets/hunter/` and add its line here:
+ *
+ *     '3-STR': require('../../../assets/hunter/3-STR.png'),
+ *
+ * `assets/hunter/README.md` lists every key and what each is meant to look
+ * like. Roughly 2:1 portrait, transparent background — the aura is drawn
+ * behind the image by this component, not baked into it, so the same asset
+ * reads correctly at every stage's aura size.
+ */
+const HUNTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
 
 interface Build {
   /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
@@ -72,6 +100,7 @@ export function HunterSilhouette({
   dominance?: Dominance;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
+  const art = HUNTER_ART[artKey(stage, dominance)];
 
   const auraSize = 160 + stage * 14;
   const auraOpacity = 0.1 + stage * 0.12 + build.glow;
@@ -101,28 +130,40 @@ export function HunterSilhouette({
         />
       )}
 
-      <View style={styles.figure}>
-        <View style={styles.head} />
-        <View
-          style={[styles.shoulders, { width: BASE_SHOULDERS * build.shoulders }]}
+      {/* Art when there is art, primitives when there is not. A character that
+          fails to render is worse than a plain one, so the fallback is a
+          permanent branch rather than a migration step. */}
+      {art ? (
+        <Image
+          source={art}
+          style={styles.art}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
         />
-        <View
-          style={[
-            styles.torso,
-            {
-              width: BASE_TORSO_WIDTH * build.torso,
-              height: BASE_TORSO_HEIGHT * build.height,
-            },
-          ]}
-        />
+      ) : (
+        <View style={styles.figure}>
+          <View style={styles.head} />
+          <View
+            style={[styles.shoulders, { width: BASE_SHOULDERS * build.shoulders }]}
+          />
+          <View
+            style={[
+              styles.torso,
+              {
+                width: BASE_TORSO_WIDTH * build.torso,
+                height: BASE_TORSO_HEIGHT * build.height,
+              },
+            ]}
+          />
 
-        {build.stance > 0 && (
-          <View style={[styles.legs, { width: build.stance }]}>
-            <View style={styles.leg} />
-            <View style={styles.leg} />
-          </View>
-        )}
-      </View>
+          {build.stance > 0 && (
+            <View style={[styles.legs, { width: build.stance }]}>
+              <View style={styles.leg} />
+              <View style={styles.leg} />
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -136,6 +177,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     opacity: 0.55,
   },
+  // Matches the primitives' overall footprint (head + shoulders + torso + legs
+  // ≈ 212 tall) so swapping one for the other does not move the layout under
+  // the TODAY card.
+  art: { width: 190, height: 212 },
   figure: { alignItems: 'center' },
   head: {
     width: 46,

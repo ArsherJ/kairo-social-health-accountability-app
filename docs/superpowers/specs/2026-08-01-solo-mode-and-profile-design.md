@@ -59,6 +59,14 @@ every day — constant pull to invite barkada."
 
 ### The locked-slot trap
 
+> ⚠️ **Corrected 2026-08-08 (workstream D3.3). The trap below is not real.**
+> `member_day` reaches `daily_scores` by **`left join`**, in every version of the
+> function — so an unscored member comes back with `total = 0`, not absent, and
+> `rows.length` *is* the member count. The section is kept rather than deleted
+> because the claim was copied into `Leaderboard.tsx` and `queries.ts` from here,
+> and a deleted paragraph would just get re-derived. `useSquadMemberCount` stays
+> for now; removing it is a V1 cleanup, not a comment fix.
+
 The obvious implementation is `max_members - rows.length`, and
 `Leaderboard.tsx` already renders `{rows.length} of {squad.max_members}`.
 

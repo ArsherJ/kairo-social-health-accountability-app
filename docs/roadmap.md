@@ -31,6 +31,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 13 | One free item granted per day, deploy cap 2/day (§8) | **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
 | 14 | No notifications between 10 PM and 7 AM local **except sabotage** (§14) | **Three exempt triggers** — `sabotaged`, `day_ending_soon`, `day_ends` — expressed as `QUIET_HOURS_EXEMPT`, a set, and kept separate from `BUDGET_EXEMPT` | Plan decision #2 (2026-08-07). §14 forbids the window and then schedules "Day ending soon" at 23:00 and "Day ends" at 00:00 *inside* it, so read literally the rule suppresses the two notifications that drive the evening loop — leaving an engine that only sends V1 triggers. Those two are the core loop, not discretionary, so they are exempt on the same footing rather than as an exception to an exception. The two lists stay separate because the rules are independent in §14: merging them would make the day-boundary pair budget-exempt as a side effect of a quiet-hours decision, and `countsAgainstBudget()` is the one predicate both the planner and the `sentToday` query use. |
 | 15 | Push is delivered through **FCM** (spec C, §14 support) | **Expo's push service** — `getExpoPushTokenAsync()` on the client, `POST exp.host/--/api/v2/push/send` on the server | Founder decision 2026-08-07. The specced pairing could not have delivered a single notification: FCM addresses *FCM registration tokens*, and `expo-notifications` on iOS returns an **APNs device token** — only the Firebase Messaging SDK bridges the two. Hand verification made this concrete rather than theoretical (the token that landed in `device_tokens` was 80 bytes of APNs hex). Of the three ways out, Expo was the only one that *deleted* code: no service-account JWT, no OAuth exchange, no `GoogleService-Info.plist`, no extra native modules, and Android comes free at V1.5. The privacy argument for going direct to APNs was considered and rejected as weak — Apple relays the payload in every option, and push bodies carry a character name, a rank and a score total, none of which is in §5's protected set. **The server holds no push credential at all**; what the Developer Program still gates is the APNs key Expo needs, uploaded with `eas credentials`. Reversal is confined to `_shared/push.deno.ts` and `registerDeviceToken()`. |
+| 16 | `docs/roadmap.md` Phase 6 carries the **N-of-M squad streak** as MVP work | **Cut to V1.** No `squad_streaks` table, no trigger, no finalization work in the critical path | Plan decision #5 (2026-08-07). This is the spec's own position, not a reduction of it — §15 lists "Streak system + milestones (incl. N-of-M squad streak)" under **V1**, and only the roadmap phase ever treated it as MVP. Personal streaks and the Streak Shield are built and stay. Recorded as a deviation because the roadmap is what the build is sequenced from, so leaving the phase entry open would have kept re-proposing it. |
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
@@ -193,9 +194,11 @@ local stack is ever genuinely needed — so far nothing has required one.
   `STAT_POINTS_MAX_FEATURED` and both `MAX_DAILY_SCORE_*_FEATURED` constants
   were deleted rather than stranded; `FEATURED_STAT_MULTIPLIER` stays, tested,
   for a V1 read-time projection.
-  **Still owed: deploy `sync-health` and rescore or reseed the live dev
-  `daily_scores` rows** — stored rows hold post-multiplier points until then,
-  and the Phase 4 board reads per-stat columns.
+  ~~**Still owed: deploy `sync-health` and rescore or reseed the live dev
+  `daily_scores` rows**~~ — stored rows held post-multiplier points until then,
+  and the Phase 4 board reads per-stat columns. **Both done 2026-08-07**;
+  struck rather than deleted, because a phase entry is a record of what the
+  work cost, not a task list.
 - ✅ **[SP] `has_wearable` becomes server-observed** (closes Phase 3 follow-up
   #2). `observesWearable()` in `sync-plan.ts` is the decision — sleep minutes
   greater than zero, since a zero-minute night is indistinguishable from no
@@ -350,17 +353,21 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ `finalize-days` cron — hourly at `5 * * * *`, per-user grace window,
   provisional → final, XP/level, personal streak + Streak Shield
 - ✅ Account deletion / right-to-erasure with leadership succession
-- ⬜ N-of-M squad streak (needs a `squad_streaks` table)
+- ⏭️ N-of-M squad streak (needs a `squad_streaks` table) — **moved to V1**
+  (deviation #16). §15 always listed it under V1; this phase held it open.
 - ⬜ Coin awards — deferred with the coin economy to V1
 
 ### 🟨 Phase 7 — Solo mode + polish · 35–50h (+4–6h [SP])
 - ✅ **Solo mode + locked squad slots (§7)** — `SoloBoard` renders the caller's
   own day beside five locked slots; slots also show under a real board, since
   §7 wants them visible every day. Slot counts come from a `squad_members`
-  count, never from `squad_leaderboard`'s rows — the RPC returns only members
-  who have *scored*, so a squadmate who has not moved yet would otherwise
-  render as an empty seat. The old `{rows.length} of {max_members}` header had
-  the same bug and is fixed with it. `SquadEmptyState` is absorbed.
+  count rather than `squad_leaderboard`'s rows. ⚠️ **Corrected 2026-08-08
+  (workstream D3.3):** the stated reason — that the RPC returns only members
+  who have *scored* — was never true. Every version reaches `daily_scores` by
+  `left join`, so an unmoved member comes back with `total = 0`. The count is
+  therefore redundant, not load-bearing; removing it is a V1 cleanup rather
+  than a fix, and workstream A's deploy sheet relies on the corrected reading
+  (its target list is board rows). `SquadEmptyState` is absorbed.
 - ✅ **"Squad slot unlocked" reveal** — an `Animated` fade + scale fired when a
   refetch observes the member count rise. Not Realtime: membership changes do
   not broadcast (Phase 4 follow-up #8), so it lands on the next foreground or
@@ -373,7 +380,61 @@ local stack is ever genuinely needed — so far nothing has required one.
   varies frame, aura and stance by it, with a label on the character screen.
 - ✅ **Notification budget engine (§14)** — `packages/kairo-core/src/notifications.ts`,
   pure and TDD'd. See Phase 5 for the delivery half.
-- ⬜ AI-generated placeholder Hunter art — still plain `View` primitives (§15)
+- 🟨 **AI-generated placeholder Hunter art (§15)** — the *path* is built
+  (workstream D1): `HunterSilhouette` looks art up by `${stage}-${dominance}`
+  and renders the `View` primitives whenever a key is missing, so assets land
+  one file at a time and a half-populated directory is correct rather than
+  broken. `HUNTER_ART` is empty today, so every character still draws as
+  primitives. `assets/hunter/README.md` specifies the 24 keys and the format.
+  **Still owed: the images themselves**, plus one `require` line each.
+- ✅ **Telemetry on the two silent failures (workstream D2)** — closes Phase 1
+  follow-up #1. `timezone_sync_failed` on the reconcile write error, and
+  `health_permission_failed` from a `catch` that `HealthPermissionSheet.ask()`
+  never had: it was `try`/`finally`, so a rejected `requestAuthorization`
+  became an unhandled rejection *and* the `finally` dismissed the sheet, making
+  a failed connect look exactly like a successful one. The sheet now closes
+  only on success and shows an error line otherwise.
+- ✅ **The two permission sheets could not both present — found 2026-08-08
+  during workstream D's hand verification, and it was the worst defect in the
+  app.** `HealthPermissionSheet` owned a `<Modal>` on the character screen;
+  `NotificationPermissionSheet` owned another at the tabs shell. A `<Modal>`
+  presents on the **root** view controller wherever it is mounted, so the two
+  were never independent: when both turned visible in the same frame UIKit
+  refused the second — *"Attempt to present … which is already presenting …"* —
+  and suppressed it with nothing surfaced to the user.
+
+  **Two consequences, and the quiet one was worse.** The loud one: UIKit was
+  left inconsistent and the tab bar stopped accepting touches, surviving app
+  relaunch and clearing only on a device reboot. The quiet one, reproducible
+  from a clean boot: the **Health** sheet lost and never appeared, though
+  `permissionState()` returned `should-ask` — silently removing the only
+  in-app route to Apple Health, the app's entire data source.
+
+  Trigger: *has a squad + notification permission undetermined + Health not yet
+  granted* — i.e. every launch for anyone who tapped "Not now" on Health and has
+  a squad, since both sheets re-arm per session. It also lands at the Apple
+  gate: after E5, signing in on a second device hits it on first launch.
+
+  **Fix: one decision function and one modal host.**
+  `permissions/ask-order.ts` is pure and TDD'd (10 tests);
+  `permissions/PermissionAsks.tsx` holds the app's only permission `<Modal>` and
+  the two sheets became bodies rendered inside it. Two rules the spec does not
+  address and that are therefore recorded here rather than in the deviations
+  table: **Health is asked first** (it is the data source — a notification ask
+  answered first would be promising to announce nothing), and **one ask per
+  session**, because answering Health makes the notification ask eligible in the
+  same frame and a sheet arriving as another slides away is how an install
+  spends its one iOS dialog on a "Don't Allow".
+- ✅ **Two defects from the 2026-08-07 UI verification (workstream D3)** —
+  `CreateSquadForm`'s name field now sets `letterSpacing: 0` explicitly, because
+  React Native recycles native inputs and applies only properties that are
+  *present*, so after Join → Back → Create the field inherited
+  `JoinSquadForm`'s `letterSpacing: 8` and truncated its placeholder. And
+  `programNote()` moved **above** the program picker: below it, the gym
+  accuracy warning rendered off-screen at the moment Gym was tapped, so the one
+  person it is written for never saw it. Both hand-verified on the simulator
+  2026-08-08: the placeholder renders full after Join → Back → Create, and the
+  note is visible without scrolling the moment Gym is selected.
 - ✅ **[SP] Focus edit row in Profile** — `FocusCard.tsx`, beside the
   body-metrics card, reusing the onboarding chips.
 - ✅ **[SP] "Your lane" highlight** — `src/features/character/lane.ts`, tested.
@@ -389,9 +450,18 @@ local stack is ever genuinely needed — so far nothing has required one.
   equal-weight "Join with a code" button was demoted to a link. Create stays
   the funnel.
 
-### ⬜ Phase 8 — TestFlight + beta · 20–30h
-- `app_events` instrumentation, privacy nutrition labels
-- Internal → external testers, beta ops
+### 🟨 Phase 8 — TestFlight + beta · 20–30h
+- 🟨 **Privacy policy, ToS and nutrition labels drafted** (workstream D6) in
+  `docs/legal/`. Pulled forward from E7 deliberately: §15 puts them in V1, but
+  external testers need them and they have a lead time measured in days, so
+  drafting them late is the thing that delays a beta. Written against what the
+  schema and Edge Functions actually do, with the six decisions that are the
+  founder's — controller identity, contact address, retention period, DPO,
+  jurisdiction, and whether beta data survives — left as visible `[[TODO]]`s
+  rather than guessed. **Still owed: counsel review, and a public URL for the
+  policy** (App Store Connect requires one for any app requesting HealthKit).
+- ⬜ `app_events` instrumentation
+- ⬜ Internal → external testers, beta ops
 - ⬜ **Undeploy `seed-health` before external testers join** — it fabricates
   activity, and the beta measures real behaviour
 - 🟨 **[SP] Segment beta metrics by squad program and personal focus** —
@@ -449,7 +519,7 @@ these are decisions, not forgotten work.
 
 | # | Item | Why deferred |
 |---|---|---|
-| 1 | **No telemetry anywhere in the client.** The timezone reconcile swallows its write error (`timezone-sync.ts`), and `HealthPermissionSheet.ask()` swallows a rejected `requestAuthorization`. A persistent failure of either would never surface. | Both retry on next foreground, so transient failures self-heal. `app_events` already exists with a client INSERT policy — one follow-up should cover both, plus the HealthKit device path, which currently fails silently when the App ID lacks the capability. |
+| 1 | ~~**No telemetry anywhere in the client.**~~ **Closed 2026-08-08** (workstream D2). `timezone_sync_failed` and `health_permission_failed` now land in `app_events`. The permission path was worse than "swallows": `ask()` was `try`/`finally` with no `catch`, so the rejection went unhandled *and* the `finally` dismissed the sheet — a failed connect was indistinguishable from a successful one. It now closes only on success. | The original deferral reasoning holds and is why this was safe to defer: both retry on the next foreground, so transient failures self-heal. `track()` is fire-and-forget and never throws, so neither call site can be made worse by adding it. |
 | 2 | **`STAT_MAX = 900` in `StatBar.tsx` duplicates `TIER_POINTS.gold`**, which `kairo-core` does not export. Changing the gold tier would silently mis-scale every stat bar with no test failure. | Harmless while all values are zero. Fix by exporting `TIER_POINTS` or a `STAT_POINTS_MAX` from core. Note a featured gold stat stores 1350 and pins the bar at 100%, so featured and non-featured gold look identical. |
 | 3 | ~~**`useTodayScore` builds its query key inline**~~ — **done (2026-08-01).** `todayScoreKey()` is exported and `useHealthSync` invalidates it after every successful sync, alongside `profileKey()` and `squadKeys.allBoards()`. | — |
 | 4 | **Midnight rollover only re-derives the local date on re-render.** It works today *incidentally*: foregrounding triggers `startAutoRefresh()` → token refresh → `onAuthStateChange` → new session object → re-render. | Nothing deliberate guarantees it. Do not "optimize" session-object identity without replacing this path. |
@@ -489,7 +559,7 @@ deliberate; none blocks simulator verification.
 | 1 | ~~**Background delivery does not survive termination**~~ — **plugin written 2026-08-01.** `plugins/withHealthKitBackgroundObservers.js` injects the AppDelegate call the library's own plugin omits. **What remains:** the *behaviour* is unverified. Being woken after termination needs a physical device and the HealthKit capability on the App ID. | The native observer calls iOS's completion handler as soon as JS is notified, not when the sync finishes, so the process can be suspended mid-request. Background delivery is best-effort by design; the foreground flush is the guarantee and the product must never depend on the wake-up. |
 | 2 | **`profiles.has_wearable` is never written.** Nothing in any Edge Function sets it; only `src/features/profile/queries.ts` reads it. `sync-health` receiving a `sleep` entry is the natural signal. | A server change outside this phase's scope. `MAX_DAILY_SCORE_WITH_WEARABLE` and any wearable affordance on the leaderboard both depend on it, so do it before REC matters. |
 | 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
-| 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. | Phase 1 follow-up #1's territory — one `app_events` type would cover this, the timezone reconcile and the permission path together. |
+| 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. **Still open after workstream D2**, deliberately: `health_permission_failed` covers the *throw* path, and this is not one. HealthKit refuses to disclose read denials by design, so `requestAuthorization` resolves normally for someone who granted nothing. | Distinguishing the two needs a different signal — a granted-permission user whose buckets stay empty across several syncs — which is an inference over `health_buckets`, not a client event. Phase 8's `app_events` instrumentation is the place for it. |
 | 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 8 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
 
 ---
@@ -505,5 +575,6 @@ From building solo mode, the profile screen and dominant-stat evolution on
 | 2 | **Dominance is measured over a 14-day window, not lifetime.** §6 implies lifetime ("which stats they grinded"). | No lifetime per-stat rollup exists: `profiles.total_xp` rolls up `xp_awarded`, not per-stat points. Adding one is a table plus a trigger for a visual. `DOMINANCE_WINDOW_DAYS` in `src/features/character/queries.ts` is one edit to change. |
 | 3 | **`FREE_SQUAD_MAX_MEMBERS` is duplicated in SQL.** The number 6 lives in `squads.max_members`'s default and in `create_squad`, as well as in `packages/kairo-core/src/squad.ts`. | Migrations cannot import TypeScript. All three sites now carry cross-reference comments, so the duplication is deliberate; nothing enforces it. |
 | 4 | **`profiles.sex` is selected but never editable.** `useProfile` reads it (the column-level UPDATE grant covers it) but `BodyMetricsCard` edits only height, weight and birth year. | §5's soft prompt names height and weight; nothing in MVP scoring reads `sex`. Adding a picker for an unused column is UI for its own sake. |
-| 5 | **The unlock reveal is unverified on the simulator.** The count comparison is unit-tested (`slots.test.ts`), but nobody has watched the animation fire — it needs a second account joining a non-full squad. | The live test squad is at 6 of 6, and emptying a seat to test it would mutate real squad data. Verify when a squad with spare capacity next exists. |
+| 5 | **The unlock reveal is unverified on the simulator.** The count comparison is unit-tested (`slots.test.ts`), but nobody has watched the animation fire — it needs a second account joining a non-full squad. **Now testable** (workstream D4): Takbo Manila has spare seats, so the blocker below is gone. | ~~The live test squad is at 6 of 6, and emptying a seat to test it would mutate real squad data.~~ What to check, since membership changes do not broadcast: with the board open, add a member via `seed-health`/`remote-sql.sh`, foreground the app, and confirm the reveal animates **once** on the refetch riding `useSquadRealtime`'s `refetch()` and does not re-fire on subsequent refetches. |
+| 7 | **Nothing stops a third `<Modal>` being added somewhere else.** The permission collision is fixed by convention plus one host, not by a mechanism — a future sheet mounted on a screen would reintroduce exactly the same failure, and the symptom (a silently suppressed sheet, or a wedged tab bar) does not point at its cause. | No cheap enforcement exists: RN has no "one modal" primitive and lint cannot see presentation semantics. The mitigation is that `PermissionAsks` is now the obvious place to add an ask, and both former sheets carry a comment saying why they no longer own a `<Modal>`. Worth a second look if V1 adds any full-screen interstitial. |
 | 6 | **`BodyMetricsCard` seeds its drafts once and never re-syncs.** If the profile row changes on another device while the screen is mounted, the fields keep the stale values until remount. | Deliberate: re-syncing on every refetch would yank characters out from under someone mid-edit. Single-device MVP, so the race is theoretical. |

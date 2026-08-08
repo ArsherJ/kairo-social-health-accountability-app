@@ -21,7 +21,13 @@ export type AppEventType =
   // Read by dispatch-notifications, not only by analysis: §14's "Day starts"
   // fires mid-morning *only if the app has not been opened yet*, and this row
   // is the entire signal behind that condition.
-  | 'app_open';
+  | 'app_open'
+  // The two failures that used to leave no trace anywhere. Both are silent by
+  // construction rather than by oversight — the app looks fine while the thing
+  // it depends on is not working — so the event row is the only evidence a
+  // beta report can be checked against.
+  | 'timezone_sync_failed'
+  | 'health_permission_failed';
 
 export function track(
   userId: string | undefined,

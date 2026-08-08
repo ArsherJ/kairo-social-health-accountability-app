@@ -1,89 +1,106 @@
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
-import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
+import { requestHealthPermission } from './permission.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
 /**
- * The in-context ask (§5). Presented over the character screen so the prompt
- * overlays the Hunter it is about to power, rather than gating the user before
- * they have anything to care about.
+ * The in-context ask (§5), as sheet *content* rather than a sheet.
  *
- * Dismissal is per-session on purpose: there is no "never ask again" until
- * there is a settings screen to re-enable it from (Phase 7).
+ * It used to own its own `<Modal>` and its own visibility, mounted on the
+ * character screen so the prompt overlaid the Hunter it was about to power.
+ * That independence was the bug: `NotificationPermissionSheet` did the same
+ * thing at the tabs shell, and two `<Modal>`s presenting on one root view
+ * controller means UIKit refuses the second and suppresses it silently. See
+ * `src/features/permissions/ask-order.ts`.
+ *
+ * So visibility, ordering and dismissal now belong to `PermissionAsks`, and
+ * what remains here is the copy, the request, and what to do when it fails.
  */
-export function HealthPermissionSheet() {
-  const [visible, setVisible] = useState(false);
+export function HealthAsk({
+  userId,
+  onAnswered,
+  onDismiss,
+}: {
+  userId: string | undefined;
+  /** The request completed — the caller advances past this ask. */
+  onAnswered: () => void;
+  onDismiss: () => void;
+}) {
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    void readHealthPermissionState().then((state) => {
-      if (!cancelled) setVisible(state === 'should-ask');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  /**
+   * This used to be `try { … } finally { … }` with no `catch`, which was worse
+   * than swallowing the error: it left an unhandled rejection from an onPress
+   * handler, and the `finally` closed the sheet either way — so a failed
+   * connect looked exactly like a successful one, and the user was left with a
+   * character powered by nothing and no reason to suspect it.
+   *
+   * The ask is now only reported answered on the success path. `track()` is
+   * fire-and-forget and never throws, so nothing here can make the failure
+   * worse.
+   */
   async function ask() {
     setBusy(true);
+    setFailed(false);
     try {
       await requestHealthPermission();
       await configureHealthBackgroundDelivery();
       // Sync straight away rather than waiting for the next foreground. The
       // user just connected Health and is looking at a screen showing zero.
       notifyHealthPermissionGranted();
+      onAnswered();
+    } catch (error) {
+      track(userId, 'health_permission_failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setFailed(true);
     } finally {
       setBusy(false);
-      setVisible(false);
     }
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.label}>POWER YOUR CHARACTER</Text>
-          <Text style={styles.title}>Your real life is the game</Text>
-          <Text style={styles.body}>
-            Kairo reads your steps, distance, active calories and active minutes from
-            Apple Health. That is what levels your Hunter and puts you on the squad
-            leaderboard.
-          </Text>
-          <Text style={styles.fine}>
-            Your squad only ever sees tiers and scores — never your raw numbers, and
-            never when you move. Kairo writes nothing back to Health.
-          </Text>
+    <>
+      <Text style={styles.label}>POWER YOUR CHARACTER</Text>
+      <Text style={styles.title}>Your real life is the game</Text>
+      <Text style={styles.body}>
+        Kairo reads your steps, distance, active calories and active minutes from
+        Apple Health. That is what levels your Hunter and puts you on the squad
+        leaderboard.
+      </Text>
+      <Text style={styles.fine}>
+        Your squad only ever sees tiers and scores — never your raw numbers, and
+        never when you move. Kairo writes nothing back to Health.
+      </Text>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy}
-            onPress={() => void ask()}
-            style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.buttonLabel}>Connect Apple Health</Text>
-          </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => void ask()}
+        style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
+      >
+        <Text style={styles.buttonLabel}>Connect Apple Health</Text>
+      </Pressable>
 
-          <Pressable accessibilityRole="button" onPress={() => setVisible(false)}>
-            <Text style={styles.later}>Not now</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
+      {failed && (
+        <Text style={styles.error}>
+          That didn't connect. Try again — or grant Kairo access in Settings →
+          Privacy & Security → Health.
+        </Text>
+      )}
+
+      <Pressable accessibilityRole="button" onPress={onDismiss}>
+        <Text style={styles.later}>Not now</Text>
+      </Pressable>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000AA' },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: space.lg,
-    paddingBottom: space.xl,
-  },
   label: { color: colors.accent, ...font.label },
   title: { color: colors.text, ...font.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body, marginTop: space.md },
@@ -96,6 +113,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
+  error: { color: colors.danger, fontSize: 13, marginTop: space.md, lineHeight: 19 },
   later: {
     color: colors.muted,
     ...font.body,

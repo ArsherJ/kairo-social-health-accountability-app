@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { deviceTimeZone } from './device-timezone.ts';
 import { profileKey } from './queries.ts';
 import { shouldUpdateTimezone } from './timezone-rule.ts';
@@ -31,7 +32,18 @@ export function useTimezoneSync(
         .update({ timezone: device })
         .eq('id', userId as string);
 
-      if (error) return;
+      // The failure this file's header describes, arriving as a write error.
+      // Nothing in the UI changes when it happens: the user keeps finalizing on
+      // the timezone they left behind, and the only symptom is a day that
+      // closes at the wrong hour. Leave a row so it is at least answerable.
+      if (error) {
+        track(userId, 'timezone_sync_failed', {
+          code: error.code,
+          from: storedTimeZone ?? null,
+          to: device,
+        });
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: profileKey(userId) });
     }
 

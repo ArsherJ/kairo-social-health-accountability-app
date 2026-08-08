@@ -105,6 +105,16 @@ export function CreateSquadForm({
           changed later.
         </Text>
 
+        {/* Above the picker, not below it: the note is conditional, and where it
+            used to sit it rendered below the fold at the moment Gym was tapped
+            — so the person it is written for was the one person who never saw
+            it. The honest-capability rule only serves the choice if it is
+            visible while the choice is being made. On the other three programs
+            the note is empty and the layout is unchanged. */}
+        {programNote(program) && (
+          <Text style={styles.note}>{programNote(program)}</Text>
+        )}
+
         <View style={styles.programs}>
           {PROGRAM_OPTIONS.map((option) => {
             const selected = option.value === program;
@@ -135,11 +145,6 @@ export function CreateSquadForm({
             );
           })}
         </View>
-
-        {/* The honest-capability rule, at the moment the choice is made. */}
-        {programNote(program) && (
-          <Text style={styles.note}>{programNote(program)}</Text>
-        )}
 
         {createSquad.error && (
           <Text style={styles.error}>{createSquad.error.message}</Text>
@@ -207,6 +212,11 @@ const styles = StyleSheet.create({
   help: { color: colors.subtle, ...font.body, marginTop: space.sm, lineHeight: 22 },
   input: {
     marginTop: space.lg,
+    // Explicitly zero, not omitted. React Native recycles native text inputs,
+    // and only applies properties that are *present* — so after Join → Back →
+    // Create the recycled view kept `JoinSquadForm`'s `letterSpacing: 8` and
+    // truncated this field's placeholder. An omitted property is not a reset.
+    letterSpacing: 0,
     borderBottomWidth: 2,
     borderBottomColor: colors.accent,
     color: colors.text,

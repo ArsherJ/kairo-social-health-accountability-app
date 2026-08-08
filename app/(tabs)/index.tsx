@@ -10,7 +10,6 @@ import {
   useDominantStat,
   useTodayScore,
 } from '@/features/character/queries.ts';
-import { HealthPermissionSheet } from '@/features/health/HealthPermissionSheet.tsx';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
@@ -138,7 +137,6 @@ export default function Character() {
         />
       ))}
 
-      <HealthPermissionSheet />
     </ScrollView>
   );
 }

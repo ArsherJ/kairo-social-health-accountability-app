@@ -6,7 +6,7 @@ import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { useSquadFeed } from '@/features/sabotage/queries.ts';
-import { NotificationPermissionSheet } from '@/features/notifications/NotificationPermissionSheet.tsx';
+import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
   useDeviceTokenRegistration,
@@ -29,6 +29,8 @@ export default function TabsLayout() {
   // Mounted at the shell rather than on one screen: the ask is keyed to what
   // has happened to the user, not to where they happen to be standing. Both
   // queries are already in cache from the squad screen, so this costs nothing.
+  // The Health ask moved here from the character screen for the same reason,
+  // and because two independently-mounted `<Modal>`s cannot both present.
   const squad = useMySquad(session?.user.id);
   const feed = useSquadFeed(squad.data?.id);
   const hasBeenSabotaged = (feed.data ?? []).some((event) => event.target_is_self);
@@ -48,7 +50,8 @@ export default function TabsLayout() {
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       </Tabs>
 
-      <NotificationPermissionSheet
+      <PermissionAsks
+        userId={session?.user.id}
         hasSquad={Boolean(squad.data)}
         hasBeenSabotaged={hasBeenSabotaged}
       />

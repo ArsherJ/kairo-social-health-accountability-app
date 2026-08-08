@@ -68,9 +68,17 @@ export function Leaderboard({
   const remaining = items.data?.remaining ?? DAILY_ITEM_GRANT_FREE;
   const [target, setTarget] = useState<Row | null>(null);
 
-  // Not `board.data.length`: the RPC returns only members who have scored, so
-  // deriving slots from it would render a squadmate who has not moved today as
-  // an empty seat and invite them again.
+  // This comment used to claim the RPC returns only members who have *scored*,
+  // and that deriving slots from `board.data.length` would render an unmoved
+  // squadmate as an empty seat. That has never been true: every version of
+  // `squad_leaderboard` reaches `daily_scores` by `left join`, so a member who
+  // has not moved appears with `total = 0` rather than being absent. Workstream
+  // A's deploy sheet depends on that corrected reading — its target list is
+  // board rows, which is only safe because every member is on them.
+  //
+  // So this count is now redundant for slot maths. It stays because removing it
+  // is a refactor of this component's data flow, not a comment fix; recorded as
+  // a V1 cleanup in `docs/superpowers/specs/2026-08-07-d-polish-design.md`.
   const memberCount = useSquadMemberCount(squad.id);
   const { locked } = resolveSlots({
     memberCount: memberCount.data,
