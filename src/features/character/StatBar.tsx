@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { STAT_POINTS_MAX } from '@kairo/core';
 import { colors, font, radius, space, tierColor } from '@/theme.ts';
+import { Meter } from '@/ui/index.ts';
 
 export function StatBar({
   stat,
@@ -24,6 +25,10 @@ export function StatBar({
   /** Shown under an empty lane bar, in the focus's own language. */
   laneEmptyCopy?: string | null;
 }) {
+  // One ceiling for every bar. The redesign arrived from a branch that still
+  // had the weekly featured stat and sized bars against a moving ceiling
+  // (`statFraction(points, featured)`); deviation #10 retired that rotation
+  // from stored scoring, so there is no second ceiling left to size against.
   const fill = Math.max(0, Math.min(1, points / STAT_POINTS_MAX));
   const showLaneCopy = lane && points === 0 && laneEmptyCopy !== null;
 
@@ -37,19 +42,16 @@ export function StatBar({
         <Text style={styles.points}>{points.toLocaleString()}</Text>
       </View>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.track, lane && styles.trackLane]}>
-        {/* Colour is the tier, width is the magnitude. The squad screen shows
-            squadmates' tiers in these exact colours, so your own stats have to
-            use the same vocabulary — a Gold that looks grey here and gold there
-            reads as a bug. The lane is carried by the tag and the track border,
-            never by recolouring the fill or widening the ceiling. */}
-        <View
-          style={[
-            styles.fill,
-            { width: `${fill * 100}%`, backgroundColor: tierColor(tier) },
-          ]}
-        />
+
+      {/* Colour is the tier, width is the magnitude. The squad screen shows
+          squadmates' tiers in these exact colours, so your own stats have to
+          use the same vocabulary — a Gold that looks grey here and gold there
+          reads as a bug. The lane is carried by the tag and the track border,
+          never by recolouring the fill or widening the ceiling. */}
+      <View style={[styles.meter, lane && styles.meterLane]}>
+        <Meter fraction={fill} color={tierColor(tier)} />
       </View>
+
       {showLaneCopy && <Text style={styles.laneCopy}>{laneEmptyCopy}</Text>}
     </View>
   );
@@ -58,21 +60,15 @@ export function StatBar({
 const styles = StyleSheet.create({
   row: { marginTop: space.md },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  stat: { color: colors.text, fontSize: 14, fontWeight: '700', letterSpacing: 1 },
+  stat: { ...font.display.minor, color: colors.text },
   statLane: { color: colors.accent },
-  laneTag: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  points: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
-  label: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  track: {
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    marginTop: space.xs,
-    overflow: 'hidden',
-  },
-  trackLane: { borderWidth: 1, borderColor: colors.accent },
-  // No default background: the tier colour is always supplied inline, and a
-  // fallback here would only ever mask a missing tier.
-  fill: { height: '100%', borderRadius: radius.pill },
-  laneCopy: { color: colors.subtle, ...font.body, fontSize: 12, marginTop: space.xs },
+  laneTag: { ...font.body.label, color: colors.accent, fontSize: 10 },
+  points: { ...font.body.body, color: colors.subtle, fontWeight: '600' },
+  label: { ...font.body.body, color: colors.muted, fontSize: 13, marginTop: 2 },
+  meter: { marginTop: space.xs, borderRadius: radius.pill },
+  // The lane ring sits on a wrapper rather than on `Meter` itself: the meter
+  // owns fill and track, and giving it a border prop for one caller would put
+  // a presentation decision inside a primitive two screens share.
+  meterLane: { borderWidth: 1, borderColor: colors.accent },
+  laneCopy: { ...font.body.body, color: colors.subtle, fontSize: 12, marginTop: space.xs },
 });

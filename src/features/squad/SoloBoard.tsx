@@ -1,15 +1,9 @@
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
+import { Button, Numeral, Screen } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';
@@ -78,9 +72,7 @@ export function SoloBoard({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+    <Screen
       refreshControl={
         <RefreshControl
           refreshing={score.isRefetching}
@@ -89,11 +81,11 @@ export function SoloBoard({
         />
       }
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Your squad</Text>
-        <Text style={styles.members}>
-          1 of {FREE_SQUAD_MAX_MEMBERS}
-        </Text>
+      <Text style={styles.title}>Your squad</Text>
+
+      <View style={styles.hero}>
+        <Numeral value="1st" size="hero" color={colors.accent} />
+        <Text style={styles.standing}>of 1</Text>
       </View>
 
       <Text style={styles.help}>
@@ -109,57 +101,28 @@ export function SoloBoard({
       ))}
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onCreate}
-          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryLabel}>Create a squad</Text>
-        </Pressable>
+        <Button label="Create a squad" variant="primary" onPress={onCreate} />
 
-        {/* Deliberately a link, not a second button. Creating is the funnel
-            — someone who already has a code knows they have one, and giving
-            the two actions equal weight makes the empty board read as a
-            two-way gate rather than a place you already belong. */}
-        <Pressable
-          accessibilityRole="link"
-          onPress={onJoin}
-          style={({ pressed }) => [styles.inviteLink, pressed && styles.pressed]}
-        >
-          <Text style={styles.inviteLabel}>Have an invite code?</Text>
-        </Pressable>
+        {/* Deliberately not a second equal-weight button. Creating is the
+            funnel — someone who already has a code knows they have one, and
+            giving the two actions equal weight makes the empty board read as a
+            two-way gate rather than a place you already belong. `ghost` is how
+            that hierarchy is expressed now the button kit owns the styling. */}
+        <Button label="Have an invite code?" variant="ghost" onPress={onJoin} />
       </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingBottom: space.xl },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: space.sm,
-  },
-  title: { color: colors.text, ...font.title, flexShrink: 1 },
-  members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  title: { color: colors.text, ...font.body.title },
+  hero: { marginTop: space.lg },
+  standing: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
   help: {
     color: colors.subtle,
-    ...font.body,
-    marginTop: space.sm,
-    marginBottom: space.sm,
+    ...font.body.body,
+    marginTop: space.md,
     lineHeight: 22,
   },
   actions: { marginTop: space.lg },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  inviteLink: { marginTop: space.sm, paddingVertical: space.md, alignItems: 'center' },
-  inviteLabel: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-  pressed: { opacity: 0.85 },
 });

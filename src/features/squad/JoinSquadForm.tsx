@@ -1,19 +1,11 @@
 import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { INVITE_CODE_LENGTH, isValidInviteCode } from './invite-code.ts';
 import { useJoinSquad } from './mutations.ts';
 import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
 import { useSquadPreview } from './queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
+import { Button, Label, Panel } from '@/ui/index.ts';
 
 export function JoinSquadForm({
   userId,
@@ -59,8 +51,8 @@ export function JoinSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.top}>
-        <Text style={styles.label}>JOIN A SQUAD</Text>
+      <Panel variant="plain" style={styles.panel}>
+        <Label>JOIN A SQUAD</Label>
         <Text style={styles.title}>Enter the code.</Text>
         <Text style={styles.help}>
           Six characters, from whoever runs the squad. Dashes and spaces are fine.
@@ -126,34 +118,20 @@ export function JoinSquadForm({
         )}
 
         {joinSquad.error && <Text style={styles.error}>{joinSquad.error.message}</Text>}
-      </View>
+      </Panel>
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!valid || blocked || busy}
+        {/* `blocked` is not `!valid`: the code can be well-formed and still
+            refused (full squad, already a member), and the preview says so
+            above. Dropping it here would offer a button that only fails. */}
+        <Button
+          label="Join"
+          variant="primary"
+          busy={busy}
+          disabled={!valid || blocked}
           onPress={submit}
-          style={({ pressed }) => [
-            styles.primary,
-            (!valid || blocked || busy) && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.bg} />
-          ) : (
-            <Text style={styles.primaryLabel}>Join</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={busy}
-          onPress={onCancel}
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={styles.cancelLabel}>Back</Text>
-        </Pressable>
+        />
+        <Button label="Back" variant="ghost" disabled={busy} onPress={onCancel} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -161,10 +139,9 @@ export function JoinSquadForm({
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
-  top: { flex: 1 },
-  label: { color: colors.muted, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body, marginTop: space.sm, lineHeight: 22 },
+  panel: { flex: 1 },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm, lineHeight: 22 },
   input: {
     marginTop: space.xl,
     borderBottomWidth: 2,
@@ -178,7 +155,7 @@ const styles = StyleSheet.create({
     letterSpacing: 8,
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body, marginTop: space.md },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
   previewCard: {
     marginTop: space.lg,
     padding: space.md,
@@ -207,15 +184,4 @@ const styles = StyleSheet.create({
   previewNote: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   previewFull: { color: colors.danger, fontSize: 12, marginTop: space.sm },
   actions: { paddingBottom: space.xl },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.35 },
-  pressed: { opacity: 0.85 },
-  cancel: { paddingVertical: space.md, alignItems: 'center' },
-  cancelLabel: { color: colors.muted, fontSize: 15, fontWeight: '600' },
 });

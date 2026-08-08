@@ -83,6 +83,40 @@ export function tierFor(stat: CoreStat, raw: number): Tier {
   return 'none';
 }
 
+export interface NextTier {
+  tier: Exclude<Tier, 'none'>;
+  /** Raw units still needed to reach it, rounded up. Always > 0. */
+  gap: number;
+  /**
+   * The floor of the current band: the highest tier threshold `raw` is at or
+   * above, or 0 when `raw` has not reached bronze. Together with the next
+   * threshold (`gap + raw`) this lets a caller compute a true fraction
+   * through the current band — `gap / (threshold - bandLow)` — rather than a
+   * fraction of the target value, which only agrees with "share of band" in
+   * the first band, where the floor is 0.
+   */
+  bandLow: number;
+}
+
+/**
+ * The next tier up from a raw value, or null once Gold is reached — Gold is
+ * the ceiling (§6) and nothing above it exists.
+ *
+ * Reads the same THRESHOLDS table as `tierFor`, so the two can never disagree
+ * about where a boundary sits. Raw values arrive fractional from
+ * `active_minutes numeric(6,2)`, and a gap of "0.4 more minutes" is not an
+ * instruction, so the gap is rounded up to a whole unit.
+ */
+export function nextTierFor(stat: CoreStat, raw: number): NextTier | null {
+  const t = THRESHOLDS[stat];
+  if (raw < t.bronze) return { tier: 'bronze', gap: Math.ceil(t.bronze - raw), bandLow: 0 };
+  if (raw < t.silver) {
+    return { tier: 'silver', gap: Math.ceil(t.silver - raw), bandLow: t.bronze };
+  }
+  if (raw < t.gold) return { tier: 'gold', gap: Math.ceil(t.gold - raw), bandLow: t.silver };
+  return null;
+}
+
 /**
  * REC is a bonus laid on top of the four core stats — never a penalty. Users
  * without a wearable simply never reach this function.

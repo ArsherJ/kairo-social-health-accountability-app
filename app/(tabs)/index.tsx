@@ -1,25 +1,22 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
+import { StyleSheet, Text, View } from 'react-native';
+import { evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { HunterSilhouette } from '@/features/character/HunterSilhouette.tsx';
-import { StatBar } from '@/features/character/StatBar.tsx';
+import { StatRow } from '@/features/character/StatRow.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
   DOMINANCE_WINDOW_DAYS,
   useDominantStat,
   useTodayScore,
 } from '@/features/character/queries.ts';
+import { useTodayBuckets } from '@/features/character/buckets.ts';
+import { resolveStanding, type Standing } from '@/features/character/standing.ts';
+import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
+import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { colors, font, radius, space } from '@/theme.ts';
-
-const STAT_LABELS: Record<CoreStat, string> = {
-  AGI: 'Steps and distance',
-  STR: 'Active calories',
-  END: 'Active minutes',
-  VIT: 'Hourly movement',
-};
+import { colors, font, space } from '@/theme.ts';
+import { Label, Numeral, Screen } from '@/ui/index.ts';
 
 /**
  * §6's evolution table, said out loud. The silhouette differences are real but
@@ -34,12 +31,78 @@ const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
   balanced: 'ALL-ROUNDER',
 };
 
+/** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
+function ordinal(n: number): string {
+  const teens = n % 100;
+  if (teens >= 11 && teens <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+/** "gold" -> "Gold", for a sentence. Never renders above Gold — there is no tier above it. */
+function tierLabel(tier: string): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function standingCopy(standing: Standing): string | null {
+  switch (standing.kind) {
+    case 'unknown':
+      return null;
+    case 'solo':
+      return 'No squad yet.';
+    case 'unranked':
+      return 'Unranked today.';
+    case 'ranked':
+      if (!standing.ahead) return `${ordinal(standing.rank)} · leading.`;
+      if (standing.ahead.gap === 0) {
+        return `${ordinal(standing.rank)} · level with ${standing.ahead.name}.`;
+      }
+      return (
+        `${ordinal(standing.rank)} · ${standing.ahead.name} is ` +
+        `${standing.ahead.gap.toLocaleString()} ahead.`
+      );
+  }
+}
+
+function detailCopy(detail: StatDetail): string | null {
+  switch (detail.kind) {
+    case 'unknown':
+      return null;
+    case 'maxed':
+      return 'Every stat at Gold.';
+    case 'gap': {
+      const gap = detail.gap.toLocaleString();
+      const tier = tierLabel(detail.tier);
+      if (detail.lane) {
+        // `·` matches standingCopy's separator above — one rhetorical pattern
+        // (clause · clause), one glyph, across this screen's two copy lines.
+        // No multiplier is claimed: the lane is marked, never scaled.
+        return `Your lane · ${gap} more ${detail.unit} for ${tier} on ${detail.stat}.`;
+      }
+      return `${gap} more ${detail.unit} for ${tier} on ${detail.stat}.`;
+    }
+  }
+}
+
 export default function Character() {
-  const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
   const score = useTodayScore(session?.user.id, profile.data?.timezone);
   const dominance = useDominantStat(session?.user.id, profile.data?.timezone);
+  const buckets = useTodayBuckets(session?.user.id, profile.data?.timezone);
+
+  // TanStack shares this cache with the Squad tab, so composing these two
+  // queries here costs no extra request.
+  const squad = useMySquad(session?.user.id);
+  const board = useSquadLeaderboard(squad.data?.id, 'current');
 
   const totalXp = profile.data?.total_xp ?? 0;
   const level = profile.data?.level ?? levelForXp(totalXp);
@@ -48,11 +111,6 @@ export default function Character() {
 
   const bonus = (today?.consistency_points ?? 0) + (today?.rec_points ?? 0);
 
-  // Presentation only (§5's focus question). Nothing here touches scoring —
-  // the squad's program is what changes points, and it does so on the board.
-  const lane = laneStat(profile.data?.focus ?? null);
-  const laneCopy = laneEmptyCopy(profile.data?.focus ?? null);
-
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
     STR: today?.str_points ?? 0,
@@ -60,16 +118,34 @@ export default function Character() {
     VIT: today?.vit_points ?? 0,
   };
 
+  // No featured stat any more. The redesign branch still had §6's weekly ×1.5
+  // rotation; deviation #10 retired it from stored scoring, because squad
+  // programs (deviation #12) carry the meta permanently and leaving both in
+  // would stack multiplicatively. `daily_scores.featured_stat` is written null.
+  //
+  // What replaces it on this screen is the user's declared focus - their
+  // "lane" - which is presentation only: the bar is marked, never widened.
+  // `?? null`: the profile query is undefined while in flight, and both
+  // helpers take "no focus declared" as null. Treating loading as "no lane"
+  // for a frame only costs the marker, never a wrong claim.
+  const focus = profile.data?.focus ?? null;
+  const lane = laneStat(focus);
+  const laneCopy = laneEmptyCopy(focus);
+
+  // undefined while squad membership is still loading, false for no squad,
+  // true once it resolves either way. resolveStanding treats those as three
+  // genuinely different states — coercing to a plain boolean here would
+  // collapse "still loading" into "no squad" and render a false claim.
+  const hasSquad = squad.data === undefined ? undefined : squad.data !== null;
+  const standing = resolveStanding({ hasSquad, rows: board.data });
+  const detail = resolveStatDetail({ totals: buckets.data, lane });
+
+  const standingLine = standingCopy(standing);
+  const detailLine = detailCopy(detail);
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        paddingTop: insets.top + space.lg,
-        paddingBottom: insets.bottom + space.xl,
-        paddingHorizontal: space.lg,
-      }}
-    >
-      <Text style={styles.label}>LEVEL {level}</Text>
+    <Screen>
+      <Label>{`LEVEL ${level}`}</Label>
       <Text style={styles.name}>{profile.data?.character_name ?? '—'}</Text>
 
       <HunterSilhouette stage={stage} dominance={dominance.data} />
@@ -79,43 +155,55 @@ export default function Character() {
           the one visual §6 says must be earned. */}
       {dominance.data != null && (
         <View style={styles.dominance}>
-          <Text style={styles.dominanceLabel}>
-            {DOMINANCE_LABELS[dominance.data]}
-          </Text>
-          <Text style={styles.meta}>
-            from your last {DOMINANCE_WINDOW_DAYS} days
-          </Text>
+          <Text style={styles.dominanceLabel}>{DOMINANCE_LABELS[dominance.data]}</Text>
+          <Text style={styles.meta}>from your last {DOMINANCE_WINDOW_DAYS} days</Text>
         </View>
       )}
 
-      <View style={styles.card}>
-        <Text style={styles.label}>TODAY</Text>
-        <Text style={styles.total}>{(today?.total ?? 0).toLocaleString()}</Text>
-        <Text style={styles.meta}>
-          {today
-            ? `${today.contributing_stats} of 4 stats contributing`
-            : 'No activity synced yet today.'}
+      {/* A pending score query is not an answer, and the hero number is the
+          single most emphasised element on this screen — `today?.total ?? 0`
+          would confidently claim zero for the one moment it is not true, then
+          jump to the real total. Same discipline as the standing and detail
+          lines below: render nothing rather than something false. */}
+      {!score.isPending && (
+        <Numeral value={today?.total ?? 0} size="hero" color={colors.accent} animate style={styles.hero} />
+      )}
+
+      {/* A pending standing query is not an answer. Rendering nothing beats a
+          placeholder or a dash, both of which would state something false. */}
+      {standingLine != null && <Text style={styles.standing}>{standingLine}</Text>}
+
+      {!score.isPending && (
+        <StatRow
+          points={points}
+          tiers={today?.tiers}
+          lane={lane}
+          laneEmptyCopy={laneCopy}
+        />
+      )}
+
+      {detailLine != null && <Text style={styles.detail}>{detailLine}</Text>}
+
+      {(today?.sabotage_delta ?? 0) < 0 && (
+        // The same reconciliation failure as the bonus line, in the other
+        // direction: sabotage_delta has always been selected and never
+        // rendered, so a squadmate's banana silently made the chips stop
+        // adding up. Being hit is also the moment §14 cares most about, and
+        // the app should not be the last place to mention it.
+        <Text style={styles.penalty}>
+          −{Math.abs(today?.sabotage_delta ?? 0).toLocaleString()} from sabotage
         </Text>
-        {bonus > 0 && (
-          // Without this the four bars visibly do not sum to the total: the
-          // consistency bonus and REC are both real points with no stat of
-          // their own (§5).
-          <Text style={styles.meta}>
-            includes +{bonus.toLocaleString()} for consistency
-            {(today?.rec_points ?? 0) > 0 ? ' and recovery' : ''}
-          </Text>
-        )}
-        {(today?.sabotage_delta ?? 0) < 0 && (
-          // The same reconciliation failure as the bonus line, in the other
-          // direction: sabotage_delta has always been selected and never
-          // rendered, so a squadmate's banana silently made the bars stop
-          // adding up. Being hit is also the moment §14 cares most about, and
-          // the app should not be the last place to mention it.
-          <Text style={styles.penalty}>
-            −{Math.abs(today?.sabotage_delta ?? 0).toLocaleString()} from sabotage
-          </Text>
-        )}
-      </View>
+      )}
+
+      {bonus > 0 && (
+        // Without this the four chips visibly do not sum to the hero total:
+        // the consistency bonus and REC are real points with no stat of
+        // their own (§5).
+        <Text style={styles.meta}>
+          Includes {bonus.toLocaleString()} for consistency
+          {(today?.rec_points ?? 0) > 0 ? ' and recovery' : ''}.
+        </Text>
+      )}
 
       <FirstSyncCallout
         userId={session?.user.id}
@@ -124,38 +212,17 @@ export default function Character() {
         tiers={today?.tiers ?? {}}
         hasScore={today != null}
       />
-
-      {CORE_STATS.map((stat) => (
-        <StatBar
-          key={stat}
-          stat={stat}
-          label={STAT_LABELS[stat]}
-          points={points[stat]}
-          tier={today?.tiers?.[stat]}
-          lane={stat === lane}
-          laneEmptyCopy={laneCopy}
-        />
-      ))}
-
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  label: { color: colors.muted, ...font.label },
-  name: { color: colors.text, ...font.title, marginTop: space.xs },
-  card: {
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  total: { color: colors.accent, fontSize: 48, fontWeight: '800', marginTop: space.sm },
-  meta: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
-  penalty: { color: colors.danger, fontSize: 13, marginTop: space.xs },
+  name: { color: colors.text, ...font.body.title, marginTop: space.xs },
   dominance: { alignItems: 'center', marginTop: space.sm },
-  dominanceLabel: { color: colors.accent, ...font.label },
+  dominanceLabel: { color: colors.accent, ...font.body.label },
+  meta: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
+  hero: { marginTop: space.lg },
+  standing: { color: colors.text, ...font.body.body, marginTop: space.sm },
+  detail: { color: colors.subtle, ...font.body.body, marginTop: space.md },
+  penalty: { color: colors.danger, ...font.body.body, fontSize: 13, marginTop: space.xs },
 });

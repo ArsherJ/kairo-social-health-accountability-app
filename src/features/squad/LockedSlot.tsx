@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space } from '@/theme.ts';
+import { colors, space } from '@/theme.ts';
+import { Panel } from '@/ui/index.ts';
 
 /**
  * An empty seat in the squad (§7): "locked slots are visible every day —
@@ -12,33 +13,37 @@ import { colors, radius, space } from '@/theme.ts';
  */
 export function LockedSlot({ rank }: { rank: number }) {
   return (
-    <View style={styles.row} accessibilityLabel={`Empty squad slot ${rank}`}>
-      <Text style={styles.rank}>{rank}</Text>
+    <Panel variant="plain" style={styles.row}>
+      {/* Panel does not forward extra props to its View, so the label lives
+          on this inner wrapper instead. */}
+      <View style={styles.content} accessibilityLabel={`Empty squad slot ${rank}`}>
+        <Text style={styles.rank}>{rank}</Text>
 
-      <View style={styles.middle}>
-        <Text style={styles.name}>Empty slot</Text>
-        <Text style={styles.meta}>Invite your barkada</Text>
+        <View style={styles.middle}>
+          <Text style={styles.name}>Empty slot</Text>
+          <Text style={styles.meta}>Invite your barkada</Text>
+        </View>
+
+        <Text style={styles.total}>—</Text>
       </View>
-
-      <Text style={styles.total}>—</Text>
-    </View>
+    </Panel>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Matches LeaderboardRow's vertical padding plus the height its third line
-    // of tier pills adds, so filled and empty slots sit on the same rhythm.
+    // Matches LeaderboardRow's marginTop and horizontal padding, with extra
+    // vertical padding standing in for the tier-pill line a filled row has
+    // and an empty slot does not — so filled and empty rows land on the same
+    // rhythm rather than an empty slot looking shorter than a real one.
+    marginTop: space.sm,
     paddingVertical: space.md + space.sm,
     paddingHorizontal: space.md,
-    marginTop: space.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
     borderStyle: 'dashed',
     borderColor: colors.border,
   },
+  content: { flexDirection: 'row', alignItems: 'center' },
   rank: { width: 28, color: colors.muted, fontSize: 18, fontWeight: '800' },
   middle: { flex: 1, paddingHorizontal: space.sm },
   name: { color: colors.muted, fontSize: 16, fontWeight: '700' },

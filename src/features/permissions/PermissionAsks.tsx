@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
-import { colors, radius, space } from '@/theme.ts';
+import { Panel } from '@/ui/index.ts';
+import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
 import { readHealthPermissionState } from '@/features/health/permission.ts';
 import type { HealthPermissionState } from '@/features/health/permission-state.ts';
@@ -76,7 +77,7 @@ export function PermissionAsks({
   return (
     <Modal visible={ask !== null} transparent animationType="slide">
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <Panel variant="plain" style={styles.sheet}>
           {ask === 'health' && (
             <HealthAsk
               userId={userId}
@@ -100,19 +101,17 @@ export function PermissionAsks({
               onDismiss={() => setNotificationDismissed(true)}
             />
           )}
-        </View>
+        </Panel>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000AA' },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: space.lg,
-    paddingBottom: space.xl,
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: `${colors.bg}CC`,
   },
+  sheet: { marginTop: 0, marginBottom: space.lg, marginHorizontal: space.lg },
 });

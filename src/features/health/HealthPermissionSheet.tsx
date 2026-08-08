@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { track } from '@/features/telemetry/events.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
 import { requestHealthPermission } from './permission.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
@@ -77,14 +78,12 @@ export function HealthAsk({
         never when you move. Kairo writes nothing back to Health.
       </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy}
+      <Button
+        label="Connect Apple Health"
+        variant="primary"
+        busy={busy}
         onPress={() => void ask()}
-        style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={styles.buttonLabel}>Connect Apple Health</Text>
-      </Pressable>
+      />
 
       {failed && (
         <Text style={styles.error}>
@@ -101,22 +100,14 @@ export function HealthAsk({
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.accent, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  body: { color: colors.subtle, ...font.body, marginTop: space.md },
+  label: { color: colors.accent, ...font.body.label },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
-  button: {
-    marginTop: space.lg,
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 13, marginTop: space.md, lineHeight: 19 },
   later: {
     color: colors.muted,
-    ...font.body,
+    ...font.body.body,
     textAlign: 'center',
     marginTop: space.md,
   },

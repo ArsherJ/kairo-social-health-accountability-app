@@ -49,7 +49,7 @@ export function SquadFeed({ squadId }: { squadId: string | undefined }) {
 
 const styles = StyleSheet.create({
   block: { marginTop: space.xl },
-  heading: { color: colors.muted, ...font.label },
+  heading: { color: colors.muted, ...font.body.label },
   line: {
     flexDirection: 'row',
     alignItems: 'baseline',

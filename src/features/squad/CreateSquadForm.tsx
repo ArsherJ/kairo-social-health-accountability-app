@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +14,7 @@ import { useCreateSquad } from './mutations.ts';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
+import { Button, Label } from '@/ui/index.ts';
 
 const SQUAD_NAME_MIN = 2;
 const SQUAD_NAME_MAX = 30;
@@ -71,14 +71,16 @@ export function CreateSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      {/* Scrollable: the name field plus four programs overflows a small
-          screen once the keyboard is up. */}
+      {/* Scrollable, not a Panel: the name field plus four programs overflows a
+          small screen once the keyboard is up, and the gym note has to stay
+          reachable — it is the one piece of copy on this screen written for the
+          person who is about to commit their squad to a program. */}
       <ScrollView
         style={styles.top}
         contentContainerStyle={styles.topContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.label}>CREATE A SQUAD</Text>
+        <Label>CREATE A SQUAD</Label>
         <Text style={styles.title}>Name it.</Text>
         <Text style={styles.help}>
           Your squad gets a six-character code. Send it to whoever you want on the
@@ -129,7 +131,7 @@ export function CreateSquadForm({
                 style={({ pressed }) => [
                   styles.program,
                   selected && styles.programSelected,
-                  pressed && styles.pressed,
+                  pressed && { opacity: 0.85 },
                 ]}
               >
                 <Text
@@ -152,31 +154,8 @@ export function CreateSquadForm({
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!valid || busy}
-          onPress={submit}
-          style={({ pressed }) => [
-            styles.primary,
-            (!valid || busy) && styles.disabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.bg} />
-          ) : (
-            <Text style={styles.primaryLabel}>Create</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={busy}
-          onPress={onCancel}
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={styles.cancelLabel}>Back</Text>
-        </Pressable>
+        <Button label="Create" variant="primary" busy={busy} disabled={!valid} onPress={submit} />
+        <Button label="Back" variant="ghost" disabled={busy} onPress={onCancel} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -186,7 +165,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   top: { flex: 1 },
   topContent: { paddingBottom: space.lg },
-  sectionLabel: { color: colors.muted, ...font.label, marginTop: space.xl },
+  sectionLabel: { color: colors.muted, ...font.body.label, marginTop: space.xl },
   sectionHelp: {
     color: colors.subtle,
     fontSize: 13,
@@ -207,9 +186,8 @@ const styles = StyleSheet.create({
   programLabelSelected: { color: colors.accent },
   programBlurb: { color: colors.subtle, fontSize: 12, marginTop: 2 },
   note: { color: colors.muted, fontSize: 12, marginTop: space.md, lineHeight: 18 },
-  label: { color: colors.muted, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body, marginTop: space.sm, lineHeight: 22 },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm, lineHeight: 22 },
   input: {
     marginTop: space.lg,
     // Explicitly zero, not omitted. React Native recycles native text inputs,
@@ -224,17 +202,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body, marginTop: space.md },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
   actions: { paddingBottom: space.xl },
-  primary: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  primaryLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.35 },
-  pressed: { opacity: 0.85 },
-  cancel: { paddingVertical: space.md, alignItems: 'center' },
-  cancelLabel: { color: colors.muted, fontSize: 15, fontWeight: '600' },
 });

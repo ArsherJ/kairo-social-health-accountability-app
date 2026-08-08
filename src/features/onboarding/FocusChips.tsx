@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   chipText: { flex: 1 },
   label: { color: colors.text, fontSize: 16, fontWeight: '700' },
   labelSelected: { color: colors.accent },
-  blurb: { color: colors.subtle, ...font.body, marginTop: 2 },
+  blurb: { color: colors.subtle, ...font.body.body, marginTop: 2 },
   dot: {
     width: 18,
     height: 18,

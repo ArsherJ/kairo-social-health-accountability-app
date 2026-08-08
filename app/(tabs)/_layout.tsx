@@ -12,6 +12,7 @@ import {
   useDeviceTokenRegistration,
 } from '@/features/notifications/useNotifications.ts';
 import { colors } from '@/theme.ts';
+import { TabPill } from '@/ui/TabPill.tsx';
 
 export default function TabsLayout() {
   const session = useSessionStore((s) => s.session);
@@ -36,13 +37,12 @@ export default function TabsLayout() {
   const hasBeenSabotaged = (feed.data ?? []).some((event) => event.target_is_self);
 
   return (
-    <Fragment>
+<Fragment>
       <Tabs
+        tabBar={(props) => <TabPill {...props} />}
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-          tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: colors.muted,
+          sceneStyle: { backgroundColor: colors.bg },
         }}
       >
         <Tabs.Screen name="index" options={{ title: 'Character' }} />

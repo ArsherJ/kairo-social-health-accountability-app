@@ -1,9 +1,7 @@
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +13,8 @@ import { CHARACTER_NAME_MAX, isValidCharacterName } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { beginFocusStep } from '@/features/onboarding/store.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button, Label } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 
 export default function NameYourHunter() {
   const insets = useSafeAreaInsets();
@@ -53,13 +52,15 @@ export default function NameYourHunter() {
     });
   }
 
+  const [inputFocused, setInputFocused] = useState(false);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { paddingTop: insets.top + space.xl }]}
     >
       <View style={styles.top}>
-        <Text style={styles.label}>NAME YOUR HUNTER</Text>
+        <Label>NAME YOUR HUNTER</Label>
         <Text style={styles.title}>Who are you going to be?</Text>
         <Text style={styles.help}>
           This is the name your squad will see on the leaderboard. You can change it
@@ -75,9 +76,16 @@ export default function NameYourHunter() {
           placeholder="Aeon"
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              borderBottomColor: inputFocused ? colors.accent : colors.borderStrong,
+            },
+          ]}
           returnKeyType="done"
           onSubmitEditing={submit}
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
         />
 
         {createProfile.error && (
@@ -86,22 +94,13 @@ export default function NameYourHunter() {
       </View>
 
       <View style={{ paddingBottom: insets.bottom + space.xl }}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!valid || createProfile.isPending}
+        <Button
+          label="Begin"
           onPress={submit}
-          style={({ pressed }) => [
-            styles.button,
-            (!valid || createProfile.isPending) && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          {createProfile.isPending ? (
-            <ActivityIndicator color={colors.bg} />
-          ) : (
-            <Text style={styles.buttonLabel}>Begin</Text>
-          )}
-        </Pressable>
+          variant="primary"
+          disabled={!valid}
+          busy={createProfile.isPending}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -115,26 +114,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   top: { flex: 1 },
-  label: { color: colors.muted, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body, marginTop: space.sm },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm },
   input: {
     marginTop: space.xl,
     borderBottomWidth: 2,
-    borderBottomColor: colors.accent,
     color: colors.text,
     fontSize: 28,
     fontWeight: '700',
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body, marginTop: space.md },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonDisabled: { opacity: 0.35 },
-  buttonPressed: { opacity: 0.85 },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
 });

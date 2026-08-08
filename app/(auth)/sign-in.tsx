@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { availableProviders, type SignInProvider } from '@/features/auth/providers.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 
 export default function SignIn() {
   const insets = useSafeAreaInsets();
@@ -24,32 +25,17 @@ export default function SignIn() {
       <View style={styles.hero}>
         <Text style={styles.brand}>KAIRO</Text>
         <Text style={styles.tagline}>Every day is a Kairo moment.</Text>
-        {/* The tagline is a mood, not an explanation. Two lines saying what
-            the app actually is — copy only, no new screen. */}
-        <Text style={styles.pitch}>
-          Your squad competes on real activity, straight from Apple Health.
-        </Text>
-        <Text style={styles.pitch}>
-          Your character levels up when you move — and your squadmates can sabotage
-          your day.
-        </Text>
       </View>
 
       <View style={{ paddingBottom: insets.bottom + space.xl }}>
         {providers.map((provider) => (
-          <Pressable
+          <Button
             key={provider.id}
-            accessibilityRole="button"
-            disabled={busy}
+            label={provider.label}
             onPress={() => void run(provider)}
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.bg} />
-            ) : (
-              <Text style={styles.buttonLabel}>{provider.label}</Text>
-            )}
-          </Pressable>
+            variant="primary"
+            busy={busy}
+          />
         ))}
 
         {providers.length === 0 && (
@@ -73,16 +59,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   hero: { flex: 1, justifyContent: 'center' },
-  brand: { color: colors.text, ...font.brand },
-  tagline: { color: colors.muted, ...font.body, marginTop: space.sm },
-  pitch: { color: colors.subtle, ...font.body, marginTop: space.md, lineHeight: 22 },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonPressed: { opacity: 0.85 },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  error: { color: colors.danger, ...font.body, marginTop: space.md, textAlign: 'center' },
+  brand: { color: colors.text, ...font.display.brand },
+  tagline: { color: colors.muted, ...font.body.body, marginTop: space.sm },
+  error: { color: colors.danger, ...font.body.body, marginTop: space.md, textAlign: 'center' },
 });

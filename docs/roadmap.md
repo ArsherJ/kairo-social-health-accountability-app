@@ -450,7 +450,15 @@ local stack is ever genuinely needed — so far nothing has required one.
   equal-weight "Join with a code" button was demoted to a link. Create stays
   the funnel.
 
-### 🟨 Phase 8 — TestFlight + beta · 20–30h
+### ✅ Phase 8 — UI redesign · 40–50h
+- ✅ **Shared `src/ui` primitive layer** — nine components (`Screen`, `Panel`, `Numeral`, `Label`, `Meter`, `TierChip`, `Button`, `Aura`, `TabPill`) with a unified design language, motion policy, and zero dependencies
+- ✅ **Five pure decision modules, 37 new tests** — `ui/motion-policy` (7), `character/standing` (10), `character/stat-detail` (7), `character/stat-fraction` (8), `squad/standing` (5). Every UI *decision* runs in plain node; rendering stays thin, as with the Edge Functions' `*-plan.ts` split
+- ✅ **`nextTierFor` added to `kairo-core`** so tier thresholds stay in one place — the stat detail line needs a gap in raw units, which `daily_scores` does not store
+- ✅ **Every screen rebuilt on the primitive layer** — the three tabs, onboarding, auth, the health sheet, squad forms and feature cards
+- ✅ **Spec reference:** `docs/superpowers/specs/2026-08-04-ui-redesign-design.md`
+- ⬜ **Device verification** — end-to-end UI rendering on the physical iPhone (outstanding, batched separately)
+
+### 🟨 Phase 9 — TestFlight + beta · 20–30h
 - 🟨 **Privacy policy, ToS and nutrition labels drafted** (workstream D6) in
   `docs/legal/`. Pulled forward from E7 deliberately: §15 puts them in V1, but
   external testers need them and they have a lead time measured in days, so
@@ -559,8 +567,8 @@ deliberate; none blocks simulator verification.
 | 1 | ~~**Background delivery does not survive termination**~~ — **plugin written 2026-08-01.** `plugins/withHealthKitBackgroundObservers.js` injects the AppDelegate call the library's own plugin omits. **What remains:** the *behaviour* is unverified. Being woken after termination needs a physical device and the HealthKit capability on the App ID. | The native observer calls iOS's completion handler as soon as JS is notified, not when the sync finishes, so the process can be suspended mid-request. Background delivery is best-effort by design; the foreground flush is the guarantee and the product must never depend on the wake-up. |
 | 2 | **`profiles.has_wearable` is never written.** Nothing in any Edge Function sets it; only `src/features/profile/queries.ts` reads it. `sync-health` receiving a `sleep` entry is the natural signal. | A server change outside this phase's scope. `MAX_DAILY_SCORE_WITH_WEARABLE` and any wearable affordance on the leaderboard both depend on it, so do it before REC matters. |
 | 3 | **A downward revision on a day outside the sync window is never corrected.** Whole-day emission fixes revisions for dates in the window (today, yesterday, anything dirty), but nothing dirties an older date when Apple silently revises it. | The observer fires on change without saying *which* date changed, so catching this would mean re-reading far more than 2 days on every sync. The day is `final` by then and only XP would move. |
-| 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. **Still open after workstream D2**, deliberately: `health_permission_failed` covers the *throw* path, and this is not one. HealthKit refuses to disclose read denials by design, so `requestAuthorization` resolves normally for someone who granted nothing. | Distinguishing the two needs a different signal — a granted-permission user whose buckets stay empty across several syncs — which is an inference over `health_buckets`, not a client event. Phase 8's `app_events` instrumentation is the place for it. |
-| 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 8 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
+| 4 | **No telemetry on a permission-granted-but-no-data user.** Someone who taps "Connect Apple Health" and then unchecks every toggle is indistinguishable from a sedentary user, forever, silently. **Still open after workstream D2**, deliberately: `health_permission_failed` covers the *throw* path, and this is not one. HealthKit refuses to disclose read denials by design, so `requestAuthorization` resolves normally for someone who granted nothing. | Distinguishing the two needs a different signal — a granted-permission user whose buckets stay empty across several syncs — which is an inference over `health_buckets`, not a client event. Phase 9's `app_events` instrumentation is the place for it. |
+| 5 | **The sync sends no `app_events` from the client, and `sync-health` writes one row per request.** | Phase 9 owns `app_events` instrumentation. Worth knowing the row count scales with sync frequency, not user activity. |
 
 ---
 

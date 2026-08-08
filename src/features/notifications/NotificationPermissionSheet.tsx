@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
+import { Button } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 import type { NotificationPermission } from './ask-policy.ts';
 import { registerDeviceToken, requestNotificationPermission } from './permission.ts';
 
@@ -52,14 +53,12 @@ export function NotificationAsk({
         sabotage, which you will want to know about immediately.
       </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy}
+      <Button
+        label="Turn on notifications"
+        variant="primary"
+        busy={busy}
         onPress={() => void ask()}
-        style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={styles.buttonLabel}>Turn on notifications</Text>
-      </Pressable>
+      />
 
       <Pressable accessibilityRole="button" onPress={onDismiss}>
         <Text style={styles.later}>Not now</Text>
@@ -69,21 +68,13 @@ export function NotificationAsk({
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.accent, ...font.label },
-  title: { color: colors.text, ...font.title, marginTop: space.sm },
-  body: { color: colors.subtle, ...font.body, marginTop: space.md },
+  label: { color: colors.accent, ...font.body.label },
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
-  button: {
-    marginTop: space.lg,
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
   later: {
     color: colors.muted,
-    ...font.body,
+    ...font.body.body,
     textAlign: 'center',
     marginTop: space.md,
   },
