@@ -13,7 +13,7 @@
  *
  * - **terracotta** (`accent`) — you, your score, the primary action.
  * - **sage** (`sage`) — your lane, and squad warmth. Never a call to action.
- * - **burnt** (`damage`) — sabotage, and only sabotage.
+ * - **burnt** (`damage`) — a goal slipping away, and only that.
  */
 
 import type { TextStyle } from 'react-native';
@@ -81,9 +81,12 @@ export const colors = {
   /** Sage. Your lane, and squad warmth. Never a call to action. */
   sage: '#7a8a5e',
   /**
-   * Sabotage, and only sabotage. Deep burnt rather than a red: a true red
-   * would be the only hue in the app outside the terracotta/sage families and
-   * would read as a system error rather than as a squadmate getting you.
+   * Behind pace on a goal, and only that. Deep burnt rather than a red: a true
+   * red would be the only hue in the app outside the terracotta/sage families
+   * and would read as a system error rather than as a target slipping away.
+   *
+   * It marked sabotage until 2026-08-09. Retargeted rather than deleted — the
+   * register is right and the ramp is already balanced against the other two.
    */
   damage: ramp.accent[800],
   /** @deprecated Kept so older call sites still compile. Use `damage`. */

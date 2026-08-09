@@ -18,7 +18,6 @@ export type TodayScore = {
   vit_points: number;
   rec_points: number;
   consistency_points: number;
-  sabotage_delta: number;
   total: number;
   tiers: Record<string, string>;
   contributing_stats: number;
@@ -52,7 +51,7 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
         .from('daily_scores')
         .select(
           'agi_points, str_points, end_points, vit_points, rec_points, ' +
-            'consistency_points, sabotage_delta, total, tiers, ' +
+            'consistency_points, total, tiers, ' +
             'contributing_stats, status',
         )
         .eq('user_id', userId as string)

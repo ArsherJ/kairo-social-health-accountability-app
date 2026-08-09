@@ -42,15 +42,15 @@ export function NotificationAsk({
 
   return (
     <>
-      <Text style={styles.label}>DON'T MISS THE HIT</Text>
-      <Text style={styles.title}>Know the moment it happens</Text>
+      <Text style={styles.label}>DON'T LOSE THE DAY</Text>
+      <Text style={styles.title}>Know before your day closes</Text>
       <Text style={styles.body}>
-        Get told when a squadmate throws a banana at you, and when your day is
-        about to close. That is the part you cannot see coming.
+        Get told when a new day starts and when this one is about to close —
+        the hour when the points you are missing are still yours to earn.
       </Text>
       <Text style={styles.fine}>
-        Three a day at most, and nothing between 10 PM and 7 AM — except a
-        sabotage, which you will want to know about immediately.
+        Three a day at most, and nothing between 10 PM and 7 AM — except the
+        two that close out your day, which arrive at 11 PM and midnight.
       </Text>
 
       <Button

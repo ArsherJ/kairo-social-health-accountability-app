@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
-import { sabotageKeys } from '@/features/sabotage/queries.ts';
 import { squadKeys } from './queries.ts';
 import {
   initialPolicyState,
@@ -50,13 +49,6 @@ export function useSquadRealtime(squadId: string | undefined): void {
       void queryClient.invalidateQueries({
         queryKey: squadKeys.members(squadId),
       });
-      // A hit always rescores its target, which writes daily_scores, which
-      // fires the very broadcast this hook listens to — so the feed's signal
-      // is the board's signal. Nothing broadcasts sabotage_events itself, and
-      // a second trigger and topic for it would buy nothing.
-      void queryClient.invalidateQueries({
-        queryKey: sabotageKeys.feed(squadId),
-      });
     }
 
     function dispatch(input: RealtimePolicyInput) {
@@ -78,7 +70,7 @@ export function useSquadRealtime(squadId: string | undefined): void {
     const channel = supabase
       .channel(squadTopic(squadId), { config: { private: true } })
       // The payload is deliberately not a parameter. broadcast_changes ships a
-      // whole daily_scores row — per-stat points, sabotage_delta, xp_awarded —
+      // whole daily_scores row — per-stat points, tiers, xp_awarded —
       // which is more than squad_leaderboard exposes. Reading it would make the
       // privacy projection (§5) a convention rather than a structure. The
       // broadcast means only "something in this squad changed".

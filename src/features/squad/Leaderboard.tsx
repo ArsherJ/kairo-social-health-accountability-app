@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { DAILY_ITEM_GRANT_FREE } from '@kairo/core';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
@@ -17,16 +16,12 @@ import {
   useSquadLeaderboard,
   useSquadMemberCount,
   type LeaderboardMode,
-  type LeaderboardRow as Row,
   type Squad,
 } from './queries.ts';
 import { useLeaveSquad } from './mutations.ts';
 import { boostChipLabel, programLabel } from './program-copy.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
-import { DeploySheet } from '@/features/sabotage/DeploySheet.tsx';
-import { SquadFeed } from '@/features/sabotage/SquadFeed.tsx';
-import { useDailyItems } from '@/features/sabotage/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Numeral, Panel, Screen } from '@/ui/index.ts';
@@ -131,30 +126,13 @@ export function Leaderboard({
   const board = useSquadLeaderboard(squad.id, mode);
   const leave = useLeaveSquad(userId);
 
-  // The ledger is keyed by the caller's LOCAL date (§2), which lives on the
-  // profile — the device's calendar date would read the wrong row abroad.
   const profile = useProfile(userId);
-  const items = useDailyItems(
-    userId,
-    profile.data?.timezone,
-    profile.data?.is_legendary ?? false,
-  );
-  // Not `?? 0` while the two queries settle: zero disables every affordance,
-  // so a cold start would render the mechanic dead for a beat and then wake it
-  // up. The free grant is the right guess — everyone is free at MVP — it
-  // self-corrects on the first response, and the server refuses a throw the
-  // client wrongly allowed. A dead button on a working account is the worse
-  // failure of the two.
-  const remaining = items.data?.remaining ?? DAILY_ITEM_GRANT_FREE;
-  const [target, setTarget] = useState<Row | null>(null);
 
   // This comment used to claim the RPC returns only members who have *scored*,
   // and that deriving slots from `board.data.length` would render an unmoved
   // squadmate as an empty seat. That has never been true: every version of
   // `squad_leaderboard` reaches `daily_scores` by `left join`, so a member who
-  // has not moved appears with `total = 0` rather than being absent. Workstream
-  // A's deploy sheet depends on that corrected reading — its target list is
-  // board rows, which is only safe because every member is on them.
+  // has not moved appears with `total = 0` rather than being absent.
   //
   // So this count is now redundant for slot maths. It stays because removing it
   // is a refactor of this component's data flow, not a comment fix; recorded as
@@ -324,13 +302,7 @@ export function Leaderboard({
       )}
 
       {rows.map((row) => (
-        <LeaderboardRow
-          key={row.user_id}
-          row={row}
-          mode={mode}
-          remaining={remaining}
-          onDeploy={setTarget}
-        />
+        <LeaderboardRow key={row.user_id} row={row} mode={mode} />
       ))}
 
       {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
@@ -345,17 +317,6 @@ export function Leaderboard({
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
       ))}
-
-      <SquadFeed squadId={squad.id} />
-
-      <DeploySheet
-        userId={userId}
-        squadId={squad.id}
-        timeZone={profile.data?.timezone}
-        target={target}
-        remaining={remaining}
-        onClose={() => setTarget(null)}
-      />
 
       {/* Deliberately at the foot of the scroll and styled as quiet text, not
           a header icon: this is rare, irreversible, and must not sit next to
