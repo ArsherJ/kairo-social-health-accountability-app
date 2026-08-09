@@ -61,6 +61,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
+    // The ring below is drawn on every chip, transparent until selected, so
+    // the padding here is the *inner* box on both states. Sizing the resting
+    // chip without a border and adding one on selection made the whole row
+    // jump 4pt on tap.
+    borderWidth: 2,
+    borderColor: 'transparent',
     paddingVertical: 17,
     paddingHorizontal: 19,
   },
@@ -69,7 +75,6 @@ const styles = StyleSheet.create({
   // this question is answered once, quickly, while standing up.
   chipSelected: {
     backgroundColor: ramp.accent[200],
-    borderWidth: 2,
     borderColor: ramp.accent[500],
   },
   chipPressed: { opacity: 0.85 },

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { CreateSquadForm } from '@/features/squad/CreateSquadForm.tsx';
 import { JoinSquadForm } from '@/features/squad/JoinSquadForm.tsx';
@@ -7,6 +8,7 @@ import { Leaderboard } from '@/features/squad/Leaderboard.tsx';
 import { SoloBoard } from '@/features/squad/SoloBoard.tsx';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { colors, font } from '@/theme.ts';
+import { setNavHidden } from '@/ui/chrome.ts';
 import { Button, Screen } from '@/ui/index.ts';
 
 /** Which of the no-squad screens is showing. Local state, not a route. */
@@ -17,6 +19,22 @@ export default function Squad() {
   const userId = session?.user.id;
   const squad = useMySquad(userId);
   const [pane, setPane] = useState<Pane>('choose');
+
+  // Create and join are full-screen: the orbit nav floating over a half-filled
+  // form reads as an escape hatch, and it paints over the bottom of it.
+  //
+  // `useFocusEffect`, not `useEffect`. The cleanup is the load-bearing half,
+  // and Expo Router keeps tab screens mounted — so unmount is not the event
+  // that matters. Anything navigating away mid-form (§14 sends eight
+  // notification types straight to a screen) blurs this tab without
+  // unmounting it, and a plain effect would strand the nav hidden everywhere.
+  const composing = pane !== 'choose' && !squad.data;
+  useFocusEffect(
+    useCallback(() => {
+      setNavHidden(composing);
+      return () => setNavHidden(false);
+    }, [composing]),
+  );
 
   // `Leaderboard` and `SoloBoard` each carry their own `Screen` — this file
   // owns layout only for the states that have no other component to supply

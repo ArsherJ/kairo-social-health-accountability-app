@@ -1,16 +1,33 @@
+import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font, ramp, radius, shadow, space } from '../theme.ts';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { colors, ramp, radius, shadow, space } from '../theme.ts';
+import { useChromeStore } from './chrome.ts';
 
 /**
- * Route name -> label. Text only — no icon library is installed, and that is
- * deliberate: the app has always been typographic, and Caprasimo in a circle
- * is a stronger read at this size than a 21px stroke icon would be.
+ * Route name -> label. The label is no longer painted: three word-discs read
+ * as buttons rather than as places, and the design mocks carry lucide icons.
+ * It survives as `accessibilityLabel`, which is now the tab's only name — so
+ * these strings are load-bearing, not decoration.
  */
 const LABELS: Record<string, string> = {
   index: 'Hunter',
   squad: 'Squad',
   profile: 'You',
+};
+
+/**
+ * Feather, because lucide is a fork of Feather: the design's `user` and
+ * `users` are literally these glyphs at the same 2px stroke.
+ *
+ * `circle-user-round` has no Feather equivalent, so "You" composes `user`
+ * inside a ring. That keeps one family and one stroke weight across the three
+ * discs, which a mixed-family substitute would not.
+ */
+const ICONS: Record<string, 'user' | 'users'> = {
+  index: 'user',
+  squad: 'users',
+  profile: 'user',
 };
 
 /**
@@ -26,7 +43,16 @@ const LABELS: Record<string, string> = {
  */
 export const NAV_HEIGHT = 96;
 
+/** Glyph sizes, tuned to the disc they sit in — 60pt orbit, 74pt centre. */
+const ORBIT_ICON = 22;
+const CENTRE_ICON = 26;
+
 export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
+  // Create and join are full-screen tasks. `Screen` drops its clearance on the
+  // same flag, so the two stay in step.
+  const navHidden = useChromeStore((s) => s.navHidden);
+  if (navHidden) return null;
+
   const order = ['squad', 'index', 'profile'];
   const routes = order
     .map((name) => state.routes.find((r) => r.name === name))
@@ -41,6 +67,8 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
         const focused = state.routes[state.index]?.key === route.key;
         const centre = route.name === 'index';
         const label = LABELS[route.name] ?? route.name;
+        const ink = focused ? colors.bg : colors.subtle;
+        const size = centre ? CENTRE_ICON : ORBIT_ICON;
 
         return (
           <Pressable
@@ -55,14 +83,21 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
               focused ? styles.focused : styles.resting,
             ]}
           >
-            <Text
-              style={[
-                centre ? styles.centreLabel : styles.orbitLabel,
-                { color: focused ? colors.bg : colors.subtle },
-              ]}
-            >
-              {label}
-            </Text>
+            {route.name === 'profile' ? (
+              <View
+                style={[
+                  styles.ring,
+                  { width: size, height: size, borderColor: ink },
+                ]}
+              >
+                {/* Sized so the shoulders reach the ring and crop against it,
+                    which is what makes this read as lucide's glyph rather than
+                    as a small person standing inside a circle. */}
+                <Feather name={ICONS.profile} size={size * 0.68} color={ink} />
+              </View>
+            ) : (
+              <Feather name={ICONS[route.name] ?? 'user'} size={size} color={ink} />
+            )}
           </Pressable>
         );
       })}
@@ -86,6 +121,12 @@ const styles = StyleSheet.create({
   centre: { width: 74, height: 74, ...shadow.lg },
   resting: { backgroundColor: ramp.neutral[100] },
   focused: { backgroundColor: colors.accent },
-  centreLabel: { ...font.display.small },
-  orbitLabel: { ...font.display.label },
+  /** lucide's `circle-user-round`, composed: `user` inscribed in a 2px ring. */
+  ring: {
+    borderWidth: 2,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
 });

@@ -14,7 +14,7 @@ import { useCreateSquad } from './mutations.ts';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
-import { Button, Label } from '@/ui/index.ts';
+import { BackRow, Button, Label } from '@/ui/index.ts';
 
 const SQUAD_NAME_MIN = 2;
 const SQUAD_NAME_MAX = 30;
@@ -71,6 +71,11 @@ export function CreateSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
+      {/* Outside the ScrollView so the way out never scrolls away — this pane
+          hides the orbit nav, so it is the only exit visible with the keyboard
+          up. Disabled while the create is in flight, like every other control. */}
+      <BackRow onPress={onCancel} disabled={busy} />
+
       {/* Scrollable, not a Panel: the name field plus four programs overflows a
           small screen once the keyboard is up, and the gym note has to stay
           reachable — it is the one piece of copy on this screen written for the

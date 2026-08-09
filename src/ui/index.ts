@@ -1,5 +1,7 @@
 export { Screen, TAB_PILL_CLEARANCE } from './Screen.tsx';
 export { TabPill, NAV_HEIGHT } from './TabPill.tsx';
+export { useChromeStore, setNavHidden } from './chrome.ts';
+export { BackRow } from './BackRow.tsx';
 export { Panel } from './Panel.tsx';
 export { GroundShadow, PresenceRing } from './GroundShadow.tsx';
 export { Avatar } from './Avatar.tsx';
@@ -10,4 +12,6 @@ export { Label } from './Label.tsx';
 export { Meter } from './Meter.tsx';
 export { TierCoin } from './TierCoin.tsx';
 export { Button } from './Button.tsx';
+export { ProgressRing } from './ProgressRing.tsx';
+export { ringArcs } from './ring.ts';
 export { useReduceMotion, useCountUp, useFloat, useFillIn, usePressScale } from './motion.ts';

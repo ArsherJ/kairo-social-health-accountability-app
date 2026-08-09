@@ -29,20 +29,35 @@ export function SquadFeed({ squadId }: { squadId: string | undefined }) {
         <Text style={styles.empty}>No hits yet today. Somebody has to start.</Text>
       )}
 
-      {(feed.data ?? []).map((e) => (
-        <View key={e.id} style={styles.line}>
-          <Text style={[styles.text, e.target_is_self && styles.hit]} numberOfLines={2}>
-            {feedLine({
-              actorName: e.actor_name,
-              targetName: e.target_name,
-              actorIsSelf: e.actor_is_self,
-              targetIsSelf: e.target_is_self,
-              item: e.item,
-            })}
-          </Text>
-          <Text style={styles.when}>{feedTime(e.created_at, now)}</Text>
+      {/* A timeline, not a list: the hits happened in an order and to each
+          other, and the rule down the left is what says so. It only draws
+          where there are entries, so an empty or failed feed has no orphan
+          stroke hanging under the heading. */}
+      {(feed.data ?? []).length > 0 && (
+        <View style={styles.timeline}>
+          <View style={styles.rule} />
+
+          <View style={styles.entries}>
+            {(feed.data ?? []).map((e) => (
+              <View key={e.id} style={styles.line}>
+                <Text
+                  style={[styles.text, e.target_is_self && styles.hit]}
+                  numberOfLines={2}
+                >
+                  {feedLine({
+                    actorName: e.actor_name,
+                    targetName: e.target_name,
+                    actorIsSelf: e.actor_is_self,
+                    targetIsSelf: e.target_is_self,
+                    item: e.item,
+                  })}
+                </Text>
+                <Text style={styles.when}>{feedTime(e.created_at, now)}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      ))}
+      )}
     </View>
   );
 }
@@ -50,15 +65,18 @@ export function SquadFeed({ squadId }: { squadId: string | undefined }) {
 const styles = StyleSheet.create({
   block: { marginTop: space.xl },
   heading: { ...font.body.label, textTransform: 'uppercase', color: ramp.neutral[600] },
+  timeline: { flexDirection: 'row', marginTop: space.sm },
+  rule: { width: 2, borderRadius: 1, backgroundColor: ramp.neutral[300] },
+  // `gap`, not a per-row `marginTop`: the rule stretches to the entries' full
+  // height, and a leading margin would leave it standing above the first hit.
+  entries: { flex: 1, paddingLeft: 12, gap: space.sm },
   line: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: space.sm,
-    marginTop: space.sm,
   },
   text: { ...font.body.strong, fontSize: 13.5, color: ramp.neutral[700], flexShrink: 1 },
-  /** Your own beating, in the colour the rest of the app uses for damage. */
   /** Your own beating, in the family the rest of the app reserves for damage. */
   hit: { color: ramp.accent[900] },
   when: { ...font.body.body, fontSize: 11, color: ramp.neutral[600] },

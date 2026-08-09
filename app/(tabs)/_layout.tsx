@@ -1,13 +1,11 @@
 import { Fragment } from 'react';
-import { DAILY_ITEM_GRANT_FREE } from '@kairo/core';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
-import { BananaButton } from '@/features/sabotage/BananaButton.tsx';
-import { useDailyItems, useSquadFeed } from '@/features/sabotage/queries.ts';
+import { useSquadFeed } from '@/features/sabotage/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
@@ -17,7 +15,6 @@ import { colors } from '@/theme.ts';
 import { TabPill } from '@/ui/TabPill.tsx';
 
 export default function TabsLayout() {
-  const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
 
@@ -39,17 +36,8 @@ export default function TabsLayout() {
   const feed = useSquadFeed(squad.data?.id);
   const hasBeenSabotaged = (feed.data ?? []).some((event) => event.target_is_self);
 
-  // Same optimistic default as the board's: zero while the queries settle
-  // would render the mechanic dead for a beat and then wake it up, and the
-  // server refuses a throw the client wrongly allowed anyway.
-  const items = useDailyItems(
-    session?.user.id,
-    profile.data?.timezone,
-    profile.data?.is_legendary ?? false,
-  );
-
   return (
-<Fragment>
+    <Fragment>
       <Tabs
         tabBar={(props) => <TabPill {...props} />}
         screenOptions={{
@@ -62,15 +50,12 @@ export default function TabsLayout() {
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       </Tabs>
 
-      {/* Only with a squad: with nobody to throw at, the button would be an
-          affordance for nothing. */}
-      {squad.data && (
-        <BananaButton
-          remaining={items.data?.remaining ?? DAILY_ITEM_GRANT_FREE}
-          onPress={() => router.navigate('/squad')}
-        />
-      )}
-
+      {/* The banana used to dock here as a FAB. It is a *count*, not an
+          action — throwing happens where the targets are, on the board — so it
+          now rides the home HUD beside the streak pill and this shell has one
+          less floating thing in it. `PermissionAsks` stays: the ask is keyed to
+          what has happened to the user, not to where they are standing, and two
+          independently-mounted `<Modal>`s cannot both present. */}
       <PermissionAsks
         userId={session?.user.id}
         hasSquad={Boolean(squad.data)}

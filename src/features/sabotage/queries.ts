@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { currentLocalDate } from '@kairo/core';
+import { DEMO_ITEMS, demoFeed } from '@/features/demo/fixtures.ts';
+import { demoResult, useDemoOn, useDemoSince } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
 import { dailyItemsFrom, type DailyItems, type LedgerRow } from './items.ts';
 
@@ -36,10 +38,11 @@ export function useDailyItems(
   isLegendary: boolean,
 ) {
   const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
+  const demo = useDemoOn();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: sabotageKeys.items(userId, localDate),
-    enabled: Boolean(userId && localDate),
+    enabled: !demo && Boolean(userId && localDate),
     queryFn: async (): Promise<DailyItems> => {
       const { data, error } = await supabase
         .from('daily_item_ledger')
@@ -54,6 +57,8 @@ export function useDailyItems(
       return dailyItemsFrom(data as LedgerRow | null, isLegendary);
     },
   });
+
+  return demo ? demoResult<DailyItems>(DEMO_ITEMS) : query;
 }
 
 /**
@@ -65,9 +70,12 @@ export function useDailyItems(
  * mechanic social.
  */
 export function useSquadFeed(squadId: string | undefined) {
-  return useQuery({
+  const demo = useDemoOn();
+  const since = useDemoSince();
+
+  const query = useQuery({
     queryKey: sabotageKeys.feed(squadId),
-    enabled: Boolean(squadId),
+    enabled: !demo && Boolean(squadId),
     queryFn: async (): Promise<FeedEvent[]> => {
       const { data, error } = await supabase.rpc('squad_feed', {
         p_squad_id: squadId as string,
@@ -77,4 +85,6 @@ export function useSquadFeed(squadId: string | undefined) {
       return (data ?? []) as FeedEvent[];
     },
   });
+
+  return demo ? demoResult<FeedEvent[]>(demoFeed(since)) : query;
 }

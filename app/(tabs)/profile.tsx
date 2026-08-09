@@ -9,12 +9,13 @@ import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
+import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
 import { FocusCard } from '@/features/profile/FocusCard.tsx';
+import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
-import { XpBar } from '@/features/profile/XpBar.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { Button, Label, Panel, Screen } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { colors, font, ramp, space } from '@/theme.ts';
 
 export default function ProfileTab() {
   const session = useSessionStore((s) => s.session);
@@ -44,8 +45,6 @@ export default function ProfileTab() {
 
   return (
     <Screen>
-      <Text style={styles.title}>{profile.data?.character_name ?? 'Profile'}</Text>
-
       {profile.isPending && (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent} />
@@ -54,7 +53,12 @@ export default function ProfileTab() {
 
       {profile.data && (
         <>
-          <XpBar totalXp={profile.data.total_xp} />
+          {/* The name lives in the header now, beside the XP ring, rather than
+              as a page title above a bar that said the same numbers. */}
+          <ProfileHeader
+            name={profile.data.character_name}
+            totalXp={profile.data.total_xp}
+          />
 
           {/* Streak errors are silent by design: a failed streak fetch must
               not stop the rest of the screen rendering, and StreakCard reads
@@ -90,6 +94,7 @@ export default function ProfileTab() {
             variant="secondary"
           />
           {seedStatus !== null && <Text style={styles.devStatus}>{seedStatus}</Text>}
+          <DemoToggle />
         </>
       )}
 
@@ -103,9 +108,8 @@ export default function ProfileTab() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: colors.text, ...font.body.title },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  value: { color: colors.text, ...font.display.small, fontSize: 19, marginTop: space.xs },
-  help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
-  devStatus: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
+  value: { color: colors.text, ...font.display.minor, fontSize: 19, marginTop: space.xs },
+  help: { ...font.body.body, fontSize: 12, color: ramp.neutral[600], marginTop: space.sm, lineHeight: 18 },
+  devStatus: { ...font.body.body, fontSize: 13, color: colors.subtle, marginTop: space.sm },
 });

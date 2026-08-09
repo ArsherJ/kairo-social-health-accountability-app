@@ -70,21 +70,30 @@ function formatLocalDate(isoDate: string): string {
 }
 
 /**
- * The hero line beneath the rank. `back === null` means nobody is ahead;
- * `back === 0` means tied with the row directly above — two different facts
- * that must not collapse into the same sentence.
+ * The hero line, now sitting *beside* the rank rather than under it.
+ *
+ * Returned in segments so the gap can carry the emphasis the design puts on
+ * it without picking the number back out of a finished sentence with a regex.
+ * `back === null` means nobody is ahead; `back === 0` means tied with the row
+ * directly above — two different facts that must not collapse into one.
  */
-function standingSubline(standing: SquadStanding): string | null {
+type SublinePart = { text: string; emphasis?: boolean };
+
+function standingSubline(standing: SquadStanding): SublinePart[] | null {
   switch (standing.kind) {
     case 'unknown':
       return null;
     case 'unranked':
-      return `of ${standing.of}`;
+      return [{ text: `of ${standing.of}` }];
     case 'ranked': {
       const of = `of ${standing.of}`;
-      if (standing.back === null) return `${of} · leading`;
-      if (standing.back === 0) return `${of} · tied with the player above`;
-      return `${of} · ${standing.back.toLocaleString()} back`;
+      if (standing.back === null) return [{ text: `${of} · leading` }];
+      if (standing.back === 0) return [{ text: `${of} · tied with the player above` }];
+      return [
+        { text: `${of} · ` },
+        { text: standing.back.toLocaleString(), emphasis: true },
+        { text: ' back' },
+      ];
     }
   }
 }
@@ -245,9 +254,25 @@ export function Leaderboard({
       {/* A pending standing query must never render a claim: nothing beats a
           placeholder or a dash, both of which would state something false. */}
       {heroValue != null && (
+        // One baseline, not two lines: "2nd" and what it costs you are a
+        // single claim, and stacking them made the subline read as a caption
+        // for the ordinal rather than as the other half of the sentence.
         <View style={styles.hero}>
-          <Numeral value={heroValue} size="hero" color={ramp.accent[700]} />
-          {subline != null && <Text style={styles.standing}>{subline}</Text>}
+          <Numeral
+            value={heroValue}
+            size="hero"
+            color={ramp.accent[700]}
+            style={styles.heroValue}
+          />
+          {subline != null && (
+            <Text style={styles.standing} numberOfLines={1}>
+              {subline.map((part, index) => (
+                <Text key={index} style={part.emphasis ? styles.standingGap : undefined}>
+                  {part.text}
+                </Text>
+              ))}
+            </Text>
+          )}
         </View>
       )}
       <View style={styles.toggle}>
@@ -360,9 +385,28 @@ const styles = StyleSheet.create({
   },
   squadName: { color: colors.text, ...font.display.major, fontSize: 27, flexShrink: 1 },
   date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0 },
-  members: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0 },
-  hero: { marginTop: space.md },
-  standing: { color: ramp.neutral[700], ...font.body.body, marginTop: space.xs },
+  hero: {
+    marginTop: space.md,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: space.sm,
+  },
+  heroValue: { fontSize: 66 },
+  // Caprasimo at 66 carries a deep descender box, so a flex-end row would hang
+  // the subline below the ordinal's visual baseline without this.
+  standing: {
+    color: ramp.neutral[700],
+    ...font.body.body,
+    paddingBottom: 8,
+    flexShrink: 1,
+  },
+  // Family off the token rather than a string literal: weights are chosen by
+  // face here, never by `fontWeight`, and `title` is the bold Figtree cut.
+  standingGap: {
+    ...font.body.body,
+    fontFamily: font.body.title.fontFamily,
+    color: ramp.accent[700],
+  },
   programLine: {
     flexDirection: 'row',
     alignItems: 'center',

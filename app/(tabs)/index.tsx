@@ -7,7 +7,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
+import {
+  CORE_STATS,
+  DAILY_ITEM_GRANT_FREE,
+  evolutionStageForLevel,
+  levelForXp,
+  type CoreStat,
+} from '@kairo/core';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
@@ -22,6 +28,8 @@ import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { resolveStanding, type Standing } from '@/features/character/standing.ts';
 import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
+import { feedTime } from '@/features/sabotage/feed-copy.ts';
+import { useDailyItems, useSquadFeed } from '@/features/sabotage/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
@@ -126,6 +134,13 @@ export default function Character() {
   // queries here costs no extra request.
   const squad = useMySquad(session?.user.id);
   const board = useSquadLeaderboard(squad.data?.id, 'current');
+  // Both are already mounted in the tab layout, so composing them here is free.
+  const feed = useSquadFeed(squad.data?.id);
+  const items = useDailyItems(
+    session?.user.id,
+    profile.data?.timezone,
+    profile.data?.is_legendary ?? false,
+  );
 
   const totalXp = profile.data?.total_xp ?? 0;
   const level = profile.data?.level ?? levelForXp(totalXp);
@@ -172,6 +187,18 @@ export default function Character() {
   const skyHeight = Math.max(360, Math.min(520, windowHeight * 0.54));
   const sabotage = Math.abs(today?.sabotage_delta ?? 0);
 
+  // Same optimistic default as the board's: zero while the query settles would
+  // render the mechanic dead for a beat and then wake it up, and the server
+  // refuses a throw the client wrongly allowed anyway.
+  const bananas = items.data?.remaining ?? DAILY_ITEM_GRANT_FREE;
+
+  // Who actually got you. `squad_feed` returns newest first, so the first
+  // self-targeted row is the hit the score is complaining about. Undefined
+  // while the feed is unresolved, or on a squad with no hits on you — both
+  // fall back to the unnamed copy below rather than inventing an actor.
+  const now = new Date();
+  const lastHit = (feed.data ?? []).find((event) => event.target_is_self);
+
   // Everyone above you, nearest first — the faces on the squad pill.
   const others = (board.data ?? []).filter((r) => !r.is_self).slice(0, 3);
 
@@ -211,12 +238,27 @@ export default function Character() {
             </View>
           </View>
 
-          {(streak.data?.current_streak ?? 0) > 0 && (
-            <View style={[styles.streakPill, { top: insets.top + space.xl + space.sm }]}>
-              <Text style={styles.streakNumber}>{streak.data?.current_streak}</Text>
-              <Text style={styles.streakUnit}>day{streak.data?.current_streak === 1 ? '' : 's'}</Text>
-            </View>
-          )}
+          {/* The right-hand pair. The banana used to be a FAB docked over the
+              nav, which made a *count* look like an action — you throw one on
+              the board, where the targets are. Here it is what it is: how many
+              you have left, next to how many days you have going. */}
+          <View style={[styles.hudRight, { top: insets.top + space.xl + space.sm }]}>
+            {squad.data && (
+              <View style={styles.pill}>
+                <Text style={styles.bananaEmoji}>🍌</Text>
+                <Text style={styles.bananaCount}>{bananas}</Text>
+              </View>
+            )}
+
+            {(streak.data?.current_streak ?? 0) > 0 && (
+              <View style={styles.pill}>
+                <Text style={styles.streakNumber}>{streak.data?.current_streak}</Text>
+                <Text style={styles.streakUnit}>
+                  day{streak.data?.current_streak === 1 ? '' : 's'}
+                </Text>
+              </View>
+            )}
+          </View>
 
           {!score.isPending && (
             <View style={[styles.rail, { top: insets.top + 132 }]}>
@@ -299,10 +341,18 @@ export default function Character() {
                 <Text style={styles.hitEmoji}>🍌</Text>
               </View>
               <View style={styles.hitBody}>
+                {/* Named when the feed can name them, unnamed when it cannot.
+                    The score knows a banana landed; only the feed knows whose
+                    it was, and inventing an actor to fill the sentence would
+                    be the same failure as claiming a rank during a load. */}
                 <Text style={styles.hitTitle}>
-                  Somebody got you. −{sabotage.toLocaleString()}
+                  {`${lastHit?.actor_name ?? 'Somebody'} got you. −${sabotage.toLocaleString()}`}
                 </Text>
-                <Text style={styles.hitMeta}>Off today's total. See it on the board.</Text>
+                <Text style={styles.hitMeta}>
+                  {lastHit
+                    ? `${feedTime(lastHit.created_at, now)} · you have ${bananas} left`
+                    : "Off today's total. See it on the board."}
+                </Text>
               </View>
             </View>
           )}
@@ -368,9 +418,14 @@ const styles = StyleSheet.create({
   levelBody: { width: 96 },
   levelMeta: { ...font.body.label, color: ramp.neutral[700], letterSpacing: 0, marginTop: 4 },
 
-  streakPill: {
+  hudRight: {
     position: 'absolute',
     right: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  pill: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 5,
@@ -382,6 +437,10 @@ const styles = StyleSheet.create({
   },
   streakNumber: { ...font.display.minor, color: ramp.accent[700] },
   streakUnit: { ...font.body.label, color: ramp.accent[700], letterSpacing: 0 },
+  // Emoji does not sit on the Latin baseline, so the row is baseline-aligned
+  // around the numeral and the glyph is nudged back down onto it.
+  bananaEmoji: { fontSize: 15, transform: [{ translateY: 2 }] },
+  bananaCount: { ...font.display.minor, color: ramp.neutral[800] },
 
   rail: { position: 'absolute', right: space.md },
 

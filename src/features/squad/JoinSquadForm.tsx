@@ -5,7 +5,7 @@ import { useJoinSquad } from './mutations.ts';
 import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
 import { useSquadPreview } from './queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
-import { Button, Label, Panel } from '@/ui/index.ts';
+import { BackRow, Button, Label, Panel } from '@/ui/index.ts';
 
 export function JoinSquadForm({
   userId,
@@ -51,6 +51,10 @@ export function JoinSquadForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
+      {/* The visible exit while the keyboard is up — this pane hides the orbit
+          nav, and the ghost "Back" below sits under the keyboard. */}
+      <BackRow onPress={onCancel} disabled={busy} />
+
       <Panel variant="plain" style={styles.panel}>
         <Label>JOIN A SQUAD</Label>
         <Text style={styles.title}>Enter the code.</Text>

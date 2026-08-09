@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, font, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Label, Panel } from '@/ui/index.ts';
 import {
   BODY_METRIC_LIMITS,
@@ -23,10 +23,20 @@ import { useUpdateProfile } from './update-profile.ts';
  * squadmate.
  */
 
-const FIELDS: ReadonlyArray<{ field: BodyMetricField; placeholder: string }> = [
+/**
+ * Height and weight pair up on one row — they are the two that sharpen STR,
+ * they are asked in the same breath, and side by side they read as one
+ * question. Birth year sits below on its own because it answers a different
+ * one. `wide` is what carries that split into the layout.
+ */
+const FIELDS: ReadonlyArray<{
+  field: BodyMetricField;
+  placeholder: string;
+  wide?: boolean;
+}> = [
   { field: 'height_cm', placeholder: '170' },
   { field: 'weight_kg', placeholder: '65' },
-  { field: 'birth_year', placeholder: '1995' },
+  { field: 'birth_year', placeholder: '1995', wide: true },
 ];
 
 function initialText(profile: Profile, field: BodyMetricField) {
@@ -96,26 +106,28 @@ export function BodyMetricsCard({
         </Text>
       )}
 
-      {FIELDS.map(({ field, placeholder }) => {
-        const limit = BODY_METRIC_LIMITS[field];
-        return (
-          <View key={field} style={styles.field}>
-            <Text style={styles.fieldLabel}>
-              {limit.label}
-              {limit.unit ? ` (${limit.unit})` : ''}
-            </Text>
-            <TextInput
-              value={drafts[field]}
-              onChangeText={(text) => edit(field, text)}
-              placeholder={placeholder}
-              placeholderTextColor={colors.muted}
-              keyboardType={limit.decimals > 0 ? 'decimal-pad' : 'number-pad'}
-              style={styles.input}
-              accessibilityLabel={limit.label}
-            />
-          </View>
-        );
-      })}
+      <View style={styles.fields}>
+        {FIELDS.map(({ field, placeholder, wide }) => {
+          const limit = BODY_METRIC_LIMITS[field];
+          return (
+            <View key={field} style={wide ? styles.fieldWide : styles.field}>
+              <Text style={styles.fieldLabel}>
+                {limit.label}
+                {limit.unit ? ` (${limit.unit})` : ''}
+              </Text>
+              <TextInput
+                value={drafts[field]}
+                onChangeText={(text) => edit(field, text)}
+                placeholder={placeholder}
+                placeholderTextColor={colors.muted}
+                keyboardType={limit.decimals > 0 ? 'decimal-pad' : 'number-pad'}
+                style={styles.input}
+                accessibilityLabel={limit.label}
+              />
+            </View>
+          );
+        })}
+      </View>
 
       <Text style={styles.optional}>Optional. Leave a field empty to remove it.</Text>
 
@@ -133,20 +145,31 @@ export function BodyMetricsCard({
 }
 
 const styles = StyleSheet.create({
-  prompt: { color: colors.accent, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
-  field: { marginTop: space.md },
-  fieldLabel: { color: colors.subtle, fontSize: 13, fontFamily: 'Figtree-SemiBold' },
+  prompt: {
+    ...font.body.body,
+    fontSize: 13,
+    color: ramp.accent[700],
+    marginTop: space.sm,
+    lineHeight: 18,
+  },
+  fields: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
+  /** Half the row each, so height and weight read as one question. */
+  field: { flexGrow: 1, flexBasis: 0, minWidth: 110 },
+  fieldWide: { width: '100%' },
+  fieldLabel: { ...font.body.strong, fontSize: 12, color: ramp.neutral[700] },
+  // A pill on a tinted plate, not a bordered box: on the warm system the fill
+  // is the edge, and a 1px outline is what the redesign replaced.
   input: {
     marginTop: space.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.neutral[100],
+    paddingHorizontal: 15,
+    paddingVertical: 11,
     color: colors.text,
-    fontSize: 16,
+    ...font.display.small,
+    fontSize: 17,
   },
-  optional: { color: colors.muted, fontSize: 12, marginTop: space.sm },
-  error: { color: colors.damage, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
-  saved: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
+  optional: { ...font.body.body, fontSize: 11.5, color: ramp.neutral[600], marginTop: space.sm },
+  error: { ...font.body.body, fontSize: 13, color: colors.damage, marginTop: space.sm, lineHeight: 18 },
+  saved: { ...font.body.body, fontSize: 13, color: colors.subtle, marginTop: space.sm },
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { UserFocus } from '@kairo/core';
@@ -9,7 +9,8 @@ import { FOCUS_RULE_COPY } from '@/features/onboarding/focus-options.ts';
 import { beginFocusStep, endFocusStep } from '@/features/onboarding/store.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
+import { Button, Label } from '@/ui/index.ts';
 
 /**
  * The focus question (§5), asked once and skippable.
@@ -60,9 +61,22 @@ export default function FocusStep() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space.xl }]}>
+    <View
+      style={[
+        styles.container,
+        // The design's 96pt top is measured on a mock with no safe area. Hold
+        // it as a floor so a notched phone gets clearance and a small one
+        // still gets the breathing room the layout was drawn with.
+        { paddingTop: Math.max(insets.top + space.md, HEADER_TOP) },
+      ]}
+    >
+      {/* The one shape on the screen. Bleeding off the corner rather than
+          sitting inside the margin is what stops it reading as an illustration
+          of something — it is the page's ground, not an object on it. */}
+      <View style={styles.bloom} />
+
       <View style={styles.top}>
-        <Text style={styles.label}>YOUR FOCUS</Text>
+        <Label tone="muted">Your focus</Label>
         <Text style={styles.title}>What are you here to do?</Text>
         <Text style={styles.help}>{FOCUS_RULE_COPY}</Text>
 
@@ -79,59 +93,69 @@ export default function FocusStep() {
         )}
       </View>
 
-      <View style={{ paddingBottom: insets.bottom + space.xl, gap: space.sm }}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={updateProfile.isPending}
+      {/* `ui/Button`, not two hand-rolled Pressables. The pair used to
+          reimplement the primary and ghost variants with a different face, a
+          different disabled opacity and no press scale — three ways for this
+          screen to drift from every other button in the app. */}
+      <View style={[styles.actions, { paddingBottom: insets.bottom + FOOTER_BOTTOM }]}>
+        <Button
+          label="Continue"
+          variant="primary"
+          busy={updateProfile.isPending}
           onPress={confirm}
-          style={({ pressed }) => [
-            styles.button,
-            updateProfile.isPending && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          {updateProfile.isPending ? (
-            <ActivityIndicator color={colors.bg} />
-          ) : (
-            <Text style={styles.buttonLabel}>Continue</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
+        />
+        <Button
+          label="Skip for now"
+          variant="ghost"
           disabled={updateProfile.isPending}
           onPress={skip}
-          style={({ pressed }) => [styles.skip, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.skipLabel}>Skip for now</Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
 }
+
+/** The design's page margins, which are tighter than `space.lg` on purpose. */
+const HEADER_TOP = 96;
+const GUTTER = 26;
+const FOOTER_BOTTOM = 46;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
     backgroundColor: colors.bg,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: GUTTER,
+    // The bloom below runs off two edges; without this it paints over them.
+    overflow: 'hidden',
+  },
+  bloom: {
+    position: 'absolute',
+    top: -70,
+    right: -60,
+    width: 260,
+    height: 260,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.sage[200],
   },
   top: { flex: 1 },
-  label: { color: colors.muted, ...font.body.label },
-  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
-  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm },
+  title: {
+    color: colors.text,
+    ...font.display.major,
+    fontSize: 38,
+    lineHeight: 41,
+    maxWidth: 280,
+    marginTop: space.sm,
+  },
+  help: {
+    color: ramp.neutral[700],
+    ...font.body.body,
+    fontSize: 14.5,
+    lineHeight: 22,
+    maxWidth: 300,
+    marginTop: space.sm,
+  },
   chips: { marginTop: space.lg },
   error: { color: colors.damage, ...font.body.body, marginTop: space.md },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: space.md,
-    alignItems: 'center',
-  },
-  buttonDisabled: { opacity: 0.35 },
-  buttonPressed: { opacity: 0.85 },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontFamily: 'Figtree-Bold' },
-  skip: { paddingVertical: space.md, alignItems: 'center' },
-  skipLabel: { color: colors.subtle, fontSize: 15, fontFamily: 'Figtree-SemiBold' },
+  actions: { gap: space.xs },
 });

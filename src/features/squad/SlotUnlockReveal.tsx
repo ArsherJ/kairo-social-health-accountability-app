@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
-import { colors, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
 import { shouldRevealUnlock } from './slots.ts';
 
 /**
@@ -76,15 +76,17 @@ export function SlotUnlockReveal({ progress }: { progress: Animated.Value }) {
 }
 
 const styles = StyleSheet.create({
+  // Was a 1px terracotta outline on surface. On the warm system a card is a
+  // tint plus elevation — an outline is what the redesign replaced — and this
+  // one is a moment worth lifting off the page for the two seconds it lives.
   row: {
     marginTop: space.sm,
     paddingVertical: space.md,
     paddingHorizontal: space.md,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLift,
+    ...shadow.md,
   },
-  title: { color: colors.accent, fontSize: 12, fontFamily: 'Figtree-Bold', letterSpacing: 1.5 },
-  body: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
+  title: { ...font.body.label, fontSize: 11.5, letterSpacing: 1.5, color: ramp.accent[700] },
+  body: { ...font.body.strong, fontSize: 13, color: ramp.neutral[700], marginTop: space.xs },
 });

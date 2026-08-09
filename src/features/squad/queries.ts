@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SquadProgram } from '@kairo/core';
+import {
+  DEMO_LEADERBOARD,
+  DEMO_MEMBER_COUNT,
+  DEMO_SQUAD,
+} from '@/features/demo/fixtures.ts';
+import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
 import { normalizeInviteCode } from './invite-code.ts';
 
@@ -80,9 +86,11 @@ export const squadKeys = {
  * correct; null means "not in a squad", which is a normal state, not an error.
  */
 export function useMySquad(userId: string | undefined) {
-  return useQuery({
+  const demo = useDemoOn();
+
+  const query = useQuery({
     queryKey: squadKeys.mine(userId),
-    enabled: Boolean(userId),
+    enabled: !demo && Boolean(userId),
     queryFn: async (): Promise<Squad | null> => {
       const { data, error } = await supabase
         .from('squads')
@@ -92,6 +100,8 @@ export function useMySquad(userId: string | undefined) {
       return (data as Squad | null) ?? null;
     },
   });
+
+  return demo ? demoResult<Squad | null>(DEMO_SQUAD) : query;
 }
 
 /**
@@ -114,9 +124,15 @@ export function useMySquad(userId: string | undefined) {
  * rows, so a bare `count` needs no policy change and exposes no identity.
  */
 export function useSquadMemberCount(squadId: string | undefined) {
-  return useQuery({
+  // Overridden along with the board, though the plan did not list it: the
+  // standing hero reads `{kind:'unknown'}` while this is undefined, so a demo
+  // board with a real member count would render three rows under no rank at
+  // all — and `resolveSlots` would derive the empty seats from it too.
+  const demo = useDemoOn();
+
+  const query = useQuery({
     queryKey: squadKeys.members(squadId),
-    enabled: Boolean(squadId),
+    enabled: !demo && Boolean(squadId),
     queryFn: async (): Promise<number> => {
       const { count, error } = await supabase
         .from('squad_members')
@@ -126,15 +142,19 @@ export function useSquadMemberCount(squadId: string | undefined) {
       return count ?? 0;
     },
   });
+
+  return demo ? demoResult<number>(DEMO_MEMBER_COUNT) : query;
 }
 
 export function useSquadLeaderboard(
   squadId: string | undefined,
   mode: LeaderboardMode,
 ) {
-  return useQuery({
+  const demo = useDemoOn();
+
+  const query = useQuery({
     queryKey: squadKeys.board(squadId, mode),
-    enabled: Boolean(squadId),
+    enabled: !demo && Boolean(squadId),
     queryFn: async (): Promise<LeaderboardRow[]> => {
       const { data, error } = await supabase.rpc('squad_leaderboard', {
         p_squad_id: squadId as string,
@@ -145,6 +165,11 @@ export function useSquadLeaderboard(
       return (data ?? []) as LeaderboardRow[];
     },
   });
+
+  // Both modes get the same rows. "Yesterday" on fixture data would be a
+  // second invented day, and the toggle is not what these fixtures exist to
+  // exercise.
+  return demo ? demoResult<LeaderboardRow[]>(DEMO_LEADERBOARD) : query;
 }
 
 /**

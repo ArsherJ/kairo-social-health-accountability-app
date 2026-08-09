@@ -7,7 +7,8 @@ import {
   focusLabel,
 } from '@/features/onboarding/focus-options.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
+import { Label, Panel } from '@/ui/index.ts';
 import type { Profile } from './queries.ts';
 import { useUpdateProfile } from './update-profile.ts';
 
@@ -36,14 +37,18 @@ export function FocusCard({
   }
 
   return (
-    <View style={styles.card}>
+    <Panel>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.label}>YOUR FOCUS</Text>
+          <Label tone="muted">Your focus</Label>
           <Text style={styles.value}>{focusLabel(profile.focus)}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={editing ? 'Close focus picker' : 'Change your focus'}
+          // The pill is ~32pt tall by design; hitSlop is what brings the
+          // target itself up to 44.
+          hitSlop={space.sm}
           onPress={() => setEditing((open) => !open)}
           style={({ pressed }) => [styles.edit, pressed && { opacity: 0.85 }]}
         >
@@ -68,25 +73,23 @@ export function FocusCard({
       ) : (
         <Text style={styles.help}>{FOCUS_RULE_COPY}</Text>
       )}
-    </View>
+    </Panel>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   headerText: { flex: 1 },
-  label: { color: colors.muted, ...font.body.label },
   value: { color: colors.text, ...font.display.minor, fontSize: 21, marginTop: space.xs },
-  edit: { paddingVertical: space.xs, paddingHorizontal: space.sm },
-  editLabel: { color: colors.accent, fontSize: 14, fontFamily: 'Figtree-Bold' },
+  // A pill, not a bare word: it is the only tappable thing on the card, and on
+  // cream a coloured word alone does not read as a control.
+  edit: {
+    paddingVertical: 7,
+    paddingHorizontal: 15,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.neutral[100],
+  },
+  editLabel: { ...font.display.small, fontSize: 14, color: ramp.accent[700] },
   chips: { marginTop: space.md },
   spinner: { marginTop: space.sm },
   help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },

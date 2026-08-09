@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
@@ -21,6 +22,10 @@ export default function RootLayout() {
     'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
     'Figtree-SemiBold': require('../assets/fonts/Figtree-SemiBold.ttf'),
     'Figtree-Bold': require('../assets/fonts/Figtree-Bold.ttf'),
+    // The nav, the empty seat and the streak shield are all Feather glyphs.
+    // Loading the face here rather than letting the icon component do it
+    // lazily is what stops the first paint flashing a missing-glyph box.
+    ...Feather.font,
   });
 
   if (!fontsLoaded && !fontError) return null;
