@@ -9,6 +9,7 @@ android/
 # Secrets — never commit
 .env
 .env.*
+.venv-swap-assets
 !.env.example
 GoogleService-Info.plist
 google-services.json
