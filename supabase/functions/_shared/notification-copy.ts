@@ -39,21 +39,6 @@ function points(total: number): string {
 }
 
 /**
- * §14: "[Name] hit you with a banana! You're down 500 points 🍌". Always sends,
- * exempt from the budget and from quiet hours — the emotional core.
- */
-export function sabotageCopy(input: {
-  actorName: string;
-  /** Negative, as stored. The copy states the magnitude. */
-  scoreDelta: number;
-}): PushMessage {
-  return {
-    title: `${input.actorName} hit you with a banana! 🍌`,
-    body: `You're down ${points(Math.abs(input.scoreDelta))} points.`,
-  };
-}
-
-/**
  * Copy for the three scheduled triggers.
  *
  * `rank` is null for a solo user, and that is a copy variant rather than a
@@ -93,11 +78,5 @@ export function notificationCopy(
           : `Provisional: you finished ${ordinal(rank)}.`,
         body: 'Finalizes in ~2h.',
       };
-
-    case 'sabotaged':
-      // Deliberately not reachable: sabotage copy needs the actor's name, which
-      // this signature does not carry, and "undefined hit you with a banana" is
-      // worse than no push at all.
-      throw new Error('sabotaged copy comes from sabotageCopy(), which knows the actor');
   }
 }

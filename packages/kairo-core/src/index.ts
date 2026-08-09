@@ -14,7 +14,6 @@ export * from './day.ts';
 export * from './profile.ts';
 export * from './squad.ts';
 export * from './program.ts';
-export * from './sabotage.ts';
 export * from './anticheat.ts';
 export * from './progression.ts';
 export * from './dominance.ts';

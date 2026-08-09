@@ -11,8 +11,8 @@
 import { previousDay, type Candidate, type NotificationTrigger } from './core.ts';
 
 /**
- * The three local hours MVP dispatches on (§14). Sabotage is absent because it
- * is real-time and fires from `deploy-sabotage`, not from a clock.
+ * The three local hours MVP dispatches on (§14). Every MVP trigger is on a
+ * clock; nothing fires in real time from another user's action any more.
  *
  * V1 adds 20:00 (streak at risk) and Sunday 21:00 PHT (weekly recap).
  */

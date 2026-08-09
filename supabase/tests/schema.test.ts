@@ -129,22 +129,20 @@ describe('account deletion', () => {
     await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
 
     await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27')`,
-      [leader, member, squad[0]!.id],
-    );
-    await h.asService(
       `insert into public.health_buckets (user_id, local_date, hour, steps)
        values ($1, '2026-07-27', 9, 4000)`,
+      [leader],
+    );
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, total)
+       values ($1, '2026-07-27', 500, 500)`,
       [leader],
     );
     return { leader, member, squadId: squad[0]!.id };
   }
 
   it('lets a squad leader delete their account', async () => {
-    // Right to erasure. Previously impossible: leader_id was ON DELETE RESTRICT
-    // and the append-only trigger rejected the sabotage cascade.
+    // Right to erasure. Previously impossible: leader_id was ON DELETE RESTRICT.
     const { leader } = await seedSquadWithHistory();
     await h.asService('delete from public.profiles where id = $1', [leader]);
     const rows = await h.asService(
@@ -177,16 +175,18 @@ describe('account deletion', () => {
     expect(rows).toEqual([]);
   });
 
-  it('erases the deleted user’s health and sabotage rows', async () => {
+  it('erases the deleted user’s health and score rows', async () => {
+    // The erasure guarantee docs/legal/privacy-policy.md makes. Every table
+    // holding subject data cascades from profiles.
     const { leader } = await seedSquadWithHistory();
     await h.asService('delete from public.profiles where id = $1', [leader]);
-    const rows = await h.asService<{ buckets: number; events: number }>(
+    const rows = await h.asService<{ buckets: number; scores: number }>(
       `select
          (select count(*)::int from public.health_buckets where user_id = $1) as buckets,
-         (select count(*)::int from public.sabotage_events where actor_id = $1) as events`,
+         (select count(*)::int from public.daily_scores  where user_id = $1) as scores`,
       [leader],
     );
-    expect(rows[0]).toEqual({ buckets: 0, events: 0 });
+    expect(rows[0]).toEqual({ buckets: 0, scores: 0 });
   });
 
   it('survives a bulk purge that deletes a whole squad at once', async () => {
@@ -226,25 +226,12 @@ describe('account deletion', () => {
     expect(orphans).toEqual([]);
   });
 
-  it('still refuses a casual delete of the sabotage log', async () => {
-    // The audit guarantee has to survive the erasure escape hatch.
-    const { squadId } = await seedSquadWithHistory();
-    await rejects(
-      h.asService('delete from public.sabotage_events where squad_id = $1', [squadId]),
-      /append-only/,
-    );
-  });
-
-  it('still refuses UPDATE on the sabotage log unconditionally', async () => {
-    const { squadId } = await seedSquadWithHistory();
-    await rejects(
-      h.asService(
-        `update public.sabotage_events set item = 'banana' where squad_id = $1`,
-        [squadId],
-      ),
-      /append-only/,
-    );
-  });
+  // Two tests stood here, asserting that the append-only guarantee on
+  // sabotage_events survived the erasure escape hatch. That table is gone
+  // (20260809120000_remove_sabotage.sql), and `reject_mutation()` is now attached
+  // to no trigger at all — so there is nothing left to assert. The function and
+  // the `kairo.allow_purge` flag are deliberately left in place; see that
+  // migration's closing comment for why.
 });
 
 describe('finalizable_days', () => {
@@ -366,7 +353,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(13);
+    expect(rows[0]!.count).toBe(11);
   });
 
   it('enable row level security on every public table', async () => {
@@ -797,82 +784,6 @@ describe('health_buckets idempotency', () => {
         [user],
       ),
       /active_minutes/,
-    );
-  });
-});
-
-describe('sabotage log is immutable', () => {
-  async function seedSquadWithHit() {
-    const actor = await h.createUser();
-    const squad = await h.asUser<{ id: string; invite_code: string }>(
-      actor,
-      `select id, invite_code from public.create_squad('Chaos')`,
-    );
-    const target = await h.createUser();
-    await h.asUser(target, 'select public.join_squad($1)', [squad[0]!.invite_code]);
-
-    const event = await h.asService<{ id: string }>(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date, outcome)
-       values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27', '{"scoreDelta":-500}')
-       returning id`,
-      [actor, target, squad[0]!.id],
-    );
-    return { actor, target, squadId: squad[0]!.id, eventId: event[0]!.id };
-  }
-
-  it('rejects UPDATE even for the owning role', async () => {
-    const { eventId } = await seedSquadWithHit();
-    await rejects(
-      h.asService(`update public.sabotage_events set item = 'banana' where id = $1`, [
-        eventId,
-      ]),
-      /append-only/,
-    );
-  });
-
-  it('rejects DELETE even for the owning role', async () => {
-    const { eventId } = await seedSquadWithHit();
-    await rejects(
-      h.asService('delete from public.sabotage_events where id = $1', [eventId]),
-      /append-only/,
-    );
-  });
-
-  it('refuses a self-targeted hit', async () => {
-    const { actor, squadId } = await seedSquadWithHit();
-    await rejects(
-      h.asService(
-        `insert into public.sabotage_events
-           (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-         values ($1, $1, $2, 'banana', '2026-07-27', '2026-07-27')`,
-        [actor, squadId],
-      ),
-      /no_self_target/,
-    );
-  });
-
-  it('lets the target see the hit that landed on them', async () => {
-    const { target } = await seedSquadWithHit();
-    const seen = await h.asUser(
-      target,
-      'select id from public.sabotage_events where target_id = $1',
-      [target],
-    );
-    expect(seen).toHaveLength(1);
-  });
-
-  it('blocks clients from forging a deploy', async () => {
-    const { actor, target, squadId } = await seedSquadWithHit();
-    await rejects(
-      h.asUser(
-        actor,
-        `insert into public.sabotage_events
-           (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-         values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27')`,
-        [actor, target, squadId],
-      ),
-      /permission denied/i,
     );
   });
 });
@@ -1548,7 +1459,6 @@ describe('leaderboard program weighting', () => {
       vit: number;
       consistency?: number;
       rec?: number;
-      sabotage?: number;
     },
   ) {
     const leader = await h.createUser();
@@ -1561,8 +1471,8 @@ describe('leaderboard program weighting', () => {
     await h.asService(
       `insert into public.daily_scores
          (user_id, local_date, agi_points, str_points, end_points, vit_points,
-          consistency_points, rec_points, sabotage_delta, total)
-       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, $8, 0)`,
+          consistency_points, rec_points, total)
+       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, 0)`,
       [
         leader,
         day.agi,
@@ -1571,7 +1481,6 @@ describe('leaderboard program weighting', () => {
         day.vit,
         day.consistency ?? 0,
         day.rec ?? 0,
-        day.sabotage ?? 0,
       ],
     );
     const rows = await h.asUser<{ total: number; program: string }>(
@@ -1691,24 +1600,23 @@ describe('program weights agree with kairo-core', () => {
   // because a migration cannot import TypeScript. This is the
   // finalizable_days() / isFinalizable() precedent applied to the weights.
   const FIXTURES = [
-    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: 0 },
-    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500, sabotage: 0 },
-    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500, sabotage: 0 },
-    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0, sabotage: -500 },
-    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: -500 },
+    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0 },
+    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 },
+    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500 },
+    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
     // future one from producing them.
-    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0, sabotage: 0 },
-    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0, sabotage: 0 },
+    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0 },
+    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
     for (const program of SQUAD_PROGRAMS) {
       for (const f of FIXTURES) {
         const rows = await h.asService<{ total: number }>(
-          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7, $8) as total`,
-          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec, f.sabotage],
+          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7) as total`,
+          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec],
         );
         expect({ program, ...f, total: rows[0]!.total }).toEqual({
           program,
@@ -1718,7 +1626,6 @@ describe('program weights agree with kairo-core', () => {
             statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
-            sabotageDelta: f.sabotage,
           }),
         });
       }
@@ -1735,193 +1642,6 @@ describe('program weights agree with kairo-core', () => {
         program,
       ]);
     }
-  });
-});
-
-describe('squad_feed', () => {
-  interface FeedRow {
-    id: string;
-    actor_id: string;
-    actor_name: string;
-    target_id: string;
-    target_name: string;
-    item: string;
-    created_at: Date;
-    actor_is_self: boolean;
-    target_is_self: boolean;
-  }
-
-  /** A squad of three, so "between two other people" is expressible. */
-  async function seedFeedSquad() {
-    const leader = await h.createUser({ characterName: 'Ana' });
-    const rows = await h.asUser<{ id: string; invite_code: string }>(
-      leader,
-      `select id, invite_code from public.create_squad('Feed')`,
-    );
-    const squadId = rows[0]!.id;
-    const jomar = await h.createUser({ characterName: 'Jomar' });
-    const ali = await h.createUser({ characterName: 'Ali' });
-    for (const u of [jomar, ali]) {
-      await h.asUser(u, 'select public.join_squad($1)', [rows[0]!.invite_code]);
-    }
-    return { leader, jomar, ali, squadId };
-  }
-
-  async function hit(
-    actor: string,
-    target: string,
-    squadId: string,
-    createdAt = '2026-08-07T10:00:00Z',
-  ) {
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, created_at,
-          actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', $4, '2026-08-07', '2026-08-07')`,
-      [actor, target, squadId, createdAt],
-    );
-  }
-
-  it('shows a member hits between two OTHER squadmates', async () => {
-    // Decision #3: the drama is the product. sabotage_events_select_involved
-    // returns only rows the caller is party to, which is why this projection
-    // has to exist at all.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId);
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed).toHaveLength(1);
-    expect(feed[0]).toMatchObject({
-      actor_name: 'Jomar',
-      target_name: 'Ali',
-      item: 'banana',
-      actor_is_self: false,
-      target_is_self: false,
-    });
-  });
-
-  it('projects names and the item only — no scores, no health, no outcome', async () => {
-    // Asserted as a key SET so a future `select *` widening fails here rather
-    // than in review. §5's privacy rule is a projection, not a convention.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId);
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(Object.keys(feed[0]!).sort()).toEqual([
-      'actor_id',
-      'actor_is_self',
-      'actor_name',
-      'created_at',
-      'id',
-      'item',
-      'target_id',
-      'target_is_self',
-      'target_name',
-    ]);
-  });
-
-  it('marks the caller on both sides of a hit', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(leader, ali, squadId, '2026-08-07T09:00:00Z');
-    await hit(jomar, leader, squadId, '2026-08-07T10:00:00Z');
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed.map((r) => [r.actor_is_self, r.target_is_self])).toEqual([
-      [false, true],
-      [true, false],
-    ]);
-  });
-
-  it('orders newest first', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId, '2026-08-07T08:00:00Z');
-    await hit(ali, jomar, squadId, '2026-08-07T12:00:00Z');
-    await hit(jomar, ali, squadId, '2026-08-07T10:00:00Z');
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    const times = feed.map((r) => new Date(r.created_at).toISOString());
-    expect(times).toEqual([...times].sort().reverse());
-    expect(times[0]).toBe('2026-08-07T12:00:00.000Z');
-  });
-
-  it('honours p_limit', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    for (let i = 0; i < 5; i += 1) {
-      await hit(jomar, ali, squadId, `2026-08-07T0${i}:00:00Z`);
-    }
-    const feed = await h.asUser<FeedRow>(
-      leader,
-      'select * from public.squad_feed($1, $2)',
-      [squadId, 2],
-    );
-    expect(feed).toHaveLength(2);
-  });
-
-  it('clamps an absurd p_limit rather than trusting it', async () => {
-    // A client-supplied bound on a SECURITY DEFINER function is an input, not
-    // a promise.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, created_at,
-          actor_local_date, target_local_date)
-       select $1, $2, $3, 'banana',
-              timestamptz '2026-08-07T00:00:00Z' + (n || ' seconds')::interval,
-              '2026-08-07', '2026-08-07'
-       from generate_series(1, 205) as n`,
-      [jomar, ali, squadId],
-    );
-    const feed = await h.asUser<FeedRow>(
-      leader,
-      'select * from public.squad_feed($1, $2)',
-      [squadId, 10_000],
-    );
-    expect(feed).toHaveLength(200);
-  });
-
-  it('rejects a non-member', async () => {
-    const { squadId } = await seedFeedSquad();
-    const outsider = await h.createUser();
-    await rejects(
-      h.asUser(outsider, 'select * from public.squad_feed($1)', [squadId]),
-      /not a member of this squad/,
-    );
-  });
-
-  it('rejects an unauthenticated caller', async () => {
-    const { squadId } = await seedFeedSquad();
-    await rejects(
-      h.asService('select * from public.squad_feed($1)', [squadId]),
-      /permission denied|authentication required/,
-    );
-  });
-
-  it('never leaks another squad’s events, even ones aimed at the caller', async () => {
-    // MVP allows one squad per user, but the function is keyed by squad and
-    // has to behave that way regardless.
-    const { leader, squadId } = await seedFeedSquad();
-    const stranger = await h.createUser({ characterName: 'Stranger' });
-    const other = await h.asUser<{ id: string }>(
-      stranger,
-      `select id from public.create_squad('Elsewhere')`,
-    );
-    await hit(stranger, leader, other[0]!.id);
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed).toEqual([]);
-    await rejects(
-      h.asUser(leader, 'select * from public.squad_feed($1)', [other[0]!.id]),
-      /not a member of this squad/,
-    );
   });
 });
 
@@ -1994,25 +1714,19 @@ describe('leave_squad', () => {
     expect(await leaderOf(squadId)).toBe(members[0]!);
   });
 
-  it('deletes the squad, and its sabotage log, when the last member leaves', async () => {
+  it('deletes the squad, and its membership rows, when the last member leaves', async () => {
     const { leader, members, squadId } = await seedSquad(1);
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', '2026-08-07', '2026-08-07')`,
-      [leader, members[0]!, squadId],
-    );
 
     await h.asUser(members[0]!, 'select public.leave_squad($1)', [squadId]);
     await h.asUser(leader, 'select public.leave_squad($1)', [squadId]);
 
-    const rows = await h.asService<{ squads: number; events: number }>(
+    const rows = await h.asService<{ squads: number; memberships: number }>(
       `select
-         (select count(*)::int from public.squads where id = $1) as squads,
-         (select count(*)::int from public.sabotage_events where squad_id = $1) as events`,
+         (select count(*)::int from public.squads        where id = $1)       as squads,
+         (select count(*)::int from public.squad_members where squad_id = $1) as memberships`,
       [squadId],
     );
-    expect(rows[0]).toEqual({ squads: 0, events: 0 });
+    expect(rows[0]).toEqual({ squads: 0, memberships: 0 });
   });
 
   it('rejects a non-member and changes nothing', async () => {
@@ -2133,7 +1847,7 @@ describe('device_tokens', () => {
 
   it('re-points a token that changed hands instead of erroring or duplicating', async () => {
     // A phone sold or handed on keeps its APNs token. Accumulating a second row
-    // would push one person's sabotage alerts to another person's phone.
+    // would push one person's notifications to another person's phone.
     const first = await h.createUser();
     const second = await h.createUser();
     await h.asUser(first, `select public.register_device_token($1, 'ios')`, ['tok-b']);

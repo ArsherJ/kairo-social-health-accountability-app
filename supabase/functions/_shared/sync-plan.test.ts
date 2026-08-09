@@ -9,7 +9,7 @@ import {
   type DayPlanInput,
   type IncomingBucket,
 } from './sync-plan.ts';
-import type { HourBucket, SabotageEvent } from './core.ts';
+import type { HourBucket } from './core.ts';
 
 const MANILA = 'Asia/Manila';
 const DAY = '2026-07-27';
@@ -225,7 +225,6 @@ describe('planDay', () => {
       hadWorkoutHours: new Set<number>(),
       elevatedHeartRateHours: new Set<number>(),
       sleepMinutes: null,
-      sabotageEvents: [],
       existingStatus: null,
       ...overrides,
     };
@@ -243,22 +242,6 @@ describe('planDay', () => {
       VIT: 'silver',
     });
     expect(row.total).toBeGreaterThan(0);
-  });
-
-  it('subtracts sabotage from the total', () => {
-    const hit: SabotageEvent = {
-      id: 'e1',
-      actorId: 'rival',
-      targetId: 'me',
-      squadId: 's',
-      item: 'banana',
-      createdAt: '2026-07-27T10:00:00Z',
-      targetLocalDate: DAY,
-    };
-    const clean = planDay(input()).row;
-    const hitRow = planDay(input({ sabotageEvents: [hit] })).row;
-    expect(hitRow.sabotage_delta).toBe(-500);
-    expect(hitRow.total).toBe(clean.total - 500);
   });
 
   it('never finalizes, even past the grace window', () => {

@@ -12,7 +12,6 @@ import {
   type CoreStat,
   type DayStatus,
   type HourBucket,
-  type SabotageEvent,
 } from './core.ts';
 
 /** One hour of health data as the client reports it. */
@@ -212,7 +211,6 @@ export interface DayPlanInput {
   hadWorkoutHours: ReadonlySet<number>;
   elevatedHeartRateHours: ReadonlySet<number>;
   sleepMinutes: number | null;
-  sabotageEvents: readonly SabotageEvent[];
   /** Status already stored for this date, if any. */
   existingStatus: DayStatus | null;
 }
@@ -243,7 +241,6 @@ export interface DayScoreRow {
   vit_points: number;
   rec_points: number;
   consistency_points: number;
-  sabotage_delta: number;
   total: number;
   tiers: Record<CoreStat, string>;
   contributing_stats: number;
@@ -276,12 +273,10 @@ export interface DayPlan {
  */
 export function planDay(input: DayPlanInput): DayPlan {
   const result = computeDay({
-    userId: input.userId,
     localDate: input.localDate,
     timeZone: input.timeZone,
     now: input.now,
     buckets: input.buckets,
-    sabotageEvents: input.sabotageEvents,
     sleepMinutes: input.sleepMinutes,
     // Deviation #11: stored per-stat points are **base** — pre-multiplier and
     // program-independent. All weighting happens at read time in
@@ -308,7 +303,6 @@ export function planDay(input: DayPlanInput): DayPlan {
       vit_points: score.stats.VIT.points,
       rec_points: score.recBonus,
       consistency_points: score.consistencyBonus,
-      sabotage_delta: result.sabotageDelta,
       total: result.total,
       tiers: {
         AGI: score.stats.AGI.tier,

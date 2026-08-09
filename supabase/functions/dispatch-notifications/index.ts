@@ -24,9 +24,6 @@ import { sendToUser } from '../_shared/push.deno.ts';
  * per user does not belong in that budget. A failed push must never stop a day
  * from closing.
  *
- * Sabotage is absent here on purpose: it is real-time and fires inline from
- * deploy-sabotage.
- *
  * Every decision lives in a pure module tested in plain Node — which hours
  * carry which trigger and which date they concern in `notification-plan.ts`,
  * whether a candidate may go out in `kairo-core/notifications.ts`, and what it
@@ -279,8 +276,8 @@ async function budgetSpent(userId: string, localDate: string): Promise<number> {
     .eq('local_date', localDate);
 
   if (error) return 0;
-  // Sabotage sends are logged but exempt, so they must not crowd out the
-  // scheduled three. The predicate is kairo-core's, not a copy of it.
+  // Exempt sends are logged too, and must not crowd out the scheduled three.
+  // The predicate is kairo-core's, not a copy of it — see BUDGET_EXEMPT.
   return (data ?? []).filter((row) =>
     countsAgainstBudget(row.kind as Parameters<typeof countsAgainstBudget>[0]),
   ).length;

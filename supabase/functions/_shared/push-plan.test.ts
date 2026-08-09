@@ -29,13 +29,13 @@ describe('isExpoPushToken', () => {
 });
 
 describe('expoMessagesFor', () => {
-  const message = { title: 'Jomar hit you with a banana! 🍌', body: "You're down 500 points." };
+  const message = { title: '1 hour left.', body: "You're in 2nd place. Push." };
 
   it('builds one message per token, carrying the deep-link data', () => {
     const messages = expoMessagesFor(
       ['ExponentPushToken[aaa]', 'ExponentPushToken[bbb]'],
       message,
-      { trigger: 'sabotaged', screen: 'squad' },
+      { trigger: 'day_ending_soon', screen: 'squad' },
     );
 
     expect(messages).toEqual([
@@ -43,14 +43,14 @@ describe('expoMessagesFor', () => {
         to: 'ExponentPushToken[aaa]',
         title: message.title,
         body: message.body,
-        data: { trigger: 'sabotaged', screen: 'squad' },
+        data: { trigger: 'day_ending_soon', screen: 'squad' },
         sound: 'default',
       },
       {
         to: 'ExponentPushToken[bbb]',
         title: message.title,
         body: message.body,
-        data: { trigger: 'sabotaged', screen: 'squad' },
+        data: { trigger: 'day_ending_soon', screen: 'squad' },
         sound: 'default',
       },
     ]);

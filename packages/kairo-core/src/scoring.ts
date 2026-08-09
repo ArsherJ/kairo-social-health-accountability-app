@@ -167,9 +167,10 @@ function rawFor(stat: CoreStat, totals: DayTotals): number {
  * The single source of scoring truth, shared verbatim by the Expo client and
  * the Supabase Edge Functions. Pure: no I/O, no clock, no randomness.
  *
- * The returned `healthTotal` deliberately excludes sabotage. Sabotage is
- * replayed separately from its immutable event log so that nothing ever
- * mutates a score in place.
+ * `healthTotal` is the whole of a day: it is built from that user's own buckets
+ * and nothing else, and nothing subtracts from it. Program weighting exists but
+ * happens at *read* time in `squad_leaderboard()` (deviation #11), so the stored
+ * number stays canonical and program-independent.
  */
 export function computeDailyScore(input: DailyScoreInput): DailyScore {
   const { buckets, sleepMinutes = null, featuredStat = null } = input;

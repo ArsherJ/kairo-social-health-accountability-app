@@ -13,7 +13,6 @@
  */
 
 export type NotificationTrigger =
-  | 'sabotaged'
   | 'day_ending_soon'
   | 'day_ends'
   | 'day_starts';
@@ -28,34 +27,38 @@ export const QUIET_HOURS = { from: 22, to: 7 } as const;
 /**
  * Triggers quiet hours do not suppress.
  *
- * §14 exempts sabotage explicitly and then schedules the day-boundary pair at
- * 23:00 and 00:00 — inside the window. Those two are the core evening loop, not
+ * §14 forbids the 22:00–07:00 window and then schedules the day-boundary pair at
+ * 23:00 and 00:00 — inside it. Those two are the core evening loop, not
  * discretionary, so they are exempt on the same footing rather than as an
  * exception to an exception (plan decision #2).
  */
 export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
-  'sabotaged',
   'day_ending_soon',
   'day_ends',
 ];
 
 /**
- * Triggers that send regardless of the daily budget. §14 calls sabotage "the
- * emotional core".
+ * Triggers that send regardless of the daily budget.
+ *
+ * Empty at present. It held `sabotaged`, which §14 called "the emotional core";
+ * sabotage is gone, and nothing has yet earned the exemption in its place. The
+ * list and `countsAgainstBudget()` stay because the rule is still real — a
+ * once-per-commitment event the user explicitly opted into (a completed goal) is
+ * the shape that qualifies, where a recurring nudge is not.
  *
  * Kept as a separate list from QUIET_HOURS_EXEMPT on purpose: the two rules are
  * independent in §14, and collapsing them would make the day-boundary pair
  * budget-exempt as a side effect of a quiet-hours decision.
  */
-export const BUDGET_EXEMPT: readonly NotificationTrigger[] = ['sabotaged'];
+export const BUDGET_EXEMPT: readonly NotificationTrigger[] = [];
 
 /**
  * Whether a *sent* notification should be counted when reading `sentToday`.
  *
  * Exported because the sender needs the same answer this module uses: every
- * successful send is logged, including sabotage, and counting the logged
- * sabotage sends would let an afternoon hit consume the budget §14 exempts it
- * from — quietly suppressing the evening loop for the busiest squads.
+ * successful send is logged, including exempt ones, and counting those would let
+ * an exempt send consume the budget it is exempt from — quietly suppressing the
+ * evening loop.
  */
 export function countsAgainstBudget(trigger: NotificationTrigger): boolean {
   return !BUDGET_EXEMPT.includes(trigger);
@@ -112,8 +115,9 @@ export function planNotifications<T extends Candidate>(input: {
     if (quiet && !QUIET_HOURS_EXEMPT.includes(candidate.trigger)) continue;
 
     if (!countsAgainstBudget(candidate.trigger)) {
-      // Exempt sends do not consume the budget either — otherwise a busy
-      // sabotage day would silently cost the user their day-end notification.
+      // Exempt sends do not consume the budget either — otherwise a day that
+      // happened to fire one would silently cost the user their day-end
+      // notification.
       admitted.push(candidate);
       continue;
     }

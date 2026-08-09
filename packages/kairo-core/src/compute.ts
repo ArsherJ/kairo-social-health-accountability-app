@@ -1,5 +1,4 @@
 import { isFinalizable } from './day.ts';
-import { applySabotage, replaySabotageDelta, type SabotageEvent } from './sabotage.ts';
 import { computeDailyScore } from './scoring.ts';
 import type { CoreStat, DailyScore, HourBucket } from './types.ts';
 
@@ -8,20 +7,21 @@ import type { CoreStat, DailyScore, HourBucket } from './types.ts';
  * `sync-health` and `finalize-days` Edge Functions use, and the same function
  * the client uses to render an optimistic score.
  *
- * Pure and idempotent: recomputing from the same buckets and the same event log
- * always yields the same result, which is what makes re-syncs, Apple's
- * retroactive step revisions, and cron retries all safe.
+ * Pure and idempotent: recomputing from the same buckets always yields the same
+ * result, which is what makes re-syncs, Apple's retroactive step revisions, and
+ * cron retries all safe.
+ *
+ * A day is built from that user's own activity and nothing else. Nothing
+ * subtracts from it — no other player can reach it.
  */
 
 export type DayStatus = 'provisional' | 'final';
 
 export interface ComputeDayInput {
-  userId: string;
   localDate: string;
   timeZone: string;
   now: Date;
   buckets: readonly HourBucket[];
-  sabotageEvents: readonly SabotageEvent[];
   /** Wearable users only. */
   sleepMinutes?: number | null;
   /**
@@ -40,8 +40,13 @@ export interface ComputeDayInput {
 
 export interface ComputeDayResult {
   score: DailyScore;
-  sabotageDelta: number;
-  /** Health score plus sabotage, floored at zero. This is the leaderboard number. */
+  /**
+   * The leaderboard number, and what `daily_scores.total` stores.
+   *
+   * Identical to `score.healthTotal` — kept as its own field because it is the
+   * *stored* column, and because read-time weighting (`squad_leaderboard()`,
+   * deviation #11) projects from it without ever writing it back.
+   */
   total: number;
   status: DayStatus;
 }
@@ -53,16 +58,9 @@ export function computeDay(input: ComputeDayInput): ComputeDayResult {
     featuredStat: input.featuredStat ?? null,
   });
 
-  const sabotageDelta = replaySabotageDelta(
-    input.sabotageEvents,
-    input.userId,
-    input.localDate,
-  );
-
   return {
     score,
-    sabotageDelta,
-    total: applySabotage(score.healthTotal, sabotageDelta),
+    total: score.healthTotal,
     status: isFinalizable(input.localDate, input.timeZone, input.now)
       ? 'final'
       : 'provisional',

@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
-import type { HourBucket, SabotageEvent } from '../_shared/core.ts';
+import type { HourBucket } from '../_shared/core.ts';
 import {
   affectedDates,
   observesWearable,
@@ -123,7 +123,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Read the FULL day back rather than scoring the payload alone. A sync
   // carrying only hour 14 must still be scored against every other hour
   // already stored, or the day's total would collapse to that one hour.
-  const [bucketsResult, sleepResult, sabotageResult, existingResult] =
+  const [bucketsResult, sleepResult, existingResult] =
     await Promise.all([
       admin
         .from('health_buckets')
@@ -138,18 +138,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .eq('user_id', userId)
         .in('local_date', dates),
       admin
-        .from('sabotage_events')
-        .select('id, actor_id, target_id, squad_id, item, created_at, target_local_date')
-        .eq('target_id', userId)
-        .in('target_local_date', dates),
-      admin
         .from('daily_scores')
         .select('local_date, status')
         .eq('user_id', userId)
         .in('local_date', dates),
     ]);
 
-  for (const result of [bucketsResult, sleepResult, sabotageResult, existingResult]) {
+  for (const result of [bucketsResult, sleepResult, existingResult]) {
     if (result.error) return fail(`read failed: ${result.error.message}`, 500);
   }
 
@@ -181,21 +176,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     (sleepResult.data ?? []).map((r) => [r.local_date as string, Number(r.minutes)]),
   );
 
-  const sabotageByDate = new Map<string, SabotageEvent[]>();
-  for (const row of sabotageResult.data ?? []) {
-    const date = row.target_local_date as string;
-    if (!sabotageByDate.has(date)) sabotageByDate.set(date, []);
-    sabotageByDate.get(date)!.push({
-      id: row.id as string,
-      actorId: row.actor_id as string,
-      targetId: row.target_id as string,
-      squadId: row.squad_id as string,
-      item: row.item as SabotageEvent['item'],
-      createdAt: row.created_at as string,
-      targetLocalDate: date,
-    });
-  }
-
   const statusByDate = new Map<string, 'provisional' | 'final'>(
     (existingResult.data ?? []).map((r) => [
       r.local_date as string,
@@ -217,7 +197,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       hadWorkoutHours: workoutHoursByDate.get(date) ?? new Set(),
       elevatedHeartRateHours: heartRateHoursByDate.get(date) ?? new Set(),
       sleepMinutes: sleepByDate.get(date) ?? null,
-      sabotageEvents: sabotageByDate.get(date) ?? [],
       existingStatus: statusByDate.get(date) ?? null,
     });
 

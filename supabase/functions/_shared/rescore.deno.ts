@@ -1,14 +1,14 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.58.0';
-import type { HourBucket, SabotageEvent } from './core.ts';
+import type { HourBucket } from './core.ts';
 import { planDay } from './sync-plan.ts';
 
 /**
  * Recompute and persist one user-day from whatever is currently stored.
  *
- * Shared by `deploy-sabotage` (a hit changes the target's total) and
- * `finalize-days` (the closing recompute). Because scores are replayed from
- * stored buckets and the immutable sabotage log rather than adjusted in place,
- * calling this repeatedly is safe and always converges (spec §12).
+ * Used by `finalize-days` for the closing recompute. Because a score is always
+ * *replayed* from stored buckets rather than adjusted in place, calling this
+ * repeatedly is safe and always converges (spec §12) — which is what makes cron
+ * overlap and Apple's retroactive step revisions both harmless.
  */
 export async function rescoreDay(
   admin: SupabaseClient,
@@ -23,7 +23,7 @@ export async function rescoreDay(
 ): Promise<{ total: number; xp: number; flagged: boolean } | { error: string }> {
   const { userId, localDate, timeZone, now } = args;
 
-  const [buckets, sleep, sabotage, existing] = await Promise.all([
+  const [buckets, sleep, existing] = await Promise.all([
     admin
       .from('health_buckets')
       .select(
@@ -38,11 +38,6 @@ export async function rescoreDay(
       .eq('local_date', localDate)
       .maybeSingle(),
     admin
-      .from('sabotage_events')
-      .select('id, actor_id, target_id, squad_id, item, created_at, target_local_date')
-      .eq('target_id', userId)
-      .eq('target_local_date', localDate),
-    admin
       .from('daily_scores')
       .select('status')
       .eq('user_id', userId)
@@ -50,7 +45,7 @@ export async function rescoreDay(
       .maybeSingle(),
   ]);
 
-  for (const result of [buckets, sabotage, existing]) {
+  for (const result of [buckets, existing]) {
     if (result.error) return { error: result.error.message };
   }
 
@@ -70,16 +65,6 @@ export async function rescoreDay(
     if (row.elevated_heart_rate) heartRateHours.add(row.hour as number);
   }
 
-  const events: SabotageEvent[] = (sabotage.data ?? []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    actorId: row.actor_id as string,
-    targetId: row.target_id as string,
-    squadId: row.squad_id as string,
-    item: row.item as SabotageEvent['item'],
-    createdAt: row.created_at as string,
-    targetLocalDate: localDate,
-  }));
-
   const existingStatus = (existing.data?.status ?? null) as
     | 'provisional'
     | 'final'
@@ -94,13 +79,12 @@ export async function rescoreDay(
     hadWorkoutHours: workoutHours,
     elevatedHeartRateHours: heartRateHours,
     sleepMinutes: sleep.data ? Number(sleep.data.minutes) : null,
-    sabotageEvents: events,
     existingStatus,
   });
 
   // A day that already finalized keeps its ranking columns no matter who asks
-  // to rescore it — that is the §19 rule, and it holds even for a sabotage hit
-  // that arrived late.
+  // to rescore it — that is the §19 rule, and it holds even for health data
+  // that Apple revised after the fact.
   if (plan.frozen && !args.finalize) {
     const { error } = await admin
       .from('daily_scores')
