@@ -69,9 +69,9 @@ writes anything back to Apple Health.
 
 - **Daily scores** — per-stat points, tiers, and a total.
 - **Squad membership**, invite codes, and squad names.
-- **Sabotage events** — who used an item on whom, and when. This log is
-  append-only: it cannot be edited, by us or by anyone. It is deleted when an
-  account or squad is deleted.
+- **Goals** — a title you write, a target, and the dates it runs between; plus
+  which goals you joined and which you completed. Deleted when an account or
+  squad is deleted.
 - **Streaks**, level and XP.
 - **A push notification token** for your device, if you turn notifications on.
 - **A small number of app events** — that you opened the app, that you chose a
@@ -89,8 +89,9 @@ advertising SDK, no third-party tracker of any kind is present in the app.
 This is the part most worth reading.
 
 **Your squadmates see:** your character name, your level, your total score for
-the day, and a Bronze/Silver/Gold tier per stat. They also see sabotage events
-in your squad — that a named person used an item on another named person.
+the day, and a Bronze/Silver/Gold tier per stat. On a goal you share with them,
+they also see your progress toward it — which is a running total of those same
+daily scores, and nothing more.
 
 **Your squadmates never see:** your step count, your distance, your calories,
 your active minutes, your sleep, your hour-by-hour movement, any timestamp of
@@ -139,8 +140,8 @@ independently of this policy, and we have no interest in any of them.
 For as long as your account exists. `[[TODO: confirm — see README decision #3]]`
 
 When you delete your account, we erase your profile, your health buckets, your
-scores, your streaks, your squad memberships, your device tokens and the
-sabotage events you were involved in. If you were the leader of a squad,
+scores, your streaks, your squad memberships, your device tokens and your
+goals and goal completions. If you were the leader of a squad,
 leadership passes to another member first, so we do not delete other people's
 squad along with your account. If you were its last member, the squad goes too.
 
@@ -174,8 +175,8 @@ account, contact us and we will delete it.
 ## 9. Security
 
 Access is enforced at the database row level: your rows are readable by you.
-Clients hold **no write permission at all** on health data, scores or sabotage
-events — every write goes through a server function that checks who you are
+Clients hold **no write permission at all** on health data, scores or goal
+completions — every write goes through a server function that checks who you are
 first. Data is encrypted in transit, and encrypted at rest by our host.
 
 No system is perfectly secure. In the event of a personal data breach, we will

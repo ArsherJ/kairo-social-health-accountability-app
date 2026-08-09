@@ -1,3 +1,7 @@
+> **VOID — 2026-08-09.** Sabotage was removed (spec v1.4 §1, roadmap deviation
+> #17). Every file, table and function this document specifies has been deleted.
+> Kept only as the record of what was built and why; do not implement any of it.
+
 # A. Sabotage UI and the squad feed
 
 Status: approved 2026-08-07. Workstream A of `docs/mvp-completion-plan.md`.

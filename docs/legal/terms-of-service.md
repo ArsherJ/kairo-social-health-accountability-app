@@ -64,19 +64,25 @@ this clause. `[[TODO: decide whether you want a formal reporting flow before
 external beta, or whether "leave the squad + email us" is the beta answer. The
 app has no report button today.]]`
 
-## 5. Sabotage
+## 5. Scores, goals and squads
 
-Kairo includes a **sabotage mechanic**: squadmates can spend a limited daily item
-to reduce your score for the day, and you can do the same to them. This is
-intended, it is symmetrical, and it is capped — currently two per person per day,
-with a cooldown on hitting the same person twice.
+**Nobody else can reduce your score.** Your daily score is computed from your own
+health data and nothing else. Kairo previously included a sabotage mechanic that
+let squadmates take points off your day; it was removed in August 2026 and no
+equivalent exists.
 
-Sabotage affects **your score in Kairo only**. It changes nothing about your
-health data, which is never modified, and nothing outside the app.
+A **goal** is a target you set for yourself, or one your squad commits to
+together, over a window of days you choose. Goals affect **your standing in Kairo
+only** — they change nothing about your health data, which is never modified, and
+nothing outside the app.
 
-The sabotage log is append-only and visible to your squad. If you do not want to
-play a game where other people can knock your score down, do not join a squad —
-solo mode has no sabotage.
+Once created, a goal's target and dates are fixed: changing them would re-grade
+days already counted. You can abandon a goal at any time. On a shared goal, the
+members are fixed when it is created, so somebody joining or leaving the squad
+later does not change what the group committed to.
+
+Completing a goal awards XP and a permanent record on your profile. It awards no
+money and no thing of monetary value.
 
 ## 6. Fair play
 

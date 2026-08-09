@@ -2,16 +2,20 @@
 
 Target: **TestFlight closed beta** per `Kairo_Master_Summary.md` §15 — 5–6 squads × 6 weeks, measuring D21.
 
-The beta exists to answer four risk questions: week-3 competitive stamina, sabotage → fun vs. resentment, stranger-squad validity, and score fairness perception. Scope decisions get graded against those, not against feature completeness.
+The beta exists to answer four risk questions: week-3 stamina, whether a self-set target survives a bad week, stranger-squad validity, and score fairness perception. Scope decisions get graded against those, not against feature completeness.
+
+**Sabotage was removed on 2026-08-09** (spec v1.4 §1, and §20 principle #4 is formally overturned there). Goals replace it. Deviations #13 and the `sabotaged` half of #14 are retired below; everything else in the table stands.
 
 **Status legend:** ⬜ not started · 🟨 in progress · ✅ done
 
 **Remaining work is sequenced and specified in `docs/mvp-completion-plan.md`**
 (approved 2026-08-07, with an implementation spec per workstream under
 `docs/superpowers/specs/`). That document covers the four unblocked workstreams
-between here and feature-complete — sabotage UI, leaving a squad, the
-notification engine, and polish — plus the verification pass the Apple Developer
-Program unlocks. The phase list below stays the status index; the plan does not
+between here and feature-complete — leaving a squad, the notification engine,
+and polish — plus the verification pass the Apple Developer Program unlocks.
+Its sabotage-UI workstream is void, and
+`docs/superpowers/specs/2026-08-07-a-sabotage-ui-design.md` describes deleted
+code. The phase list below stays the status index; the plan does not
 override it, and product decisions still live in `Kairo_Master_Summary.md`.
 
 ---
@@ -28,11 +32,14 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 4 | "Squadmates see tiers and scores only" (§5) | **`SECURITY DEFINER` RPC**, not client filtering | Makes the privacy rule structural — squadmates cannot reach raw buckets even with a forged client. |
 | 10 | Weekly featured stat rotates the meta (§6) | **Rotation retired from stored scoring** — `computeDailyScore` defaults `featuredStat` to `null`; `daily_scores.featured_stat` written as null | Squad programs (deviation #12) carry the meta permanently, and leaving the rotation in stored points would stack multiplicatively with program weights (AGI week in a running squad = 2.25×). `featuredStatFor` stays in `kairo-core`, tested; V1 may resurrect the rotation as a read-time projection on All-around boards. |
 | 11 | Stored per-stat points include the featured multiplier (§11/§12 as built) | **`daily_scores` stores base (pre-multiplier) points; ALL weighting is read-time in `squad_leaderboard()`** | Stored scores stay canonical and program-independent: score replay never learns programs exist, a program change can never corrupt stored data, and one Legendary user in three squads gets three weighted views of the same rows for free. |
-| 13 | One free item granted per day, deploy cap 2/day (§8) | **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
-| 14 | No notifications between 10 PM and 7 AM local **except sabotage** (§14) | **Three exempt triggers** — `sabotaged`, `day_ending_soon`, `day_ends` — expressed as `QUIET_HOURS_EXEMPT`, a set, and kept separate from `BUDGET_EXEMPT` | Plan decision #2 (2026-08-07). §14 forbids the window and then schedules "Day ending soon" at 23:00 and "Day ends" at 00:00 *inside* it, so read literally the rule suppresses the two notifications that drive the evening loop — leaving an engine that only sends V1 triggers. Those two are the core loop, not discretionary, so they are exempt on the same footing rather than as an exception to an exception. The two lists stay separate because the rules are independent in §14: merging them would make the day-boundary pair budget-exempt as a side effect of a quiet-hours decision, and `countsAgainstBudget()` is the one predicate both the planner and the `sentToday` query use. |
+| ~~13~~ | ~~One free item granted per day, deploy cap 2/day (§8)~~ | **RETIRED 2026-08-09 — sabotage removed.** This row was pure sabotage tuning and died with the feature. Kept struck through rather than deleted so the number is never reused. Original: **`DAILY_ITEM_GRANT_FREE = 2`**, equal to `DEPLOY_CAP_FREE`, and both constants moved into `packages/kairo-core/src/sabotage.ts` | Plan decision #1 (2026-08-07). At a grant of 1 the *grant* bound and the §8 cap was unreachable, so the beta would have measured sabotage sentiment at one hit per person per day — too quiet, in a 6-person squad, to answer "fun or resentment?" either way. Two consequences: the §8 cap becomes the real constraint, and `SAME_ITEM_COOLDOWN_MS` stops being dead code (a free user can now hit the same person twice in a day, so "You already hit them recently" is copy the beta will see — tested in `sabotage-plan.test.ts`). `no_items_remaining` becomes unreachable for free users in exchange, which is fine: `deploy_cap_reached` is the more informative message. The constants live in core because the client must render the remaining count *before* the first deploy materialises the ledger row. |
+| 14 | No notifications between 10 PM and 7 AM local **except sabotage** (§14) | **Two exempt triggers** — `day_ending_soon` and `day_ends` — expressed as `QUIET_HOURS_EXEMPT`, a set, and kept separate from `BUDGET_EXEMPT`. **Amended 2026-08-09:** `sabotaged` is dropped from both lists; `BUDGET_EXEMPT` is briefly empty and `goal_completed` claims it. The separation is what made this a two-line change rather than a re-derivation. | Plan decision #2 (2026-08-07). §14 forbids the window and then schedules "Day ending soon" at 23:00 and "Day ends" at 00:00 *inside* it, so read literally the rule suppresses the two notifications that drive the evening loop — leaving an engine that only sends V1 triggers. Those two are the core loop, not discretionary, so they are exempt on the same footing rather than as an exception to an exception. The two lists stay separate because the rules are independent in §14: merging them would make the day-boundary pair budget-exempt as a side effect of a quiet-hours decision, and `countsAgainstBudget()` is the one predicate both the planner and the `sentToday` query use. |
 | 15 | Push is delivered through **FCM** (spec C, §14 support) | **Expo's push service** — `getExpoPushTokenAsync()` on the client, `POST exp.host/--/api/v2/push/send` on the server | Founder decision 2026-08-07. The specced pairing could not have delivered a single notification: FCM addresses *FCM registration tokens*, and `expo-notifications` on iOS returns an **APNs device token** — only the Firebase Messaging SDK bridges the two. Hand verification made this concrete rather than theoretical (the token that landed in `device_tokens` was 80 bytes of APNs hex). Of the three ways out, Expo was the only one that *deleted* code: no service-account JWT, no OAuth exchange, no `GoogleService-Info.plist`, no extra native modules, and Android comes free at V1.5. The privacy argument for going direct to APNs was considered and rejected as weak — Apple relays the payload in every option, and push bodies carry a character name, a rank and a score total, none of which is in §5's protected set. **The server holds no push credential at all**; what the Developer Program still gates is the APNs key Expo needs, uploaded with `eas credentials`. Reversal is confined to `_shared/push.deno.ts` and `registerDeviceToken()`. |
 | 16 | `docs/roadmap.md` Phase 6 carries the **N-of-M squad streak** as MVP work | **Cut to V1.** No `squad_streaks` table, no trigger, no finalization work in the critical path | Plan decision #5 (2026-08-07). This is the spec's own position, not a reduction of it — §15 lists "Streak system + milestones (incl. N-of-M squad streak)" under **V1**, and only the roadmap phase ever treated it as MVP. Personal streaks and the Streak Shield are built and stay. Recorded as a deviation because the roadmap is what the build is sequenced from, so leaving the phase entry open would have kept re-proposing it. |
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
+| 17 | Sabotage is the core mechanic (§8, §20 #4) | **Removed entirely.** `20260809120000_remove_sabotage.sql` drops `sabotage_events`, `daily_item_ledger`, `daily_scores.sabotage_delta`, the `sabotage_item` type and `squad_feed()`; `deploy-sabotage` and `kairo-core/src/sabotage.ts` are deleted | Founder decision 2026-08-09: progress is still progress. Recorded as a deviation *and* a spec version bump (v1.4) because §20 filed sabotage under **Non-Negotiable** — that needed overturning in the spec, not routing around here. The squad leaderboard stays, which is load-bearing: §5/§20 #3 make social embarrassment the only anti-cheat mechanism, so `daily_scores.flagged` keeps a reader. A fully solo pivot would have removed Kairo's entire anti-cheat surface. `reject_mutation()` and `kairo.allow_purge` are left inert rather than cleaned up — see that migration's closing comment. |
+| 18 | — | **Goal progress is a read-time projection over `daily_scores`, stored nowhere.** `goal_window_scores()` returns each participant's per-day score series for the window; all arithmetic lives in `kairo-core/src/goal.ts` | The alternative was aggregating in SQL, which would put goal maths in two places — exactly the differential-test tax `finalizable_days()`/`isFinalizable()` and `program_weighted_total()`/`weightedBoardTotal()` already pay twice over. The cost is that one call returns a *series* of daily totals for co-participants where `squad_leaderboard()` returns one day. §5 protects raw steps, hourly movement and timestamps — not score totals — so this stays inside the privacy rule, but it is a widening of a single call's output and is recorded rather than left to drift. It also means retroactive HealthKit revisions flow into goal progress for free. |
+| 19 | — | **Goal completion is a one-way latch in `goal_completions`, with its own contribution to the `total_xp` rollup** | Progress may be projected, but completion pays XP and must fire exactly once, so it is stored. Goal XP is deliberately **not** written into `daily_scores.xp_awarded`: a rescore replays that column from tier points and would silently wipe it. The rollup trigger is extended to sum both sources instead — safe precisely because it is a full recompute, never an increment. Latching also means a later downward revision from Apple never revokes a goal already met, which is the rule §19 already applies to streak milestones. |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
 
@@ -45,7 +52,7 @@ Decided in `docs/assessments/2026-08-06-onboarding-and-program-selection.md`
 squads carry a **program** — `all_around` (default), `running`, `gym`,
 `walking` — that boosts exactly one stat ×1.5 **at read time only**
 (Running→AGI, Gym→STR, Walking→VIT; END is never boosted because of the
-`AppleExerciseTime` risk). Tiers, XP, sabotage and the consistency bonus stay
+`AppleExerciseTime` risk). Tiers, XP and the consistency bonus stay
 universal and unweighted. Onboarding gains a single-select, skippable
 **focus** question. Wearable capability is **observed from synced data**
 (`has_wearable` set by `sync-health`), never asked. No manual logging, ever —
@@ -64,12 +71,11 @@ the last cheap moment for it.
 
 ## Architecture in one page
 
-**`packages/kairo-core` is the keystone.** Scoring, sabotage replay, local-day math and anti-cheat are pure functions — no I/O, no dependencies, no clock reads. Supabase Edge Functions (Deno) import them by relative path; the Expo app imports them via a `@kairo/core` alias. One implementation, tested once in plain node, running identically on server and client. This is what makes §12's "server-authoritative, client only displays" cheap instead of a duplicated-logic tax.
+**`packages/kairo-core` is the keystone.** Scoring, goal evaluation, local-day math and anti-cheat are pure functions — no I/O, no dependencies, no clock reads. Supabase Edge Functions (Deno) import them by relative path; the Expo app imports them via a `@kairo/core` alias. One implementation, tested once in plain node, running identically on server and client. This is what makes §12's "server-authoritative, client only displays" cheap instead of a duplicated-logic tax.
 
-**All writes are server-authoritative.** Clients have `SELECT` on their own rows and **zero write access** to `health_buckets`, `daily_scores` or `sabotage_events`. Three Edge Functions own every mutation:
+**All writes are server-authoritative.** Clients have `SELECT` on their own rows and **zero write access** to `health_buckets` or `daily_scores`. Two Edge Functions own every mutation:
 
 - **`sync-health`** — the only door health data enters through. Upserts hourly buckets (idempotent), recomputes the day via `kairo-core`, runs the anti-cheat cross-check, and honours the §19 backfill rule: a finalized day still stores buckets and credits XP/streak, but `total`, rank and coins stay frozen.
-- **`deploy-sabotage`** — validates deploy cap, cooldown, same-squad and target-day-not-final, then appends an immutable event. Nothing ever mutates a score directly.
 - **`finalize-days`** — hourly `pg_cron`. Finalizes each user's day ~2h after their local midnight, awards XP/level/streaks, applies the Streak Shield. Guarded on `status`, so re-running is safe.
 
 Leaderboard liveness comes from a trigger on `daily_scores` calling `realtime.broadcast_changes` into a private `squad:{id}` topic — no row exposure.
@@ -143,7 +149,7 @@ local stack is ever genuinely needed — so far nothing has required one.
   client INSERT policy already existed; no server change.
 
 ### ✅ Phase 2 — Scoring engine (TDD) · 25–35h
-- `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, sabotage replay, local-day boundaries, anti-cheat
+- `kairo-core` complete and tested: tiers, consistency bonus, REC, weekly multiplier, local-day boundaries, anti-cheat
 - 143 tests. The spec's three worked scenarios (§5) are fixtures and land on 2,900 / 1,300 / 0.
 
 ### 🟨 Phase 3 — HealthKit ingest · 50–70h (+6–9h [SP])
@@ -236,8 +242,8 @@ local stack is ever genuinely needed — so far nothing has required one.
   (`UserFocus`, `focusToProgram`, `focusStat`) alongside it. 19 tests, END
   never boosted on any program.
 - ✅ **[SP] Read-time weighting in `squad_leaderboard()` (deviation #11)** —
-  board total = round(Σ per-stat points × weight) + consistency + rec +
-  sabotage_delta, floored at 0; ranked in both `'current'` and `'completed'`
+  board total = round(Σ per-stat points × weight) + consistency + rec,
+  floored at 0; ranked in both `'current'` and `'completed'`
   modes; the returned `total` becomes this weighted number and the RPC also
   returns `program`. Tiers stay raw — gold AGI means the same thing on every
   board; weights tilt the ranking only. The SQL necessarily duplicates the
@@ -267,31 +273,25 @@ local stack is ever genuinely needed — so far nothing has required one.
   without rescaling it. `TodayScore` no longer selects `featured_stat`. Closes
   Phase 4 backend follow-up #1 and Phase 1 follow-up #2's featured half.
 
-### 🟨 Phase 5 — Sabotage + push · 40–55h
-- ✅ `deploy-sabotage` — deployed and verified live: caps, cooldown, squad
-  membership, self-target, and replay of a hit that predates the target's data
-- ✅ **Sabotage client (workstream A, 2026-08-07)** — a 🍌 on every squadmate's
-  row opens a one-step confirm sheet; the caller's remaining count rides in
-  their own row's meta line; `squad_feed()` (`20260807110000`) is a new
-  `SECURITY DEFINER` projection returning **names and item only**, because
-  `sabotage_events_select_involved` hides exactly the hits between two *other*
-  people that make the mechanic social; the TODAY card finally renders
-  `sabotage_delta`, which was selected and unrendered since Phase 1 (closes the
-  other half of follow-up #8). The feed rides the existing `daily_scores`
-  broadcast — a hit always rescores its target — so no second trigger or topic.
-  **Still owed:** hand verification on the simulator, and the two-client check
-  that a hit's broadcast actually reaches a subscriber.
+### 🟨 Phase 5 — Push notifications · 40–55h
+
+**Retitled 2026-08-09.** This phase was "Sabotage + push". `deploy-sabotage`,
+the sabotage client (workstream A) and `squad_feed()` were all built, verified
+live, and are now **deleted** — see deviation #17. The notification engine below
+is the half that survives, and it is what the phase is now about. The hours
+estimate is left as recorded rather than back-fitted; roughly half of it bought
+code that no longer exists, which is the honest cost of the pivot.
 - ✅ **Notification engine (workstream C, 2026-08-07)** — three triggers, not
-  §14's eight (§15 scopes MVP push to sabotage + day end + conditional day
-  start). `planNotifications` in `@kairo/core` owns the §14 rules: quiet hours
+  §14's eight (§15 scopes MVP push to day end + conditional day start; a fourth,
+  `goal_completed`, arrives with goals). `planNotifications` in `@kairo/core` owns the §14 rules: quiet hours
   as a **wrapping** window, and two separate exempt lists, because quiet-hours
   exemption and budget exemption are independent rules and collapsing them
   would make the day-boundary pair budget-exempt as a side effect (deviation
   #14). `dispatch-notifications` is a **second hourly cron**, not a branch in
   `finalize-days`: that function's window is local midnight *plus two hours*,
   so riding it would fire "Day ends" at 02:00 local, two hours late and inside
-  quiet hours. Sabotage fires inline from `deploy-sabotage`, wrapped so a
-  failed push can never fail a deploy that has already spent the item.
+  quiet hours. Every MVP trigger is now on a clock; nothing fires in real time
+  from another user's action.
   `users_at_local_hour()` and `register_device_token()` in `20260807110200`;
   `squad_leaderboard` gains `p_as_user` (`20260807110400`) so the JWT-less cron
   reads rank through the *same* projection the screen does, honoured only when
@@ -300,9 +300,10 @@ local stack is ever genuinely needed — so far nothing has required one.
   iPhone 17 Pro): the sheet stays hidden with no squad and appears on joining
   one, the OS grant is real (`didGrant: 1` in the device log), the token lands
   in `device_tokens` and re-registers on cold start, `app_open` lands, and a
-  live `deploy-sabotage` returned `ok: true` while writing `push_failed`
-  (`not_configured`) and **no** `notification_log` row — the wrap holds and an
-  unsent push does not spend the budget.
+  live send returned `ok: true` while writing `push_failed` (`not_configured`)
+  and **no** `notification_log` row — the wrap holds and an unsent push does not
+  spend the budget. (That check ran through `deploy-sabotage`, since deleted;
+  the wrap it verified is in `_shared/push.deno.ts` and is unchanged.)
   **It also caught a real bug** — see the token-listener loop below.
   **Transport swapped to Expo push (deviation #15)** and verified against the
   live service: a deploy with a well-formed `ExponentPushToken` in
@@ -487,7 +488,7 @@ local stack is ever genuinely needed — so far nothing has required one.
 
 Strict red-green-refactor on the money logic. UI verified by hand on device.
 
-- **`packages/kairo-core`** — vitest in node. Every tier boundary (999/1,000, 9,999/10,000…), all consistency-bonus permutations, REC's over-9-hours penalty, the weekly multiplier, the §5 worked scenarios as fixtures, sabotage replay ordering, and the jog-must-never-flag anti-cheat case.
+- **`packages/kairo-core`** — vitest in node. Every tier boundary (999/1,000, 9,999/10,000…), all consistency-bonus permutations, REC's over-9-hours penalty, the weekly multiplier, the §5 worked scenarios as fixtures, goal window and N-of-M evaluation, and the jog-must-never-flag anti-cheat case.
 - **Day boundaries** — `day.ts` takes `now` as a parameter and never reads the clock, so Manila/Dubai/New York, DST and the grace window are table-driven tests with no time mocking.
 - **Edge Functions** — Deno tests against `supabase start`. Idempotency asserted explicitly: run `sync-health` twice, assert one set of rows and one score.
 - **`seed-health`** — dev-only function writing synthetic buckets for fake squad members. Non-negotiable for velocity: without it, testing a leaderboard means physically walking 10,000 steps, and testing week-3 dynamics is impossible.

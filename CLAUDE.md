@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kairo is a Philippines-market social health accountability app: squads compete daily on HealthKit data, an RPG character levels from real activity, and members sabotage each other. iOS first via Expo; Supabase backend.
+Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily leaderboard, plus shared goals over a span of days, weeks or years. iOS first via Expo; Supabase backend.
+
+**Sabotage was removed on 2026-08-09.** It was the original premise (§8, and §20's principle #4 called it "the soul of the product"), so a lot of prose still assumes it. Nothing in the code does. If you find a reference, it is stale — fix it.
 
 **Two documents hold the decisions. Read them before proposing changes.**
 
-- `Kairo_Master_Summary.md` — the product spec (v1.3). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here.
+- `Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here.
 - `docs/roadmap.md` — build sequencing, phase status, and an **approved-deviations table**. Deviations from the spec are deliberate and recorded; propose changes against that table rather than "fixing" them.
 
 ## Commands
@@ -50,7 +52,7 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 ### `packages/kairo-core` is the keystone
 
-Pure, zero-dependency TypeScript: scoring, local-day math, sabotage replay, anti-cheat, progression, streaks. **No I/O, no clock reads, no randomness** — every function takes what it needs as an argument, which is why timezone and DST behaviour is testable without mocking.
+Pure, zero-dependency TypeScript: scoring, local-day math, goal evaluation, anti-cheat, progression, streaks. **No I/O, no clock reads, no randomness** — every function takes what it needs as an argument, which is why timezone and DST behaviour is testable without mocking.
 
 Both consumers import the same files:
 - Expo app → `@kairo/core` (tsconfig path + Metro `watchFolders`)
@@ -60,24 +62,23 @@ This is what makes §12's server-authoritative rule affordable. Do not add a sec
 
 ### Writes are server-authoritative
 
-Clients have `SELECT` on their own rows and **zero write grants** on `health_buckets`, `daily_scores`, `sabotage_events`. Three Edge Functions own every mutation:
+Clients have `SELECT` on their own rows and **zero write grants** on `health_buckets` or `daily_scores`. Edge Functions own every mutation:
 
 - **`sync-health`** — the only door health data enters. Upserts hourly buckets, then re-reads the *whole* day before rescoring (a partial payload must not collapse the day's total).
-- **`deploy-sabotage`** — enforces caps, cooldown, squad membership. Resolves the target's day in the **target's** timezone, not the actor's.
 - **`finalize-days`** — hourly `pg_cron`, the only place a day becomes `final`. Guarded by `CRON_SECRET`.
 
-Scores are always *replayed* from stored buckets plus the immutable sabotage log, never adjusted in place. That is what makes retries, Apple's retroactive step revisions, and cron overlap all safe. Preserve this property.
+Scores are always *replayed* from stored buckets, never adjusted in place. That is what makes retries, Apple's retroactive step revisions, and cron overlap all safe. Preserve this property — goal progress is a read-time projection over `daily_scores` for the same reason, and stores no number of its own.
 
 ### Structural invariants worth not breaking
 
 - **Privacy is a projection, not a convention.** `profiles` is owner-readable only (the row holds height/weight/birth year, and RLS is row-level). Squadmates reach data through `squad_leaderboard()`, which has no argument that returns raw steps or hourly movement.
-- **`sabotage_events` is append-only** via trigger, for every role including `service_role`. UPDATE is never permitted. DELETE only during a deliberate purge, gated on the transaction-local `kairo.allow_purge` flag that the account/squad deletion triggers set.
+- **`reject_mutation()` and the `kairo.allow_purge` flag are inert.** They enforced append-only on `sabotage_events`, which is dropped; the flag is still set by `delete_account()` / `leave_squad()` and now guards nothing. Left in place on purpose — account deletion is the legal erasure path and is not worth reopening for a no-op. See `20260809120000_remove_sabotage.sql`.
 - **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` by trigger — never incremented, so nothing double-counts.
 - **Column-level grants:** `profiles` UPDATE is granted per-column. A column-level `REVOKE` against an existing table-level `GRANT` is silently a no-op in Postgres; revoke the table grant and re-grant the allowed columns.
 
 ### Per-user local days
 
-Every player's day runs midnight-to-midnight in **their own** timezone (§2), so a squad spans multiple calendar dates at any instant. Health buckets, scores, and sabotage are keyed by local date. `finalizable_days()` in SQL and `isFinalizable()` in `kairo-core` implement the same ~2h grace window and are kept honest by a differential test.
+Every player's day runs midnight-to-midnight in **their own** timezone (§2), so a squad spans multiple calendar dates at any instant. Health buckets, scores, and goal windows are keyed by local date. `finalizable_days()` in SQL and `isFinalizable()` in `kairo-core` implement the same ~2h grace window and are kept honest by a differential test.
 
 ## Conventions
 
@@ -87,7 +88,7 @@ Every player's day runs midnight-to-midnight in **their own** timezone (§2), so
 
 ## Testing
 
-Strict TDD on scoring, day boundaries, sabotage, streaks and anti-cheat — the logic where a bug corrupts real leaderboards. UI is verified by hand on device.
+Strict TDD on scoring, day boundaries, goals, streaks and anti-cheat — the logic where a bug corrupts real leaderboards. UI is verified by hand on device.
 
 `supabase/tests/harness.ts` applies every migration to **PGlite** (real Postgres in WASM) with stubbed `auth` and `realtime` schemas, then asserts behaviour under the non-owner `authenticated` role. Runs in ~1.5s with no Docker.
 
