@@ -1,47 +1,68 @@
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font, radius, space } from '../theme.ts';
+import { colors, font, ramp, radius, shadow, space } from '../theme.ts';
 
 /**
- * Route name -> pill label. Text only — no icon library is installed, and
- * that is deliberate (see the redesign spec's §6 note on the dark-fantasy
- * hunter aesthetic staying typographic).
+ * Route name -> label. Text only — no icon library is installed, and that is
+ * deliberate: the app has always been typographic, and Caprasimo in a circle
+ * is a stronger read at this size than a 21px stroke icon would be.
  */
 const LABELS: Record<string, string> = {
-  index: 'HUNTER',
-  squad: 'SQUAD',
-  profile: 'YOU',
+  index: 'Hunter',
+  squad: 'Squad',
+  profile: 'You',
 };
 
 /**
- * Floating tab bar. A `BottomTabBar` replacement passed as the `tabBar` prop
- * on the `Tabs` navigator, so it receives React Navigation's own props
+ * The orbit nav. A `BottomTabBar` replacement passed as the `tabBar` prop on
+ * the `Tabs` navigator, so it receives React Navigation's own props
  * unmodified — including `insets`, which is why no `useSafeAreaInsets` call
  * lives in this file.
  *
- * Height is fixed at 72 to agree with `Screen`'s `TAB_PILL_CLEARANCE` (72pt
- * of pill + 24pt of gap). Changing one without the other misaligns content.
+ * Three discs rather than a bar: the Hunter sits centre and larger because it
+ * is where the app opens and where it returns, and the other two orbit it.
+ * The height is fixed at `NAV_HEIGHT` and `Screen` clears exactly that, so
+ * changing one without the other hides content behind the nav.
  */
+export const NAV_HEIGHT = 96;
+
 export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
+  const order = ['squad', 'index', 'profile'];
+  const routes = order
+    .map((name) => state.routes.find((r) => r.name === name))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+
   return (
     <View
       accessibilityRole="tablist"
-      style={[styles.pill, { bottom: insets.bottom + space.md }]}
+      style={[styles.bar, { bottom: insets.bottom + space.sm }]}
     >
-      {state.routes.map((route, index) => {
-        const focused = state.index === index;
-        const label = LABELS[route.name] ?? route.name.toUpperCase();
+      {routes.map((route) => {
+        const focused = state.routes[state.index]?.key === route.key;
+        const centre = route.name === 'index';
+        const label = LABELS[route.name] ?? route.name;
 
         return (
           <Pressable
             key={route.key}
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
+            accessibilityLabel={label}
             onPress={() => navigation.navigate(route.name)}
-            style={styles.cell}
+            style={[
+              styles.disc,
+              centre ? styles.centre : styles.orbit,
+              focused ? styles.focused : styles.resting,
+            ]}
           >
-            <View style={[styles.dot, focused && styles.dotFocused]} />
-            <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
+            <Text
+              style={[
+                centre ? styles.centreLabel : styles.orbitLabel,
+                { color: focused ? colors.bg : colors.subtle },
+              ]}
+            >
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -50,38 +71,21 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  pill: {
+  bar: {
     position: 'absolute',
-    left: space.lg,
-    right: space.lg,
-    height: 72,
+    left: 0,
+    right: 0,
+    height: NAV_HEIGHT,
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cell: {
-    flex: 1,
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
+    gap: space.lg,
   },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: space.xs,
-    backgroundColor: 'transparent',
-  },
-  dotFocused: {
-    backgroundColor: colors.accent,
-  },
-  label: {
-    ...font.body.label,
-    textTransform: 'uppercase',
-    color: colors.muted,
-  },
-  labelFocused: {
-    color: colors.accent,
-  },
+  disc: { borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  orbit: { width: 60, height: 60, marginBottom: space.sm, ...shadow.md },
+  centre: { width: 74, height: 74, ...shadow.lg },
+  resting: { backgroundColor: ramp.neutral[100] },
+  focused: { backgroundColor: colors.accent },
+  centreLabel: { ...font.display.small },
+  orbitLabel: { ...font.display.label },
 });

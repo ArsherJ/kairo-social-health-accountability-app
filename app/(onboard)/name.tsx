@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     color: colors.text,
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: 'Figtree-Bold',
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
+  error: { color: colors.damage, ...font.body.body, marginTop: space.md },
 });

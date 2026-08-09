@@ -61,5 +61,5 @@ const styles = StyleSheet.create({
   hero: { flex: 1, justifyContent: 'center' },
   brand: { color: colors.text, ...font.display.brand },
   tagline: { color: colors.muted, ...font.body.body, marginTop: space.sm },
-  error: { color: colors.danger, ...font.body.body, marginTop: space.md, textAlign: 'center' },
+  error: { color: colors.damage, ...font.body.body, marginTop: space.md, textAlign: 'center' },
 });

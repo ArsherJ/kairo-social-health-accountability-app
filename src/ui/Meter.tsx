@@ -1,5 +1,5 @@
 import { Animated, StyleSheet, View } from 'react-native';
-import { colors, radius } from '../theme.ts';
+import { radius, ramp } from '../theme.ts';
 import { useFillIn } from './motion.ts';
 
 export function Meter({
@@ -30,7 +30,10 @@ export function Meter({
 const styles = StyleSheet.create({
   track: {
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
+    // Neutral 300, not `colors.surface`: a meter usually sits *on* a surface
+    // card, and a track the same tint as the card behind it shows no track
+    // at all — the bar would look like it floats with nothing left to fill.
+    backgroundColor: ramp.neutral[300],
     overflow: 'hidden',
   },
 });

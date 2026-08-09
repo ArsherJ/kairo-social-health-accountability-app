@@ -88,5 +88,5 @@ export default function Squad() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: colors.danger, ...font.body.body, textAlign: 'center' },
+  error: { color: colors.damage, ...font.body.body, textAlign: 'center' },
 });

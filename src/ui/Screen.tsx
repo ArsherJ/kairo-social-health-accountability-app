@@ -2,9 +2,13 @@ import type { ReactElement, ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type RefreshControlProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, space } from '../theme.ts';
+import { NAV_HEIGHT } from './TabPill.tsx';
 
-/** Clearance for the floating tab pill so content never hides beneath it. */
-export const TAB_PILL_CLEARANCE = 96;
+/**
+ * Clearance for the floating orbit nav so content never hides beneath it.
+ * `NAV_HEIGHT` plus a gap — see `TabPill`, which owns the other half of this.
+ */
+export const TAB_PILL_CLEARANCE = NAV_HEIGHT + space.lg;
 
 export function Screen({
   scroll = true,

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { feedLine, feedTime } from './feed-copy.ts';
 import { useSquadFeed } from './queries.ts';
-import { colors, font, space } from '@/theme.ts';
+import { colors, font, ramp, space } from '@/theme.ts';
 
 /**
  * Who hit whom, newest first (§8).
@@ -49,7 +49,7 @@ export function SquadFeed({ squadId }: { squadId: string | undefined }) {
 
 const styles = StyleSheet.create({
   block: { marginTop: space.xl },
-  heading: { color: colors.muted, ...font.body.label },
+  heading: { ...font.body.label, textTransform: 'uppercase', color: ramp.neutral[600] },
   line: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -57,10 +57,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.sm,
   },
-  text: { color: colors.subtle, fontSize: 14, flexShrink: 1 },
+  text: { ...font.body.strong, fontSize: 13.5, color: ramp.neutral[700], flexShrink: 1 },
   /** Your own beating, in the colour the rest of the app uses for damage. */
-  hit: { color: colors.danger },
-  when: { color: colors.muted, fontSize: 12 },
-  empty: { color: colors.muted, fontSize: 14, marginTop: space.sm },
-  error: { color: colors.danger, fontSize: 14, marginTop: space.sm },
+  /** Your own beating, in the family the rest of the app reserves for damage. */
+  hit: { color: ramp.accent[900] },
+  when: { ...font.body.body, fontSize: 11, color: ramp.neutral[600] },
+  empty: { ...font.body.body, fontSize: 14, color: colors.muted, marginTop: space.sm },
+  error: { ...font.body.body, fontSize: 14, color: colors.damage, marginTop: space.sm },
 });

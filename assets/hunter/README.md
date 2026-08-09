@@ -4,10 +4,30 @@
 
 `HunterSilhouette` (`src/features/character/HunterSilhouette.tsx`) looks each
 file up by `${stage}-${dominance}`. **A missing file is not a bug** — the
-component falls back to the View primitives it has always drawn, so art can land
-one file at a time and a half-populated directory renders correctly.
+component falls back to `anchor.png`, so art can land one file at a time and a
+half-populated directory renders correctly.
 
-Adding one is two steps, both required:
+## `anchor.png`
+
+The baseline figure, standing in for every key that has no file of its own. It
+is the neutral build, so it carries `stage` (the shadow under it grows) but not
+`dominance` — a per-key file always wins over it.
+
+Regenerate it from a render with:
+
+```bash
+python scripts/prep_hunter_art.py output/imagegen/hunter-character-anchor-final.png \
+    --out assets/hunter/anchor.png --aspect 0.60
+```
+
+That script does the three things a raw render needs: keys out the white
+background it ships with, lifts the black floor so the suit and outline do not
+merge into `colors.bg`, and re-pads the figure feet-to-bottom. Run it on any new
+render rather than dropping the render in directly.
+
+## Adding a per-key file
+
+Two steps, both required:
 
 1. Drop the PNG here as `<stage>-<dominance>.png`.
 2. Add its line to `HUNTER_ART` in the component:
@@ -19,14 +39,20 @@ than missing at runtime.
 
 ## Specification
 
-- **PNG, transparent background**, roughly 2:1 portrait (≈ 570 × 636 at @3×).
-  Rendered at 190 × 212 with `resizeMode="contain"`.
-- **No aura, no glow, no halo baked in.** The component draws all three behind
-  the image, sized from `stage`, so the same figure reads correctly as its
-  presence grows. Art that includes its own aura will double it.
+- **PNG, transparent background**, anything up to 2:1 portrait at 636 tall
+  (@3×). The slot is 190 × 212 with `resizeMode="contain"`, so a narrower figure
+  is fine and simply sits centred — `anchor.png` is 382 × 636 and renders
+  127 × 212.
+- **No shadow, no glow, no ring baked in.** The component draws the ground
+  shadow (and the All-Rounder's ring) itself, sized from `stage`, so the same
+  figure reads correctly as its presence grows. Art carrying its own contact
+  shadow will double it.
 - **Figure centred, feet at the bottom edge**, so a swap does not shift the
   layout under the TODAY card.
-- Dark-background palette — the app is dark-only (`colors.bg`).
+- Reads on cream. The app is a warm light theme now (`colors.bg` is #f5ead8)
+  and the Hunter stands on a sage sky, so pure black merges into neither —
+  but `prep_hunter_art.py --lift` exists because a raw render often ships
+  with its outline at 0,0,0.
 
 ## The keys
 

@@ -28,7 +28,7 @@ import { DeploySheet } from '@/features/sabotage/DeploySheet.tsx';
 import { SquadFeed } from '@/features/sabotage/SquadFeed.tsx';
 import { useDailyItems } from '@/features/sabotage/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Numeral, Panel, Screen } from '@/ui/index.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
@@ -246,7 +246,7 @@ export function Leaderboard({
           placeholder or a dash, both of which would state something false. */}
       {heroValue != null && (
         <View style={styles.hero}>
-          <Numeral value={heroValue} size="hero" color={colors.accent} />
+          <Numeral value={heroValue} size="hero" color={ramp.accent[700]} />
           {subline != null && <Text style={styles.standing}>{subline}</Text>}
         </View>
       )}
@@ -358,33 +358,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space.sm,
   },
-  squadName: { color: colors.text, ...font.body.title, flexShrink: 1 },
-  date: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  members: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  hero: { marginTop: space.lg },
-  standing: { color: colors.subtle, ...font.body.body, marginTop: space.xs },
+  squadName: { color: colors.text, ...font.display.major, fontSize: 27, flexShrink: 1 },
+  date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0 },
+  members: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0 },
+  hero: { marginTop: space.md },
+  standing: { color: ramp.neutral[700], ...font.body.body, marginTop: space.xs },
   programLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    marginTop: space.xs,
+    marginTop: 9,
   },
-  program: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
+  // The program and its boost are the board's rule, so they read as two tags
+  // on the header rather than as a sentence: sage for the lane the squad is
+  // running, terracotta for the multiplier that changes the maths.
+  program: {
+    ...font.body.label,
+    fontSize: 11.5,
+    letterSpacing: 0,
+    color: ramp.sage[800],
+    backgroundColor: ramp.sage[200],
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
   boostChip: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    backgroundColor: ramp.accent[200],
+    borderRadius: radius.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
   },
-  boostLabel: { color: colors.accent, fontSize: 11, fontWeight: '800' },
-  codeCard: { alignItems: 'center' },
-  codeLabel: { color: colors.muted, ...font.body.label },
+  boostLabel: { ...font.body.label, fontSize: 11.5, letterSpacing: 0, color: ramp.accent[800] },
+  codeCard: { alignItems: 'center', backgroundColor: ramp.sage[200] },
+  codeLabel: { ...font.body.label, color: ramp.sage[700], textTransform: 'uppercase' },
   code: {
-    color: colors.accent,
-    fontSize: 34,
-    fontWeight: '800',
+    ...font.display.major,
+    fontSize: 38,
     letterSpacing: 10,
+    color: ramp.sage[900],
     // Trailing letter-spacing is added after the last glyph too, which
     // visually shifts the code left of centre without this.
     marginLeft: 10,
@@ -392,31 +404,30 @@ const styles = StyleSheet.create({
   },
   toggle: {
     flexDirection: 'row',
-    marginTop: space.lg,
-    padding: 3,
+    marginTop: space.md,
+    padding: 4,
+    gap: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: ramp.neutral[200],
   },
   toggleOption: {
     flex: 1,
     // ≥44pt touch target: the pill's own vertical padding plus its text line
     // height, with no reliance on hitSlop.
-    paddingVertical: space.md,
+    paddingVertical: 14,
     borderRadius: radius.pill,
     alignItems: 'center',
   },
   toggleActive: { backgroundColor: colors.accent },
-  toggleLabel: { color: colors.subtle, fontSize: 14, fontWeight: '700' },
+  toggleLabel: { ...font.display.small, fontSize: 14, color: ramp.neutral[700] },
   toggleLabelActive: { color: colors.bg },
-  note: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
+  note: { ...font.body.body, fontSize: 12, color: colors.muted, marginTop: space.sm, lineHeight: 18 },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  error: { color: colors.danger, ...font.body.body, textAlign: 'center' },
+  error: { color: colors.damage, ...font.body.body, textAlign: 'center' },
   empty: { color: colors.muted, ...font.body.body, textAlign: 'center' },
   leaveBlock: { marginTop: space.xl, alignItems: 'center' },
   leave: { paddingVertical: space.sm, paddingHorizontal: space.lg },
-  leaveLabel: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  leaveLabel: { ...font.body.strong, fontSize: 14, color: ramp.accent[700] },
   leaveLabelBusy: { color: colors.muted },
   pressed: { opacity: 0.85 },
 });

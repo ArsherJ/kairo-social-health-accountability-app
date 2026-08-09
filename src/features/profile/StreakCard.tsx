@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, font, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Label, Numeral, Panel } from '@/ui/index.ts';
 import type { Streak } from './queries.ts';
 
@@ -35,20 +35,39 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
         </View>
       </View>
 
-      <Text style={shieldBanked ? styles.shieldReady : styles.shieldSpent}>
-        {shieldBanked
-          ? 'Streak Shield banked — one missed day will not break it.'
-          : streak
-            ? `Streak Shield recharges ${streak.shield_available_on}.`
-            : 'Score once to start a streak.'}
-      </Text>
+      {/* The shield is a thing you hold, not a note in the margin. §19 only
+          works if you know you have one *before* the day you need it, and a
+          line of small print under two big numbers is not where anyone looks. */}
+      <View style={[styles.shield, shieldBanked && styles.shieldBanked]}>
+        <Text style={styles.shieldGlyph}>{shieldBanked ? '\u25c6' : '\u25c7'}</Text>
+        <Text style={shieldBanked ? styles.shieldReady : styles.shieldSpent}>
+          {shieldBanked
+            ? 'Shield banked — one missed day is safe'
+            : streak
+              ? `Shield recharges ${streak.shield_available_on}`
+              : 'Score once to start a streak'}
+        </Text>
+      </View>
     </Panel>
   );
 }
 
 const styles = StyleSheet.create({
   figures: { flexDirection: 'row', gap: space.xl, marginTop: space.sm },
-  caption: { color: colors.muted, fontSize: 12 },
-  shieldReady: { color: colors.text, fontSize: 13, marginTop: space.md, lineHeight: 18 },
-  shieldSpent: { color: colors.muted, fontSize: 13, marginTop: space.md, lineHeight: 18 },
+  caption: { ...font.body.strong, color: ramp.sage[800] },
+  shield: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    alignSelf: 'flex-start',
+    marginTop: space.md,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.neutral[200],
+  },
+  shieldBanked: { backgroundColor: ramp.neutral[100] },
+  shieldGlyph: { fontSize: 15, color: ramp.sage[700] },
+  shieldReady: { ...font.body.strong, fontSize: 13, color: ramp.sage[900] },
+  shieldSpent: { ...font.body.strong, fontSize: 13, color: colors.muted },
 });

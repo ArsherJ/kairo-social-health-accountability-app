@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
-  error: { color: colors.danger, fontSize: 13, marginTop: space.md, lineHeight: 19 },
+  error: { color: colors.damage, fontSize: 13, marginTop: space.md, lineHeight: 19 },
   later: {
     color: colors.muted,
     ...font.body.body,

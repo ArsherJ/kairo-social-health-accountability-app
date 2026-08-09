@@ -105,7 +105,7 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   title: { color: colors.text, ...font.body.title },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
-  value: { color: colors.text, fontSize: 16, fontWeight: '600', marginTop: space.xs },
+  value: { color: colors.text, ...font.display.small, fontSize: 19, marginTop: space.xs },
   help: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   devStatus: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
 });

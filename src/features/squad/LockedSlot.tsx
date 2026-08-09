@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
 import { Panel } from '@/ui/index.ts';
 
 /**
@@ -44,9 +44,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   content: { flexDirection: 'row', alignItems: 'center' },
-  rank: { width: 28, color: colors.muted, fontSize: 18, fontWeight: '800' },
+  rank: { width: 18, color: colors.muted, ...font.display.minor },
   middle: { flex: 1, paddingHorizontal: space.sm },
-  name: { color: colors.muted, fontSize: 16, fontWeight: '700' },
+  name: { color: colors.muted, ...font.display.small, fontSize: 16 },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  total: { color: colors.muted, fontSize: 20, fontWeight: '800' },
+  total: { color: colors.muted, ...font.display.minor },
 });

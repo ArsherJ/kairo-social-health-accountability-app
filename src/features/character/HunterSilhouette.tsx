@@ -1,7 +1,7 @@
 import { Animated, Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
-import { colors, tierColors } from '@/theme.ts';
-import { Aura } from '@/ui/Aura.tsx';
+import { colors, ramp, tierColors } from '@/theme.ts';
+import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
 
 /**
@@ -13,8 +13,9 @@ import { useFloat } from '@/ui/motion.ts';
  *
  * Two things drive it, and they are independent:
  *
- * - `stage` (1–4, from the level bands in §6) is *presence*: the aura grows and
- *   brightens, so levelling visibly does something whatever you grind.
+ * - `stage` (1–4, from the level bands in §6) is *presence*: the ground
+ *   shadow widens and deepens, so levelling visibly does something
+ *   whatever you grind.
  * - `dominance` is *shape*, following §6's table — AGI leaner, STR broader,
  *   END a planted stance, VIT a recovery glow, balanced the All-Rounder.
  *
@@ -43,11 +44,25 @@ function artKey(stage: 1 | 2 | 3 | 4, dominance: Dominance | undefined): ArtKey 
  *     '3-STR': require('../../../assets/hunter/3-STR.png'),
  *
  * `assets/hunter/README.md` lists every key and what each is meant to look
- * like. Roughly 2:1 portrait, transparent background — the aura is drawn
- * behind the image by this component, not baked into it, so the same asset
- * reads correctly at every stage's aura size.
+ * like. Up to 2:1 portrait, transparent background — the ground shadow is
+ * drawn by this component, not baked into the art, so the same asset reads
+ * correctly at every stage.
  */
 const HUNTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
+
+/**
+ * The baseline figure, used for any key `HUNTER_ART` does not cover yet.
+ *
+ * §15's "AI-placeholder static art" as one asset instead of 24: the same
+ * character every key is meant to depict, in the neutral build, with the
+ * shadow left to `<GroundShadow>` as the README requires. Presence still
+ * grows with `stage` because the shadow does; what the anchor cannot express
+ * is `dominance`, so a per-key entry above always wins over it.
+ *
+ * Built from the generated render by `scripts/prep_hunter_art.py` — the render
+ * ships on white with no alpha, which would show as a card on `colors.bg`.
+ */
+const HUNTER_ANCHOR: ImageSourcePropType = require('../../../assets/hunter/anchor.png');
 
 interface Build {
   /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
@@ -56,10 +71,14 @@ interface Build {
   torso: number;
   /** Multiplies torso height — a taller torso plants the figure. */
   height: number;
-  /** The aura's colour. */
-  aura: string;
-  /** Added to the aura's base opacity. */
-  glow: number;
+  /**
+   * The ground shadow's tint. §6 asked for an aura per build; on the warm
+   * system the shadow is where that reads, so a heavier build sits in a
+   * darker, denser contact patch rather than glowing a different colour.
+   */
+  shade: string;
+  /** Added to the shadow's base opacity. */
+  weight: number;
   /** Stance width. Zero means no legs drawn. */
   stance: number;
 }
@@ -67,16 +86,16 @@ interface Build {
 const BUILDS: Record<Exclude<Dominance, null>, Build> = {
   // "Leaner frame, faster Rive idle animation" — the frame is all that
   // survives without an animation runtime.
-  AGI: { shoulders: 0.86, torso: 0.84, height: 1.0, aura: colors.accent, glow: 0, stance: 0 },
+  AGI: { shoulders: 0.86, torso: 0.84, height: 1.0, shade: ramp.sage[700], weight: -0.03, stance: 0 },
   // "Broader silhouette, power aura intensifies."
-  STR: { shoulders: 1.18, torso: 1.14, height: 0.94, aura: colors.danger, glow: 0.1, stance: 0 },
+  STR: { shoulders: 1.18, torso: 1.14, height: 0.94, shade: colors.damage, weight: 0.07, stance: 0 },
   // "Endurance stance" — the particle effect needs Rive, the stance does not.
-  END: { shoulders: 1.0, torso: 0.98, height: 1.12, aura: tierColors.bronze, glow: 0, stance: 58 },
+  END: { shoulders: 1.0, torso: 0.98, height: 1.12, shade: ramp.sage[800], weight: 0.04, stance: 58 },
   // "Recovery glow, healthier skin tone."
-  VIT: { shoulders: 0.96, torso: 1.0, height: 1.0, aura: tierColors.silver, glow: 0.16, stance: 0 },
+  VIT: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
   // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, evenly
-  // proportioned, and the only build with a full halo ring.
-  balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, aura: tierColors.gold, glow: 0.12, stance: 34 },
+  // proportioned, and the only build that earns the ring.
+  balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: tierColors.gold, weight: 0.03, stance: 34 },
 };
 
 /** A character with no points yet: the original neutral placeholder. */
@@ -84,8 +103,8 @@ const UNSTARTED: Build = {
   shoulders: 1,
   torso: 1,
   height: 1,
-  aura: colors.accent,
-  glow: 0,
+  shade: ramp.sage[700],
+  weight: 0,
   stance: 0,
 };
 
@@ -96,68 +115,85 @@ const BASE_TORSO_HEIGHT = 96;
 export function HunterSilhouette({
   stage,
   dominance,
+  height = 220,
 }: {
   stage: 1 | 2 | 3 | 4;
   /** Undefined while the query is in flight; null for an unstarted character. */
   dominance?: Dominance;
+  /** The figure's box. The diorama stands them taller than a card does. */
+  height?: number;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
-  const art = HUNTER_ART[artKey(stage, dominance)];
+  const art = HUNTER_ART[artKey(stage, dominance)] ?? HUNTER_ANCHOR;
 
-  const auraSize = 160 + stage * 14;
-  const auraOpacity = 0.1 + stage * 0.12 + build.glow;
+  const scale = height / 220;
+  const shadowWidth = (128 + stage * 18) * scale;
+  const shadowOpacity = 0.14 + stage * 0.03 + build.weight;
 
   const float = useFloat();
   const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
   return (
-    <Animated.View style={[styles.frame, { transform: [{ translateY }] }]}>
-      <Aura size={auraSize} color={build.aura} opacity={auraOpacity} halo={dominance === 'balanced'} />
+    <View style={[styles.frame, { height }]}>
+      <GroundShadow width={shadowWidth} color={build.shade} opacity={shadowOpacity} />
 
-      {/* Art when there is art, primitives when there is not. A character that
-          fails to render is worse than a plain one, so the fallback is a
-          permanent branch rather than a migration step. */}
-      {art ? (
-        <Image
-          source={art}
-          style={styles.art}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-        />
-      ) : (
-        <View style={styles.figure}>
-          <View style={styles.head} />
-          <View
-            style={[styles.shoulders, { width: BASE_SHOULDERS * build.shoulders }]}
-          />
-          <View
-            style={[
-              styles.torso,
-              {
-                width: BASE_TORSO_WIDTH * build.torso,
-                height: BASE_TORSO_HEIGHT * build.height,
-              },
-            ]}
-          />
-
-          {build.stance > 0 && (
-            <View style={[styles.legs, { width: build.stance }]}>
-              <View style={styles.leg} />
-              <View style={styles.leg} />
-            </View>
-          )}
-        </View>
+      {dominance === 'balanced' && (
+        <PresenceRing size={shadowWidth * 1.35} color={tierColors.gold} />
       )}
-    </Animated.View>
+
+      {/* The float rides above the shadow rather than carrying it: a shadow
+          that rises with the figure reads as the whole world bobbing, where
+          one that stays put reads as the figure lifting off the ground. */}
+      <Animated.View style={[styles.lift, { transform: [{ translateY }] }]}>
+        {/* Art when there is art, primitives when there is not. With the anchor
+            in place the second branch no longer renders — it stays because the
+            anchor is a placeholder, and it is the primitives that carry §6's
+            dominance table (leaner AGI, broader STR, END's planted stance).
+            Drop them only when real per-dominance art replaces what they
+            encode. */}
+        {art ? (
+          <Image
+            source={art}
+            style={{ width: 190 * scale, height: 212 * scale }}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <View style={styles.figure}>
+            <View style={styles.head} />
+            <View
+              style={[styles.shoulders, { width: BASE_SHOULDERS * build.shoulders }]}
+            />
+            <View
+              style={[
+                styles.torso,
+                {
+                  width: BASE_TORSO_WIDTH * build.torso,
+                  height: BASE_TORSO_HEIGHT * build.height,
+                },
+              ]}
+            />
+
+            {build.stance > 0 && (
+              <View style={[styles.legs, { width: build.stance }]}>
+                <View style={styles.leg} />
+                <View style={styles.leg} />
+              </View>
+            )}
+          </View>
+        )}
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { height: 220, alignItems: 'center', justifyContent: 'flex-end' },
-  // Matches the primitives' overall footprint (head + shoulders + torso + legs
-  // ≈ 212 tall) so swapping one for the other does not move the layout under
-  // the TODAY card. The aura and halo are `<Aura>`'s job now, not styles here.
-  art: { width: 190, height: 212 },
+  frame: { alignItems: 'center', justifyContent: 'flex-end' },
+  // The art box matches the primitives' overall footprint (head + shoulders +
+  // torso + legs ≈ 212 tall) so swapping one for the other does not move the
+  // layout under it. It is sized inline because `scale` is a prop now; the
+  // ground shadow is `<GroundShadow>`'s job, not styles here.
+  lift: { alignItems: 'center' },
   figure: { alignItems: 'center' },
   head: {
     width: 46,

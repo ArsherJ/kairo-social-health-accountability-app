@@ -1,10 +1,13 @@
 export { Screen, TAB_PILL_CLEARANCE } from './Screen.tsx';
-export { TabPill } from './TabPill.tsx';
+export { TabPill, NAV_HEIGHT } from './TabPill.tsx';
 export { Panel } from './Panel.tsx';
-export { Aura } from './Aura.tsx';
+export { GroundShadow, PresenceRing } from './GroundShadow.tsx';
+export { Avatar } from './Avatar.tsx';
+export { Gradient } from './Gradient.tsx';
+export { rampColors, type Stop } from './gradient.ts';
 export { Numeral } from './Numeral.tsx';
 export { Label } from './Label.tsx';
 export { Meter } from './Meter.tsx';
-export { TierChip } from './TierChip.tsx';
+export { TierCoin } from './TierCoin.tsx';
 export { Button } from './Button.tsx';
 export { useReduceMotion, useCountUp, useFloat, useFillIn, usePressScale } from './motion.ts';

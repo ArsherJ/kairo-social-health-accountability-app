@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
   },
-  figures: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
+  figures: { color: colors.subtle, fontSize: 14, fontFamily: 'Figtree-SemiBold' },
   meterWrapper: { marginTop: space.xs },
   meta: { color: colors.muted, fontSize: 12, marginTop: space.xs },
 });

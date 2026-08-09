@@ -1,0 +1,104 @@
+import type { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
+import type { Dominance } from '@kairo/core';
+import { colors, ramp, radius } from '@/theme.ts';
+import { Gradient } from '@/ui/Gradient.tsx';
+import type { Stop } from '@/ui/gradient.ts';
+import { HunterSilhouette } from './HunterSilhouette.tsx';
+
+/**
+ * The world the Hunter stands in.
+ *
+ * This is the redesign's one big move: the character is not an illustration
+ * inside a card, they are standing somewhere, and the interface floats over
+ * that place. Everything else on the screen is deliberately quiet so this can
+ * be the thing you remember.
+ *
+ * The sky is sage rather than a literal outdoors — Kairo is played in Manila
+ * traffic and at 6am, and a photographic landscape would date instantly and
+ * fight the flat character art. Sage also already means "your lane" in this
+ * palette, so the ground the Hunter stands on is the same colour as the
+ * progress they are making.
+ */
+
+/** Sage, deepening toward the horizon. */
+const SKY: Stop[] = [
+  { color: ramp.sage[200], at: 0 },
+  { color: ramp.sage[300], at: 0.46 },
+  { color: ramp.sage[400], at: 1 },
+];
+
+/**
+ * The dissolve into the page. Alpha, not colour: the sky has to stay visible
+ * through the top of the ramp, and only the bottom becomes cream. This is what
+ * makes the diorama read as a place the page opens onto rather than as a
+ * banner sitting on top of it.
+ */
+const FADE: Stop[] = [
+  { color: '#f5ead800', at: 0 },
+  { color: '#f5ead859', at: 0.55 },
+  { color: colors.bg, at: 1 },
+];
+
+export function Diorama({
+  height,
+  stage,
+  dominance,
+  children,
+}: {
+  height: number;
+  stage: 1 | 2 | 3 | 4;
+  dominance?: Dominance;
+  /** The floating HUD. Absolutely positioned by the caller. */
+  children?: ReactNode;
+}) {
+  return (
+    <View style={[styles.sky, { height }]}>
+      <Gradient stops={SKY} />
+
+      {/* Two soft bodies behind the figure. They give the sky somewhere to be
+          — a flat ramp reads as a swatch — and they are placed off both edges
+          so neither resolves into a shape you could name. */}
+      <View
+        style={[
+          styles.body,
+          { top: height * 0.3, left: -62, width: 210, height: 210, opacity: 0.55 },
+        ]}
+      />
+      <View
+        style={[
+          styles.body,
+          {
+            top: height * 0.44,
+            right: -70,
+            width: 240,
+            height: 240,
+            backgroundColor: ramp.sage[100],
+            opacity: 0.45,
+          },
+        ]}
+      />
+
+      <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
+
+      <View style={[styles.stage, { bottom: height * 0.12 }]}>
+        <HunterSilhouette stage={stage} dominance={dominance} height={height * 0.6} />
+      </View>
+
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  sky: {
+    // The rounding is mostly insurance: the fade above reaches cream before
+    // the bottom edge, so on most devices there is no visible corner to round.
+    // It matters on a short screen, where the ramp runs out of room.
+    borderBottomLeftRadius: radius.lg * 1.6,
+    borderBottomRightRadius: radius.lg * 1.6,
+    overflow: 'hidden',
+  },
+  body: { position: 'absolute', borderRadius: radius.pill, backgroundColor: ramp.sage[200] },
+  stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+});

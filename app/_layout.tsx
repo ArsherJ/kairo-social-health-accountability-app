@@ -17,8 +17,10 @@ export default function RootLayout() {
   // A font error proceeds rather than blocking: RN falls back to the system
   // face for an unknown family, and a degraded screen beats a dead app.
   const [fontsLoaded, fontError] = useFonts({
-    'ChakraPetch-Bold': require('../assets/fonts/ChakraPetch-Bold.ttf'),
-    'ChakraPetch-SemiBold': require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
+    'Caprasimo-Regular': require('../assets/fonts/Caprasimo-Regular.ttf'),
+    'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
+    'Figtree-SemiBold': require('../assets/fonts/Figtree-SemiBold.ttf'),
+    'Figtree-Bold': require('../assets/fonts/Figtree-Bold.ttf'),
   });
 
   if (!fontsLoaded && !fontError) return null;
@@ -26,7 +28,9 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        {/* The ground is cream now, so the clock and the battery have to be
+            ink. `light` here would render them invisible. */}
+        <StatusBar style="dark" />
         <Gate />
       </SafeAreaProvider>
     </QueryClientProvider>

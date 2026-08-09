@@ -85,6 +85,6 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.surface,
   },
-  title: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
+  title: { color: colors.accent, fontSize: 12, fontFamily: 'Figtree-Bold', letterSpacing: 1.5 },
   body: { color: colors.subtle, fontSize: 13, marginTop: space.xs },
 });

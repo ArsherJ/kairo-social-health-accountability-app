@@ -1,7 +1,12 @@
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, font, radius, space } from '../theme.ts';
+import { colors, font, ramp, radius, shadow, space } from '../theme.ts';
 import { usePressScale } from './motion.ts';
 
+/**
+ * Caprasimo on a pill. The system sets `.btn` in the display face, which is
+ * what keeps a primary action reading as part of the game rather than as a
+ * form control borrowed from somewhere else.
+ */
 export function Button({
   label,
   onPress,
@@ -42,19 +47,19 @@ export function Button({
 const styles = StyleSheet.create({
   base: {
     marginTop: space.sm,
-    minHeight: 48,
+    minHeight: 52,
     paddingVertical: space.md,
     paddingHorizontal: space.lg,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primary: { backgroundColor: colors.accent },
-  secondary: { borderWidth: 1, borderColor: colors.borderStrong },
+  primary: { backgroundColor: colors.accent, ...shadow.sm },
+  secondary: { backgroundColor: ramp.neutral[100] },
   ghost: {},
-  disabled: { opacity: 0.35 },
-  label: { ...font.body.button },
+  disabled: { opacity: 0.45 },
+  label: { ...font.display.action },
   primaryLabel: { color: colors.bg },
   secondaryLabel: { color: colors.text },
-  ghostLabel: { color: colors.subtle },
+  ghostLabel: { color: ramp.accent[700] },
 });

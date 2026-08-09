@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   help: { color: colors.subtle, ...font.body.body, marginTop: space.sm },
   chips: { marginTop: space.lg },
-  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
+  error: { color: colors.damage, ...font.body.body, marginTop: space.md },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.35 },
   buttonPressed: { opacity: 0.85 },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
+  buttonLabel: { color: colors.bg, fontSize: 16, fontFamily: 'Figtree-Bold' },
   skip: { paddingVertical: space.md, alignItems: 'center' },
-  skipLabel: { color: colors.subtle, fontSize: 15, fontWeight: '600' },
+  skipLabel: { color: colors.subtle, fontSize: 15, fontFamily: 'Figtree-SemiBold' },
 });

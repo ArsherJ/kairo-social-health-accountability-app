@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BANANA_SCORE_DELTA } from '@kairo/core';
 import { useDeploySabotage } from './mutations.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 
 /**
  * Confirm one throw at one squadmate.
@@ -38,6 +38,10 @@ export function DeploySheet({
     <Modal visible={target !== null} transparent animationType="slide" onRequestClose={close}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeEmoji}>🍌</Text>
+          </View>
+
           <Text style={styles.label}>THROW A BANANA</Text>
           <Text style={styles.title} numberOfLines={1}>
             {target?.character_name}
@@ -88,26 +92,48 @@ export function DeploySheet({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000AA' },
+  // The scrim is burnt rather than black. Sabotage is the one moment the app
+  // changes temperature, and a neutral black would read as a system dialog
+  // interrupting the game instead of as part of it.
+  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#402310b8' },
   sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    backgroundColor: ramp.accent[900],
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     padding: space.lg,
     paddingBottom: space.xl,
   },
-  label: { color: colors.accent, ...font.body.label },
-  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
-  body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
-  fine: { color: colors.muted, fontSize: 13, marginTop: space.sm },
-  error: { color: colors.danger, fontSize: 13, marginTop: space.md },
+  badge: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.accent[700],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space.md,
+  },
+  badgeEmoji: { fontSize: 34 },
+  label: { ...font.body.label, textTransform: 'uppercase', color: ramp.accent[400] },
+  title: { ...font.display.major, color: ramp.accent[100], marginTop: space.xs },
+  body: { ...font.body.body, fontSize: 16, lineHeight: 24, color: ramp.accent[200], marginTop: space.md },
+  fine: { ...font.body.strong, color: ramp.accent[300], marginTop: space.sm },
+  // Legible against the burnt sheet — `colors.damage` is that sheet's own
+  // family and would vanish into it.
+  error: { ...font.body.strong, fontSize: 13, color: ramp.accent[300], marginTop: space.md },
   button: {
     marginTop: space.lg,
-    backgroundColor: colors.accent,
+    backgroundColor: ramp.accent[400],
     borderRadius: radius.pill,
-    paddingVertical: space.md,
+    paddingVertical: 19,
     alignItems: 'center',
   },
-  buttonLabel: { color: colors.bg, fontSize: 16, fontWeight: '700' },
-  later: { color: colors.muted, ...font.body.body, textAlign: 'center', marginTop: space.md },
+  buttonLabel: { ...font.display.action, color: ramp.accent[900] },
+  later: {
+    ...font.body.strong,
+    fontSize: 15,
+    color: ramp.accent[300],
+    textAlign: 'center',
+    marginTop: space.md,
+    paddingVertical: space.sm,
+  },
 });

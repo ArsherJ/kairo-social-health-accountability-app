@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   stat: { ...font.display.minor, color: colors.text },
   statLane: { color: colors.accent },
   laneTag: { ...font.body.label, color: colors.accent, fontSize: 10 },
-  points: { ...font.body.body, color: colors.subtle, fontWeight: '600' },
+  points: { ...font.body.body, color: colors.subtle, fontFamily: 'Figtree-SemiBold' },
   label: { ...font.body.body, color: colors.muted, fontSize: 13, marginTop: 2 },
   meter: { marginTop: space.xs, borderRadius: radius.pill },
   // The lane ring sits on a wrapper rather than on `Meter` itself: the meter

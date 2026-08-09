@@ -135,7 +135,7 @@ export function BodyMetricsCard({
 const styles = StyleSheet.create({
   prompt: { color: colors.accent, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
   field: { marginTop: space.md },
-  fieldLabel: { color: colors.subtle, fontSize: 13, fontWeight: '600' },
+  fieldLabel: { color: colors.subtle, fontSize: 13, fontFamily: 'Figtree-SemiBold' },
   input: {
     marginTop: space.xs,
     borderWidth: 1,
@@ -147,6 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   optional: { color: colors.muted, fontSize: 12, marginTop: space.sm },
-  error: { color: colors.danger, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
+  error: { color: colors.damage, fontSize: 13, marginTop: space.sm, lineHeight: 18 },
   saved: { color: colors.subtle, fontSize: 13, marginTop: space.sm },
 });

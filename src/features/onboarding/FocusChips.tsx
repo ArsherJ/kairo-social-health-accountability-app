@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { UserFocus } from '@kairo/core';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { FOCUS_OPTIONS } from './focus-options.ts';
 
 /**
@@ -60,26 +60,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.lg,
-    paddingVertical: space.md,
-    paddingHorizontal: space.md,
+    paddingVertical: 17,
+    paddingHorizontal: 19,
   },
-  chipSelected: { borderColor: colors.accent },
+  // Chosen is a tint plus a ring, not an outline on an otherwise identical
+  // plate: on cream a 1px border is nearly invisible at arm's length, and
+  // this question is answered once, quickly, while standing up.
+  chipSelected: {
+    backgroundColor: ramp.accent[200],
+    borderWidth: 2,
+    borderColor: ramp.accent[500],
+  },
   chipPressed: { opacity: 0.85 },
   chipDisabled: { opacity: 0.5 },
   chipText: { flex: 1 },
-  label: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  labelSelected: { color: colors.accent },
-  blurb: { color: colors.subtle, ...font.body.body, marginTop: 2 },
+  label: { color: colors.text, ...font.display.small, fontSize: 19 },
+  labelSelected: { color: ramp.accent[900] },
+  blurb: { ...font.body.body, fontSize: 13, color: ramp.neutral[700], marginTop: 2 },
   dot: {
-    width: 18,
-    height: 18,
+    width: 22,
+    height: 22,
     borderRadius: radius.pill,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: ramp.neutral[400],
     marginLeft: space.md,
   },
-  dotSelected: { borderColor: colors.accent, backgroundColor: colors.accent },
+  // A filled disc with a page-coloured core, so the mark reads as a switch
+  // that moved rather than as a dot that changed colour.
+  dotSelected: {
+    borderWidth: 5,
+    borderColor: colors.accent,
+    backgroundColor: colors.bg,
+  },
 });

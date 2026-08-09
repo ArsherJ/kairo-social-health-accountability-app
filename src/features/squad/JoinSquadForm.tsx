@@ -149,13 +149,16 @@ const styles = StyleSheet.create({
     color: colors.text,
     // Wide letter-spacing so six characters can be checked against a
     // screenshot one glyph at a time.
+    // Monospace stays, and so does `fontWeight` with it: the code is checked
+    // against a screenshot one glyph at a time, and unlike the bundled Figtree
+    // cuts, a system face is selected by weight rather than by family name.
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 32,
     fontWeight: '700',
+    fontSize: 32,
     letterSpacing: 8,
     paddingVertical: space.sm,
   },
-  error: { color: colors.danger, ...font.body.body, marginTop: space.md },
+  error: { color: colors.damage, ...font.body.body, marginTop: space.md },
   previewCard: {
     marginTop: space.lg,
     padding: space.md,
@@ -164,14 +167,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  previewName: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  previewName: { color: colors.text, ...font.display.small, fontSize: 18 },
   previewMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
     marginTop: space.xs,
   },
-  previewProgram: { color: colors.subtle, fontSize: 14, fontWeight: '600' },
+  previewProgram: { color: colors.subtle, fontSize: 14, fontFamily: 'Figtree-SemiBold' },
   boostChip: {
     borderWidth: 1,
     borderColor: colors.accent,
@@ -179,9 +182,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  boostLabel: { color: colors.accent, fontSize: 11, fontWeight: '800' },
+  boostLabel: { color: colors.accent, fontSize: 11, fontFamily: 'Figtree-Bold' },
   previewCount: { color: colors.muted, fontSize: 12, marginLeft: 'auto' },
   previewNote: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
-  previewFull: { color: colors.danger, fontSize: 12, marginTop: space.sm },
+  previewFull: { color: colors.damage, fontSize: 12, marginTop: space.sm },
   actions: { paddingBottom: space.xl },
 });
