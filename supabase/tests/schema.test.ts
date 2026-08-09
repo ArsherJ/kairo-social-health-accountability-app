@@ -2371,6 +2371,46 @@ describe('goals', () => {
       expect(rows.map((r) => r.total).sort()).toEqual([300, 400]);
     });
 
+    it('serves a JWT-less caller that names a viewer, which is how finalize-days reads it', async () => {
+      // This is the bug the first version shipped with. finalize-days runs as the
+      // service role, so auth.uid() is null and the guard refused it — the goal
+      // pass failed silently into a goal_settle_failed event while the day still
+      // closed. squad_leaderboard already had p_as_user for the same reason.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2026-01-03', 700);
+
+      const rows = await h.asService<{ total: number }>(
+        'select total from public.goal_window_scores($1, $2)',
+        [goalId, user],
+      );
+      expect(rows).toEqual([{ total: 700 }]);
+    });
+
+    it('still refuses a JWT-less caller that names nobody', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await rejects(
+        h.asService('select * from public.goal_window_scores($1)', [goalId]),
+        /authentication required/,
+      );
+    });
+
+    it('ignores p_as_user when the caller has a JWT, so it cannot impersonate', async () => {
+      // coalesce((select auth.uid()), p_as_user) — deliberately not the reverse,
+      // which would let any authenticated client read a goal as somebody else.
+      const owner = await h.createUser();
+      const goalId = await personalGoal(owner);
+      const stranger = await h.createUser();
+      await rejects(
+        h.asUser(stranger, 'select * from public.goal_window_scores($1, $2)', [
+          goalId,
+          owner,
+        ]),
+        /not a participant in this goal/,
+      );
+    });
+
     it('rejects a caller with no claim on the goal', async () => {
       const owner = await h.createUser();
       const goalId = await personalGoal(owner);

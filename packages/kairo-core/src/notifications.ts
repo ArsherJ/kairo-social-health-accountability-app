@@ -15,7 +15,8 @@
 export type NotificationTrigger =
   | 'day_ending_soon'
   | 'day_ends'
-  | 'day_starts';
+  | 'day_starts'
+  | 'goal_completed';
 // V1 adds: 'podium_drop' | 'overtake_digest' | 'weekly_recap' | 'streak_at_risk'
 
 /** §14: "max 3/day (configurable)". Configurable means this constant at MVP. */
@@ -40,17 +41,19 @@ export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
 /**
  * Triggers that send regardless of the daily budget.
  *
- * Empty at present. It held `sabotaged`, which §14 called "the emotional core";
- * sabotage is gone, and nothing has yet earned the exemption in its place. The
- * list and `countsAgainstBudget()` stay because the rule is still real — a
- * once-per-commitment event the user explicitly opted into (a completed goal) is
- * the shape that qualifies, where a recurring nudge is not.
+ * `goal_completed` earns it on a better claim than `sabotaged` had: it fires once
+ * per commitment, at most, and the user set that commitment themselves. A
+ * recurring nudge would not qualify — the exemption is for events the user asked
+ * for, not events we want them to see.
  *
  * Kept as a separate list from QUIET_HOURS_EXEMPT on purpose: the two rules are
  * independent in §14, and collapsing them would make the day-boundary pair
- * budget-exempt as a side effect of a quiet-hours decision.
+ * budget-exempt as a side effect of a quiet-hours decision. Note that
+ * `goal_completed` is deliberately NOT quiet-hours exempt — finalization runs
+ * about two hours after local midnight, squarely inside the window, and a push
+ * at 02:00 to say "well done" is worth waiting for morning.
  */
-export const BUDGET_EXEMPT: readonly NotificationTrigger[] = [];
+export const BUDGET_EXEMPT: readonly NotificationTrigger[] = ['goal_completed'];
 
 /**
  * Whether a *sent* notification should be counted when reading `sentToday`.

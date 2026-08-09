@@ -11,12 +11,25 @@
 import { previousDay, type Candidate, type NotificationTrigger } from './core.ts';
 
 /**
+ * The triggers a clock can produce.
+ *
+ * Narrower than `NotificationTrigger` on purpose: `goal_completed` fires from
+ * `finalize-days` when a goal latches, so it can never come out of
+ * DISPATCH_HOURS. Expressing that in the type is what lets `notificationCopy()`
+ * be exhaustive without a throw for a case that cannot happen.
+ */
+export type ScheduledTrigger = Extract<
+  NotificationTrigger,
+  'day_starts' | 'day_ending_soon' | 'day_ends'
+>;
+
+/**
  * The three local hours MVP dispatches on (§14). Every MVP trigger is on a
  * clock; nothing fires in real time from another user's action any more.
  *
  * V1 adds 20:00 (streak at risk) and Sunday 21:00 PHT (weekly recap).
  */
-export const DISPATCH_HOURS: Readonly<Record<number, NotificationTrigger>> = {
+export const DISPATCH_HOURS: Readonly<Record<number, ScheduledTrigger>> = {
   0: 'day_ends',
   9: 'day_starts',
   23: 'day_ending_soon',
@@ -44,6 +57,10 @@ export type DispatchData = {
 };
 
 export interface DispatchCandidate extends Candidate {
+  // Narrowed from Candidate's `NotificationTrigger`: everything this planner can
+  // emit came out of DISPATCH_HOURS, so `goal_completed` is not reachable here.
+  // Stating it lets the dispatcher call `notificationCopy()` without a cast.
+  trigger: ScheduledTrigger;
   data: DispatchData;
 }
 

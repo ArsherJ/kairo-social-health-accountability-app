@@ -10,12 +10,13 @@ import {
 } from './notifications.ts';
 
 describe('what counts against the budget', () => {
-  it('counts every trigger — nothing is budget-exempt today', () => {
-    // BUDGET_EXEMPT held only `sabotaged`, which is gone. The predicate's false
-    // branch is therefore unreachable right now, and deliberately left
-    // uncovered rather than propped up by a test-only injection parameter —
-    // `goal_completed` claims the exemption and restores the coverage.
-    expect(BUDGET_EXEMPT).toEqual([]);
+  it('exempts a completed goal and counts every scheduled trigger', () => {
+    // The sender reads sentToday with this same predicate. If a logged
+    // goal_completed counted, hitting a goal in the evening would silently cost
+    // the user their day-end push — the cap applying to a trigger it exempts, by
+    // the back door.
+    expect(BUDGET_EXEMPT).toEqual(['goal_completed']);
+    expect(countsAgainstBudget('goal_completed')).toBe(false);
     expect(countsAgainstBudget('day_starts')).toBe(true);
     expect(countsAgainstBudget('day_ending_soon')).toBe(true);
     expect(countsAgainstBudget('day_ends')).toBe(true);
@@ -144,6 +145,24 @@ describe('the daily budget', () => {
     // and still has to pay the budget — collapsing the lists would silently
     // make the day-boundary pair unlimited.
     expect(plan([candidate('day_ends')], 0, MAX_NOTIFICATIONS_PER_DAY)).toEqual([]);
+  });
+
+  it('sends a completed goal with the budget long gone', () => {
+    const done = candidate('goal_completed');
+    expect(plan([done], 12, 99)).toEqual([done]);
+  });
+
+  it('does not let a completed goal consume the budget the others share', () => {
+    const done = candidate('goal_completed');
+    const ends = candidate('day_ends');
+    const admitted = plan([done, ends], 12, MAX_NOTIFICATIONS_PER_DAY - 1);
+    expect(admitted).toEqual([done, ends]);
+  });
+
+  it('still suppresses a completed goal during quiet hours', () => {
+    // Budget-exempt is not quiet-hours-exempt. Finalization runs ~2h after local
+    // midnight, so an unsuppressed goal push would land at 02:00.
+    expect(plan([candidate('goal_completed')], 2)).toEqual([]);
   });
 
   it('honours a caller-supplied maxPerDay', () => {
