@@ -42,17 +42,17 @@ export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
  * the wrong screen is testable in Node rather than only observable by hand on a
  * simulator.
  *
- * `finishingOnboarding` is the one subtlety. The profile row exists the instant
- * the name step commits, so `resolveRoute` reads 'ready' while the focus
- * question (§5) is still on screen — without this flag the gate would yank the
- * user into the tabs mid-question. The flag is deliberately in-memory: a
- * force-quit between the two steps resumes into the tabs with focus unset,
- * which is why profile-row existence can stay the onboarding marker.
+ * This used to take a `finishingOnboarding` flag. Onboarding had two steps and
+ * the profile row committed on the first, so `resolveRoute` read 'ready' while
+ * the focus question was still on screen and the gate had to be held off. The
+ * focus step is gone (2026-08-10, with `profiles.focus`), onboarding is one
+ * step again, and profile-row existence is now a sufficient marker on its own —
+ * so the flag and the store behind it went with it rather than staying as a
+ * parameter that is always false.
  */
 export function redirectTarget(input: {
   route: AppRoute;
   group: string | undefined;
-  finishingOnboarding: boolean;
 }): '/sign-in' | '/name' | '/' | null {
   switch (input.route) {
     case 'loading':
@@ -71,9 +71,7 @@ export function redirectTarget(input: {
       // destinations for a signed-in user, and an allowlist of one bounced them
       // straight back to the home tab the instant they were pushed.
       if (input.group === '(auth)') return '/';
-      if (input.group === '(onboard)') {
-        return input.finishingOnboarding ? null : '/';
-      }
+      if (input.group === '(onboard)') return '/';
       return null;
   }
 }

@@ -416,15 +416,21 @@ describe('XP', () => {
 
 describe('nextTierFor', () => {
   it('names bronze and the gap for a stat with no tier yet', () => {
-    expect(nextTierFor('AGI', 0)).toEqual({ tier: 'bronze', gap: 1_000, bandLow: 0 });
+    expect(nextTierFor('AGI', 0)).toEqual({
+      tier: 'bronze', gap: 1_000, bandLow: 0, pointsGain: 200,
+    });
   });
 
   it('names silver from inside bronze', () => {
-    expect(nextTierFor('AGI', 4_760)).toEqual({ tier: 'silver', gap: 240, bandLow: 1_000 });
+    expect(nextTierFor('AGI', 4_760)).toEqual({
+      tier: 'silver', gap: 240, bandLow: 1_000, pointsGain: 300,
+    });
   });
 
   it('names gold from inside silver', () => {
-    expect(nextTierFor('AGI', 8_760)).toEqual({ tier: 'gold', gap: 1_240, bandLow: 5_000 });
+    expect(nextTierFor('AGI', 8_760)).toEqual({
+      tier: 'gold', gap: 1_240, bandLow: 5_000, pointsGain: 400,
+    });
   });
 
   // Gold is the ceiling (§6). There is no Diamond.
@@ -434,22 +440,22 @@ describe('nextTierFor', () => {
   });
 
   it("uses each stat's own thresholds and units", () => {
-    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80, bandLow: 50 });
-    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1, bandLow: 0 });
-    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1, bandLow: 3 });
+    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80, bandLow: 50 , pointsGain: 300 });
+    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1, bandLow: 0 , pointsGain: 200 });
+    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1, bandLow: 3 , pointsGain: 300 });
   });
 
   // active_minutes is numeric(6,2), so raw values arrive fractional. Telling
   // someone they need 0.4 more minutes is not an instruction.
   it('rounds a fractional gap up to a whole unit', () => {
-    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1, bandLow: 10 });
+    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1, bandLow: 10 , pointsGain: 300 });
   });
 
   // The boundary is inclusive in tierFor, so it must be inclusive here too or
   // the two disagree about what "at silver" means.
   it('agrees with tierFor on the boundary', () => {
     expect(tierFor('STR', 200)).toBe('silver');
-    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200, bandLow: 200 });
+    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200, bandLow: 200 , pointsGain: 400 });
   });
 
   // `bandLow` is the current band's floor — the tier threshold `raw` is at or
@@ -464,16 +470,50 @@ describe('nextTierFor', () => {
 
     it('is the bronze threshold inside the bronze band (heading to silver)', () => {
       // VIT bronze = 3, silver = 6. raw=4 is inside bronze, heading to silver.
-      expect(nextTierFor('VIT', 4)).toEqual({ tier: 'silver', gap: 2, bandLow: 3 });
+      expect(nextTierFor('VIT', 4)).toEqual({ tier: 'silver', gap: 2, bandLow: 3 , pointsGain: 300 });
     });
 
     it('is the silver threshold inside the silver band (heading to gold)', () => {
       // VIT silver = 6, gold = 9. raw=7 is inside silver, heading to gold.
-      expect(nextTierFor('VIT', 7)).toEqual({ tier: 'gold', gap: 2, bandLow: 6 });
+      expect(nextTierFor('VIT', 7)).toEqual({ tier: 'gold', gap: 2, bandLow: 6 , pointsGain: 400 });
     });
 
     it('is moot at gold — nextTierFor returns null, there is nothing to band', () => {
       expect(nextTierFor('VIT', 9)).toBeNull();
     });
+  });
+});
+
+describe('nextTierFor — what the gap is worth', () => {
+  // `pointsGain` exists so the character screen can say "1,240 more steps for
+  // +400 AGI" without naming a tier. The bands still decide the number; they
+  // just stopped being the vocabulary the user reads.
+
+  it('is the difference between the two bands, not the next band’s value', () => {
+    // Crossing into Silver from inside Bronze is worth 500 - 200, not 500.
+    expect(nextTierFor('AGI', 4_999)!.pointsGain).toBe(300);
+  });
+
+  it('is the full band value when nothing has been earned yet', () => {
+    expect(nextTierFor('AGI', 0)!.pointsGain).toBe(200);
+  });
+
+  it('is always positive, for every stat and every raw value', () => {
+    const stats: CoreStat[] = ['AGI', 'STR', 'END', 'VIT'];
+    for (const stat of stats) {
+      for (const raw of [0, 1, 9, 50, 199, 250, 999, 5_000, 9_999]) {
+        const next = nextTierFor(stat, raw);
+        if (next) expect(next.pointsGain).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('sums to the gold band from a standing start', () => {
+    // Bronze + the two steps up must equal what a gold day is worth, or the
+    // copy would promise points the scorer does not award.
+    const toBronze = nextTierFor('VIT', 0)!.pointsGain;
+    const toSilver = nextTierFor('VIT', 3)!.pointsGain;
+    const toGold = nextTierFor('VIT', 6)!.pointsGain;
+    expect(toBronze + toSilver + toGold).toBe(STAT_POINTS_MAX);
   });
 });

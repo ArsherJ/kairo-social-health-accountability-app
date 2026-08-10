@@ -45,7 +45,7 @@ export function SoloBoard({
 
   /**
    * `LeaderboardRow` rather than a parallel self-row component: the shape is
-   * the same data — the user's own tiers, level and total — and two renderers
+   * the same data — the user's own ratings, level and total — and two renderers
    * for one row would drift. Nothing here is invented about another player.
    */
   const selfRow: Row = {
@@ -57,6 +57,15 @@ export function SoloBoard({
     local_date: '',
     total: today?.total ?? 0,
     tiers: today?.tiers ?? {},
+    // Straight off the profile rollups, the same numbers the character screen
+    // reads. Solo is the one board where the row is not built by the RPC, so
+    // this is where the two sources have to be kept saying the same thing.
+    ratings: {
+      AGI: profile.data?.agi_total ?? 0,
+      STR: profile.data?.str_total ?? 0,
+      END: profile.data?.end_total ?? 0,
+      VIT: profile.data?.vit_total ?? 0,
+    },
     contributing_stats: today?.contributing_stats ?? 0,
     has_rec: false,
     // Both are squad-social signals (§20, §5) with no meaning at an audience of

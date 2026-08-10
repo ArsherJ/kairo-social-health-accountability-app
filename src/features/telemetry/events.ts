@@ -14,8 +14,6 @@ import { supabase } from '@/lib/supabase.ts';
  * server change behind this.
  */
 export type AppEventType =
-  | 'focus_selected'
-  | 'focus_skipped'
   | 'first_sync_seen'
   | 'squad_program_selected'
   // Read by dispatch-notifications, not only by analysis: §14's "Day starts"

@@ -37,8 +37,8 @@ export function GroundShadow({
  * The All-Rounder's ring — §6's "cannot be bought, must be earned".
  *
  * A ring rather than more shadow, so it survives being screenshotted next to
- * a heavy STR figure, and because a ring is the one device the tier ladder
- * already reserves for the ceiling (see `tierColors`).
+ * a heavy STR figure, and because a ring is the one device this app reserves
+ * for something earned (see `earnedColor`).
  */
 export function PresenceRing({ size, color }: { size: number; color: string }) {
   return (

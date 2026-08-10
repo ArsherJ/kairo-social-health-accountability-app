@@ -58,6 +58,10 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     local_date: LOCAL_DATE,
     total: 6060,
     tiers: { AGI: 'gold', STR: 'gold', END: 'silver', VIT: 'silver' },
+    // Lifetime points, not today's — the ratings they map to are 20/17/13/12,
+    // comfortably above the demo user's, which is what makes the board read as
+    // a squad you have to catch rather than one you already lead.
+    ratings: { AGI: 36_100, STR: 25_600, END: 14_400, VIT: 12_100 },
     contributing_stats: 4,
     has_rec: true,
     flagged: false,
@@ -75,6 +79,7 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     local_date: LOCAL_DATE,
     total: 4820,
     tiers: TIERS,
+    ratings: { AGI: 22_500, STR: 14_400, END: 8_100, VIT: 10_000 },
     contributing_stats: 4,
     has_rec: true,
     flagged: false,
@@ -92,6 +97,7 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     local_date: LOCAL_DATE,
     total: 3410,
     tiers: { AGI: 'silver', STR: 'bronze', END: 'bronze', VIT: 'bronze' },
+    ratings: { AGI: 12_100, STR: 6_400, END: 4_900, VIT: 8_100 },
     contributing_stats: 3,
     has_rec: false,
     flagged: false,

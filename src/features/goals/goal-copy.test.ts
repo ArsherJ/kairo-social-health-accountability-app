@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateGoal, type Goal, type GoalDay } from '../../../packages/kairo-core/src/goal.ts';
 import {
+  deadlineLine,
   fillFraction,
   goalTone,
   paceFraction,
@@ -8,6 +9,7 @@ import {
   shortDate,
   squadRequirementLine,
   statusLine,
+  windowLine,
 } from './goal-copy.ts';
 
 const WINDOW_DAYS = 30;
@@ -184,5 +186,83 @@ describe('squadRequirementLine', () => {
 
   it('treats a clamped requirement above the roster as everyone', () => {
     expect(squadRequirementLine(1, 9, 3)).toBe('1 hit it · needs everyone');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Open-ended goals
+// ---------------------------------------------------------------------------
+
+function openEnded(): Goal {
+  return { ...cumulative(), endsOn: null };
+}
+
+describe('deadlineLine', () => {
+  it('names a future deadline', () => {
+    expect(deadlineLine('2026-01-30', '2026-01-15')).toBe('by 30 Jan');
+  });
+
+  it('says a past window ended', () => {
+    expect(deadlineLine('2026-01-10', '2026-01-15')).toBe('ended 10 Jan');
+  });
+
+  it('treats the last day as still ahead, not ended', () => {
+    expect(deadlineLine('2026-01-15', '2026-01-15')).toBe('by 15 Jan');
+  });
+
+  it('says so when there is no deadline at all', () => {
+    expect(deadlineLine(null, '2026-01-15')).toBe('no deadline');
+  });
+});
+
+describe('windowLine', () => {
+  const base = { startsOn: '2026-01-01', today: '2026-01-15' };
+
+  it('states the span and its length', () => {
+    expect(
+      windowLine({ ...base, endsOn: '2026-01-30', windowDays: 30, dailyTarget: null }),
+    ).toBe('1 Jan – 30 Jan · 30 days');
+  });
+
+  it('adds the daily bar for a consistency goal', () => {
+    expect(
+      windowLine({ ...base, endsOn: '2026-01-30', windowDays: 30, dailyTarget: 2_500 }),
+    ).toBe('1 Jan – 30 Jan · 30 days · 2,500 a day');
+  });
+
+  it('states the start and no end date when open-ended', () => {
+    expect(
+      windowLine({ ...base, endsOn: null, windowDays: null, dailyTarget: null }),
+    ).toBe('From 1 Jan · no end date');
+  });
+});
+
+describe('statusLine — open-ended', () => {
+  it('offers no countdown and no pace verdict', () => {
+    const progress = evaluateGoal(openEnded(), days('2026-01-01', 5, 1_000), '2026-01-05');
+    expect(statusLine(progress)).toBe('No deadline · keep going');
+  });
+
+  it('still says Done once met', () => {
+    const progress = evaluateGoal(openEnded(), days('2026-01-01', 40, 2_000), '2026-02-09');
+    expect(progress.met).toBe(true);
+    expect(statusLine(progress)).toBe('Done.');
+  });
+});
+
+describe('goalTone — open-ended', () => {
+  it('reads as fine rather than behind when there is no pace', () => {
+    // A null `onPace` is the absence of a verdict, not a failing one. Treating
+    // it as behind would paint every open-ended goal in the damage colour.
+    const progress = evaluateGoal(openEnded(), days('2026-01-01', 5, 1), '2026-01-05');
+    expect(progress.onPace).toBeNull();
+    expect(goalTone(progress)).toBe('ok');
+  });
+});
+
+describe('paceFraction — open-ended', () => {
+  it('marks nothing, because there is nowhere the fill ought to be', () => {
+    const progress = evaluateGoal(openEnded(), days('2026-01-01', 5, 1_000), '2026-01-05');
+    expect(paceFraction(progress, null)).toBeNull();
   });
 });

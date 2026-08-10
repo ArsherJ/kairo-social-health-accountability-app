@@ -76,8 +76,7 @@ describe('redirectTarget', () => {
   const at = (
     route: Parameters<typeof redirectTarget>[0]['route'],
     group: string | undefined,
-    finishingOnboarding = false,
-  ) => redirectTarget({ route, group, finishingOnboarding });
+  ) => redirectTarget({ route, group });
 
   it('navigates nowhere while loading or retrying', () => {
     expect(at('loading', '(tabs)')).toBeNull();
@@ -99,22 +98,19 @@ describe('redirectTarget', () => {
     expect(at('ready', '(tabs)')).toBeNull();
   });
 
-  it('lets the onboarding group finish the focus step before the tabs take over', () => {
-    // The profile row exists the moment the name step commits, so the gate
-    // reads 'ready' while the focus question is still on screen. Without this
-    // the user would be yanked to the tabs mid-question.
-    expect(at('ready', '(onboard)', true)).toBeNull();
+  it('evicts a ready user from onboarding the moment the profile row exists', () => {
+    // Onboarding is one step again. It used to be two — name, then focus — and
+    // because the row commits on the first, the gate needed a flag to know not
+    // to yank the user out mid-question. The focus step is gone, so profile-row
+    // existence is a sufficient marker on its own and there is nothing left to
+    // wait for.
+    expect(at('ready', '(onboard)')).toBe('/');
   });
 
-  it('does not strand a ready user in onboarding once the flow is done', () => {
-    // The flag is in-memory only. A force-quit between name and focus therefore
-    // resumes into the tabs with focus unset — acceptable by design, and the
-    // reason profile-row existence stays the onboarding marker.
-    expect(at('ready', '(onboard)', false)).toBe('/');
-  });
-
-  it('never holds a signed-out or profileless user in onboarding on that flag', () => {
-    expect(at('signed-out', '(onboard)', true)).toBe('/sign-in');
+  it('still sends a signed-out user standing in onboarding to sign-in', () => {
+    // Route wins over group: being on an onboarding screen is not a claim to
+    // stay there once the session is gone.
+    expect(at('signed-out', '(onboard)')).toBe('/sign-in');
   });
 });
 
@@ -122,7 +118,7 @@ describe('a ready user may stand outside the tabs', () => {
   // The bug this covers: `ready` used to allowlist `(tabs)` and redirect
   // everything else to '/'. A stacked route belongs to no group, so pushing
   // /goal/[id] bounced back to home before it rendered.
-  const ready = { route: 'ready' as const, finishingOnboarding: false };
+  const ready = { route: 'ready' as const };
 
   it('leaves a stacked route alone', () => {
     expect(redirectTarget({ ...ready, group: 'goal' })).toBe(null);
@@ -140,10 +136,7 @@ describe('a ready user may stand outside the tabs', () => {
     expect(redirectTarget({ ...ready, group: '(auth)' })).toBe('/');
   });
 
-  it('still evicts a ready user from onboarding once the flow is done', () => {
+  it('still evicts a ready user from onboarding', () => {
     expect(redirectTarget({ ...ready, group: '(onboard)' })).toBe('/');
-    expect(
-      redirectTarget({ ...ready, group: '(onboard)', finishingOnboarding: true }),
-    ).toBe(null);
   });
 });

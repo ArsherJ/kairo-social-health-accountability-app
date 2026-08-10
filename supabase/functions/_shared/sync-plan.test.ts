@@ -9,6 +9,7 @@ import {
   type DayPlanInput,
   type IncomingBucket,
 } from './sync-plan.ts';
+import type { SyncRequest } from './sync-plan.ts';
 import type { HourBucket } from './core.ts';
 
 const MANILA = 'Asia/Manila';
@@ -344,5 +345,95 @@ describe('observesWearable', () => {
         ],
       }),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Heart rate — the strain inputs
+// ---------------------------------------------------------------------------
+//
+// Display only. Nothing validated here reaches `daily_scores`, which is why the
+// hourly average degrades to null on bad input rather than failing the sync:
+// the same payload carries the steps that decide the user's standing, and a
+// cosmetic field must never be able to take those down with it.
+
+describe('validateSyncRequest — avgHeartRate', () => {
+  function bucketWith(avgHeartRate: unknown) {
+    return {
+      timezone: 'Asia/Manila',
+      buckets: [
+        {
+          localDate: '2026-08-01',
+          hour: 9,
+          steps: 100,
+          distanceM: 80,
+          activeKcal: 5,
+          activeMinutes: 2,
+          avgHeartRate,
+        },
+      ],
+    };
+  }
+
+  it('accepts a plausible bpm', () => {
+    const result = validateSyncRequest(bucketWith(118.4));
+    expect(result.ok).toBe(true);
+    expect((result as { value: SyncRequest }).value.buckets[0]!.avgHeartRate).toBe(118.4);
+  });
+
+  it('defaults to null when the field is absent', () => {
+    const body = bucketWith(undefined);
+    delete (body.buckets[0] as Record<string, unknown>)['avgHeartRate'];
+    const result = validateSyncRequest(body);
+    expect(result.ok).toBe(true);
+    expect((result as { value: SyncRequest }).value.buckets[0]!.avgHeartRate).toBeNull();
+  });
+
+  it('drops an implausible bpm rather than failing the whole sync', () => {
+    // The steps in this same payload decide a standing. A cosmetic field must
+    // not be able to reject them.
+    for (const bad of [0, -5, 19, 251, 'fast', null, Number.NaN]) {
+      const result = validateSyncRequest(bucketWith(bad));
+      expect(result.ok).toBe(true);
+      expect((result as { value: SyncRequest }).value.buckets[0]!.avgHeartRate).toBeNull();
+    }
+  });
+
+  it('rounds to the stored precision', () => {
+    const result = validateSyncRequest(bucketWith(118.46));
+    expect((result as { value: SyncRequest }).value.buckets[0]!.avgHeartRate).toBe(118.5);
+  });
+});
+
+describe('validateSyncRequest — restingHeartRate', () => {
+  function bodyWith(restingHeartRate: unknown) {
+    return { timezone: 'Asia/Manila', buckets: [], restingHeartRate };
+  }
+
+  it('accepts a per-day entry', () => {
+    const result = validateSyncRequest(
+      bodyWith([{ localDate: '2026-08-01', bpm: 58 }]),
+    );
+    expect(result.ok).toBe(true);
+    expect((result as { value: SyncRequest }).value.restingHeartRate).toEqual([
+      { localDate: '2026-08-01', bpm: 58 },
+    ]);
+  });
+
+  it('is optional — a phone-only client sends none', () => {
+    const result = validateSyncRequest({ timezone: 'Asia/Manila', buckets: [] });
+    expect(result.ok).toBe(true);
+    expect((result as { value: SyncRequest }).value.restingHeartRate).toEqual([]);
+  });
+
+  it('rejects a malformed entry, unlike the hourly average', () => {
+    // A whole entry with a nonsense bpm has nothing else on it to salvage, so
+    // there is no partial value worth keeping — the asymmetry is deliberate.
+    expect(validateSyncRequest(bodyWith([{ localDate: '2026-08-01', bpm: 300 }])).ok)
+      .toBe(false);
+    expect(validateSyncRequest(bodyWith([{ localDate: 'yesterday', bpm: 58 }])).ok)
+      .toBe(false);
+    expect(validateSyncRequest(bodyWith([{ localDate: '2026-08-01' }])).ok).toBe(false);
+    expect(validateSyncRequest(bodyWith('58')).ok).toBe(false);
   });
 });

@@ -29,7 +29,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'AGI',
       lane: true,
-      tier: 'gold',
+      points: 400,
       gap: 1_240,
       unit: 'steps',
     });
@@ -45,7 +45,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'STR',
       lane: false,
-      tier: 'gold',
+      points: 400,
       gap: 20,
       unit: 'kcal',
     });
@@ -62,7 +62,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'END',
       lane: false,
-      tier: 'bronze',
+      points: 200,
       gap: 1,
       unit: 'active minutes',
     });
@@ -82,7 +82,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'VIT',
       lane: false,
-      tier: 'bronze',
+      points: 200,
       gap: 1,
       unit: 'active hours',
     });

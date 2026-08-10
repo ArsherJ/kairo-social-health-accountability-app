@@ -61,8 +61,14 @@ export function PermissionAsks({
   // Both reads must land before anything is decided. Deciding on a half-read
   // state would present the Health sheet and then swap it for the notification
   // one a frame later, which is the flicker the single modal exists to avoid.
+  //
+  // `userId` gates the whole thing. The tabs shell now stays mounted while the
+  // Gate resolves (see `app/_layout.tsx`), so on a cold start this component
+  // exists for a frame or two before the redirect to sign-in lands — and
+  // without this guard the Health sheet would present over it, asking for
+  // HealthKit on behalf of nobody.
   const ask =
-    health === null || notification === null
+    userId === undefined || health === null || notification === null
       ? null
       : nextPermissionAsk({
           health,

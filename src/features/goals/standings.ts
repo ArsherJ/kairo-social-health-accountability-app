@@ -23,12 +23,14 @@ export type GoalRow = {
   squad_id: string | null;
   created_by: string;
   title: string;
+  description: string | null;
   kind: 'cumulative' | 'consistency';
   target: number;
   required_days: number | null;
   required_members: number | null;
   starts_on: string;
-  ends_on: string;
+  /** Null for an open-ended goal. Cumulative only — the DB enforces that. */
+  ends_on: string | null;
 };
 
 export type WindowScore = {
@@ -55,6 +57,50 @@ export type Standing = {
   /** True once the server has latched it. Distinct from `progress.met`. */
   completed: boolean;
 };
+
+/**
+ * The goal worth showing on a summary card: the live one closing soonest.
+ *
+ * A window that has not opened yet is not "in flight" and would render a meter
+ * with nothing in it. `fallbackToPast` returns the most recently closed goal
+ * when there is no live one — the home card wants that (somebody who just
+ * finished their first goal should see the finish, not an invitation to set
+ * another), and the squad panel does not.
+ *
+ * **Open-ended goals sort last and never fall out of "live".** A null `ends_on`
+ * has no deadline to compare, so it cannot win a soonest-closing race, but it is
+ * always in flight once it has started. Lifted out of the two components that
+ * each had a copy of this: they had already drifted (only one had the past
+ * fallback), and null end dates are exactly the kind of change that would have
+ * been made in one of them.
+ */
+export function pickLiveGoal(
+  rows: readonly GoalRow[],
+  today: string,
+  options: { fallbackToPast?: boolean } = {},
+): GoalRow | null {
+  const started = rows.filter((r) => r.starts_on <= today);
+
+  const live = started.filter((r) => r.ends_on === null || r.ends_on >= today);
+  if (live.length > 0) {
+    return [...live].sort((a, b) => {
+      if (a.ends_on === null && b.ends_on === null) return 0;
+      if (a.ends_on === null) return 1;
+      if (b.ends_on === null) return -1;
+      return a.ends_on.localeCompare(b.ends_on);
+    })[0]!;
+  }
+
+  if (options.fallbackToPast) {
+    // `ends_on` cannot be null here — a null one is always live above.
+    const past = started.filter((r) => r.ends_on !== null && r.ends_on < today);
+    if (past.length > 0) {
+      return [...past].sort((a, b) => b.ends_on!.localeCompare(a.ends_on!))[0]!;
+    }
+  }
+
+  return null;
+}
 
 export function toGoal(row: GoalRow): Goal {
   return {

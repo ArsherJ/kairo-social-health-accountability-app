@@ -35,7 +35,18 @@ export interface Goal {
   requiredDays: number | null;
   /** Inclusive. Both bounds count. */
   startsOn: string;
-  endsOn: string;
+  /**
+   * Inclusive, or **null for an open-ended goal** — "reach 500,000 points,
+   * however long it takes".
+   *
+   * Cumulative only, and the database enforces that
+   * (`goals_consistency_needs_end`). A consistency goal needs a finite window
+   * to be gradeable at all: "clear the bar on 25 days" with no end can never
+   * become unreachable, so `stillPossible` would be a constant true and there
+   * would be no denominator for pace. An open-ended *total* has neither
+   * problem — it accumulates monotonically and simply has no deadline.
+   */
+  endsOn: string | null;
 }
 
 /** One scored day, as `goal_window_scores()` projects it. */
@@ -63,20 +74,32 @@ export interface GoalProgress {
   target: number;
   /** Days cleared, final only. Zero for a cumulative goal. */
   daysMet: number;
-  /** Today included when it is still inside the window. Zero once past it. */
-  daysRemaining: number;
+  /**
+   * Today included when it is still inside the window. Zero once past it, and
+   * **null when the goal is open-ended** — calendar time left is unbounded, and
+   * a zero there would render as "last day" on every card that shows it.
+   */
+  daysRemaining: number | null;
   /**
    * Days in the window with no final score yet — the days that can *still*
    * contribute. Distinct from `daysRemaining`, which is calendar time left: a
    * day already finalized at zero is behind you even if it is today.
+   *
+   * For an open-ended goal this counts elapsed days that have not finalized,
+   * which is the only reading that stays meaningful without a window length.
    */
   daysUnresolved: number;
-  /** True once the end date is behind us. */
+  /** True once the end date is behind us. Always false when open-ended. */
   expired: boolean;
   /** Whether the remaining days can still get there. */
   stillPossible: boolean;
-  /** Progress is keeping up with elapsed time. True whenever `met`. */
-  onPace: boolean;
+  /**
+   * Progress is keeping up with elapsed time. True whenever `met`, and **null
+   * when open-ended**: there is no schedule, so there is nothing to be behind.
+   * The pace marker on `Meter` reads this — a number here would put a tick at a
+   * position that means nothing.
+   */
+  onPace: boolean | null;
   /**
    * **Final days only.** A provisional day can never complete a goal: completion
    * pays XP and latches one-way, so a day Apple may still revise downward must
@@ -85,8 +108,9 @@ export interface GoalProgress {
   met: boolean;
 }
 
-/** Inclusive length of a goal's window, in days. */
-export function goalWindowDays(goal: Goal): number {
+/** Inclusive length of a goal's window, in days. Null when open-ended. */
+export function goalWindowDays(goal: Goal): number | null {
+  if (goal.endsOn === null) return null;
   return daysBetween(goal.startsOn, goal.endsOn) + 1;
 }
 
@@ -109,7 +133,8 @@ function utcOf(localDate: string): number {
 
 function withinWindow(goal: Goal, localDate: string): boolean {
   // Lexicographic comparison is correct and cheap for zero-padded ISO dates.
-  return localDate >= goal.startsOn && localDate <= goal.endsOn;
+  if (localDate < goal.startsOn) return false;
+  return goal.endsOn === null || localDate <= goal.endsOn;
 }
 
 /** Cumulative sums points; consistency counts days that cleared the bar. */
@@ -146,36 +171,54 @@ export function evaluateGoal(
   const met = target > 0 && finalProgress >= target;
 
   const windowDays = goalWindowDays(goal);
-  const expired = today > goal.endsOn;
+  const expired = goal.endsOn !== null && today > goal.endsOn;
 
   // Today counts as remaining — it is still playable. Before the goal starts the
   // whole window is ahead, which is why this clamps at both ends rather than
-  // trusting the subtraction.
-  const daysRemaining = expired
-    ? 0
-    : today < goal.startsOn
-      ? windowDays
-      : daysBetween(today, goal.endsOn) + 1;
+  // trusting the subtraction. Open-ended goals have no answer at all, so they
+  // say so rather than reporting a zero that reads as "last day".
+  const daysRemaining =
+    goal.endsOn === null || windowDays === null
+      ? null
+      : expired
+        ? 0
+        : today < goal.startsOn
+          ? windowDays
+          : daysBetween(today, goal.endsOn) + 1;
 
   // Counted from *unresolved* days, not calendar days left. A day that has
   // already finalized at zero is spent, and today is one of those the moment it
   // finalizes — so `daysRemaining` would over-count it by one and report a dead
   // goal as reachable on the day it died.
-  const daysUnresolved = Math.max(0, windowDays - finalDays);
+  //
+  // With no window to subtract from, an open-ended goal counts against elapsed
+  // days instead: the same quantity, measured from the only bound it has.
+  const elapsedDays =
+    windowDays ??
+    (today < goal.startsOn ? 0 : daysBetween(goal.startsOn, today) + 1);
+  const daysUnresolved = Math.max(0, elapsedDays - finalDays);
 
   // Consistency is the only kind that can become arithmetically dead before the
   // window closes: a missed day is gone. A cumulative goal stays theoretically
   // reachable as long as an unresolved day remains, since there is no per-day
-  // ceiling.
+  // ceiling — and an open-ended one always has tomorrow, so it can never die.
   const stillPossible = met
     ? true
-    : goal.kind === 'consistency'
-      ? finalProgress + daysUnresolved >= target
-      : daysUnresolved > 0;
+    : goal.endsOn === null
+      ? true
+      : goal.kind === 'consistency'
+        ? finalProgress + daysUnresolved >= target
+        : daysUnresolved > 0;
 
-  const elapsed = windowDays - daysRemaining;
-  const onPace =
-    met || elapsed <= 0 ? true : progress / elapsed >= target / windowDays;
+  // Pace needs a schedule. An open-ended goal has none, so it reports null
+  // rather than a number the pace marker would render at a meaningless spot.
+  let onPace: boolean | null;
+  if (windowDays === null || daysRemaining === null) {
+    onPace = null;
+  } else {
+    const elapsed = windowDays - daysRemaining;
+    onPace = met || elapsed <= 0 ? true : progress / elapsed >= target / windowDays;
+  }
 
   return {
     progress,
@@ -248,13 +291,24 @@ export const MAX_GOAL_COMPLETION_XP = 500;
  * Where that lands: 1 day 30 · 7 days 79 · 30 days 164 · 100 days 300 · a year
  * and beyond 500. The cap binds from about 278 days, which is deliberate — it
  * means "a year" and "a decade" are worth the same, so nobody games the window.
+ *
+ * `completedOn` is what an **open-ended** goal scales by, since it has no window
+ * to measure. Its span is start → completion, so a target that took a year pays
+ * like a year-long window and one hit on day two pays like a two-day one. A
+ * finite goal ignores the argument entirely: its reward is a property of the
+ * commitment made, not of how early it happened to land.
  */
-export function goalCompletionXp(goal: Goal): number {
-  const scaled = BASE_GOAL_COMPLETION_XP * Math.sqrt(goalWindowDays(goal));
+export function goalCompletionXp(goal: Goal, completedOn: string): number {
+  const windowDays = goalWindowDays(goal);
+  // `max(1, …)` guards the one impossible-but-cheap case: a completion date
+  // before the start would otherwise take the square root of a negative span.
+  const span =
+    windowDays ?? Math.max(1, daysBetween(goal.startsOn, completedOn) + 1);
+  const scaled = BASE_GOAL_COMPLETION_XP * Math.sqrt(span);
   return Math.min(MAX_GOAL_COMPLETION_XP, Math.round(scaled));
 }
 
-/** Days a goal window still has left, for callers that only need the number. */
+/** Whether the window is behind us. An open-ended goal never closes. */
 export function isGoalWindowClosed(goal: Goal, today: string): boolean {
-  return today > goal.endsOn;
+  return goal.endsOn !== null && today > goal.endsOn;
 }

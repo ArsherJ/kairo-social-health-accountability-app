@@ -2,10 +2,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Label } from '@/ui/index.ts';
+import { CtaPill, Label } from '@/ui/index.ts';
 import { GoalBar } from './GoalBar.tsx';
-import { shortDate, squadRequirementLine } from './goal-copy.ts';
-import { toGoal, useGoalDetail, useSquadGoals, type GoalRow } from './queries.ts';
+import { deadlineLine, squadRequirementLine } from './goal-copy.ts';
+import { pickLiveGoal, toGoal, useGoalDetail, useSquadGoals } from './queries.ts';
 
 /**
  * The squad's shared goal, on the squad screen.
@@ -33,7 +33,7 @@ export function SquadGoalPanel({
   const router = useRouter();
   const goals = useSquadGoals(squadId);
 
-  const live = goals.isSuccess && today ? pickLive(goals.data, today) : null;
+  const live = goals.isSuccess && today ? pickLiveGoal(goals.data, today) : null;
   const detail = useGoalDetail(live?.id, userId, today);
 
   if (!userId || !today || !goals.isSuccess) return null;
@@ -52,6 +52,7 @@ export function SquadGoalPanel({
           Everyone on the squad gets the same target. It counts when enough of you
           hit it.
         </Text>
+        <CtaPill label="Set a squad goal" tone="sage" />
       </Pressable>
     );
   }
@@ -72,7 +73,7 @@ export function SquadGoalPanel({
     >
       <View style={styles.head}>
         <Label tone="sage">SQUAD GOAL</Label>
-        <Text style={styles.deadline}>by {shortDate(live.ends_on, today)}</Text>
+        <Text style={styles.deadline}>{deadlineLine(live.ends_on, today)}</Text>
       </View>
 
       <Text style={styles.title} numberOfLines={1}>
@@ -100,14 +101,6 @@ export function SquadGoalPanel({
       )}
     </Pressable>
   );
-}
-
-function pickLive(rows: readonly GoalRow[], today: string): GoalRow | null {
-  const live = rows.filter((r) => r.starts_on <= today && r.ends_on >= today);
-  if (live.length > 0) {
-    return [...live].sort((a, b) => a.ends_on.localeCompare(b.ends_on))[0]!;
-  }
-  return null;
 }
 
 const styles = StyleSheet.create({

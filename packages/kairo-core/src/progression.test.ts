@@ -3,6 +3,8 @@ import {
   MAX_REALISTIC_DAILY_XP,
   evolutionStageForLevel,
   levelForXp,
+  ratingForStatPoints,
+  statPointsForRating,
   xpForLevel,
 } from './progression.ts';
 
@@ -77,5 +79,91 @@ describe('evolutionStageForLevel', () => {
   it('clamps nonsense input to the first stage', () => {
     expect(evolutionStageForLevel(0)).toBe(1);
     expect(evolutionStageForLevel(-3)).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-stat ability ratings
+// ---------------------------------------------------------------------------
+//
+// The number that replaced Bronze/Silver/Gold on the character sheet. The tier
+// engine still scores exactly as it did — `TIER_POINTS`, `tierFor()` and
+// `daily_scores.tiers` are untouched — but a medal describes one day, and the
+// question the sheet is answering is "how strong am I", which is cumulative.
+
+describe('ratingForStatPoints', () => {
+  it('starts at 1, so a new character has abilities rather than nothing', () => {
+    // Same floor as `levelForXp`. A stat displayed as 0 reads as broken; a stat
+    // displayed as 1 reads as untrained, which is what it is.
+    expect(ratingForStatPoints(0)).toBe(1);
+  });
+
+  it('treats nonsense input as untrained rather than throwing', () => {
+    expect(ratingForStatPoints(-500)).toBe(1);
+    expect(ratingForStatPoints(Number.NaN)).toBe(1);
+    expect(ratingForStatPoints(Number.POSITIVE_INFINITY)).toBe(1);
+  });
+
+  it('never decreases as points accumulate', () => {
+    let previous = 0;
+    for (let points = 0; points <= 200_000; points += 137) {
+      const rating = ratingForStatPoints(points);
+      expect(rating).toBeGreaterThanOrEqual(previous);
+      previous = rating;
+    }
+  });
+
+  it('always returns a whole number', () => {
+    for (const points of [0, 1, 99, 100, 12_345, 900_000]) {
+      expect(Number.isInteger(ratingForStatPoints(points))).toBe(true);
+    }
+  });
+
+  it('grows sub-linearly, so a year of grinding does not run away', () => {
+    // Doubling the points must not double the rating — the curve is what keeps
+    // an established player and a new one on the same readable scale.
+    const early = ratingForStatPoints(10_000);
+    const late = ratingForStatPoints(20_000);
+    expect(late).toBeGreaterThan(early);
+    expect(late).toBeLessThan(early * 2);
+  });
+
+  it('lands a month of gold days on a rating that reads alongside Level', () => {
+    // 30 gold days at 900 points a day. The divisor is chosen so this sits in
+    // the same range as the level such a player would hold, rather than racing
+    // far ahead of it and making the sheet look like two unrelated systems.
+    expect(ratingForStatPoints(30 * 900)).toBe(17);
+  });
+});
+
+describe('statPointsForRating', () => {
+  it('is the exact inverse at every boundary', () => {
+    // This pair is what gives the stat bar its fill: the fraction between the
+    // current rating's floor and the next one's. If they disagree the bar can
+    // render past full, or sit at zero on the frame a rating is gained.
+    for (let rating = 1; rating <= 60; rating++) {
+      expect(ratingForStatPoints(statPointsForRating(rating))).toBe(rating);
+    }
+  });
+
+  it('puts one point below a boundary in the band beneath it', () => {
+    for (let rating = 2; rating <= 60; rating++) {
+      expect(ratingForStatPoints(statPointsForRating(rating) - 1)).toBe(rating - 1);
+    }
+  });
+
+  it('costs nothing to be rating 1', () => {
+    expect(statPointsForRating(1)).toBe(0);
+    expect(statPointsForRating(0)).toBe(0);
+    expect(statPointsForRating(-3)).toBe(0);
+  });
+
+  it('gets more expensive every rating, never cheaper', () => {
+    let previousCost = -1;
+    for (let rating = 2; rating <= 60; rating++) {
+      const cost = statPointsForRating(rating) - statPointsForRating(rating - 1);
+      expect(cost).toBeGreaterThan(previousCost);
+      previousCost = cost;
+    }
   });
 });

@@ -20,13 +20,14 @@ import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { StatRail } from '@/features/character/StatRail.tsx';
+import { TodayPanel } from '@/features/character/TodayPanel.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
   DOMINANCE_WINDOW_DAYS,
   useDominantStat,
   useTodayScore,
 } from '@/features/character/queries.ts';
-import { useTodayBuckets } from '@/features/character/buckets.ts';
+import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import { resolveStanding, type Standing } from '@/features/character/standing.ts';
 import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
@@ -73,11 +74,6 @@ function ordinal(n: number): string {
   }
 }
 
-/** "gold" -> "Gold", for a sentence. Never renders above Gold — there is no tier above it. */
-function tierLabel(tier: string): string {
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
-
 function standingCopy(standing: Standing): string | null {
   switch (standing.kind) {
     case 'unknown':
@@ -103,17 +99,22 @@ function detailCopy(detail: StatDetail): string | null {
     case 'unknown':
       return null;
     case 'maxed':
-      return 'Every stat at Gold.';
+      return 'Every stat is maxed for today.';
     case 'gap': {
+      // Named in raw units and points, never in tier names. The bands still
+      // exist and still decide the number — `resolveStatDetail` reads
+      // `nextTierFor()` to find this threshold — but Bronze/Silver/Gold are
+      // internal to scoring now, so the sentence says what the user gets
+      // instead of what it is called.
       const gap = detail.gap.toLocaleString();
-      const tier = tierLabel(detail.tier);
+      const worth = detail.points.toLocaleString();
       if (detail.lane) {
         // `·` matches standingCopy's separator above — one rhetorical pattern
         // (clause · clause), one glyph, across this screen's two copy lines.
         // No multiplier is claimed: the lane is marked, never scaled.
-        return `Your lane · ${gap} more ${detail.unit} for ${tier} on ${detail.stat}.`;
+        return `Your lane · ${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
       }
-      return `${gap} more ${detail.unit} for ${tier} on ${detail.stat}.`;
+      return `${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
     }
   }
 }
@@ -129,6 +130,10 @@ export default function Character() {
   const score = useTodayScore(session?.user.id, profile.data?.timezone);
   const dominance = useDominantStat(session?.user.id, profile.data?.timezone);
   const buckets = useTodayBuckets(session?.user.id, profile.data?.timezone);
+  // Wearable-only, and gated on `has_wearable` at render — but fetched
+  // unconditionally, because the flag is server-observed from sleep data and
+  // a user who just connected a watch would otherwise wait a render for it.
+  const vitals = useTodayVitals(session?.user.id, profile.data?.timezone);
   const streak = useStreak(session?.user.id);
 
   // TanStack shares this cache with the Squad tab, so composing these two
@@ -151,19 +156,29 @@ export default function Character() {
     VIT: today?.vit_points ?? 0,
   };
 
+  // Lifetime totals, which is what the coins and bars read. Undefined while the
+  // profile loads — `ratingForStatPoints` floors at 1, so an unloaded rail says
+  // the same thing a brand-new character's does rather than flashing a dash.
+  const lifetime: Record<CoreStat, number> | undefined = profile.data && {
+    AGI: profile.data.agi_total,
+    STR: profile.data.str_total,
+    END: profile.data.end_total,
+    VIT: profile.data.vit_total,
+  };
+
   // No featured stat any more. The redesign branch still had §6's weekly ×1.5
   // rotation; deviation #10 retired it from stored scoring, because squad
   // programs (deviation #12) carry the meta permanently and leaving both in
   // would stack multiplicatively. `daily_scores.featured_stat` is written null.
   //
-  // What replaces it on this screen is the user's declared focus - their
-  // "lane" - which is presentation only: the bar is marked, never widened.
-  // `?? null`: the profile query is undefined while in flight, and both
-  // helpers take "no focus declared" as null. Treating loading as "no lane"
-  // for a frame only costs the marker, never a wrong claim.
-  const focus = profile.data?.focus ?? null;
-  const lane = laneStat(focus);
-  const laneCopy = laneEmptyCopy(focus);
+  // What replaces it on this screen is the user's "lane" - presentation only:
+  // the bar is marked, never widened. The lane used to be a focus declared once
+  // in onboarding; that column is gone, and it now comes from the same
+  // `dominance` the build label above already reads. Both helpers take an
+  // in-flight query as "no lane", so a loading frame costs the marker and never
+  // makes a wrong claim.
+  const lane = laneStat(dominance.data);
+  const laneCopy = laneEmptyCopy(dominance.data);
 
   // undefined while squad membership is still loading, false for no squad,
   // true once it resolves either way. resolveStanding treats those as three
@@ -171,7 +186,7 @@ export default function Character() {
   // collapse "still loading" into "no squad" and render a false claim.
   const hasSquad = squad.data === undefined ? undefined : squad.data !== null;
   const standing = resolveStanding({ hasSquad, rows: board.data });
-  const detail = resolveStatDetail({ totals: buckets.data, lane });
+  const detail = resolveStatDetail({ totals: buckets.data?.totals, lane });
 
   const standingLine = standingCopy(standing);
   const detailLine = detailCopy(detail);
@@ -236,7 +251,7 @@ export default function Character() {
           {!score.isPending && (
             <View style={[styles.rail, { top: insets.top + 132 }]}>
               <StatRail
-                tiers={today?.tiers}
+                ratings={lifetime}
                 expanded={expanded}
                 onToggle={() => setExpanded((e) => !e)}
               />
@@ -289,6 +304,22 @@ export default function Character() {
             </Text>
           )}
 
+          {/* The day in the units it was lived in, under the points that
+              summarise it. Strain and Sleep appear only with a wearable (§5). */}
+          <TodayPanel
+            totals={buckets.data?.totals}
+            hourlyAvgHr={buckets.data?.hourlyAvgHr}
+            restingHr={vitals.data?.restingHr}
+            birthYear={profile.data?.birth_year}
+            sleepMinutes={vitals.data?.sleepMinutes}
+            hasWearable={profile.data?.has_wearable ?? false}
+            today={
+              profile.data?.timezone
+                ? currentLocalDate(new Date(), profile.data.timezone)
+                : undefined
+            }
+          />
+
           {expanded && (
             <View style={styles.detailBlock}>
               {CORE_STATS.map((stat) => (
@@ -296,8 +327,8 @@ export default function Character() {
                   key={stat}
                   stat={stat}
                   label={STAT_LABELS[stat]}
-                  points={points[stat]}
-                  tier={today?.tiers?.[stat]}
+                  todayPoints={points[stat]}
+                  lifetimePoints={lifetime?.[stat]}
                   lane={stat === lane}
                   laneEmptyCopy={laneCopy}
                 />
@@ -322,7 +353,6 @@ export default function Character() {
             userId={session?.user.id}
             timeZone={profile.data?.timezone}
             points={points}
-            tiers={today?.tiers ?? {}}
             hasScore={today != null}
           />
         </View>

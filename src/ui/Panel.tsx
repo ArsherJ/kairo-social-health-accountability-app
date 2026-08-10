@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { colors, ramp, radius, shadow, space, tierColors } from '../theme.ts';
+import { colors, earnedColor, ramp, radius, shadow, space } from '../theme.ts';
 
 /**
  * The only card in the app.
@@ -56,10 +56,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.pill,
     borderBottomRightRadius: radius.pill,
     // The app has three colour families with one job each: terracotta means
-    // "you", the tier ladder means "earned", burnt means falling behind. This edge
-    // marks the squad leader's row and a banked Streak Shield — both
-    // "earned", neither "you" — so it belongs to `tierColors`, and Gold
-    // specifically since that is the top tier this app has.
-    backgroundColor: tierColors.gold,
+    // "you", `earnedColor` means "earned", burnt means falling behind. This edge
+    // marks the squad leader's row and a banked Streak Shield — both "earned",
+    // neither "you".
+    backgroundColor: earnedColor,
   },
 });

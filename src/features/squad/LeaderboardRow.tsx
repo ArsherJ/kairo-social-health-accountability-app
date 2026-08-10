@@ -1,21 +1,25 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { CORE_STATS } from '@kairo/core';
+import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
 import { boostChipLabel } from './program-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
-import { colors, font, ramp, radius, space, tierColor } from '@/theme.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Avatar, Numeral } from '@/ui/index.ts';
 
 /**
  * One squadmate.
  *
- * Tiers are deliberately the only per-stat detail on this screen: §5 lets
- * squadmates see tiers and totals, never raw steps or hourly movement, so
- * there is no number here to accidentally widen into one.
+ * Ability ratings are the only per-stat detail on this screen: §5 lets
+ * squadmates see aggregates and totals, never raw steps or hourly movement, so
+ * there is no number here that can be widened into one. A rating is a lifetime
+ * aggregate, which puts it a step *further* from the raw data than the tier
+ * dots it replaces — a tier is invertible to a same-day step range, and a
+ * rating is not.
  *
- * They are dots rather than labelled pills now. Four labelled pills across six
- * rows is twenty-four things to read before you find the one number that
- * ranks anybody, and the stat names never changed row to row — only the
- * colours did, which is exactly what a dot carries.
+ * Those dots were four colours saying Bronze/Silver/Gold, and they went with
+ * the medals everywhere else. What replaces them is the same number the owner
+ * sees on their own character sheet, which is the point: comparing builds is
+ * what a squad screen is for, and "AGI 41 vs AGI 27" is a comparison where two
+ * gold dots were not.
  */
 export function LeaderboardRow({
   row,
@@ -89,16 +93,22 @@ export function LeaderboardRow({
             </View>
           )}
 
-          <View style={styles.dots}>
-            {CORE_STATS.map((stat) => (
-              <View
-                key={stat}
-                // The stat name is gone from the dot, so it has to survive in
-                // the label — otherwise the row announces four unnamed colours.
-                accessibilityLabel={`${stat} ${row.tiers?.[stat] ?? 'no tier'}`}
-                style={[styles.dot, { backgroundColor: tierColor(row.tiers?.[stat]) }]}
-              />
-            ))}
+          <View style={styles.ratings}>
+            {CORE_STATS.map((stat) => {
+              // The RPC returns lifetime POINTS; the curve lives in
+              // @kairo/core and is applied here, never in SQL. Same rule
+              // deviation #18 applies to goal arithmetic — one implementation.
+              const rating = ratingForStatPoints(row.ratings?.[stat] ?? 0);
+              return (
+                <Text
+                  key={stat}
+                  accessibilityLabel={`${stat} ${rating}`}
+                  style={styles.rating}
+                >
+                  {stat} {rating}
+                </Text>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -158,6 +168,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   boostLabel: { ...font.body.label, fontSize: 9, color: ramp.sage[900] },
-  dots: { flexDirection: 'row', gap: 3, marginLeft: 2 },
-  dot: { width: 7, height: 7, borderRadius: radius.pill },
+  // Wraps rather than truncating: four ratings plus a streak plus a boost chip
+  // can outrun a phone's width, and a clipped ability number is worse than a
+  // second line.
+  ratings: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 2 },
+  rating: { ...font.body.label, fontSize: 9.5, color: ramp.neutral[700] },
 });

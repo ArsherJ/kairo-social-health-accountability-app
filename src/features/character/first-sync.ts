@@ -9,23 +9,21 @@ import { CORE_STATS, type CoreStat } from '@kairo/core';
  *
  * Pure so the wording is testable — the callout itself is one-shot, so a bug in
  * it is a bug nobody gets a second chance to notice.
+ *
+ * It used to name a tier ("8,200 steps → AGI Gold"). Bronze/Silver/Gold are
+ * internal to scoring now, so it names the points instead — which is also the
+ * better line for a first-time reader, who has no idea yet whether Gold is good.
  */
-const TIER_WORDS: Record<string, string> = {
-  bronze: 'Bronze',
-  silver: 'Silver',
-  gold: 'Gold',
-};
 
 export function firstSyncHeadline(input: {
   steps: number;
   points: Record<CoreStat, number>;
-  tiers: Record<string, string>;
 }): string | null {
-  const best = bestTieredStat(input.points, input.tiers);
+  const best = bestScoringStat(input.points);
   const steps = input.steps > 0 ? `${input.steps.toLocaleString()} steps` : null;
 
   if (best) {
-    const earned = `${best.stat} ${TIER_WORDS[best.tier]}`;
+    const earned = `+${best.points.toLocaleString()} ${best.stat}`;
     // A lifter's session is active calories, not steps. Leading with "0 steps"
     // would tell them their workout did not count.
     return steps === null
@@ -33,31 +31,34 @@ export function firstSyncHeadline(input: {
       : `Today already counted: ${steps} → ${earned}.`;
   }
 
-  // Steps but no tier yet is still the moment worth showing — "your activity is
-  // arriving" — so it gets its own line rather than being suppressed.
+  // Steps but nothing scored yet is still the moment worth showing — "your
+  // activity is arriving" — so it gets its own line rather than being
+  // suppressed.
   if (steps !== null) {
-    return `Today already counted: ${steps}. Keep moving to earn your first tier.`;
+    return `Today already counted: ${steps}. Keep moving to start scoring.`;
   }
 
   // Nothing landed. A callout celebrating zero is the opposite of the moment.
   return null;
 }
 
-function bestTieredStat(
+/**
+ * The stat that earned the most today.
+ *
+ * Points alone decide it, with no separate tier lookup to disagree with them —
+ * which removes the malformed-row case the tier version had to guard against
+ * (points present, tier missing, and the callout printing "AGI undefined" at the
+ * one moment that only happens once).
+ */
+function bestScoringStat(
   points: Record<CoreStat, number>,
-  tiers: Record<string, string>,
-): { stat: CoreStat; tier: string } | null {
-  let best: { stat: CoreStat; tier: string } | null = null;
-  let bestPoints = 0;
+): { stat: CoreStat; points: number } | null {
+  let best: { stat: CoreStat; points: number } | null = null;
 
   for (const stat of CORE_STATS) {
-    const tier = tiers[stat];
-    // A stat with points but no tier means the row is malformed; falling back
-    // beats printing "AGI undefined" at the one moment that only happens once.
-    if (tier === undefined || TIER_WORDS[tier] === undefined) continue;
-    if (points[stat] > bestPoints) {
-      bestPoints = points[stat];
-      best = { stat, tier };
+    const value = points[stat];
+    if (value > 0 && (best === null || value > best.points)) {
+      best = { stat, points: value };
     }
   }
 

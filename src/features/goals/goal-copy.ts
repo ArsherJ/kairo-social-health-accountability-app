@@ -45,6 +45,9 @@ export function statusLine(progress: GoalProgress): string {
   if (!progress.stillPossible) return 'Out of reach for this window.';
 
   const days = progress.daysRemaining;
+  // Open-ended: no deadline to count down and no pace to be behind, so the line
+  // says the one true thing about it rather than inventing a race.
+  if (days === null) return 'No deadline · keep going';
   if (days === 0) return 'Window closed.';
 
   const left = days === 1 ? 'Last day' : `${num(days)} days left`;
@@ -65,7 +68,9 @@ export function goalTone(progress: GoalProgress): 'done' | 'ok' | 'behind' {
   if (progress.met) return 'done';
   if (!progress.stillPossible) return 'behind';
   if (progress.daysRemaining === 0) return 'behind';
-  return progress.onPace ? 'ok' : 'behind';
+  // `onPace` is null only for an open-ended goal, which cannot be behind
+  // anything — so the absence of a verdict reads as 'ok', not as a failure.
+  return progress.onPace !== false ? 'ok' : 'behind';
 }
 
 /**
@@ -86,9 +91,18 @@ export function fillFraction(progress: GoalProgress): number {
  * Null before the window opens and after it closes: a marker at 0 or 1 says
  * nothing, and a marker on a finished goal invites a comparison that no longer
  * matters. Null once met, for the same reason.
+ *
+ * Null for an open-ended goal too, and that is the mechanic rather than a gap:
+ * the marker is "where the fill should be by today", which is exactly the
+ * question a goal with no deadline declines to ask. `windowDays` arrives null
+ * from `goalWindowDays()` in that case.
  */
-export function paceFraction(progress: GoalProgress, windowDays: number): number | null {
-  if (progress.met || windowDays <= 0) return null;
+export function paceFraction(
+  progress: GoalProgress,
+  windowDays: number | null,
+): number | null {
+  if (progress.met || windowDays === null || windowDays <= 0) return null;
+  if (progress.daysRemaining === null) return null;
   const elapsed = windowDays - progress.daysRemaining;
   if (elapsed <= 0 || elapsed >= windowDays) return null;
   return elapsed / windowDays;
@@ -103,6 +117,44 @@ export function shortDate(localDate: string, todayLocalDate: string): string {
   ][m - 1];
   const sameYear = todayLocalDate.slice(0, 4) === String(y);
   return sameYear ? `${d} ${month}` : `${d} ${month} ${y}`;
+}
+
+/**
+ * The deadline chip on a goal card: "by 30 Jan", "ended 12 Jan", "no deadline".
+ *
+ * One function rather than a ternary in each card, because a null `ends_on` has
+ * to be handled at every one of those sites and a missed one is a crash
+ * (`localeCompare` on null) rather than a wrong word.
+ */
+export function deadlineLine(endsOn: string | null, today: string): string {
+  if (endsOn === null) return 'no deadline';
+  if (endsOn < today) return `ended ${shortDate(endsOn, today)}`;
+  return `by ${shortDate(endsOn, today)}`;
+}
+
+/**
+ * The window line on the goal detail screen: the span, its length, and the daily
+ * bar when there is one.
+ *
+ * An open-ended goal states its start and says so, rather than pretending to a
+ * length it does not have — `windowDays` arrives null for exactly that case.
+ */
+export function windowLine(input: {
+  startsOn: string;
+  endsOn: string | null;
+  today: string;
+  windowDays: number | null;
+  dailyTarget: number | null;
+}): string {
+  const daily =
+    input.dailyTarget === null ? '' : ` · ${num(input.dailyTarget)} a day`;
+
+  if (input.endsOn === null || input.windowDays === null) {
+    return `From ${shortDate(input.startsOn, input.today)} · no end date${daily}`;
+  }
+
+  const span = `${shortDate(input.startsOn, input.today)} – ${shortDate(input.endsOn, input.today)}`;
+  return `${span} · ${num(input.windowDays)} days${daily}`;
 }
 
 /** "Everyone" reads better than "3 of 3" when the requirement is the whole roster. */

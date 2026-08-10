@@ -32,7 +32,8 @@ export function GoalBar({
 }: {
   row: GoalRow;
   standing: Standing;
-  windowDays: number;
+  /** Null for an open-ended goal, which is what suppresses the pace marker. */
+  windowDays: number | null;
   showTitle?: boolean;
 }) {
   const { progress } = standing;

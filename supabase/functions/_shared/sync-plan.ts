@@ -26,6 +26,13 @@ export interface IncomingBucket {
   hadWorkout?: boolean;
   /** A wearable reported elevated heart rate during this hour. */
   elevatedHeartRate?: boolean;
+  /**
+   * Hourly average bpm. **Null or absent means not measured, never resting** —
+   * `computeStrain()` skips a null hour rather than crediting it as rest, so a
+   * watch left on the charger does not read as an afternoon of recovery.
+   * Display only: nothing here reaches `daily_scores`.
+   */
+  avgHeartRate?: number | null;
 }
 
 export interface IncomingSleep {
@@ -33,10 +40,17 @@ export interface IncomingSleep {
   minutes: number;
 }
 
+/** Apple's own per-day resting rate. Wearable users only; absent is normal. */
+export interface IncomingRestingHeartRate {
+  localDate: string;
+  bpm: number;
+}
+
 export interface SyncRequest {
   timezone: string;
   buckets: IncomingBucket[];
   sleep?: IncomingSleep[];
+  restingHeartRate?: IncomingRestingHeartRate[];
 }
 
 export type ValidationResult =
@@ -99,7 +113,22 @@ export function validateSyncRequest(body: unknown): ValidationResult {
     }
   }
 
-  return { ok: true, value: { timezone: raw['timezone'], buckets, sleep } };
+  const restingHeartRate: IncomingRestingHeartRate[] = [];
+  if (raw['restingHeartRate'] !== undefined) {
+    if (!Array.isArray(raw['restingHeartRate'])) {
+      return { ok: false, error: 'restingHeartRate must be an array' };
+    }
+    for (const entry of raw['restingHeartRate']) {
+      const parsed = parseRestingHeartRate(entry);
+      if (!parsed.ok) return parsed;
+      restingHeartRate.push(parsed.value);
+    }
+  }
+
+  return {
+    ok: true,
+    value: { timezone: raw['timezone'], buckets, sleep, restingHeartRate },
+  };
 }
 
 function nonNegative(value: unknown): value is number {
@@ -145,8 +174,24 @@ function parseBucket(
       activeMinutes,
       hadWorkout: b['hadWorkout'] === true,
       elevatedHeartRate: b['elevatedHeartRate'] === true,
+      avgHeartRate: parseAvgHeartRate(b['avgHeartRate']),
     },
   };
+}
+
+/**
+ * Anything that is not a plausible bpm becomes null.
+ *
+ * Rejecting the whole payload would be the wrong trade: heart rate is a display
+ * extra, and failing a sync — which also carries the steps that decide the
+ * user's standing — over an implausible bpm would let a cosmetic field break
+ * scoring. The column's own CHECK is 20-250; matching it here means a bad value
+ * is dropped rather than becoming a 500.
+ */
+function parseAvgHeartRate(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 20 || value > 250) return null;
+  return Math.round(value * 10) / 10;
 }
 
 function parseSleep(
@@ -167,6 +212,33 @@ function parseSleep(
     return { ok: false, error: 'sleep.minutes must be an integer 0-1440' };
   }
   return { ok: true, value: { localDate: s['localDate'], minutes: s['minutes'] } };
+}
+
+function parseRestingHeartRate(
+  entry: unknown,
+): { ok: true; value: IncomingRestingHeartRate } | { ok: false; error: string } {
+  if (typeof entry !== 'object' || entry === null) {
+    return { ok: false, error: 'each restingHeartRate entry must be an object' };
+  }
+  const r = entry as Record<string, unknown>;
+  if (typeof r['localDate'] !== 'string' || !DATE_PATTERN.test(r['localDate'])) {
+    return { ok: false, error: 'restingHeartRate.localDate must be YYYY-MM-DD' };
+  }
+  // Rejected rather than nulled, unlike the hourly average: a whole entry with
+  // a nonsense bpm is a malformed entry, and there is no other field on it to
+  // salvage.
+  if (
+    typeof r['bpm'] !== 'number' ||
+    !Number.isFinite(r['bpm']) ||
+    r['bpm'] < 20 ||
+    r['bpm'] > 150
+  ) {
+    return { ok: false, error: 'restingHeartRate.bpm must be a number 20-150' };
+  }
+  return {
+    ok: true,
+    value: { localDate: r['localDate'], bpm: Math.round(r['bpm'] as number) },
+  };
 }
 
 /** Distinct local dates touched by a payload, sorted for stable processing. */

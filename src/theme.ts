@@ -94,39 +94,21 @@ export const colors = {
 } as const;
 
 /**
- * Tier colours (§6) — now one terracotta ladder rather than three metals.
+ * The "earned" step on the terracotta ramp.
  *
- * Metallic gold/silver/bronze cannot all stay legible on cream, and three
- * unrelated hues fought the two-family rule above. Climbing the same ramp
- * says "further along" with no extra vocabulary, and Gold earns a ring on
- * top of its step (see `TierCoin`) so the ceiling still looks like a ceiling.
+ * This is what survives of the tier ladder. Bronze/Silver/Gold stopped being
+ * shown on 2026-08-10 — the character sheet reads ability ratings now, and the
+ * bands live entirely inside scoring — but two things still need the colour the
+ * old `tierColors.gold` carried, and neither is about a tier:
  *
- * These are **fills and rings, not text**. On cream, Bronze is lighter than
- * the background it would sit on — for a label, ask `tierInk`.
+ *   - the squad leader's row and a banked Streak Shield (`Panel`'s `earned` edge)
+ *   - the All-Rounder's presence ring (`HunterSilhouette`)
+ *
+ * Both mean "earned", and neither means "you" — which is the distinction that
+ * kept them off `colors.accent` in the first place. Naming it for the job rather
+ * than for a rank it no longer refers to is the whole of this rename.
  */
-export const tierColors = {
-  gold: ramp.accent[600],
-  silver: ramp.accent[400],
-  bronze: ramp.accent[300],
-  none: ramp.neutral[300],
-} as const;
-
-export function tierColor(tier: string | undefined): string {
-  return tierColors[(tier ?? 'none') as keyof typeof tierColors] ?? tierColors.none;
-}
-
-/**
- * The readable ink for a tier's *name*.
- *
- * Only Gold gets terracotta ink. Silver and Bronze are real achievements but
- * they are not the ceiling, and colouring all three would spend the palette's
- * one loud move three times.
- */
-export function tierInk(tier: string | undefined): string {
-  if (tier === 'gold') return ramp.accent[700];
-  if (tier === undefined || tier === 'none') return ramp.neutral[500];
-  return ramp.neutral[700];
-}
+export const earnedColor = ramp.accent[600];
 
 export const space = {
   xs: 4,

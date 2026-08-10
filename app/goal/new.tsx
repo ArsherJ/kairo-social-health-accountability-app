@@ -1,10 +1,12 @@
+import { useCallback } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { CreateGoalForm } from '@/features/goals/CreateGoalForm.tsx';
 import { colors } from '@/theme.ts';
+import { setNavHidden } from '@/ui/chrome.ts';
 import { Screen } from '@/ui/index.ts';
 
 /**
@@ -20,6 +22,18 @@ export default function NewGoal() {
   const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
+
+  // The orbit nav is a tab-shell thing, and this route is a card *over* the
+  // tab shell — so it is covered, not absent, and `Screen` would otherwise
+  // reserve `TAB_PILL_CLEARANCE` for a nav that is not on screen. Same
+  // `useFocusEffect` shape as the squad create pane: the cleanup is the
+  // load-bearing half.
+  useFocusEffect(
+    useCallback(() => {
+      setNavHidden(true);
+      return () => setNavHidden(false);
+    }, []),
+  );
 
   // The window starts on the user's OWN local date (§2). Without a timezone
   // there is no honest start date, so the form waits rather than guessing UTC

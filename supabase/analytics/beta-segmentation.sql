@@ -1,4 +1,7 @@
--- Beta segmentation by squad program and personal focus (roadmap Phase 8 [SP]).
+-- Beta segmentation by squad program (roadmap Phase 8 [SP]).
+--
+-- Personal focus was part of this file until 2026-08-10; `profiles.focus` is
+-- dropped and section 3 now reads `squads.program` instead.
 --
 -- Run with ./supabase/scripts/remote-sql.sh -f supabase/analytics/beta-segmentation.sql
 -- (or one query at a time — the script returns the last statement's rows).
@@ -15,9 +18,10 @@
 --   2. Is the gym program viable phone-only? Compare a wearable-heavy gym
 --      squad against a phone-only one — STR is estimated active energy, which
 --      a phone in a pocket measures poorly during a lifting session.
---   3. Are people being scored as someone they do not identify as? A user who
---      declared Running but lands VIT-dominant is a churn risk that shows up in
---      the data weeks before it shows up in an interview.
+--   3. Are people being scored as someone they do not train as? A Running squad
+--      whose members land VIT-dominant is boosting a stat nobody in it earns —
+--      a churn risk that shows up in the data weeks before it shows up in an
+--      interview.
 
 
 -- ---------------------------------------------------------------------------
@@ -83,8 +87,14 @@ order by s.program, p.has_wearable;
 
 
 -- ---------------------------------------------------------------------------
--- 3. Declared focus vs observed dominance
+-- 3. Squad program vs observed dominance
 -- ---------------------------------------------------------------------------
+--
+-- This section used to compare a squad's program against each member's
+-- *declared personal focus*. `profiles.focus` was dropped on 2026-08-10 — it
+-- was a second answer to a question `squads.program` already answers, and only
+-- the program ever meant anything. So the comparison is now program against
+-- what the member actually grinds.
 --
 -- Mirrors dominantStat()'s 14-day window and its All-Rounder predicate (all
 -- four within 20% of the top). Kept in SQL rather than pulled into the app
@@ -92,24 +102,27 @@ order by s.program, p.has_wearable;
 -- becomes one, it must move to @kairo/core and get a differential test, the
 -- same as the program weights.
 --
--- A sustained mismatch is the signal: someone who said Running and lands
--- VIT-dominant for three weeks is being scored as someone they do not identify
--- as, and "not winnable for my lifestyle" is the churn reason that follows.
+-- A sustained mismatch is still the signal, one level up: a Running squad whose
+-- members land VIT-dominant for three weeks is boosting a stat nobody in it
+-- earns, and "not winnable for my lifestyle" is the churn reason that follows.
+-- It is also what the character screen's lane now reads, so this doubles as a
+-- check that the lane is pointing somewhere real.
 
 with window_totals as (
   select
     p.id,
-    p.focus,
+    s.program,
     sum(ds.agi_points) as agi,
     sum(ds.str_points) as str,
     sum(ds.end_points) as end_,
     sum(ds.vit_points) as vit
   from public.profiles p
+  join public.squad_members sm on sm.user_id = p.id
+  join public.squads s on s.id = sm.squad_id
   join public.daily_scores ds
     on ds.user_id = p.id
    and ds.local_date > (now() at time zone p.timezone)::date - 14
-  where p.focus is not null
-  group by p.id, p.focus
+  group by p.id, s.program
 ),
 observed as (
   select
@@ -122,7 +135,7 @@ observed as (
   from window_totals w
 )
 select
-  o.focus,
+  o.program,
   -- All-Rounder: every stat within 20% of the top one.
   case
     when o.top = 0 then 'none'
@@ -136,19 +149,19 @@ order by 1, 3 desc;
 
 
 -- ---------------------------------------------------------------------------
--- 4. Funnel: how many answer the focus question at all
+-- 4. Funnel: which program squads pick
 -- ---------------------------------------------------------------------------
 --
--- If almost everyone skips, the question is costing a step in onboarding and
--- buying nothing — and the "your lane" highlight has no audience.
+-- The focus half of this funnel is gone with the question it measured. What
+-- remains is the choice that still exists, and the one that matters: if almost
+-- every squad takes the default, the program picker is costing a decision at
+-- squad creation and buying nothing.
 
 select
-  type,
-  -- focus_* carries `focus`; squad_program_selected carries `program`.
-  coalesce(payload ->> 'focus', payload ->> 'program') as value,
-  count(*)                                            as events,
-  count(distinct user_id)                             as users
+  payload ->> 'program' as program,
+  count(*)              as events,
+  count(distinct user_id) as users
 from public.app_events
-where type in ('focus_selected', 'focus_skipped', 'squad_program_selected')
-group by 1, 2
-order by 1, users desc;
+where type = 'squad_program_selected'
+group by 1
+order by users desc;

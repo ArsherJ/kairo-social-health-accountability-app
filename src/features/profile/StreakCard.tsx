@@ -29,7 +29,7 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
   return (
     <View style={styles.card}>
       {/* Behind the figures, bleeding off the corner — the same device the
-          focus screen uses, so the two sage moments in the app rhyme. */}
+          squad panel uses, so the two sage moments in the app rhyme. */}
       <View style={styles.bloom} />
 
       <Label tone="sage">Streak</Label>

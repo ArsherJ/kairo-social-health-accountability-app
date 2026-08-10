@@ -1,11 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { goalWindowDays } from '@kairo/core';
+import { goalWindowDays, isGoalWindowClosed } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Label } from '@/ui/index.ts';
+import { CtaPill, Label } from '@/ui/index.ts';
 import { GoalBar } from './GoalBar.tsx';
-import { shortDate } from './goal-copy.ts';
-import { toGoal, useGoalDetail, useMyGoals, type GoalRow } from './queries.ts';
+import { deadlineLine } from './goal-copy.ts';
+import { pickLiveGoal, toGoal, useGoalDetail, useMyGoals } from './queries.ts';
 
 /**
  * The user's own goal, on the home screen.
@@ -35,7 +35,7 @@ export function GoalCard({
   // Derived before any early return, and the detail hook is called
   // unconditionally with a possibly-undefined id — `enabled` inside the hook is
   // what defers the request, not a conditional call here.
-  const live = goals.isSuccess && today ? pickLive(goals.data, today) : null;
+  const live = goals.isSuccess && today ? pickLiveGoal(goals.data, today, { fallbackToPast: true }) : null;
   const detail = useGoalDetail(live?.id, userId, today);
 
   // Nothing at all until the goal list is known. A card that renders the empty
@@ -54,8 +54,9 @@ export function GoalCard({
         <Label tone="muted">NO GOAL YET</Label>
         <Text style={styles.emptyTitle}>Set a target</Text>
         <Text style={styles.emptyBody}>
-          Pick a number and a date. Days, weeks, or a year — your call.
+          Pick a number and a date. Days, weeks, a year — or no deadline at all.
         </Text>
+        <CtaPill label="Set a target" />
       </Pressable>
     );
   }
@@ -65,6 +66,9 @@ export function GoalCard({
   // zero it would then correct — a bar that fills in from empty on every open
   // would misreport a goal in progress as one not started.
   const standing = detail.data?.standings.find((s) => s.isSelf);
+  // An open-ended goal is never closed, which `isGoalWindowClosed` already
+  // knows — so the card asks it rather than comparing a possibly-null date.
+  const closed = isGoalWindowClosed(toGoal(live), today);
 
   return (
     <Pressable
@@ -74,11 +78,8 @@ export function GoalCard({
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.head}>
-        <Label>{live.ends_on < today ? 'GOAL CLOSED' : 'GOAL IN FLIGHT'}</Label>
-        <Text style={styles.deadline}>
-          {live.ends_on < today ? 'ended ' : 'by '}
-          {shortDate(live.ends_on, today)}
-        </Text>
+        <Label>{closed ? 'GOAL CLOSED' : 'GOAL IN FLIGHT'}</Label>
+        <Text style={styles.deadline}>{deadlineLine(live.ends_on, today)}</Text>
       </View>
 
       {standing ? (
@@ -90,26 +91,6 @@ export function GoalCard({
       )}
     </Pressable>
   );
-}
-
-/**
- * The goal worth showing: the live one closing soonest.
- *
- * A window that has not opened yet is not "in flight" and would render a meter
- * with nothing in it. Falls back to the most recently closed goal when there is
- * no live one, so somebody who just finished their first goal sees it rather
- * than an invitation to set another — the finish is the moment worth showing.
- */
-function pickLive(rows: readonly GoalRow[], today: string): GoalRow | null {
-  const live = rows.filter((r) => r.starts_on <= today && r.ends_on >= today);
-  if (live.length > 0) {
-    return [...live].sort((a, b) => a.ends_on.localeCompare(b.ends_on))[0]!;
-  }
-  const past = rows.filter((r) => r.ends_on < today);
-  if (past.length > 0) {
-    return [...past].sort((a, b) => b.ends_on.localeCompare(a.ends_on))[0]!;
-  }
-  return null;
 }
 
 const styles = StyleSheet.create({

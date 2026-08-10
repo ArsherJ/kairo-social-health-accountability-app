@@ -50,3 +50,51 @@ export function evolutionStageForLevel(level: number): EvolutionStage {
   if (level >= 6) return 2;
   return 1;
 }
+
+// ---------------------------------------------------------------------------
+// Per-stat ability ratings
+// ---------------------------------------------------------------------------
+
+/**
+ * AGI 41, STR 28 — what the character sheet shows in place of a medal.
+ *
+ * **The tier engine is unchanged.** `TIER_POINTS`, `tierFor()` and
+ * `daily_scores.tiers` still score every day exactly as §5 and §6 specify.
+ * Bronze/Silver/Gold simply stopped being the thing the user is shown, because
+ * they answer a different question from the one the sheet is asking: a medal
+ * describes *today*, and "how strong is my character" is cumulative — the same
+ * shape as Level, which is why this is the same curve.
+ *
+ * The input is lifetime points in one stat, rolled up on `profiles` by the same
+ * trigger that maintains `total_xp`.
+ *
+ * A divisor of 100 is chosen so ratings read *alongside* Level rather than
+ * racing ahead of it — a month of Gold days in one stat lands at 17 against a
+ * level of about 16, and a year at 58 against about 55. Two numbers on one
+ * screen that move at wildly different speeds read as two unrelated systems.
+ */
+export const STAT_RATING_DIVISOR = 100;
+
+/**
+ * Never below 1. A stat rendered as 0 reads as broken; 1 reads as untrained,
+ * which is what a stat nobody has worked actually is. Same floor as `levelForXp`
+ * for the same reason.
+ */
+export function ratingForStatPoints(points: number): number {
+  if (!Number.isFinite(points) || points <= 0) return 1;
+  return Math.floor(Math.sqrt(points / STAT_RATING_DIVISOR) + EPSILON) + 1;
+}
+
+/**
+ * Lifetime points required to reach `rating` — the exact inverse of
+ * `ratingForStatPoints`.
+ *
+ * The pair is what gives the stat bar its fill: the fraction between this
+ * rating's floor and the next one's. Kept as a mirrored pair rather than left to
+ * each caller, because a bar computed from a slightly different inverse renders
+ * past full, or empty on the exact frame a rating is gained.
+ */
+export function statPointsForRating(rating: number): number {
+  if (!Number.isFinite(rating) || rating <= 1) return 0;
+  return STAT_RATING_DIVISOR * (rating - 1) ** 2;
+}

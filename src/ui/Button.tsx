@@ -16,7 +16,7 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
   disabled?: boolean;
   busy?: boolean;
 }) {
@@ -57,9 +57,25 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.accent, ...shadow.sm },
   secondary: { backgroundColor: ramp.neutral[100] },
   ghost: {},
+  /**
+   * Abandoning a goal, leaving a squad.
+   *
+   * Outlined in the damage colour rather than filled with it: these belong at
+   * the foot of a screen and must not compete with the primary action above
+   * them, but "quiet" was taken too far — both were 12.5pt grey text, which
+   * hand-testing did not read as a button at all. Chrome without weight is what
+   * this variant is for. The `Alert.alert` confirm behind each one is still the
+   * real guard.
+   */
+  destructive: {
+    borderWidth: 1,
+    borderColor: colors.damage,
+    backgroundColor: 'transparent',
+  },
   disabled: { opacity: 0.45 },
   label: { ...font.display.action },
   primaryLabel: { color: colors.bg },
   secondaryLabel: { color: colors.text },
   ghostLabel: { color: ramp.accent[700] },
+  destructiveLabel: { color: colors.damage },
 });

@@ -14,6 +14,7 @@ function goalRow(overrides: Partial<GoalRow> = {}): GoalRow {
     id: 'g1',
     squad_id: null,
     title: 'Sixty thousand',
+    description: null,
     kind: 'cumulative',
     target: 60_000,
     required_days: null,
@@ -239,5 +240,64 @@ describe('daysForUser', () => {
 
   it('returns an empty map when the user has no rows', () => {
     expect(daysForUser(rows, 'nobody').size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Open-ended goals — `ends_on: null`
+// ---------------------------------------------------------------------------
+
+describe('planGoalCompletions — open-ended goals', () => {
+  const open = () => goalRow({ ends_on: null, target: 6_000 });
+
+  it('never excludes a day for being past the end of the window', () => {
+    // A year after the start. A finite goal would have skipped this day
+    // outright; an open-ended one has no upper bound to fall outside of.
+    const completions = planGoalCompletions({
+      userId: USER,
+      localDate: '2027-01-01',
+      goals: [open()],
+      daysByGoal: new Map([['g1', finalDays('2026-01-01', 3, 2_000)]]),
+      alreadyCompleted: new Set(),
+    });
+    expect(completions).toHaveLength(1);
+  });
+
+  it('still excludes a day before the start date', () => {
+    const completions = planGoalCompletions({
+      userId: USER,
+      localDate: '2025-12-31',
+      goals: [open()],
+      daysByGoal: new Map([['g1', finalDays('2026-01-01', 3, 2_000)]]),
+      alreadyCompleted: new Set(),
+    });
+    expect(completions).toEqual([]);
+  });
+
+  it('pays XP scaled by how long the goal actually ran', () => {
+    // Start 2026-01-01, completed 2026-01-07: a seven-day span, so the same
+    // XP a seven-day window would have paid.
+    const completions = planGoalCompletions({
+      userId: USER,
+      localDate: '2026-01-07',
+      goals: [open()],
+      daysByGoal: new Map([['g1', finalDays('2026-01-01', 4, 2_000)]]),
+      alreadyCompleted: new Set(),
+    });
+    expect(completions[0]!.row.xp_awarded).toBe(Math.round(30 * Math.sqrt(7)));
+  });
+
+  it('does not complete on provisional days', () => {
+    const provisional: GoalDay[] = [
+      { localDate: '2026-01-01', total: 99_000, status: 'provisional' },
+    ];
+    const completions = planGoalCompletions({
+      userId: USER,
+      localDate: '2026-01-01',
+      goals: [open()],
+      daysByGoal: new Map([['g1', provisional]]),
+      alreadyCompleted: new Set(),
+    });
+    expect(completions).toEqual([]);
   });
 });

@@ -20,13 +20,11 @@ export function FirstSyncCallout({
   userId,
   timeZone,
   points,
-  tiers,
   hasScore,
 }: {
   userId: string | undefined;
   timeZone: string | undefined;
   points: Record<CoreStat, number>;
-  tiers: Record<string, string>;
   /** A `daily_scores` row exists, so at least one sync has landed. */
   hasScore: boolean;
 }) {
@@ -40,7 +38,7 @@ export function FirstSyncCallout({
   const steps = useTodaySteps(userId, timeZone, eligible);
 
   const headline = eligible
-    ? firstSyncHeadline({ steps: steps.data ?? 0, points, tiers })
+    ? firstSyncHeadline({ steps: steps.data ?? 0, points })
     : null;
 
   // Marked the moment it is actually on screen, not when it became eligible —
