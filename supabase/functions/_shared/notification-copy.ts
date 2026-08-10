@@ -10,7 +10,7 @@
  * buys hierarchy without rewriting a word of the spec.
  */
 
-import type { NotificationTrigger } from './core.ts';
+import type { ScheduledTrigger } from './notification-plan.ts';
 
 export interface PushMessage {
   title: string;
@@ -39,17 +39,20 @@ function points(total: number): string {
 }
 
 /**
- * §14: "[Name] hit you with a banana! You're down 500 points 🍌". Always sends,
- * exempt from the budget and from quiet hours — the emotional core.
+ * §14 (v1.4): "You hit it. [title] — done. 🎯"
+ *
+ * Its own function rather than a case in `notificationCopy`, because it needs the
+ * goal's title and that signature does not carry one. The old `sabotaged` case
+ * solved the same problem by throwing for an unreachable branch; `ScheduledTrigger`
+ * makes it unrepresentable instead.
  */
-export function sabotageCopy(input: {
-  actorName: string;
-  /** Negative, as stored. The copy states the magnitude. */
-  scoreDelta: number;
+export function goalCompletedCopy(input: {
+  title: string;
+  xpAwarded: number;
 }): PushMessage {
   return {
-    title: `${input.actorName} hit you with a banana! 🍌`,
-    body: `You're down ${points(Math.abs(input.scoreDelta))} points.`,
+    title: 'You hit it. 🎯',
+    body: `${input.title} — done. +${points(input.xpAwarded)} XP.`,
   };
 }
 
@@ -61,7 +64,7 @@ export function sabotageCopy(input: {
  * and the day-boundary loop is what brings them back.
  */
 export function notificationCopy(
-  trigger: NotificationTrigger,
+  trigger: ScheduledTrigger,
   context: { rank: number | null; total: number; inSquad: boolean },
 ): PushMessage {
   const { rank, total, inSquad } = context;
@@ -93,11 +96,5 @@ export function notificationCopy(
           : `Provisional: you finished ${ordinal(rank)}.`,
         body: 'Finalizes in ~2h.',
       };
-
-    case 'sabotaged':
-      // Deliberately not reachable: sabotage copy needs the actor's name, which
-      // this signature does not carry, and "undefined hit you with a banana" is
-      // worse than no push at all.
-      throw new Error('sabotaged copy comes from sabotageCopy(), which knows the actor');
   }
 }

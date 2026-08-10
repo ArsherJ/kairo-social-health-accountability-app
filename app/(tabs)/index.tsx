@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ScrollView,
   StyleSheet,
@@ -9,11 +10,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CORE_STATS,
-  DAILY_ITEM_GRANT_FREE,
+  currentLocalDate,
   evolutionStageForLevel,
   levelForXp,
   type CoreStat,
 } from '@kairo/core';
+import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
@@ -28,8 +30,6 @@ import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { resolveStanding, type Standing } from '@/features/character/standing.ts';
 import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
-import { feedTime } from '@/features/sabotage/feed-copy.ts';
-import { useDailyItems, useSquadFeed } from '@/features/sabotage/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
@@ -122,6 +122,7 @@ export default function Character() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
@@ -134,13 +135,6 @@ export default function Character() {
   // queries here costs no extra request.
   const squad = useMySquad(session?.user.id);
   const board = useSquadLeaderboard(squad.data?.id, 'current');
-  // Both are already mounted in the tab layout, so composing them here is free.
-  const feed = useSquadFeed(squad.data?.id);
-  const items = useDailyItems(
-    session?.user.id,
-    profile.data?.timezone,
-    profile.data?.is_legendary ?? false,
-  );
 
   const totalXp = profile.data?.total_xp ?? 0;
   const level = profile.data?.level ?? levelForXp(totalXp);
@@ -185,19 +179,6 @@ export default function Character() {
   // Tall enough to stand someone in, capped so a Pro Max does not turn the
   // page into a poster with the day's number below the fold.
   const skyHeight = Math.max(360, Math.min(520, windowHeight * 0.54));
-  const sabotage = Math.abs(today?.sabotage_delta ?? 0);
-
-  // Same optimistic default as the board's: zero while the query settles would
-  // render the mechanic dead for a beat and then wake it up, and the server
-  // refuses a throw the client wrongly allowed anyway.
-  const bananas = items.data?.remaining ?? DAILY_ITEM_GRANT_FREE;
-
-  // Who actually got you. `squad_feed` returns newest first, so the first
-  // self-targeted row is the hit the score is complaining about. Undefined
-  // while the feed is unresolved, or on a squad with no hits on you — both
-  // fall back to the unnamed copy below rather than inventing an actor.
-  const now = new Date();
-  const lastHit = (feed.data ?? []).find((event) => event.target_is_self);
 
   // Everyone above you, nearest first — the faces on the squad pill.
   const others = (board.data ?? []).filter((r) => !r.is_self).slice(0, 3);
@@ -238,18 +219,10 @@ export default function Character() {
             </View>
           </View>
 
-          {/* The right-hand pair. The banana used to be a FAB docked over the
-              nav, which made a *count* look like an action — you throw one on
-              the board, where the targets are. Here it is what it is: how many
-              you have left, next to how many days you have going. */}
+          {/* The streak is the only persistent pill. A goal in flight belongs
+              on the shelf below, where it has room for a target and a date —
+              not squeezed into a second pill up here. */}
           <View style={[styles.hudRight, { top: insets.top + space.xl + space.sm }]}>
-            {squad.data && (
-              <View style={styles.pill}>
-                <Text style={styles.bananaEmoji}>🍌</Text>
-                <Text style={styles.bananaCount}>{bananas}</Text>
-              </View>
-            )}
-
             {(streak.data?.current_streak ?? 0) > 0 && (
               <View style={styles.pill}>
                 <Text style={styles.streakNumber}>{streak.data?.current_streak}</Text>
@@ -332,30 +305,18 @@ export default function Character() {
             </View>
           )}
 
-          {sabotage > 0 && (
-            // Being hit is the moment §14 cares most about, and the app should
-            // not be the last place to mention it. It is also the one block on
-            // this screen allowed to use the burnt family.
-            <View style={styles.hit}>
-              <View style={styles.hitBadge}>
-                <Text style={styles.hitEmoji}>🍌</Text>
-              </View>
-              <View style={styles.hitBody}>
-                {/* Named when the feed can name them, unnamed when it cannot.
-                    The score knows a banana landed; only the feed knows whose
-                    it was, and inventing an actor to fill the sentence would
-                    be the same failure as claiming a rank during a load. */}
-                <Text style={styles.hitTitle}>
-                  {`${lastHit?.actor_name ?? 'Somebody'} got you. −${sabotage.toLocaleString()}`}
-                </Text>
-                <Text style={styles.hitMeta}>
-                  {lastHit
-                    ? `${feedTime(lastHit.created_at, now)} · you have ${bananas} left`
-                    : "Off today's total. See it on the board."}
-                </Text>
-              </View>
-            </View>
-          )}
+          {/* The slot the sabotage callout left. A commitment belongs below the
+              day's numbers, not among them: today's score is a fact, and this is
+              a promise measured against it. */}
+          <GoalCard
+            userId={session?.user.id}
+            today={
+              profile.data?.timezone
+                ? currentLocalDate(new Date(), profile.data.timezone)
+                : undefined
+            }
+            onSetGoal={() => router.push('/goal/new')}
+          />
 
           <FirstSyncCallout
             userId={session?.user.id}
@@ -437,11 +398,6 @@ const styles = StyleSheet.create({
   },
   streakNumber: { ...font.display.minor, color: ramp.accent[700] },
   streakUnit: { ...font.body.label, color: ramp.accent[700], letterSpacing: 0 },
-  // Emoji does not sit on the Latin baseline, so the row is baseline-aligned
-  // around the numeral and the glyph is nudged back down onto it.
-  bananaEmoji: { fontSize: 15, transform: [{ translateY: 2 }] },
-  bananaCount: { ...font.display.minor, color: ramp.neutral[800] },
-
   rail: { position: 'absolute', right: space.md },
 
   // — the cream shelf —
@@ -453,26 +409,4 @@ const styles = StyleSheet.create({
   detail: { ...font.body.body, fontSize: 14.5, color: ramp.sage[700], marginTop: space.sm },
   meta: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.xs },
   detailBlock: { marginTop: space.sm },
-
-  hit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    marginTop: space.lg,
-    padding: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: ramp.accent[200],
-  },
-  hitBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.accent[300],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hitEmoji: { fontSize: 20 },
-  hitBody: { flex: 1 },
-  hitTitle: { ...font.display.small, color: ramp.accent[900] },
-  hitMeta: { ...font.body.strong, color: ramp.accent[800], marginTop: 1 },
 });

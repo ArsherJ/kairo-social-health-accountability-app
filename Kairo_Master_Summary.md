@@ -1,20 +1,32 @@
 # Kairo — Master Summary Document
 **App Name:** Kairo  
-**Type:** Consumer Social Health App  
+**Type:** Consumer Health Game — solo-first, socially amplified  
 **Platform:** iOS first → Android V1.5  
 **Market:** Philippines (primary), OFW abroad (secondary)  
-**Last Updated:** July 2026
+**Version:** v1.4  
+**Last Updated:** August 2026
 
 ---
 
 ## 1. What This App Is
 
-Kairo is a **social health accountability app** where you and your barkada compete daily using real, verified health data — steps, workouts, active calories, and movement consistency. Your performance shapes an RPG character inspired by Solo Leveling aesthetics that levels up, evolves visually, and is visible to your entire squad.
+Kairo is a **health accountability game** that turns your real, verified health data — steps, workouts, active calories, and movement consistency — into an RPG character inspired by Solo Leveling aesthetics, which levels up and evolves visually as you do.
 
-It is not a fitness tracker. It is not a journaling app. It is a **daily competitive game that happens to make you healthier.**
+**It works alone.** That is the point: the character, the streak, the level and your goals are all yours, and none of them need anybody else to exist. A squad is an optional layer on top — a daily leaderboard, and goals a group commits to together.
+
+It is not a fitness tracker. It is not a journaling app. It is **a game about your own consistency that happens to make you healthier.**
 
 ### The One-Line Pitch
-*"Level up your real life. Compete with your barkada. Sabotage each other along the way."*
+*"Level up your real life. Set the target. Bring your barkada if you want."*
+
+### Progress Is Progress (v1.4 decision)
+Sabotage — §8 in every version through v1.3, and named in v1.3's §20 as *"the soul of the product"* — **is removed.** One player can no longer subtract points from another's day.
+
+The reasoning is one sentence: **progress is still progress.** A day you actually earned should not be reduced by somebody else's tap, because the number is supposed to mean something about you. That made sabotage the one mechanic in the app that could lie about a user's own effort.
+
+What replaces its role in the design is **goals** (§8, rewritten): a target you set for yourself over a span of days, weeks, or years, and optionally a target a squad commits to together. The tension sabotage manufactured between players is now tension between you and a commitment you made — which is the tension the product was always actually about.
+
+The squad leaderboard stays. Competition was never the problem; reaching across it to take somebody's points was.
 
 ### Why It Exists
 Three problems with existing apps:
@@ -22,7 +34,7 @@ Three problems with existing apps:
 - **Charlie** — great character care mechanic but solo Tamagotchi feel, passive social (bell ring), steps only, Korean pricing applied to PH with no localization
 - **Generic accountability apps** — no competition, no stakes, churn is massive
 
-Kairo combines the competitive tension of Stompers, the character investment of Charlie, adds multi-stat health tracking, sabotage mechanics, and is built specifically for the Philippine market.
+Kairo combines the competitive tension of Stompers, the character investment of Charlie, adds multi-stat health tracking and long-horizon goals, and is built specifically for the Philippine market.
 
 ---
 
@@ -32,8 +44,7 @@ Kairo combines the competitive tension of Stompers, the character investment of 
 12:00 AM local →  Day resets. All scores back to zero.
 Throughout day →  HealthKit / Health Connect background delivery syncs
                   automatically — for ALL users, free and paid.
-Anytime        →  Open app to check squad leaderboard.
-Anytime        →  Deploy sabotage items against squad members.
+Anytime        →  Open app to check your goals, and the squad leaderboard.
 11:00 PM local →  Push notification: "1 hour left. You're in [rank] place."
 11:59 PM local →  Day ends. Provisional results shown.
 ~2:00 AM local →  Day finalizes (grace window for late phone syncs).
@@ -44,9 +55,11 @@ Sunday 10 PM   →  AI-generated weekly recap card pushed to all squads.
 **Per-user local days (v1.3 decision):** Each player's day runs midnight-to-midnight in their own timezone; the squad leaderboard compares most-recently-completed days. This gives every player — including OFWs in Dubai or New York — a fair 24-hour window and correct VIT hourly windows. The cost (mixed-timezone squads don't share one dramatic midnight) is accepted; PH-local squads still experience a shared reset in practice.
 
 ### Three Daily Engagement Hooks
-1. **Morning FOMO** — Who's already ahead while you were sleeping?
-2. **Sabotage alert** — Push notification the moment someone hits you
+1. **Morning FOMO** — Who's already ahead while you were sleeping? (Solo: how many days is the streak now?)
+2. **The commitment** — A goal in flight with a visible days-remaining count. Works with no squad at all, which is what makes it the one hook every user has.
 3. **Night urgency** — Real-time rank notification with countdown
+
+The middle hook replaced the sabotage alert at v1.4. Note what changed structurally: two of the three hooks used to require other people, so a solo user had one. Now only one does.
 
 ---
 
@@ -57,11 +70,11 @@ Sunday 10 PM   →  AI-generated weekly recap card pushed to all squads.
 |---|---|---|
 | Multi-stat tracking (not just steps) | Captures gym, runners, sleepers — not just walkers | Stompers + Charlie |
 | Rive dynamic character animation | Characters feel alive and reactive — users asked Charlie for this | Both competitors |
-| Real sabotage with score impact | Creates drama, stories, group chat moments | Charlie (bell ring only) |
+| Long-horizon goals, solo or shared | Gives the app a reason to matter past week 3 | Both competitors |
 | Personal character identity | Your character is yours — name, class, stat build | Charlie (everyone is "Charlie") |
 | Weekly AI recap card | Shareable Stories content — users asked Charlie for this | Both competitors |
 | PH-calibrated pricing | ₱49–₱499 vs Charlie's ₱799–₱5,990 | Both competitors |
-| Barkada war referral system | Referral is a challenge, not an invite | Both competitors |
+| Barkada referral system | Referral is a shared target, not a cold invite | Both competitors |
 | Android support (V1.5) | 75–80% of PH is Android | Both competitors (iOS only) |
 | OFW angle | Filipinos abroad + family at home in one squad | Both competitors |
 
@@ -140,7 +153,7 @@ Full ban systems are expensive and imperfect. The real anti-cheat is **social em
 HealthKit's active calorie estimation (STR) requires height, weight, and age for accuracy. Collect these in onboarding. Users who skip get a persistent soft prompt: *"Add your height and weight in Settings for more accurate STR tracking."*
 
 ### Onboarding Flow Philosophy (v1.3): Character First, Permissions in Context
-iOS gives one clean shot at the HealthKit and notification prompts, and the naive flow stacks six friction gates before any fun. The chosen order: **name + character on screen within the first 60 seconds** (emotional investment), THEN the HealthKit permission framed as *"power your character with real life,"* notifications requested only after the first squad/sabotage event gives them a reason to exist, and body metrics deferred to the soft prompt. Every ask has a visible why.
+iOS gives one clean shot at the HealthKit and notification prompts, and the naive flow stacks six friction gates before any fun. The chosen order: **name + character on screen within the first 60 seconds** (emotional investment), THEN the HealthKit permission framed as *"power your character with real life,"* notifications requested only after a squad or a goal in flight gives them a reason to exist, and body metrics deferred to the soft prompt. Every ask has a visible why.
 
 ### Daily Score Formula
 ```
@@ -241,7 +254,7 @@ AGI Bronze (200) + STR Gold (900) + END Silver (500) + VIT Silver (500) + 4-stat
 AGI Silver (500) + STR None (0) + END Bronze (200) + VIT Bronze (200) + 3-stat bonus (400) = **1,300 pts**
 
 **Complete rest day:**
-AGI None (0) + STR None (0) + END None (0) + VIT None (0) = **0 pts** — last place, but the leaderboard and sabotage still visible. Still opens the app.
+AGI None (0) + STR None (0) + END None (0) + VIT None (0) = **0 pts** — a rest day. The streak is what it costs, and the goal card says how many days are left to make it up. Still opens the app.
 
 ### Character Progression
 - XP earned daily from any health contribution (Bronze = +10, Silver = +25, Gold = +50 per stat)
@@ -272,7 +285,7 @@ Each Monday, Kairo announces a **featured stat** earning 1.5× score for the ful
 Rotates the meta weekly. No single build dominates long-term. Gives a Monday push notification reason to re-engage lapsed users.
 
 ### Animation: Rive
-Rive powers dynamic character animation — directly addressing Charlie's top user complaint (users asked for more character animations). Characters react in real-time to health data, tier achievements, and sabotage events. Different idle animations based on dominant stat. Sabotage impact triggers unique hit animations.
+Rive powers dynamic character animation — directly addressing Charlie's top user complaint (users asked for more character animations). Characters react in real-time to health data and tier achievements. Different idle animations based on dominant stat. Hitting a goal triggers a unique celebration animation — the one moment in the app worth a bespoke sequence.
 
 ---
 
@@ -302,56 +315,59 @@ Unlike Stompers and Charlie, requiring a squad creates a cold start problem — 
 
 ---
 
-## 8. Sabotage System
+## 8. Goal System (v1.4 — replaces the Sabotage System)
+
+Sabotage stood here through v1.3. It is removed; §1 records why. This section is what took its place in the design: the thing that makes the app matter for longer than a week.
 
 ### How It Works
-Sabotage items debuff a target's score or buff your own. Applied in real-time. Target receives push notification immediately. Visible in squad feed.
+A **goal** is a target you commit to over a window of days. It has a start date, an end date, and a number to reach. It is scored off `daily_scores.total` — the same canonical number the leaderboard ranks on — and progress is projected from your stored days rather than tracked separately, so a day Apple revises after the fact flows through for free.
 
-### MVP Item (1) — v1.3 scope cut
-| Item | Effect | Duration |
+Two shapes, because "walk 1,000 km by March" and "be good 25 days out of 30" are genuinely different commitments:
+
+| Kind | The target means | Reads as |
 |---|---|---|
-| 🍌 Banana | -500 score points from target | Instant |
+| **Cumulative** | A running total to reach by the end date | "75,000 points by 31 December" |
+| **Consistency** | A per-day bar, met on N of M days | "2,500 a day, 25 of the next 30 days" |
 
-The Banana alone is enough to test the beta's key question: does sabotage create fun or resentment? The Bat's banked-freeze mechanic is the most complex server logic in the spec and moves to V1.
+A window may be days, weeks, months or years. Nothing caps it — a year-long goal is a legitimate thing to want, and it is the only feature in the app with a horizon longer than a streak.
 
-### V1 Items (5 added)
-| Item | Effect | Duration |
+### Personal and Shared
+| Scope | Who commits | How it resolves |
 |---|---|---|
-| 🦇 Bat | Freezes target's score accumulation (banked — see below) | 1 hour |
-| 🛡️ Shield | Blocks next sabotage against you | Until hit |
-| ⚡ Boost | Your score ×1.5 | 1 hour |
-| 👁️ Spy | See target's current score momentum (NOT raw steps — privacy) | 30 mins |
-| 💣 Bomb | Halves target's score | 30 mins |
+| **Personal** | You alone | You met it or you did not. Visible to squadmates so they can see what you are working on. |
+| **Squad** | Every member on the roster at creation | **Everyone must hit it** — N-of-M, the shape §19 designed for squad streaks. The squad's goal succeeds only when enough members hit their own copy of the target. |
 
-### The Bat Mechanic — Banked Freeze (v1.3 decision)
-The Bat **delays** scoring, it never destroys it. Steps/calories earned during the frozen hour are banked and credited the moment the freeze ends — the victim's real exercise is never erased (protects trust in the app). The exception is the day boundary: **banked points that would land after 11:59 PM are lost for that day.** A Bat deployed at 11:15 PM banks an hour of scoring past the day lock — this makes late-night Bats the highest-stakes skill play in the game, while daytime Bats are pure tempo pressure.
+A squad goal's roster is **frozen when the goal is created**, not read live from membership. "Everyone must hit it" is meaningless if the denominator moves when somebody joins or leaves halfway through.
 
-### Item Acquisition
-| Source | Free | Legendary |
-|---|---|---|
-| Daily free items | 1/day | 3/day |
-| Watch rewarded ad | +1 (max 3/day) | +1 (max 5/day) |
-| Buy with coins | ✅ | ✅ |
-| Win daily challenge | +1 bonus | +2 bonus |
-| Referral activated | +2 one-time | +2 one-time |
+### Fixed at Creation
+Title aside, a goal cannot be edited after it exists. Changing a target mid-window would silently re-grade every day already counted — the same reasoning that fixes `squads.program` at creation. Abandoning a goal is the escape hatch, and it is deliberately a different, visible act from quietly lowering the bar.
 
-### Abuse Prevention
-- **Daily deploy cap regardless of inventory (v1.3):** you can OWN unlimited items, but can only DEPLOY 2/day (free) or 3/day (Legendary). Money buys variety and convenience, never raw attack volume — this is the anti-pay-to-win line. Whale spend routes to cosmetics, where the ego money is anyway.
-- Same item cannot hit same target twice within 3 hours
-- Cannot target same person more than 3× per day
-- Shield reflects attack back as notification: *"[Name]'s shield blocked your banana!"*
+### Completion
+| Reward | Value |
+|---|---|
+| XP | Scaled by window length, capped so a year-long goal cannot dwarf a year of daily play |
+| A completed-goal record | Permanent, on the profile. This is the "badge" — there is no separate badge table |
+
+**No coins.** This matches where streak milestones already sit: XP and records at MVP, coins when the §10 shop arrives at V1.
+
+Completion is a **one-way latch**, evaluated only on days that have gone `final`. A later downward revision from Apple never revokes a goal you already met — the same rule §19 applies to streak milestones, for the same reason: taking back an achievement the app already celebrated is worse than the small inconsistency of keeping it.
+
+### Privacy
+Goal progress is score-derived, so it exposes nothing §5 does not already permit squadmates to see. There is deliberately **no** goal metric that would reach raw steps — a "500,000 steps by March" goal leaks a raw step count through its own progress bar, which is exactly what §5's projection exists to prevent. Goals are scored on points, not on the underlying health data.
 
 ---
 
-## 9. Referral System — "The War Declaration"
+## 9. Referral System — "The Shared Target"
+
+**v1.4:** this section was "The War Declaration" and read *"Challenge someone. Dare them to beat you."* Sabotage is gone and the antagonism went with it. What converts in PH is still ego — but a shared commitment carries it just as well as a callout, and it survives the moment the referred friend has a bad week.
 
 ### Core Reframe
-Not "Invite a friend." It is **"Challenge someone. Dare them to beat you."**
+Not "Invite a friend." It is **"I'm doing this. Do it with me."**
 
-The share message is a personal callout:
-> *"[Your name] is challenging you to a health battle on Kairo. Think you can beat their score? Accept the challenge: [link]"*
+The share message names the commitment, not the fight:
+> *"[Your name] is going for 25 active days this month on Kairo. Want in? You'd be doing it together: [link]"*
 
-This works culturally in PH because the referred friend's ego drives the download — they join to prove a point, not because of the app features.
+This still works culturally: the referred friend joins to be part of something their barkada is already doing, which is a stronger hook in PH than a solo dare and does not require them to lose first.
 
 ### Three-Layer Reward Structure
 
@@ -359,7 +375,7 @@ This works culturally in PH because the referred friend's ego drives the downloa
 | Milestone | Reward |
 |---|---|
 | Referral completes onboarding | 50 coins |
-| Referral completes first full active day | +2 sabotage items (weapons for your new target) |
+| Referral completes first full active day | 30 coins |
 | 3 successful referrals | Exclusive "Recruiter" aura (non-purchasable) |
 | 10 successful referrals | "General" title badge on leaderboard (permanent) |
 
@@ -367,9 +383,9 @@ This works culturally in PH because the referred friend's ego drives the downloa
 | Reward | Details |
 |---|---|
 | 30 bonus coins | Immediate head start |
-| Starter sabotage pack (3 items) | Can attack people on Day 1 — kills new user powerlessness |
+| Auto-joined to the squad's active goal | Something to be part of on Day 1 — kills new user aimlessness |
 | Character starts at Level 2 | Symbolic welcome gift |
-| "Challenger" badge (7 days) | Temporary status — shows squad they arrived ready to compete |
+| "Newcomer" badge (7 days) | Temporary status — tells the squad to expect them on the board |
 
 **Squad Reward (entire group benefits)**
 - Whole squad gets **2x XP for 3 days** when a new member joins via referral
@@ -377,8 +393,8 @@ This works culturally in PH because the referred friend's ego drives the downloa
 - Existing members become your acquisition team organically
 
 ### Highest-Converting Referral Trigger
-The referral CTA appears on the **day-end results screen, specifically when the user finishes last.**
-> *"Outnumbered? Invite someone to join your side. You get weapons when they arrive. 🪃"*
+The referral CTA appears when the user **sets a goal** — the moment they have just committed to something and it is naturally shareable.
+> *"Doing this alone? Ask someone to do it with you. 🎯"*
 
 Emotional state right after losing = peak motivation to recruit an ally. This is the highest-converting moment for the referral CTA.
 
@@ -411,7 +427,6 @@ Emotional state right after losing = peak motivation to recruit an ally. This is
 - Full daily health tracking and score
 - Daily leaderboard within squad
 - Basic character + 4 class options
-- 1 free sabotage item per day
 - Basic stat display (AGI, STR, END, VIT) — REC shown only if wearable connected
 - Weekly recap card (view only)
 - 7-day health history
@@ -419,12 +434,13 @@ Emotional state right after losing = peak motivation to recruit an ally. This is
 
 **LEGENDARY — Everything that feeds ego and power**
 - Squad up to 15 members, 3 squads total
-- 3 free sabotage items per day + deploy cap of 3/day (vs 2/day free)
-- Custom squad challenges (set your own rules)
+- Unlimited active goals (free: one personal + one squad goal at a time)
 - Unlimited health history + full progress graphs
 - Monthly exclusive cosmetic drop
 - Ad-free experience
 - Squad activity heatmap
+
+**v1.4 note:** the Legendary bundle lost two sabotage perks (free items and the raised deploy cap) and "custom squad challenges", which goals make free. The replacement is a **goal slot cap** — free users hold one personal and one squad goal at a time, Legendary holds unlimited. This is the same anti-pay-to-win shape §8 used to hold: money buys room and convenience, never an advantage over another player. The bundle is now unlimited history + graphs, unlimited goal slots, monthly cosmetic drop, ad-free, larger squads, and the activity heatmap.
 
 **v1.3 note:** "Auto background step sync" was removed as a Legendary perk — HealthKit background delivery is a free OS capability, and paywalling it broke the real-time leaderboard for the 98% of users who make the app viral. Background sync is free for everyone; no replacement perk was added (the remaining bundle is coherent, and inventing a power perk risks pay-to-win optics).
 
@@ -448,8 +464,7 @@ Emotional state right after losing = peak motivation to recruit an ally. This is
 **Spending**
 | Item | Coins |
 |---|---|
-| Basic sabotage item | 20 |
-| Premium sabotage item | 50 |
+| Extra goal slot (30 days) | 150 |
 | Common outfit | 300–500 |
 | Rare outfit | 700–1,000 |
 | Legendary outfit | 1,500–2,500 |
@@ -478,10 +493,10 @@ Emotional state right after losing = peak motivation to recruit an ally. This is
 - Rewarded video only — user opts in to watch for a reward
 
 **Designed ad moments (v1.3)** — rewarded video is only offered at moments where watching feels worth it:
-1. **11 PM emergency item** — "You're 400 pts behind. Watch an ad for one last Banana?" Peak desperation, near-100% completion, and genuinely fun. Highest-value inventory.
-2. **Day-end results screen** — "Watch an ad → +1 item for tomorrow." Natural pause, sets up the next session.
-3. **Streak shield rescue** — streak about to break, no shield banked: "Watch 2 ads to earn an emergency shield." Converts the biggest churn moment into revenue AND retention.
-4. **Coin top-up in shop** — "23 coins short? Watch an ad for +5." In-context only; placed carefully so it doesn't train ad-grinding over pack-buying.
+1. **Streak shield rescue** — streak about to break, no shield banked: "Watch 2 ads to earn an emergency shield." Converts the biggest churn moment into revenue AND retention.
+2. **Coin top-up in shop** — "23 coins short? Watch an ad for +5." In-context only; placed carefully so it doesn't train ad-grinding over pack-buying.
+
+**v1.4:** two of the four moments were sabotage inventory, including the "11 PM emergency item" this doc called the highest-value inventory in the app. Both are gone and **no replacement has been designed.** This is the largest open item left by removing sabotage — rewarded video now has two moments instead of four, and one of them (coin top-up) only exists once the shop does. Do not fill the gap by inventing a goal-related ad ("watch an ad to extend your deadline") — that sells a way out of the commitment the feature exists to create. Recorded as open; the coin economy is V1 work regardless.
 
 ### Revenue Rollout Sequence (v1.3)
 Ship monetization across point releases, not all at once: **V1.0 rewarded ads → V1.1 coin packs + shop → V1.2 Legendary subscription.** Ads are the simplest integration, monetize 100% of users at any scale, and double as a retention feature; the subscription ships last because it needs the most built-out value to justify itself.
@@ -548,9 +563,9 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 ### Core Architecture Decisions (v1.3)
 | Decision | Choice |
 |---|---|
-| Score authority | **Server-authoritative.** Client uploads hourly health buckets; Supabase Edge Functions compute tiers, bonuses, and sabotage effects. The client only displays. Cheating requires forging raw data, not just posting a number; sabotage timing is enforced in one place. |
+| Score authority | **Server-authoritative.** Client uploads hourly health buckets; Supabase Edge Functions compute tiers and bonuses. The client only displays. Cheating requires forging raw data, not just posting a number. |
 | Health data ingestion | Hourly bucket upserts `(user, date, hour, metric)` — idempotent against duplicates and Apple's retroactive revisions. |
-| Sabotage model | **Immutable event log** (actor, target, item, timestamp, resolved state); scoring replays active effects at computation time. Nothing ever mutates a score directly — full auditability, freeze windows fall out of timestamps. |
+| Goal progress | **A read-time projection over `daily_scores`, stored nowhere.** Progress is recomputed from the window's days on every read, so a day Apple revises after the fact flows through for free and no stored number can drift from the scores it summarises. Only *completion* is recorded — it pays XP and must fire exactly once. |
 | Day finalization | Day-end push at local midnight shows **provisional** ranks; an hourly Edge Function cron finalizes each user's day **~2h after their local midnight**, accepting data stamped before midnight. Coins/XP award at finalization. |
 | Late/backfilled data | Counts for personal streaks and XP, never for finalized rankings or coins (see §19). |
 | Background sync | HealthKit background delivery (HKObserverQuery + enableBackgroundDelivery) for **all** users, free and paid. |
@@ -594,7 +609,7 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 | Trigger | Message | Timing |
 |---|---|---|
 | Day starts | "A new day begins. Your squad is already moving. 👊" | Mid-morning local, **only if the app hasn't been opened yet** |
-| Sabotaged | "[Name] hit you with a banana! You're down 500 points 🍌" | Real-time — always sends, this is the emotional core |
+| Goal completed | "You hit it. [Goal title] — done. 🎯" | Real-time on finalization — always sends, exempt from the daily budget |
 | Podium drop | "[Name] just knocked you out of [1st/2nd/3rd]." | Real-time, podium changes only |
 | Overtake digest | "3 people passed you today. You're in [rank] place." | One evening digest for non-podium overtakes |
 | Day ending soon | "1 hour left. You're in [rank] place. Push." | 11:00 PM local |
@@ -604,8 +619,8 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 
 **Rules (v1.3 — overtakes bundled + rank-aware):**
 - With background sync free for all, raw overtake events could fire 15+/day in an active squad; notification fatigue → user disables notifications → the FOMO loop dies. Individual overtake pushes fire **only** on podium changes (max 2–3/day); everything else collapses into the evening digest.
-- Max 3 push notifications/day (configurable) — sabotage always sends regardless
-- No notifications between 10 PM and 7 AM local except sabotage (opt-in)
+- Max 3 push notifications/day (configurable) — a completed goal always sends regardless. It is once per commitment and the user asked for it, which is a better claim on the exemption than sabotage had.
+- No notifications between 10 PM and 7 AM local, **except the two that close out the day** — "day ending soon" (11 PM) and "day ends" (midnight) are scheduled inside the window by design, and they are the core evening loop rather than discretionary. Recorded as deviation #14.
 - All notifications deep-link to relevant screen
 
 ---
@@ -616,8 +631,8 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 **Goal:** Does the core loop bring people back daily — and does it survive week 3?
 
 **The four risk questions the beta must answer** (D7-with-friends was a weak bar — friends retain out of loyalty):
-1. **Week 3+ competitive stamina** — does daily score-checking survive after novelty fades and a perpetual winner/loser emerges? (Measure D21, not D7.)
-2. **Sabotage → fun, not resentment** — does getting bananaed at 11 PM produce group-chat laughter or quiet churn? Qualitative: watch the group chat, interview the losers.
+1. **Week 3+ stamina** — does daily score-checking survive after novelty fades? For solo users this is the whole question: the character, the streak and the goal are all they have. For squads, add "and after a perpetual winner emerges". (Measure D21, not D7.)
+2. **Does a self-set target survive a bad week?** — someone who commits to 25 of 30 days and misses four in a row can no longer make it. Do they abandon the goal, set a new one, or churn? This is the question sabotage sentiment used to occupy, and it is the one goals live or die on. Qualitative: interview everyone who misses a goal.
 3. **Stranger-squad validity** — at least 2–3 squads of people with zero loyalty to the founder.
 4. **Score fairness perception** — do gym-goers, walkers, and desk workers all feel the scoring is winnable for their lifestyle?
 
@@ -633,12 +648,12 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 - Character creation (name only — **single Hunter class, AI-placeholder static art**)
 - Squad creation + invite (up to 6 members)
 - Daily leaderboard (composite score, **tiers + score visibility only**)
-- **1 sabotage item (Banana only)** — enough to test the sabotage-sentiment question
-- Push notifications (sabotage + day end + conditional day start)
+- **Goals** — personal and squad, cumulative and consistency, over any window
+- Push notifications (day end + conditional day start + goal completed)
 - Solo mode (basic — character progresses without squad)
 - Basic profile screen
 
-**Does NOT include (v1.3 cuts in bold):** Shop, IAP, subscription, ads, AI recap, Android, **coin economy (no currency at all in beta — sabotage items via daily grant only)**, **Bat item**, **class selection**
+**Does NOT include (v1.3 cuts in bold):** Shop, IAP, subscription, ads, AI recap, Android, **coin economy (no currency at all in beta)**, **class selection**
 
 ### V1 — Public App Store Launch
 Everything in MVP plus:
@@ -648,8 +663,8 @@ Everything in MVP plus:
 - Monetization in sequence: **V1.0 AdMob rewarded ads → V1.1 coin packs (StoreKit) → V1.2 Legendary subscription (RevenueCat, with price A/B test)**
 - AI weekly recap card (Claude API) with celebrate-up/tease-gently privacy rules
 - Shareable recap card to Stories
-- V1 sabotage items (bat, shield, boost, spy, bomb) + deploy caps
-- Full referral system with war declaration framing
+- Goal slot caps + the extra-slot coin sink
+- Full referral system with shared-target framing
 - Referral leaderboard
 - Complete notification system
 - Streak system + milestones (incl. N-of-M squad streak)
@@ -657,7 +672,9 @@ Everything in MVP plus:
 
 **App Store positioning (v1.3):** Health & Fitness primary (ranks directly against Stompers/Charlie, matches how people search: "step competition app", "fitness with friends"), Social Networking secondary. Not Games — game browsers aren't looking to walk 10k steps.
 
-**Growth engines (v1.3):** the in-product **war-declaration referral funnel** is the primary engine to optimize; **recap-card UGC** (make the Sunday card irresistibly shareable — design > all) and **TikTok PH content** (sabotage-drama skits, barkada POVs, build-in-public) feed it. Campus ambassador squads deferred as a secondary play.
+**Growth engines (v1.4):** the in-product **shared-target referral funnel** is the primary engine to optimize; **recap-card UGC** (make the Sunday card irresistibly shareable — design > all) and **TikTok PH content** (barkada POVs, 30-day-challenge arcs, build-in-public) feed it. Campus ambassador squads deferred as a secondary play.
+
+Both named v1.3 engines leaned on antagonism — the war declaration, and sabotage-drama skits. The replacement premise is the **arc**: someone committing to 30 days and posting the finish is a stronger and far more repeatable content shape than a prank, and it is the format PH fitness TikTok already runs on. Untested, and it is the biggest open question in the growth plan.
 
 ### V1.5 — Android + Scale Features
 - Android build (React Native port)
@@ -775,10 +792,10 @@ Shields can also be purchased with coins (50 coins per shield, max 2 banked) for
 1. **Free users make it viral. Paid users make it profitable.** Never paywall the core competitive loop.
 2. **Zero manual input for competitive metrics.** Health data from HealthKit/Health Connect only.
 3. **Social embarrassment is the anti-cheat system.** Flag anomalies to the squad, not to admins.
-4. **The sabotage mechanic is the soul of the product.** Every feature should serve the emotional cocktail of competition + character investment + friend chaos.
+4. **The score must never lie about the user's own effort.** ~~The sabotage mechanic is the soul of the product.~~ — **overturned at v1.4.** Sabotage was the one mechanic that could reduce a day somebody actually earned, and a number that can be taken from you cannot also be the thing you are proud of. Every feature should serve the cocktail of *personal* progress + character investment + friends who are in it with you. Competition stays; taking points off another player does not.
 5. **Ship MVP before adding anything.** No AI, no shop, no ads until Day 7 retention is validated.
 6. **The recap card is the organic acquisition engine.** Every Sunday is a free marketing event.
-7. **The referral is a challenge, not an invitation.** Ego drives downloads faster than feature lists.
+7. **The referral is a shared commitment, not a cold invitation.** Ego still drives downloads faster than feature lists — but "do this with me" carries it without needing someone to lose first (v1.4).
 8. **Daily cutoff is 11:59 PM PHT, not 9 PM.** This was Stompers' most complained-about limitation. Own that gap from day one.
 
 ---
@@ -850,4 +867,6 @@ Kairo is the only name in that set that sounds premium. It belongs to a differen
 v1.0 — Initial draft (GrindSquad working title)  
 v1.1 — App name confirmed as Kairo, brand section added  
 v1.2 — Health metrics revised: sleep removed from core scoring, VIT redefined as hourly movement consistency, REC added as wearable-only bonus stat, contribution-based scoring tiers added, streak system + Streak Shield added, weekly specialization layer added  
+v1.4 — Sabotage removed, solo-first repositioning (August 2026): §8 replaced entirely by the **Goal System** — personal and squad goals, cumulative and consistency shapes, any window from days to years, scored off `daily_scores.total` and projected at read time; **§20 principle #4 formally overturned** ("the sabotage mechanic is the soul of the product" → "the score must never lie about the user's own effort"), which is the reason this is a version bump and not an edit; §1 repositioned solo-first with squads as an optional layer; §2's middle engagement hook changed from the sabotage alert to a goal in flight, so a solo user now has two of three hooks instead of one; §9 reframed from "The War Declaration" to "The Shared Target"; §14's budget exemption transfers from `sabotaged` to `goal_completed` and the quiet-hours exception is restated around the day-boundary pair; §15 beta risk #2 changed from sabotage sentiment to "does a self-set target survive a bad week"; Legendary loses two sabotage perks and gains a goal-slot cap; two of four rewarded-ad moments deleted **with no replacement designed** (largest open item); growth engines re-premised on the 30-day arc rather than prank content; the squad leaderboard, per-user local days, tier scoring, streaks, the Streak Shield, anti-cheat and squad programs are all unchanged.
+
 v1.3 — Design interview pass (July 2026): background sync free for all users (removed as Legendary perk); Bat redefined as banked freeze with midnight risk, moved to V1; server-authoritative scoring via hourly bucket upserts + Edge Functions; per-user local days with ~2h grace-window finalization; sabotage as immutable event log; late-sync backfill counts for streaks/XP but not rankings; anti-cheat velocity flag gains workout cross-check; squad visibility limited to tiers + score; Spy item redefined (momentum, not raw steps); daily sabotage deploy caps (2 free / 3 Legendary); MVP cut to 1 class (Hunter, AI placeholder art), Banana only, no coin economy; onboarding reordered character-first; notifications bundled + rank-aware; squad streak softened to N-of-M; recap cards celebrate up / tease gently with opt-out; coin economy tuned for first cosmetic in 7–10 days; Legendary price to be A/B tested; four designed rewarded-ad moments; revenue rollout sequenced ads → packs → subscription; stack moved from bare RN to Expo prebuild + EAS; Solo Leveling IP internal-reference-only; App Store category Health & Fitness; beta redesigned as 5–6 squads × 6 weeks with stranger squads and D21 focus

@@ -52,8 +52,8 @@ describe('dominantStat', () => {
     expect(dominantStat(points(0, 500, 500, 0))).toBe('STR');
   });
 
-  // sabotage_delta applies to the day's total, not to a stat, so a negative
-  // stat should not exist — but a silhouette must not depend on that holding.
+  // Stat points are non-negative by construction, so a negative stat should not
+  // exist — but a silhouette must not depend on that holding.
   it('treats an all-negative day as unstarted', () => {
     expect(dominantStat(points(-10, -5, -20, -1))).toBeNull();
   });

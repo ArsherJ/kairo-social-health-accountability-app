@@ -1,6 +1,12 @@
 # MVP completion plan
 
-**Status:** approved 2026-08-07. All five decisions resolved; nothing built yet.
+**Status:** approved 2026-08-07, executed. **Workstream A is void as of
+2026-08-09** — sabotage was removed (spec v1.4 §1, roadmap deviation #17), and
+everything A specified has been deleted along with it, including plan decision
+#1 (the `DAILY_ITEM_GRANT_FREE = 2` tuning, retired as deviation #13). Decision
+#2 survives, minus `sabotaged` from both exempt lists. Workstreams B, C and D
+are unaffected. This document is left as the historical record of what was
+sequenced and why; read `docs/roadmap.md` for current status.
 
 Each workstream now has an implementation spec, and where a spec contradicts
 this document the spec wins — it was written against the code:

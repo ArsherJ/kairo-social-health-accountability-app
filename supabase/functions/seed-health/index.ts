@@ -27,7 +27,7 @@ import {
  *      rather than instead of them.
  *
  * It writes health_buckets and then rescores through the same helper as
- * deploy-sabotage and finalize-days. It never writes daily_scores directly:
+ * finalize-days. It never writes daily_scores directly:
  * a fabricated total would mean the UI is verified against numbers the
  * scoring engine never produced.
  */

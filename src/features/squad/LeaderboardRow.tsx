@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CORE_STATS } from '@kairo/core';
 import { boostChipLabel } from './program-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
-import { colors, font, ramp, radius, shadow, space, tierColor } from '@/theme.ts';
+import { colors, font, ramp, radius, space, tierColor } from '@/theme.ts';
 import { Avatar, Numeral } from '@/ui/index.ts';
 
 /**
@@ -20,15 +20,9 @@ import { Avatar, Numeral } from '@/ui/index.ts';
 export function LeaderboardRow({
   row,
   mode,
-  remaining = 0,
-  onDeploy,
 }: {
   row: Row;
   mode: LeaderboardMode;
-  /** The caller's own bananas left today. Gates the affordance, shown on self. */
-  remaining?: number;
-  /** Absent on the solo board, where there is nobody to throw at. */
-  onDeploy?: (row: Row) => void;
 }) {
   const isLeader = row.rank === 1;
 
@@ -115,37 +109,6 @@ export function LeaderboardRow({
         color={row.is_self ? ramp.accent[800] : colors.text}
       />
 
-      {/* Your own ammunition, where you already look for your own row.
-          Rendered from the ledger's default when no row exists yet, so a new
-          user sees what they have before spending any of it. */}
-      {row.is_self && onDeploy && (
-        <View style={styles.ammo}>
-          <Text style={styles.ammoLabel}>🍌{remaining}</Text>
-        </View>
-      )}
-
-      {/* Deliberately still active on the "Yesterday" board: a hit always
-          lands on the target's CURRENT day, resolved server-side from their
-          timezone. Disabling it there would imply you can sabotage the past. */}
-      {!row.is_self && onDeploy && (
-        <Pressable
-          accessibilityRole="button"
-          // The emoji alone announces as "banana", which says nothing about
-          // what tapping it does.
-          accessibilityLabel={`Throw a banana at ${row.character_name}`}
-          accessibilityState={{ disabled: remaining === 0 }}
-          disabled={remaining === 0}
-          onPress={() => onDeploy(row)}
-          hitSlop={space.xs}
-          style={({ pressed }) => [
-            styles.deploy,
-            remaining === 0 && styles.deploySpent,
-            pressed && styles.deployPressed,
-          ]}
-        >
-          <Text style={styles.deployLabel}>🍌</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -197,23 +160,4 @@ const styles = StyleSheet.create({
   boostLabel: { ...font.body.label, fontSize: 9, color: ramp.sage[900] },
   dots: { flexDirection: 'row', gap: 3, marginLeft: 2 },
   dot: { width: 7, height: 7, borderRadius: radius.pill },
-  ammo: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.neutral[100],
-  },
-  ammoLabel: { ...font.body.label, fontSize: 11, color: ramp.neutral[700], letterSpacing: 0 },
-  deploy: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.neutral[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.sm,
-  },
-  deploySpent: { opacity: 0.35 },
-  deployPressed: { opacity: 0.7 },
-  deployLabel: { fontSize: 19 },
 });

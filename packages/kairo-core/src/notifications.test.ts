@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BUDGET_EXEMPT,
   MAX_NOTIFICATIONS_PER_DAY,
   QUIET_HOURS,
   countsAgainstBudget,
@@ -9,12 +10,13 @@ import {
 } from './notifications.ts';
 
 describe('what counts against the budget', () => {
-  it('excludes sabotage and includes the scheduled triggers', () => {
-    // The sender reads sentToday with this same predicate. If a logged sabotage
-    // send counted, being hit in the afternoon would silently cost the user
-    // their day-end push — which is the cap applying to a trigger §14 exempts
-    // from it, by the back door.
-    expect(countsAgainstBudget('sabotaged')).toBe(false);
+  it('exempts a completed goal and counts every scheduled trigger', () => {
+    // The sender reads sentToday with this same predicate. If a logged
+    // goal_completed counted, hitting a goal in the evening would silently cost
+    // the user their day-end push — the cap applying to a trigger it exempts, by
+    // the back door.
+    expect(BUDGET_EXEMPT).toEqual(['goal_completed']);
+    expect(countsAgainstBudget('goal_completed')).toBe(false);
     expect(countsAgainstBudget('day_starts')).toBe(true);
     expect(countsAgainstBudget('day_ending_soon')).toBe(true);
     expect(countsAgainstBudget('day_ends')).toBe(true);
@@ -50,11 +52,6 @@ describe('quiet hours', () => {
     // The window wraps. A `from <= h && h < to` predicate is empty for 22 -> 7
     // and would silently disable quiet hours entirely.
     expect(plan([candidate('day_starts')], 3)).toEqual([]);
-  });
-
-  it('does not suppress sabotage', () => {
-    const sabotage = candidate('sabotaged');
-    expect(plan([sabotage], 3)).toEqual([sabotage]);
   });
 
   it('does not suppress the day-boundary pair, which §14 schedules inside the window', () => {
@@ -143,23 +140,29 @@ describe('the daily budget', () => {
     );
   });
 
-  it('sends sabotage with the budget long gone', () => {
-    const sabotage = candidate('sabotaged');
-    expect(plan([sabotage], 12, 99)).toEqual([sabotage]);
+  it('applies the budget to the quiet-hours-exempt pair, which is not budget-exempt', () => {
+    // The two lists are separate on purpose. `day_ends` bypasses quiet hours
+    // and still has to pay the budget — collapsing the lists would silently
+    // make the day-boundary pair unlimited.
+    expect(plan([candidate('day_ends')], 0, MAX_NOTIFICATIONS_PER_DAY)).toEqual([]);
   });
 
-  it('sends sabotage at 03:00 with the budget gone — both rules bypassed at once', () => {
-    const sabotage = candidate('sabotaged');
-    expect(plan([sabotage], 3, 99)).toEqual([sabotage]);
+  it('sends a completed goal with the budget long gone', () => {
+    const done = candidate('goal_completed');
+    expect(plan([done], 12, 99)).toEqual([done]);
   });
 
-  it('does not let a sabotage send consume the budget the others share', () => {
-    // Budget exemption and quiet-hours exemption are separate lists on purpose;
-    // an exempt send must not crowd out a non-exempt one.
-    const sabotage = candidate('sabotaged');
+  it('does not let a completed goal consume the budget the others share', () => {
+    const done = candidate('goal_completed');
     const ends = candidate('day_ends');
-    const admitted = plan([sabotage, ends], 12, MAX_NOTIFICATIONS_PER_DAY - 1);
-    expect(admitted).toEqual([sabotage, ends]);
+    const admitted = plan([done, ends], 12, MAX_NOTIFICATIONS_PER_DAY - 1);
+    expect(admitted).toEqual([done, ends]);
+  });
+
+  it('still suppresses a completed goal during quiet hours', () => {
+    // Budget-exempt is not quiet-hours-exempt. Finalization runs ~2h after local
+    // midnight, so an unsuppressed goal push would land at 02:00.
+    expect(plan([candidate('goal_completed')], 2)).toEqual([]);
   });
 
   it('honours a caller-supplied maxPerDay', () => {
@@ -179,14 +182,14 @@ describe('purity', () => {
   it('preserves candidate order', () => {
     const candidates = [
       candidate('day_ends', 'a'),
-      candidate('sabotaged', 'b'),
+      candidate('day_ending_soon', 'b'),
       candidate('day_starts', 'c'),
     ];
     expect(plan(candidates, 12).map((c) => c.userId)).toEqual(['a', 'b', 'c']);
   });
 
   it('does not mutate the input array or its candidates', () => {
-    const candidates = [candidate('day_starts'), candidate('sabotaged')];
+    const candidates = [candidate('day_starts'), candidate('day_ends')];
     const snapshot = JSON.parse(JSON.stringify(candidates)) as Candidate[];
     plan(candidates, 3, 99);
     expect(candidates).toEqual(snapshot);

@@ -1,0 +1,208 @@
+import { useCallback } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { currentLocalDate, evaluateSquadGoal, goalWindowDays } from '@kairo/core';
+import { useSessionStore } from '@/features/auth/session.ts';
+import { useProfile } from '@/features/profile/queries.ts';
+import { GoalBar } from '@/features/goals/GoalBar.tsx';
+import {
+  progressLine,
+  shortDate,
+  squadRequirementLine,
+  statusLine,
+} from '@/features/goals/goal-copy.ts';
+import { useAbandonGoal } from '@/features/goals/mutations.ts';
+import { toGoal, useGoalDetail } from '@/features/goals/queries.ts';
+import { colors, font, ramp, radius, space } from '@/theme.ts';
+import { Avatar, BackRow, Label, Screen } from '@/ui/index.ts';
+
+/**
+ * One goal, in full: the window, your own bar, and where everybody else on it
+ * has got to.
+ *
+ * A stacked route rather than a tab. Goals are reached from the two cards that
+ * summarise them, and `TabPill` is a four-item orbit nav at three items — adding
+ * a fifth surface to the shell for something you visit occasionally would cost
+ * the nav its shape.
+ */
+export default function GoalDetail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const session = useSessionStore((s) => s.session);
+  const userId = session?.user.id;
+  const profile = useProfile(userId);
+  // The user's OWN local date (§2), not the device's calendar date — the same
+  // derivation every other screen uses. A goal window abroad would otherwise be
+  // measured against the wrong day.
+  const timeZone = profile.data?.timezone;
+  const today = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
+
+  const detail = useGoalDetail(id, userId, today);
+  const abandon = useAbandonGoal(userId);
+
+  const confirmAbandon = useCallback(() => {
+    if (!id) return;
+    const shared = Boolean(detail.data?.row.squad_id);
+    Alert.alert(
+      shared ? 'Leave this goal?' : 'Abandon this goal?',
+      shared
+        ? 'You come off the roster. The squad keeps the goal, and the target it needs does not change.'
+        : 'The goal and its progress go. This cannot be undone.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: shared ? 'Leave' : 'Abandon',
+          style: 'destructive',
+          onPress: () =>
+            abandon.mutate(id, {
+              onSuccess: () => router.back(),
+            }),
+        },
+      ],
+    );
+  }, [abandon, detail.data?.row.squad_id, id, router]);
+
+  if (detail.isPending) {
+    return (
+      <Screen>
+        <BackRow onPress={() => router.back()} />
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (detail.isError || !detail.data) {
+    return (
+      <Screen>
+        <BackRow onPress={() => router.back()} />
+        <View style={styles.centered}>
+          <Text style={styles.empty}>
+            {detail.error?.message ?? 'That goal is no longer here.'}
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  const { row, standings } = detail.data;
+  const windowDays = goalWindowDays(toGoal(row));
+  const mine = standings.find((s) => s.isSelf);
+  const shared = row.squad_id !== null;
+
+  const rollup = shared
+    ? evaluateSquadGoal(
+        standings.map((s) => ({ userId: s.userId, result: s.progress })),
+        row.required_members ?? standings.length,
+      )
+    : null;
+
+  return (
+    <Screen scroll>
+      <BackRow onPress={() => router.back()} />
+
+      <Label tone={shared ? 'sage' : 'accent'}>{shared ? 'SQUAD GOAL' : 'YOUR GOAL'}</Label>
+      <Text style={styles.title}>{row.title}</Text>
+      <Text style={styles.window}>
+        {shortDate(row.starts_on, today ?? row.starts_on)} –{' '}
+        {shortDate(row.ends_on, today ?? row.ends_on)} · {windowDays} days
+        {row.kind === 'consistency' && ` · ${row.target.toLocaleString()} a day`}
+      </Text>
+
+      {rollup && standings.length > 0 && (
+        <Text style={styles.rollup}>
+          {squadRequirementLine(rollup.membersMet, rollup.requiredMembers, standings.length)}
+        </Text>
+      )}
+
+      {mine && (
+        <View style={styles.mine}>
+          <GoalBar row={row} standing={mine} windowDays={windowDays} showTitle={false} />
+        </View>
+      )}
+
+      {shared && standings.length > 1 && (
+        <>
+          <Text style={styles.section}>Everyone on it</Text>
+          {standings.map((standing) => (
+            <View
+              key={standing.userId}
+              style={[styles.member, standing.isSelf && styles.memberSelf]}
+            >
+              <Avatar name={standing.characterName} self={standing.isSelf} />
+              <View style={styles.memberBody}>
+                <Text style={styles.memberName} numberOfLines={1}>
+                  {standing.characterName || 'Someone'}
+                </Text>
+                <Text style={styles.memberMeta}>
+                  {progressLine(row.kind, standing.progress)} · {statusLine(standing.progress)}
+                </Text>
+              </View>
+              {/* The latched fact, not the computed one. A member whose day has
+                  not finalized yet can be `met` locally and still not have the
+                  completion the server pays XP from. */}
+              {standing.completed && <Text style={styles.tick}>✓</Text>}
+            </View>
+          ))}
+        </>
+      )}
+
+      {/* At the foot and styled as quiet text, not a header icon: this is rare,
+          irreversible, and must not sit next to anything tapped every day. Same
+          treatment as leaving a squad. */}
+      <View style={styles.leaveBlock}>
+        {abandon.isError && <Text style={styles.error}>{abandon.error.message}</Text>}
+        <Pressable
+          accessibilityRole="button"
+          disabled={abandon.isPending}
+          onPress={confirmAbandon}
+          style={({ pressed }) => [styles.leave, pressed && styles.pressed]}
+        >
+          <Text style={styles.leaveLabel}>
+            {shared ? 'Leave this goal' : 'Abandon this goal'}
+          </Text>
+        </Pressable>
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.lg },
+  empty: { ...font.body.body, fontSize: 14, color: colors.muted, textAlign: 'center' },
+  title: { ...font.display.small, fontSize: 24, color: colors.text, marginTop: space.xs },
+  window: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.xs },
+  rollup: { ...font.body.strong, fontSize: 12.5, color: ramp.sage[800], marginTop: space.sm },
+  mine: { marginTop: space.lg },
+  section: {
+    ...font.body.label,
+    textTransform: 'uppercase',
+    color: ramp.neutral[600],
+    marginTop: space.xl,
+  },
+  member: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.sm,
+    paddingVertical: 12,
+    paddingHorizontal: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+  },
+  memberSelf: {
+    backgroundColor: ramp.accent[200],
+    borderWidth: 2,
+    borderColor: ramp.accent[500],
+  },
+  memberBody: { flex: 1, minWidth: 0 },
+  memberName: { ...font.display.small, fontSize: 16, color: colors.text },
+  memberMeta: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700], marginTop: 2 },
+  tick: { ...font.display.minor, color: ramp.sage[800] },
+  leaveBlock: { marginTop: space.xl, alignItems: 'center', gap: space.sm },
+  leave: { paddingVertical: space.sm, paddingHorizontal: space.md },
+  leaveLabel: { ...font.body.strong, fontSize: 12.5, color: ramp.neutral[600] },
+  pressed: { opacity: 0.6 },
+  error: { ...font.body.strong, fontSize: 12.5, color: ramp.accent[900] },
+});

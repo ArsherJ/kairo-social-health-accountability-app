@@ -57,7 +57,7 @@ export interface DailyScore {
   recBonus: number;
   /** Whether the user has sleep data at all — controls the leaderboard's wearable icon. */
   hasRec: boolean;
-  /** Total from health alone, before any sabotage effects are replayed. */
+  /** The day's whole score, from this user's own activity. Nothing reduces it. */
   healthTotal: number;
   xp: number;
   featuredStat: CoreStat | null;

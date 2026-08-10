@@ -83,7 +83,6 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900 },
       consistencyBonus: 400,
       recBonus: 500,
-      sabotageDelta: 0,
     });
     expect(total).toBe(3_200);
   });
@@ -95,7 +94,6 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900 },
       consistencyBonus: 400,
       recBonus: 500,
-      sabotageDelta: 0,
     });
     expect(total).toBe(3_650);
   });
@@ -108,31 +106,18 @@ describe('weightedBoardTotal', () => {
       statPoints: NO_POINTS,
       consistencyBonus: 800,
       recBonus: 500,
-      sabotageDelta: 0,
     });
     expect(total).toBe(1_300);
   });
 
-  it('applies sabotage after weighting, unweighted', () => {
+  it('weights only the boosted stat when it is the only one scored', () => {
     const total = weightedBoardTotal({
       program: 'gym',
       statPoints: { AGI: 0, STR: 900, END: 0, VIT: 0 },
       consistencyBonus: 0,
       recBonus: 0,
-      sabotageDelta: -500,
     });
-    expect(total).toBe(850);
-  });
-
-  it('floors a sabotaged day at zero rather than going negative', () => {
-    const total = weightedBoardTotal({
-      program: 'running',
-      statPoints: NO_POINTS,
-      consistencyBonus: 0,
-      recBonus: 0,
-      sabotageDelta: -500,
-    });
-    expect(total).toBe(0);
+    expect(total).toBe(1_350);
   });
 
   it('rounds the weighted stat sum to an integer', () => {
@@ -143,7 +128,6 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 125, STR: 0, END: 0, VIT: 0 },
       consistencyBonus: 0,
       recBonus: 0,
-      sabotageDelta: 0,
     });
     expect(total).toBe(188);
   });
@@ -155,7 +139,6 @@ describe('weightedBoardTotal', () => {
         statPoints: NO_POINTS,
         consistencyBonus: 0,
         recBonus: 0,
-        sabotageDelta: 0,
       }),
     ).toBe(0);
   });

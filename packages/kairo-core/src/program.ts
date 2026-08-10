@@ -87,17 +87,19 @@ export interface WeightedBoardInput {
   statPoints: Record<CoreStat, number>;
   consistencyBonus: number;
   recBonus: number;
-  /** Signed; negative for a hit taken. */
-  sabotageDelta: number;
 }
 
 /**
  * The number a squad member is ranked on.
  *
- * Only the four stats are weighted. The consistency bonus, REC and sabotage
- * stay universal (§5) — a program tilts what activity is worth, never the
- * reward for showing up on all four stats, for sleeping, or the cost of being
- * hit. Floored at zero, like every total the product shows.
+ * Only the four stats are weighted. The consistency bonus and REC stay
+ * universal (§5) — a program tilts what activity is worth, never the reward for
+ * showing up on all four stats or for sleeping.
+ *
+ * The zero floor is unreachable now that every term is non-negative. It stays
+ * because the SQL mirror keeps its `greatest(0, …)`, and the differential test
+ * compares the two expressions — divergence here would be a difference the test
+ * cannot see.
  */
 export function weightedBoardTotal(input: WeightedBoardInput): number {
   let weighted = 0;
@@ -105,11 +107,7 @@ export function weightedBoardTotal(input: WeightedBoardInput): number {
     weighted += input.statPoints[stat] * programWeight(input.program, stat);
   }
 
-  const total =
-    Math.round(weighted) +
-    input.consistencyBonus +
-    input.recBonus +
-    input.sabotageDelta;
+  const total = Math.round(weighted) + input.consistencyBonus + input.recBonus;
 
   return Math.max(0, total);
 }

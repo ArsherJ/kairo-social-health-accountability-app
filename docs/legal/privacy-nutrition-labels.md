@@ -48,9 +48,11 @@ Everything below is therefore filed as **Data Linked to You**.
 - **Body metrics are filed under Health**, not as separate demographic types.
   They are collected only to improve Apple Health's active-energy estimate, they
   are optional, and they are owner-readable only.
-- **Sabotage events and daily scores are not separately declarable.** They are
-  derived from the health data already declared, and no App Store type
-  corresponds to them.
+- **Daily scores, goals and goal completions are not separately declarable.**
+  They are derived from the health data already declared, and no App Store type
+  corresponds to them. A goal's title is free text the user writes; it is filed
+  under the same Contact Info → Name conservatism as the character name, since
+  nothing stops someone typing a real name into it.
 
 ---
 

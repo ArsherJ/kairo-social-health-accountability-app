@@ -7,7 +7,7 @@ const base: PermissionAskInput = {
   notification: 'undetermined',
   notificationDismissed: false,
   hasSquad: true,
-  hasBeenSabotaged: false,
+  hasGoal: false,
   answeredAnAskThisSession: false,
 };
 
@@ -23,7 +23,7 @@ describe('which permission Kairo asks for', () => {
   it('asks for Health first, because it is the data source', () => {
     // Notifications with no health data would announce a day of zeroes. The
     // ask that unblocks every other feature goes first.
-    expect(nextPermissionAsk({ ...base, hasBeenSabotaged: true })).toBe('health');
+    expect(nextPermissionAsk({ ...base, notification: 'undetermined' })).toBe('health');
   });
 
   it('asks for notifications once Health has been answered', () => {
@@ -43,14 +43,9 @@ describe('which permission Kairo asks for', () => {
   });
 
   it('asks for nothing when Health is answered and the user has no why yet', () => {
-    // §5: every ask has a visible why. No squad, never hit — nothing to ask.
+    // §5: every ask has a visible why. No squad and no goal — nothing to ask.
     expect(
-      nextPermissionAsk({
-        ...base,
-        health: 'asked',
-        hasSquad: false,
-        hasBeenSabotaged: false,
-      }),
+      nextPermissionAsk({ ...base, health: 'asked', hasSquad: false, hasGoal: false }),
     ).toBe(null);
   });
 

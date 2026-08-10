@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { notificationCopy, ordinal, sabotageCopy } from './notification-copy.ts';
+import { notificationCopy, ordinal } from './notification-copy.ts';
 
 describe('ordinal', () => {
   it('uses the ordinary suffixes', () => {
@@ -19,15 +19,6 @@ describe('ordinal', () => {
     // for exactly three numbers, and a squad cap of 6 hides it — until the
     // referral leaderboard, which does not.
     expect([11, 12, 13].map(ordinal)).toEqual(['11th', '12th', '13th']);
-  });
-});
-
-describe('sabotage copy', () => {
-  it('is §14\'s sentence, split at the full stop', () => {
-    expect(sabotageCopy({ actorName: 'Jomar', scoreDelta: -500 })).toEqual({
-      title: 'Jomar hit you with a banana! 🍌',
-      body: "You're down 500 points.",
-    });
   });
 });
 
@@ -66,13 +57,5 @@ describe('day-boundary copy', () => {
       title: 'A new day begins.',
       body: 'Your Hunter is waiting. 👊',
     });
-  });
-
-  it('refuses to build sabotage copy without the actor', () => {
-    // Sabotage copy needs a name this signature does not carry, and a push
-    // reading "undefined hit you with a banana" is worse than no push.
-    expect(() => notificationCopy('sabotaged', { rank: 1, total: 0, inSquad: true })).toThrow(
-      /sabotageCopy/,
-    );
   });
 });

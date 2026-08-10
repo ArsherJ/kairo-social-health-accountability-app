@@ -137,7 +137,7 @@ export async function handleDeviceTokenRotation(deviceToken: string): Promise<vo
  * Drop this device's registration.
  *
  * Called on sign-out. Without it, the next person to sign in on this phone
- * keeps receiving the previous account's sabotage alerts until the server
+ * keeps receiving the previous account's notifications until the server
  * happens to try the token and FCM reports it dead — which it never will,
  * because the token is perfectly alive.
  *

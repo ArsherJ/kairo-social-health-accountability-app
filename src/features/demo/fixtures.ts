@@ -1,13 +1,11 @@
 import type { TodayScore } from '@/features/character/queries.ts';
 import type { Streak } from '@/features/profile/queries.ts';
-import type { DailyItems } from '@/features/sabotage/items.ts';
-import type { FeedEvent } from '@/features/sabotage/queries.ts';
 import type { LeaderboardRow, Squad } from '@/features/squad/queries.ts';
 
 /**
  * A squad mid-day, with everything the design mocks show actually happening.
  *
- * A fresh account has no streak, no squadmate and no incoming banana, so the
+ * A fresh account has no streak and no squadmate, so the
  * streak pill, the standing line and the hit callout are all invisible on a
  * simulator — including the bugs they hide. These fixtures make those states
  * reachable without writing a row anywhere.
@@ -105,10 +103,9 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
 ];
 
 /**
- * The components sum to 5,320 and the banana takes 500 off it, which is what
- * makes `total` 4,820 — the same number the board ranks you on. A fixture
- * whose parts did not add up would make the "includes N for consistency" line
- * on the home screen quietly wrong.
+ * The components sum to 5,320, which is what `total` must be — the same number
+ * the board ranks you on. A fixture whose parts did not add up would make the
+ * "includes N for consistency" line on the home screen quietly wrong.
  */
 export const DEMO_SCORE: TodayScore = {
   agi_points: 1850,
@@ -117,8 +114,7 @@ export const DEMO_SCORE: TodayScore = {
   vit_points: 700,
   rec_points: 300,
   consistency_points: 250,
-  sabotage_delta: -500,
-  total: 4820,
+  total: 5320,
   tiers: TIERS,
   contributing_stats: 4,
   status: 'provisional',
@@ -131,37 +127,3 @@ export const DEMO_STREAK: Streak = {
   last_scored_date: LOCAL_DATE,
   shield_available_on: null,
 };
-
-export const DEMO_ITEMS: DailyItems = { granted: 2, deployed: 0, remaining: 2 };
-
-const FOURTEEN_MINUTES_MS = 14 * 60_000;
-
-/**
- * One hit, Ramon on you, fourteen minutes before the toggle was switched on.
- *
- * Cached by `since` so the array keeps its identity across renders — the feed
- * is mapped straight into a list, and a fresh array every render would rebuild
- * it on every keystroke elsewhere on the screen.
- */
-let cachedSince = -1;
-let cachedFeed: FeedEvent[] = [];
-
-export function demoFeed(since: number): FeedEvent[] {
-  if (since !== cachedSince) {
-    cachedSince = since;
-    cachedFeed = [
-      {
-        id: 'demo-event-0000-0000-000000000000',
-        actor_id: RAMON_ID,
-        actor_name: 'Ramon',
-        target_id: SELF_ID,
-        target_name: 'You',
-        item: 'banana',
-        created_at: new Date(since - FOURTEEN_MINUTES_MS).toISOString(),
-        actor_is_self: false,
-        target_is_self: true,
-      },
-    ];
-  }
-  return cachedFeed;
-}

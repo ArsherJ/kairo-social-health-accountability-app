@@ -129,22 +129,20 @@ describe('account deletion', () => {
     await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
 
     await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27')`,
-      [leader, member, squad[0]!.id],
-    );
-    await h.asService(
       `insert into public.health_buckets (user_id, local_date, hour, steps)
        values ($1, '2026-07-27', 9, 4000)`,
+      [leader],
+    );
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, total)
+       values ($1, '2026-07-27', 500, 500)`,
       [leader],
     );
     return { leader, member, squadId: squad[0]!.id };
   }
 
   it('lets a squad leader delete their account', async () => {
-    // Right to erasure. Previously impossible: leader_id was ON DELETE RESTRICT
-    // and the append-only trigger rejected the sabotage cascade.
+    // Right to erasure. Previously impossible: leader_id was ON DELETE RESTRICT.
     const { leader } = await seedSquadWithHistory();
     await h.asService('delete from public.profiles where id = $1', [leader]);
     const rows = await h.asService(
@@ -177,16 +175,18 @@ describe('account deletion', () => {
     expect(rows).toEqual([]);
   });
 
-  it('erases the deleted user’s health and sabotage rows', async () => {
+  it('erases the deleted user’s health and score rows', async () => {
+    // The erasure guarantee docs/legal/privacy-policy.md makes. Every table
+    // holding subject data cascades from profiles.
     const { leader } = await seedSquadWithHistory();
     await h.asService('delete from public.profiles where id = $1', [leader]);
-    const rows = await h.asService<{ buckets: number; events: number }>(
+    const rows = await h.asService<{ buckets: number; scores: number }>(
       `select
          (select count(*)::int from public.health_buckets where user_id = $1) as buckets,
-         (select count(*)::int from public.sabotage_events where actor_id = $1) as events`,
+         (select count(*)::int from public.daily_scores  where user_id = $1) as scores`,
       [leader],
     );
-    expect(rows[0]).toEqual({ buckets: 0, events: 0 });
+    expect(rows[0]).toEqual({ buckets: 0, scores: 0 });
   });
 
   it('survives a bulk purge that deletes a whole squad at once', async () => {
@@ -226,25 +226,12 @@ describe('account deletion', () => {
     expect(orphans).toEqual([]);
   });
 
-  it('still refuses a casual delete of the sabotage log', async () => {
-    // The audit guarantee has to survive the erasure escape hatch.
-    const { squadId } = await seedSquadWithHistory();
-    await rejects(
-      h.asService('delete from public.sabotage_events where squad_id = $1', [squadId]),
-      /append-only/,
-    );
-  });
-
-  it('still refuses UPDATE on the sabotage log unconditionally', async () => {
-    const { squadId } = await seedSquadWithHistory();
-    await rejects(
-      h.asService(
-        `update public.sabotage_events set item = 'banana' where squad_id = $1`,
-        [squadId],
-      ),
-      /append-only/,
-    );
-  });
+  // Two tests stood here, asserting that the append-only guarantee on
+  // sabotage_events survived the erasure escape hatch. That table is gone
+  // (20260809120000_remove_sabotage.sql), and `reject_mutation()` is now attached
+  // to no trigger at all — so there is nothing left to assert. The function and
+  // the `kairo.allow_purge` flag are deliberately left in place; see that
+  // migration's closing comment for why.
 });
 
 describe('finalizable_days', () => {
@@ -366,7 +353,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(13);
+    expect(rows[0]!.count).toBe(14);
   });
 
   it('enable row level security on every public table', async () => {
@@ -797,82 +784,6 @@ describe('health_buckets idempotency', () => {
         [user],
       ),
       /active_minutes/,
-    );
-  });
-});
-
-describe('sabotage log is immutable', () => {
-  async function seedSquadWithHit() {
-    const actor = await h.createUser();
-    const squad = await h.asUser<{ id: string; invite_code: string }>(
-      actor,
-      `select id, invite_code from public.create_squad('Chaos')`,
-    );
-    const target = await h.createUser();
-    await h.asUser(target, 'select public.join_squad($1)', [squad[0]!.invite_code]);
-
-    const event = await h.asService<{ id: string }>(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date, outcome)
-       values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27', '{"scoreDelta":-500}')
-       returning id`,
-      [actor, target, squad[0]!.id],
-    );
-    return { actor, target, squadId: squad[0]!.id, eventId: event[0]!.id };
-  }
-
-  it('rejects UPDATE even for the owning role', async () => {
-    const { eventId } = await seedSquadWithHit();
-    await rejects(
-      h.asService(`update public.sabotage_events set item = 'banana' where id = $1`, [
-        eventId,
-      ]),
-      /append-only/,
-    );
-  });
-
-  it('rejects DELETE even for the owning role', async () => {
-    const { eventId } = await seedSquadWithHit();
-    await rejects(
-      h.asService('delete from public.sabotage_events where id = $1', [eventId]),
-      /append-only/,
-    );
-  });
-
-  it('refuses a self-targeted hit', async () => {
-    const { actor, squadId } = await seedSquadWithHit();
-    await rejects(
-      h.asService(
-        `insert into public.sabotage_events
-           (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-         values ($1, $1, $2, 'banana', '2026-07-27', '2026-07-27')`,
-        [actor, squadId],
-      ),
-      /no_self_target/,
-    );
-  });
-
-  it('lets the target see the hit that landed on them', async () => {
-    const { target } = await seedSquadWithHit();
-    const seen = await h.asUser(
-      target,
-      'select id from public.sabotage_events where target_id = $1',
-      [target],
-    );
-    expect(seen).toHaveLength(1);
-  });
-
-  it('blocks clients from forging a deploy', async () => {
-    const { actor, target, squadId } = await seedSquadWithHit();
-    await rejects(
-      h.asUser(
-        actor,
-        `insert into public.sabotage_events
-           (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-         values ($1, $2, $3, 'banana', '2026-07-27', '2026-07-27')`,
-        [actor, target, squadId],
-      ),
-      /permission denied/i,
     );
   });
 });
@@ -1548,7 +1459,6 @@ describe('leaderboard program weighting', () => {
       vit: number;
       consistency?: number;
       rec?: number;
-      sabotage?: number;
     },
   ) {
     const leader = await h.createUser();
@@ -1561,8 +1471,8 @@ describe('leaderboard program weighting', () => {
     await h.asService(
       `insert into public.daily_scores
          (user_id, local_date, agi_points, str_points, end_points, vit_points,
-          consistency_points, rec_points, sabotage_delta, total)
-       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, $8, 0)`,
+          consistency_points, rec_points, total)
+       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, 0)`,
       [
         leader,
         day.agi,
@@ -1571,7 +1481,6 @@ describe('leaderboard program weighting', () => {
         day.vit,
         day.consistency ?? 0,
         day.rec ?? 0,
-        day.sabotage ?? 0,
       ],
     );
     const rows = await h.asUser<{ total: number; program: string }>(
@@ -1691,24 +1600,23 @@ describe('program weights agree with kairo-core', () => {
   // because a migration cannot import TypeScript. This is the
   // finalizable_days() / isFinalizable() precedent applied to the weights.
   const FIXTURES = [
-    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: 0 },
-    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500, sabotage: 0 },
-    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500, sabotage: 0 },
-    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0, sabotage: -500 },
-    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0, sabotage: -500 },
+    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0 },
+    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 },
+    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500 },
+    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
     // future one from producing them.
-    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0, sabotage: 0 },
-    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0, sabotage: 0 },
+    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0 },
+    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
     for (const program of SQUAD_PROGRAMS) {
       for (const f of FIXTURES) {
         const rows = await h.asService<{ total: number }>(
-          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7, $8) as total`,
-          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec, f.sabotage],
+          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7) as total`,
+          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec],
         );
         expect({ program, ...f, total: rows[0]!.total }).toEqual({
           program,
@@ -1718,7 +1626,6 @@ describe('program weights agree with kairo-core', () => {
             statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
-            sabotageDelta: f.sabotage,
           }),
         });
       }
@@ -1735,193 +1642,6 @@ describe('program weights agree with kairo-core', () => {
         program,
       ]);
     }
-  });
-});
-
-describe('squad_feed', () => {
-  interface FeedRow {
-    id: string;
-    actor_id: string;
-    actor_name: string;
-    target_id: string;
-    target_name: string;
-    item: string;
-    created_at: Date;
-    actor_is_self: boolean;
-    target_is_self: boolean;
-  }
-
-  /** A squad of three, so "between two other people" is expressible. */
-  async function seedFeedSquad() {
-    const leader = await h.createUser({ characterName: 'Ana' });
-    const rows = await h.asUser<{ id: string; invite_code: string }>(
-      leader,
-      `select id, invite_code from public.create_squad('Feed')`,
-    );
-    const squadId = rows[0]!.id;
-    const jomar = await h.createUser({ characterName: 'Jomar' });
-    const ali = await h.createUser({ characterName: 'Ali' });
-    for (const u of [jomar, ali]) {
-      await h.asUser(u, 'select public.join_squad($1)', [rows[0]!.invite_code]);
-    }
-    return { leader, jomar, ali, squadId };
-  }
-
-  async function hit(
-    actor: string,
-    target: string,
-    squadId: string,
-    createdAt = '2026-08-07T10:00:00Z',
-  ) {
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, created_at,
-          actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', $4, '2026-08-07', '2026-08-07')`,
-      [actor, target, squadId, createdAt],
-    );
-  }
-
-  it('shows a member hits between two OTHER squadmates', async () => {
-    // Decision #3: the drama is the product. sabotage_events_select_involved
-    // returns only rows the caller is party to, which is why this projection
-    // has to exist at all.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId);
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed).toHaveLength(1);
-    expect(feed[0]).toMatchObject({
-      actor_name: 'Jomar',
-      target_name: 'Ali',
-      item: 'banana',
-      actor_is_self: false,
-      target_is_self: false,
-    });
-  });
-
-  it('projects names and the item only — no scores, no health, no outcome', async () => {
-    // Asserted as a key SET so a future `select *` widening fails here rather
-    // than in review. §5's privacy rule is a projection, not a convention.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId);
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(Object.keys(feed[0]!).sort()).toEqual([
-      'actor_id',
-      'actor_is_self',
-      'actor_name',
-      'created_at',
-      'id',
-      'item',
-      'target_id',
-      'target_is_self',
-      'target_name',
-    ]);
-  });
-
-  it('marks the caller on both sides of a hit', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(leader, ali, squadId, '2026-08-07T09:00:00Z');
-    await hit(jomar, leader, squadId, '2026-08-07T10:00:00Z');
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed.map((r) => [r.actor_is_self, r.target_is_self])).toEqual([
-      [false, true],
-      [true, false],
-    ]);
-  });
-
-  it('orders newest first', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await hit(jomar, ali, squadId, '2026-08-07T08:00:00Z');
-    await hit(ali, jomar, squadId, '2026-08-07T12:00:00Z');
-    await hit(jomar, ali, squadId, '2026-08-07T10:00:00Z');
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    const times = feed.map((r) => new Date(r.created_at).toISOString());
-    expect(times).toEqual([...times].sort().reverse());
-    expect(times[0]).toBe('2026-08-07T12:00:00.000Z');
-  });
-
-  it('honours p_limit', async () => {
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    for (let i = 0; i < 5; i += 1) {
-      await hit(jomar, ali, squadId, `2026-08-07T0${i}:00:00Z`);
-    }
-    const feed = await h.asUser<FeedRow>(
-      leader,
-      'select * from public.squad_feed($1, $2)',
-      [squadId, 2],
-    );
-    expect(feed).toHaveLength(2);
-  });
-
-  it('clamps an absurd p_limit rather than trusting it', async () => {
-    // A client-supplied bound on a SECURITY DEFINER function is an input, not
-    // a promise.
-    const { leader, jomar, ali, squadId } = await seedFeedSquad();
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, created_at,
-          actor_local_date, target_local_date)
-       select $1, $2, $3, 'banana',
-              timestamptz '2026-08-07T00:00:00Z' + (n || ' seconds')::interval,
-              '2026-08-07', '2026-08-07'
-       from generate_series(1, 205) as n`,
-      [jomar, ali, squadId],
-    );
-    const feed = await h.asUser<FeedRow>(
-      leader,
-      'select * from public.squad_feed($1, $2)',
-      [squadId, 10_000],
-    );
-    expect(feed).toHaveLength(200);
-  });
-
-  it('rejects a non-member', async () => {
-    const { squadId } = await seedFeedSquad();
-    const outsider = await h.createUser();
-    await rejects(
-      h.asUser(outsider, 'select * from public.squad_feed($1)', [squadId]),
-      /not a member of this squad/,
-    );
-  });
-
-  it('rejects an unauthenticated caller', async () => {
-    const { squadId } = await seedFeedSquad();
-    await rejects(
-      h.asService('select * from public.squad_feed($1)', [squadId]),
-      /permission denied|authentication required/,
-    );
-  });
-
-  it('never leaks another squad’s events, even ones aimed at the caller', async () => {
-    // MVP allows one squad per user, but the function is keyed by squad and
-    // has to behave that way regardless.
-    const { leader, squadId } = await seedFeedSquad();
-    const stranger = await h.createUser({ characterName: 'Stranger' });
-    const other = await h.asUser<{ id: string }>(
-      stranger,
-      `select id from public.create_squad('Elsewhere')`,
-    );
-    await hit(stranger, leader, other[0]!.id);
-
-    const feed = await h.asUser<FeedRow>(leader, 'select * from public.squad_feed($1)', [
-      squadId,
-    ]);
-    expect(feed).toEqual([]);
-    await rejects(
-      h.asUser(leader, 'select * from public.squad_feed($1)', [other[0]!.id]),
-      /not a member of this squad/,
-    );
   });
 });
 
@@ -1994,25 +1714,19 @@ describe('leave_squad', () => {
     expect(await leaderOf(squadId)).toBe(members[0]!);
   });
 
-  it('deletes the squad, and its sabotage log, when the last member leaves', async () => {
+  it('deletes the squad, and its membership rows, when the last member leaves', async () => {
     const { leader, members, squadId } = await seedSquad(1);
-    await h.asService(
-      `insert into public.sabotage_events
-         (actor_id, target_id, squad_id, item, actor_local_date, target_local_date)
-       values ($1, $2, $3, 'banana', '2026-08-07', '2026-08-07')`,
-      [leader, members[0]!, squadId],
-    );
 
     await h.asUser(members[0]!, 'select public.leave_squad($1)', [squadId]);
     await h.asUser(leader, 'select public.leave_squad($1)', [squadId]);
 
-    const rows = await h.asService<{ squads: number; events: number }>(
+    const rows = await h.asService<{ squads: number; memberships: number }>(
       `select
-         (select count(*)::int from public.squads where id = $1) as squads,
-         (select count(*)::int from public.sabotage_events where squad_id = $1) as events`,
+         (select count(*)::int from public.squads        where id = $1)       as squads,
+         (select count(*)::int from public.squad_members where squad_id = $1) as memberships`,
       [squadId],
     );
-    expect(rows[0]).toEqual({ squads: 0, events: 0 });
+    expect(rows[0]).toEqual({ squads: 0, memberships: 0 });
   });
 
   it('rejects a non-member and changes nothing', async () => {
@@ -2133,7 +1847,7 @@ describe('device_tokens', () => {
 
   it('re-points a token that changed hands instead of erroring or duplicating', async () => {
     // A phone sold or handed on keeps its APNs token. Accumulating a second row
-    // would push one person's sabotage alerts to another person's phone.
+    // would push one person's notifications to another person's phone.
     const first = await h.createUser();
     const second = await h.createUser();
     await h.asUser(first, `select public.register_device_token($1, 'ios')`, ['tok-b']);
@@ -2271,5 +1985,670 @@ describe('squad_leaderboard viewed on behalf of a user', () => {
       ]),
       /not a member of this squad/,
     );
+  });
+});
+
+describe('goals', () => {
+  /** A squad with `extra` members beyond the leader. */
+  async function seedSquad(extra: number) {
+    const leader = await h.createUser({ characterName: 'Leader' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad($1)`,
+      [`Goals ${Math.random().toString(36).slice(2, 8)}`],
+    );
+    const squadId = squad[0]!.id;
+    const members: string[] = [];
+    for (let i = 0; i < extra; i++) {
+      const m = await h.createUser({ characterName: `Member${i}` });
+      await h.asUser(m, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+      members.push(m);
+    }
+    return { leader, members, squadId };
+  }
+
+  async function personalGoal(userId: string) {
+    const rows = await h.asUser<{ id: string }>(
+      userId,
+      `select id from public.create_goal(
+         'Ten thousand', 'cumulative', 60000, '2026-01-01'::date, '2026-01-30'::date)`,
+    );
+    return rows[0]!.id;
+  }
+
+  describe('create_goal', () => {
+    it('creates a personal goal with the caller as its only participant', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      const rows = await h.asService<{ user_id: string }>(
+        'select user_id from public.goal_participants where goal_id = $1',
+        [goalId],
+      );
+      expect(rows).toEqual([{ user_id: user }]);
+    });
+
+    it('leaves required_members null on a personal goal', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      const rows = await h.asService<{ required_members: number | null }>(
+        'select required_members from public.goals where id = $1',
+        [goalId],
+      );
+      expect(rows[0]!.required_members).toBeNull();
+    });
+
+    it('freezes the whole squad onto a squad goal', async () => {
+      const { leader, members, squadId } = await seedSquad(2);
+      const goal = await h.asUser<{ id: string; required_members: number }>(
+        leader,
+        `select id, required_members from public.create_goal(
+           'Together', 'cumulative', 300000, '2026-01-01'::date, '2026-01-30'::date,
+           null, $1)`,
+        [squadId],
+      );
+      const rows = await h.asService<{ n: number }>(
+        'select count(*)::int as n from public.goal_participants where goal_id = $1',
+        [goal[0]!.id],
+      );
+      expect(rows[0]!.n).toBe(3);
+      // Defaults to everyone, which is what §8's "everyone must hit it" means.
+      expect(goal[0]!.required_members).toBe(3);
+    });
+
+    it('does not change a frozen roster when the squad gains a member', async () => {
+      // The whole reason the roster is a table rather than a live read: "everyone
+      // must hit it" is meaningless if the denominator moves mid-window.
+      const { leader, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal(
+           'Frozen', 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      const joiner = await h.createUser();
+      const code = await h.asService<{ invite_code: string }>(
+        'select invite_code from public.squads where id = $1',
+        [squadId],
+      );
+      await h.asUser(joiner, 'select public.join_squad($1)', [code[0]!.invite_code]);
+
+      const rows = await h.asService<{ n: number }>(
+        'select count(*)::int as n from public.goal_participants where goal_id = $1',
+        [goal[0]!.id],
+      );
+      expect(rows[0]!.n).toBe(2);
+    });
+
+    it('refuses a squad the caller is not in', async () => {
+      const { squadId } = await seedSquad(0);
+      const outsider = await h.createUser();
+      await rejects(
+        h.asUser(
+          outsider,
+          `select public.create_goal('Nope', 'cumulative', 1000,
+             '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+          [squadId],
+        ),
+        /not a member of this squad/,
+      );
+    });
+
+    it('clamps required_members to the roster rather than creating an unwinnable goal', async () => {
+      const { leader, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ required_members: number }>(
+        leader,
+        `select required_members from public.create_goal(
+           'Greedy', 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date,
+           null, $1, 9::smallint)`,
+        [squadId],
+      );
+      expect(goal[0]!.required_members).toBe(2);
+    });
+
+    it('rejects a consistency goal needing more days than its window has', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asUser(
+          user,
+          `select public.create_goal('Impossible', 'consistency', 2500,
+             '2026-01-01'::date, '2026-01-07'::date, 10::smallint)`,
+        ),
+        /exceeds the 7 day window/,
+      );
+    });
+
+    it('rejects an inverted window', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asUser(
+          user,
+          `select public.create_goal('Backwards', 'cumulative', 1000,
+             '2026-01-30'::date, '2026-01-01'::date)`,
+        ),
+        /goals_window_ordered/,
+      );
+    });
+
+    it('requires required_days on a consistency goal and forbids it otherwise', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asService(
+          `insert into public.goals
+             (created_by, title, kind, target, starts_on, ends_on)
+           values ($1, 'No days', 'consistency', 2500, '2026-01-01', '2026-01-30')`,
+          [user],
+        ),
+        /goals_required_days_iff_consistency/,
+      );
+      await rejects(
+        h.asService(
+          `insert into public.goals
+             (created_by, title, kind, target, required_days, starts_on, ends_on)
+           values ($1, 'Stray days', 'cumulative', 1000, 5, '2026-01-01', '2026-01-30')`,
+          [user],
+        ),
+        /goals_required_days_iff_consistency/,
+      );
+    });
+  });
+
+  describe('goals are fixed after creation', () => {
+    it('lets the creator rename a goal', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asUser(user, `update public.goals set title = 'Renamed' where id = $1`, [
+        goalId,
+      ]);
+      const rows = await h.asService<{ title: string }>(
+        'select title from public.goals where id = $1',
+        [goalId],
+      );
+      expect(rows[0]!.title).toBe('Renamed');
+    });
+
+    it('refuses to move the target', async () => {
+      // Changing a target mid-window silently re-grades every day already
+      // counted. The column grant is what makes this structural.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await rejects(
+        h.asUser(user, 'update public.goals set target = 1 where id = $1', [goalId]),
+        /permission denied|column .target./i,
+      );
+    });
+
+    it('refuses to move the window', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await rejects(
+        h.asUser(
+          user,
+          `update public.goals set ends_on = '2027-01-01' where id = $1`,
+          [goalId],
+        ),
+        /permission denied|column .ends_on./i,
+      );
+    });
+
+    it('blocks a client from inserting a goal directly', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asUser(
+          user,
+          `insert into public.goals (created_by, title, kind, target, starts_on, ends_on)
+           values ($1, 'Forged', 'cumulative', 1, '2026-01-01', '2026-01-02')`,
+          [user],
+        ),
+        /permission denied/i,
+      );
+    });
+  });
+
+  describe('visibility', () => {
+    it('hides a personal goal from everybody else', async () => {
+      const owner = await h.createUser();
+      const stranger = await h.createUser();
+      const goalId = await personalGoal(owner);
+      const rows = await h.asUser(
+        stranger,
+        'select id from public.goals where id = $1',
+        [goalId],
+      );
+      expect(rows).toEqual([]);
+    });
+
+    it('shows a squad goal to every squad member', async () => {
+      const { leader, members, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Shared', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      const seen = await h.asUser(
+        members[0]!,
+        'select id from public.goals where id = $1',
+        [goal[0]!.id],
+      );
+      expect(seen).toHaveLength(1);
+    });
+
+    it('hides a squad goal from a non-member', async () => {
+      const { leader, squadId } = await seedSquad(0);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Private', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      const outsider = await h.createUser();
+      const seen = await h.asUser(
+        outsider,
+        'select id from public.goals where id = $1',
+        [goal[0]!.id],
+      );
+      expect(seen).toEqual([]);
+    });
+
+    it('blocks a client from writing a completion', async () => {
+      // Completion pays XP. A client that could insert one could award itself
+      // unbounded XP, which is exactly what the service-role-only rule prevents.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await rejects(
+        h.asUser(
+          user,
+          `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+           values ($1, $2, '2026-01-30', 99999)`,
+          [goalId, user],
+        ),
+        /permission denied/i,
+      );
+    });
+
+    it('grants authenticated nothing beyond SELECT and the title column', async () => {
+      // Supabase's default privileges grant ALL on new public tables, and ALL
+      // includes TRUNCATE — which RLS does NOT restrict. `revoke insert, update,
+      // delete` would have left every goal in the system truncatable by any
+      // signed-in client. Not reachable through PostgREST, which only issues the
+      // four DML verbs, but the grant should not exist.
+      const rows = await h.asService<{ table_name: string; privs: string }>(
+        `select table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
+         from information_schema.table_privileges
+         where table_name in ('goals', 'goal_participants', 'goal_completions')
+           and grantee = 'authenticated'
+         group by table_name order by table_name`,
+      );
+      // SELECT and nothing else, on all three. A column-level UPDATE grant does
+      // not surface here — `column_privileges` is where `title` shows up, which
+      // is the next assertion and the reason both are needed.
+      expect(rows).toEqual([
+        { table_name: 'goal_completions', privs: 'SELECT' },
+        { table_name: 'goal_participants', privs: 'SELECT' },
+        { table_name: 'goals', privs: 'SELECT' },
+      ]);
+
+      const cols = await h.asService<{ column_name: string }>(
+        `select column_name from information_schema.column_privileges
+         where table_name = 'goals' and grantee = 'authenticated'
+           and privilege_type = 'UPDATE' order by column_name`,
+      );
+      expect(cols).toEqual([{ column_name: 'title' }]);
+    });
+
+    it('blocks a client from adding itself to somebody else’s goal', async () => {
+      const owner = await h.createUser();
+      const intruder = await h.createUser();
+      const goalId = await personalGoal(owner);
+      await rejects(
+        h.asUser(
+          intruder,
+          'insert into public.goal_participants (goal_id, user_id) values ($1, $2)',
+          [goalId, intruder],
+        ),
+        /permission denied/i,
+      );
+    });
+  });
+
+  describe('goal_window_scores', () => {
+    async function seedDay(userId: string, date: string, total: number, status = 'final') {
+      // Both uses of $4 are cast through text: without it Postgres deduces
+      // day_status from the column and text from the comparison, and refuses.
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, agi_points, total, status, finalized_at)
+         values ($1, $2, $3, $3, $4::text::public.day_status,
+                 case when $4::text = 'final' then now() end)`,
+        [userId, date, total, status],
+      );
+    }
+
+    it('returns only days inside the window', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2025-12-31', 999);
+      await seedDay(user, '2026-01-01', 100);
+      await seedDay(user, '2026-01-30', 200);
+      await seedDay(user, '2026-01-31', 888);
+
+      const rows = await h.asUser<{ local_date: string; total: number }>(
+        user,
+        'select local_date, total from public.goal_window_scores($1)',
+        [goalId],
+      );
+      expect(rows.map((r) => r.total)).toEqual([100, 200]);
+    });
+
+    it('reports status so the caller can exclude provisional days', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2026-01-01', 100, 'provisional');
+      const rows = await h.asUser<{ status: string }>(
+        user,
+        'select status from public.goal_window_scores($1)',
+        [goalId],
+      );
+      expect(rows[0]!.status).toBe('provisional');
+    });
+
+    it('returns a participant who has no scored day at all', async () => {
+      // The bug this covers, seen on device: the RPC inner-joined daily_scores,
+      // so a member who had not started vanished from a squad goal's roster —
+      // which is exactly what an "everyone must hit it" goal must not hide.
+      // squad_leaderboard already left-joins for the same reason.
+      const { leader, members, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Nobody moved', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      // Only the leader has a day; the member has none.
+      await seedDay(leader, '2026-01-02', 300);
+
+      const rows = await h.asUser<{ user_id: string; local_date: string | null }>(
+        leader,
+        'select user_id, local_date from public.goal_window_scores($1)',
+        [goal[0]!.id],
+      );
+      const users = new Set(rows.map((r) => r.user_id));
+      expect(users.size).toBe(2);
+      expect(users.has(members[0]!)).toBe(true);
+      // The scoreless member arrives as a single null-extended row.
+      const memberRows = rows.filter((r) => r.user_id === members[0]!);
+      expect(memberRows).toEqual([{ user_id: members[0]!, local_date: null }]);
+    });
+
+    it('still bounds a scored participant to the window after the left join', async () => {
+      // The date bound has to live in the ON clause. Moved to WHERE it would
+      // filter out the null-extended rows and quietly restore the inner join.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2025-12-31', 999);
+      await seedDay(user, '2026-01-05', 500);
+
+      const rows = await h.asUser<{ total: number | null }>(
+        user,
+        'select total from public.goal_window_scores($1)',
+        [goalId],
+      );
+      expect(rows).toEqual([{ total: 500 }]);
+    });
+
+    it('returns every participant on a squad goal', async () => {
+      const { leader, members, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Both', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      await seedDay(leader, '2026-01-02', 300);
+      await seedDay(members[0]!, '2026-01-02', 400);
+
+      const rows = await h.asUser<{ user_id: string; total: number }>(
+        leader,
+        'select user_id, total from public.goal_window_scores($1)',
+        [goal[0]!.id],
+      );
+      expect(rows).toHaveLength(2);
+      expect(rows.map((r) => r.total).sort()).toEqual([300, 400]);
+    });
+
+    it('serves a JWT-less caller that names a viewer, which is how finalize-days reads it', async () => {
+      // This is the bug the first version shipped with. finalize-days runs as the
+      // service role, so auth.uid() is null and the guard refused it — the goal
+      // pass failed silently into a goal_settle_failed event while the day still
+      // closed. squad_leaderboard already had p_as_user for the same reason.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2026-01-03', 700);
+
+      const rows = await h.asService<{ total: number }>(
+        'select total from public.goal_window_scores($1, $2)',
+        [goalId, user],
+      );
+      expect(rows).toEqual([{ total: 700 }]);
+    });
+
+    it('still refuses a JWT-less caller that names nobody', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await rejects(
+        h.asService('select * from public.goal_window_scores($1)', [goalId]),
+        /authentication required/,
+      );
+    });
+
+    it('ignores p_as_user when the caller has a JWT, so it cannot impersonate', async () => {
+      // coalesce((select auth.uid()), p_as_user) — deliberately not the reverse,
+      // which would let any authenticated client read a goal as somebody else.
+      const owner = await h.createUser();
+      const goalId = await personalGoal(owner);
+      const stranger = await h.createUser();
+      await rejects(
+        h.asUser(stranger, 'select * from public.goal_window_scores($1, $2)', [
+          goalId,
+          owner,
+        ]),
+        /not a participant in this goal/,
+      );
+    });
+
+    it('rejects a caller with no claim on the goal', async () => {
+      const owner = await h.createUser();
+      const goalId = await personalGoal(owner);
+      const stranger = await h.createUser();
+      await rejects(
+        h.asUser(stranger, 'select * from public.goal_window_scores($1)', [goalId]),
+        /not a participant in this goal/,
+      );
+    });
+
+    it('exposes no path to raw health data', async () => {
+      // §5 and deviation #4: the privacy rule is a projection, not a convention.
+      // The function's declared return type is what bounds it — a widening would
+      // have to change this signature, which is why asserting on it is worth more
+      // than asserting on one call's rows.
+      const signature = await h.asService<{ result: string }>(
+        `select pg_get_function_result(oid) as result from pg_proc
+         where proname = 'goal_window_scores'`,
+      );
+      const declared = signature[0]!.result;
+      expect(declared).not.toMatch(/steps|distance|kcal|minutes|hour|had_workout|heart/i);
+      expect(declared).not.toMatch(/agi|str|end_points|vit|tiers|consistency/i);
+      expect(declared).toMatch(/total integer/);
+    });
+  });
+
+  describe('abandon_goal', () => {
+    it('removes the caller and deletes a personal goal outright', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asUser(user, 'select public.abandon_goal($1)', [goalId]);
+      const rows = await h.asService('select id from public.goals where id = $1', [
+        goalId,
+      ]);
+      expect(rows).toEqual([]);
+    });
+
+    it('keeps a squad goal alive while anybody is still on it', async () => {
+      const { leader, members, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Persist', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      await h.asUser(members[0]!, 'select public.abandon_goal($1)', [goal[0]!.id]);
+      const rows = await h.asService<{ n: number }>(
+        `select (select count(*)::int from public.goals where id = $1) as n`,
+        [goal[0]!.id],
+      );
+      expect(rows[0]!.n).toBe(1);
+    });
+
+    it('rejects somebody who was never on it', async () => {
+      const owner = await h.createUser();
+      const goalId = await personalGoal(owner);
+      const stranger = await h.createUser();
+      await rejects(
+        h.asUser(stranger, 'select public.abandon_goal($1)', [goalId]),
+        /not a participant in this goal/,
+      );
+    });
+  });
+
+  describe('completion feeds the XP rollup', () => {
+    async function xpOf(userId: string) {
+      const rows = await h.asService<{ total_xp: number; level: number }>(
+        'select total_xp, level from public.profiles where id = $1',
+        [userId],
+      );
+      return rows[0]!;
+    }
+
+    it('adds goal XP on top of daily XP, without touching daily_scores', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, total, xp_awarded)
+         values ($1, '2026-01-05', 1000, 40)`,
+        [user],
+      );
+      expect((await xpOf(user)).total_xp).toBe(40);
+
+      await h.asService(
+        `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+         values ($1, $2, '2026-01-30', 164)`,
+        [goalId, user],
+      );
+      expect((await xpOf(user)).total_xp).toBe(204);
+
+      // The point of a separate table: a rescore replays xp_awarded from tier
+      // points and would have wiped goal XP written into that column.
+      const daily = await h.asService<{ xp_awarded: number }>(
+        'select xp_awarded from public.daily_scores where user_id = $1',
+        [user],
+      );
+      expect(daily[0]!.xp_awarded).toBe(40);
+    });
+
+    it('survives a rescore of the day that completed it', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, total, xp_awarded)
+         values ($1, '2026-01-30', 1000, 40)`,
+        [user],
+      );
+      await h.asService(
+        `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+         values ($1, $2, '2026-01-30', 164)`,
+        [goalId, user],
+      );
+      // Apple revises the day downward; the day rescores.
+      await h.asService(
+        `update public.daily_scores set total = 200, xp_awarded = 10
+         where user_id = $1 and local_date = '2026-01-30'`,
+        [user],
+      );
+      expect((await xpOf(user)).total_xp).toBe(174);
+    });
+
+    it('recomputes rather than increments, so a repeated latch is idempotent', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      for (let i = 0; i < 3; i++) {
+        await h.asService(
+          `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+           values ($1, $2, '2026-01-30', 164)
+           on conflict (goal_id, user_id) do nothing`,
+          [goalId, user],
+        );
+      }
+      expect((await xpOf(user)).total_xp).toBe(164);
+    });
+
+    it('derives a level that agrees with kairo-core', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asService(
+        `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+         values ($1, $2, '2026-01-30', 500)`,
+        [goalId, user],
+      );
+      const state = await xpOf(user);
+      expect(state.level).toBe(levelForXp(500));
+    });
+
+    it('follows the goal being deleted', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asService(
+        `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+         values ($1, $2, '2026-01-30', 164)`,
+        [goalId, user],
+      );
+      expect((await xpOf(user)).total_xp).toBe(164);
+      await h.asUser(user, 'select public.abandon_goal($1)', [goalId]);
+      expect((await xpOf(user)).total_xp).toBe(0);
+    });
+  });
+
+  describe('erasure', () => {
+    it('cascades goals and completions when an account is deleted', async () => {
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await h.asService(
+        `insert into public.goal_completions (goal_id, user_id, completed_on, xp_awarded)
+         values ($1, $2, '2026-01-30', 164)`,
+        [goalId, user],
+      );
+      await h.asService('delete from public.profiles where id = $1', [user]);
+      const rows = await h.asService<{ goals: number; parts: number; comps: number }>(
+        `select
+           (select count(*)::int from public.goals where id = $1) as goals,
+           (select count(*)::int from public.goal_participants where goal_id = $1) as parts,
+           (select count(*)::int from public.goal_completions where goal_id = $1) as comps`,
+        [goalId],
+      );
+      expect(rows[0]).toEqual({ goals: 0, parts: 0, comps: 0 });
+    });
+
+    it('cascades a squad goal when the squad is deleted', async () => {
+      const { leader, squadId } = await seedSquad(0);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Doomed', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      await h.asService('delete from public.squads where id = $1', [squadId]);
+      const rows = await h.asService('select id from public.goals where id = $1', [
+        goal[0]!.id,
+      ]);
+      expect(rows).toEqual([]);
+    });
   });
 });

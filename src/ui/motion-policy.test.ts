@@ -27,7 +27,7 @@ describe('shouldRecount', () => {
     expect(shouldRecount(4_820, 4_820)).toBe(false);
   });
 
-  it('counts down as readily as up — sabotage lowers a total', () => {
+  it('counts down as readily as up — Apple can revise a day downward', () => {
     expect(shouldRecount(4_820, 4_400)).toBe(true);
   });
 

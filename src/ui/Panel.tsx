@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.pill,
     borderBottomRightRadius: radius.pill,
     // The app has three colour families with one job each: terracotta means
-    // "you", the tier ladder means "earned", burnt means sabotage. This edge
+    // "you", the tier ladder means "earned", burnt means falling behind. This edge
     // marks the squad leader's row and a banked Streak Shield — both
     // "earned", neither "you" — so it belongs to `tierColors`, and Gold
     // specifically since that is the top tier this app has.
