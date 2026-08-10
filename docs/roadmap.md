@@ -39,6 +39,7 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 12 | Squads are untyped (§7) | **`squads.program`** — same-focus squads (`all_around` default · `running` · `gym` · `walking`), fixed at creation for MVP | Founder decision 2026-08-07. Weight mapping, UX and rationale in `docs/assessments/2026-08-06-onboarding-and-program-selection.md` (Part 2). |
 | 17 | Sabotage is the core mechanic (§8, §20 #4) | **Removed entirely.** `20260809120000_remove_sabotage.sql` drops `sabotage_events`, `daily_item_ledger`, `daily_scores.sabotage_delta`, the `sabotage_item` type and `squad_feed()`; `deploy-sabotage` and `kairo-core/src/sabotage.ts` are deleted | Founder decision 2026-08-09: progress is still progress. Recorded as a deviation *and* a spec version bump (v1.4) because §20 filed sabotage under **Non-Negotiable** — that needed overturning in the spec, not routing around here. The squad leaderboard stays, which is load-bearing: §5/§20 #3 make social embarrassment the only anti-cheat mechanism, so `daily_scores.flagged` keeps a reader. A fully solo pivot would have removed Kairo's entire anti-cheat surface. `reject_mutation()` and `kairo.allow_purge` are left inert rather than cleaned up — see that migration's closing comment. |
 | 18 | — | **Goal progress is a read-time projection over `daily_scores`, stored nowhere.** `goal_window_scores()` returns each participant's per-day score series for the window; all arithmetic lives in `kairo-core/src/goal.ts` | The alternative was aggregating in SQL, which would put goal maths in two places — exactly the differential-test tax `finalizable_days()`/`isFinalizable()` and `program_weighted_total()`/`weightedBoardTotal()` already pay twice over. The cost is that one call returns a *series* of daily totals for co-participants where `squad_leaderboard()` returns one day. §5 protects raw steps, hourly movement and timestamps — not score totals — so this stays inside the privacy rule, but it is a widening of a single call's output and is recorded rather than left to drift. It also means retroactive HealthKit revisions flow into goal progress for free. |
+| 20 | — | **`goal_window_scores()` LEFT JOINs `daily_scores`, so every participant appears whether or not they have scored.** A scoreless one returns a single row with null `local_date`/`total`/`status` | Found on device: the inner join dropped a member who had not started, so a 3-person squad goal rendered one standing and hid the roster — on a mechanic whose entire point is *who has and has not hit it*. `squad_leaderboard` had already made this impossible for the board, and 20260807100200's own comment says why (a member who has not moved appears with `total = 0` rather than being absent). The date bound has to stay in the ON clause: moved to WHERE it filters out the null-extended rows and silently restores the inner join. The name comes from this RPC rather than the client reading `goal_participants` because `profiles` is owner-readable only — a squadmate cannot look up another member's character name for itself. |
 | 19 | — | **Goal completion is a one-way latch in `goal_completions`, with its own contribution to the `total_xp` rollup** | Progress may be projected, but completion pays XP and must fire exactly once, so it is stored. Goal XP is deliberately **not** written into `daily_scores.xp_awarded`: a rescore replays that column from tier points and would silently wipe it. The rollup trigger is extended to sum both sources instead — safe precisely because it is a full recompute, never an increment. Latching also means a later downward revision from Apple never revokes a goal already met, which is the rule §19 already applies to streak milestones. |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
@@ -272,6 +273,50 @@ local stack is ever genuinely needed — so far nothing has required one.
   gone, replaced by `lane` (Phase 7's focus highlight), which marks the bar
   without rescaling it. `TodayScore` no longer selects `featured_stat`. Closes
   Phase 4 backend follow-up #1 and Phase 1 follow-up #2's featured half.
+
+### 🟨 Phase 10 — Goals · ~30–40h (2026-08-09/10)
+
+The feature that replaced sabotage (spec v1.4 §8, deviations #17–#20).
+
+- ✅ **`packages/kairo-core/src/goal.ts`** — `evaluateGoal`, `evaluateSquadGoal`,
+  `goalCompletionXp`. The only implementation of goal arithmetic (deviation #18);
+  43 tests. Two distinctions the tests forced out and both would have been bugs:
+  `progress` vs `finalProgress` (the card shows today's provisional day, but
+  completion latches from final days only), and `daysRemaining` vs
+  `daysUnresolved` (calendar time left is not days that can still contribute — a
+  consistency goal 6 zero-days into a 30-day window needing 25 is dead, and
+  counting `daysRemaining` called it reachable on the day it died).
+- ✅ **Schema** — `goals` / `goal_participants` / `goal_completions`,
+  `create_goal` / `abandon_goal` / `goal_window_scores`, and `can_see_goal` as
+  the single visibility predicate. That last one is `SECURITY DEFINER` because
+  the `goals` and `goal_participants` policies were otherwise mutually recursive
+  ("infinite recursion detected in policy"). `revoke all` before re-granting, not
+  `revoke insert, update, delete`: Supabase's default privileges grant ALL, and
+  ALL includes TRUNCATE, which RLS does not restrict.
+- ✅ **`finalize-days` goal pass** — `_shared/goal-plan.ts` (18 Node tests),
+  `on conflict do nothing` as the latch. Verified live through the real pg_cron
+  command path: xp 192 for a 41-day window, `total_xp` 360 → 552, level 4 → 5,
+  and a re-run returning `goalsCompleted: []`.
+- ✅ **`goal_completed`** claims the `BUDGET_EXEMPT` slot sabotage vacated — once
+  per commitment, and the user set the commitment. Deliberately not quiet-hours
+  exempt: finalization runs ~2h after local midnight.
+- ✅ **UI in the two slots sabotage left** — `GoalCard` on the home shelf,
+  `SquadGoalPanel` below the board, `CreateGoalForm` and `app/goal/[id]`. No
+  navigation change: `TabPill` stays at three items and goals are stacked routes.
+  The **pace marker** on `Meter` is the one new visual idea — a hairline tick at
+  where the fill should be by today, which is the whole difference between a goal
+  and a tally.
+- ✅ Hand-verified on the simulator 2026-08-10 (iPhone 17 Pro): empty state,
+  populated card with the marker at 30% and a burnt fill at 16% (behind pace),
+  the squad detail roster with all three members, and the create form.
+- ⬜ **Still owed:** a two-client check that one member's finalization updates
+  another's squad-goal panel through the existing `daily_scores` broadcast, and a
+  read of the dev LogBox warning the simulator reports (present before and after
+  this work; origin not established).
+
+**Fixed en route:** `redirectTarget` allowlisted `(tabs)` when ready, so any
+stacked route bounced straight back to the home tab before rendering. Now a
+denylist of `(auth)`/`(onboard)`, with five tests.
 
 ### 🟨 Phase 5 — Push notifications · 40–55h
 

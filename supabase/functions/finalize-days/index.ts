@@ -111,11 +111,16 @@ async function settleGoals(
     });
     if (error) throw new Error(`goal_window_scores failed: ${error.message}`);
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      // The RPC left-joins, so a participant with no scored day in the window
+      // arrives as a row with null local_date. Skipped here: it carries no day
+      // to evaluate, and `Number(null)` would push a phantom zero-day into the
+      // consistency count.
+      if (row.local_date === null) continue;
       dayRows.push({
         goal_id: goal.id,
         user_id: row.user_id as string,
         local_date: row.local_date as string,
-        total: Number(row.total),
+        total: Number(row.total ?? 0),
         status: row.status as string,
       });
     }

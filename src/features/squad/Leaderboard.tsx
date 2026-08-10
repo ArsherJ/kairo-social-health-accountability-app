@@ -22,7 +22,10 @@ import { useLeaveSquad } from './mutations.ts';
 import { boostChipLabel, programLabel } from './program-copy.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
+import { SquadGoalPanel } from '@/features/goals/SquadGoalPanel.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
+import { useRouter } from 'expo-router';
+import { currentLocalDate } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Numeral, Panel, Screen } from '@/ui/index.ts';
 
@@ -122,6 +125,7 @@ export function Leaderboard({
   onLeave?: () => void;
 }) {  // The live board is the default: §2's hooks assume a board you check during
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
+  const router = useRouter();
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
   const leave = useLeaveSquad(userId);
@@ -317,6 +321,20 @@ export function Leaderboard({
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
       ))}
+
+      {/* The slot the sabotage feed left, doing the opposite job: the feed was
+          what people did *to* each other, this is what they committed to
+          together. */}
+      <SquadGoalPanel
+        squadId={squad.id}
+        userId={userId}
+        today={
+          profile.data?.timezone
+            ? currentLocalDate(new Date(), profile.data.timezone)
+            : undefined
+        }
+        onSetGoal={() => router.push(`/goal/new?squadId=${squad.id}`)}
+      />
 
       {/* Deliberately at the foot of the scroll and styled as quiet text, not
           a header icon: this is rare, irreversible, and must not sit next to

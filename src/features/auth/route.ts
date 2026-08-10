@@ -65,8 +65,15 @@ export function redirectTarget(input: {
     case 'needs-profile':
       return input.group === '(onboard)' ? null : '/name';
     case 'ready':
-      if (input.group === '(tabs)') return null;
-      if (input.group === '(onboard)' && input.finishingOnboarding) return null;
-      return '/';
+      // Anywhere except the two shells a ready user has finished with. Written
+      // as a denylist rather than `group === '(tabs)'` on purpose: stacked
+      // routes outside any group — `/goal/[id]`, `/goal/new` — are legitimate
+      // destinations for a signed-in user, and an allowlist of one bounced them
+      // straight back to the home tab the instant they were pushed.
+      if (input.group === '(auth)') return '/';
+      if (input.group === '(onboard)') {
+        return input.finishingOnboarding ? null : '/';
+      }
+      return null;
   }
 }

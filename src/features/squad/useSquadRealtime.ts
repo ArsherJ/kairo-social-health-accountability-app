@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
+import { goalKeys } from '@/features/goals/queries.ts';
 import { squadKeys } from './queries.ts';
 import {
   initialPolicyState,
@@ -49,6 +50,10 @@ export function useSquadRealtime(squadId: string | undefined): void {
       void queryClient.invalidateQueries({
         queryKey: squadKeys.members(squadId),
       });
+      // Goal progress is a projection over daily_scores, so the broadcast that
+      // moves the board moves every goal too — no second trigger or topic, the
+      // same reasoning the sabotage feed used to ride this on.
+      void queryClient.invalidateQueries({ queryKey: goalKeys.all() });
     }
 
     function dispatch(input: RealtimePolicyInput) {

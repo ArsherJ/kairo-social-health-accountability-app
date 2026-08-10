@@ -117,3 +117,33 @@ describe('redirectTarget', () => {
     expect(at('signed-out', '(onboard)', true)).toBe('/sign-in');
   });
 });
+
+describe('a ready user may stand outside the tabs', () => {
+  // The bug this covers: `ready` used to allowlist `(tabs)` and redirect
+  // everything else to '/'. A stacked route belongs to no group, so pushing
+  // /goal/[id] bounced back to home before it rendered.
+  const ready = { route: 'ready' as const, finishingOnboarding: false };
+
+  it('leaves a stacked route alone', () => {
+    expect(redirectTarget({ ...ready, group: 'goal' })).toBe(null);
+  });
+
+  it('leaves an ungrouped root alone', () => {
+    expect(redirectTarget({ ...ready, group: undefined })).toBe(null);
+  });
+
+  it('still keeps the tabs', () => {
+    expect(redirectTarget({ ...ready, group: '(tabs)' })).toBe(null);
+  });
+
+  it('still evicts a ready user from the auth shell', () => {
+    expect(redirectTarget({ ...ready, group: '(auth)' })).toBe('/');
+  });
+
+  it('still evicts a ready user from onboarding once the flow is done', () => {
+    expect(redirectTarget({ ...ready, group: '(onboard)' })).toBe('/');
+    expect(
+      redirectTarget({ ...ready, group: '(onboard)', finishingOnboarding: true }),
+    ).toBe(null);
+  });
+});

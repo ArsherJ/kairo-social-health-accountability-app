@@ -2351,6 +2351,50 @@ describe('goals', () => {
       expect(rows[0]!.status).toBe('provisional');
     });
 
+    it('returns a participant who has no scored day at all', async () => {
+      // The bug this covers, seen on device: the RPC inner-joined daily_scores,
+      // so a member who had not started vanished from a squad goal's roster —
+      // which is exactly what an "everyone must hit it" goal must not hide.
+      // squad_leaderboard already left-joins for the same reason.
+      const { leader, members, squadId } = await seedSquad(1);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Nobody moved', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+      // Only the leader has a day; the member has none.
+      await seedDay(leader, '2026-01-02', 300);
+
+      const rows = await h.asUser<{ user_id: string; local_date: string | null }>(
+        leader,
+        'select user_id, local_date from public.goal_window_scores($1)',
+        [goal[0]!.id],
+      );
+      const users = new Set(rows.map((r) => r.user_id));
+      expect(users.size).toBe(2);
+      expect(users.has(members[0]!)).toBe(true);
+      // The scoreless member arrives as a single null-extended row.
+      const memberRows = rows.filter((r) => r.user_id === members[0]!);
+      expect(memberRows).toEqual([{ user_id: members[0]!, local_date: null }]);
+    });
+
+    it('still bounds a scored participant to the window after the left join', async () => {
+      // The date bound has to live in the ON clause. Moved to WHERE it would
+      // filter out the null-extended rows and quietly restore the inner join.
+      const user = await h.createUser();
+      const goalId = await personalGoal(user);
+      await seedDay(user, '2025-12-31', 999);
+      await seedDay(user, '2026-01-05', 500);
+
+      const rows = await h.asUser<{ total: number | null }>(
+        user,
+        'select total from public.goal_window_scores($1)',
+        [goalId],
+      );
+      expect(rows).toEqual([{ total: 500 }]);
+    });
+
     it('returns every participant on a squad goal', async () => {
       const { leader, members, squadId } = await seedSquad(1);
       const goal = await h.asUser<{ id: string }>(

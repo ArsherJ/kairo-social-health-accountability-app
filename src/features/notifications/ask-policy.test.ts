@@ -4,6 +4,7 @@ import { shouldAskForNotifications, type NotificationPermission } from './ask-po
 const base = {
   permission: 'undetermined' as NotificationPermission,
   hasSquad: true,
+  hasGoal: false,
   dismissedThisSession: false,
 };
 
@@ -12,10 +13,21 @@ describe('when Kairo asks for notification permission', () => {
     expect(shouldAskForNotifications(base)).toBe(true);
   });
 
-  it('does not ask a squadless user — which is the whole onboarding flow', () => {
+  it('asks a solo user with a goal in flight, squad or not', () => {
+    // The one ask a solo user can earn. `goal_completed` is the only
+    // budget-exempt trigger, and a solo-first app cannot gate its only
+    // notification ask on having friends.
+    expect(
+      shouldAskForNotifications({ ...base, hasSquad: false, hasGoal: true }),
+    ).toBe(true);
+  });
+
+  it('does not ask a user with neither — which is the whole onboarding flow', () => {
     // §5: every ask has a visible why. During onboarding there is no why yet,
     // and a permission denied there is denied for the life of the install.
-    expect(shouldAskForNotifications({ ...base, hasSquad: false })).toBe(false);
+    expect(
+      shouldAskForNotifications({ ...base, hasSquad: false, hasGoal: false }),
+    ).toBe(false);
   });
 
   it('does not ask again once iOS has an answer', () => {

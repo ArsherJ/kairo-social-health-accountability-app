@@ -5,6 +5,7 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
+import { useMyGoals } from '@/features/goals/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
@@ -32,6 +33,7 @@ export default function TabsLayout() {
   // The Health ask moved here from the character screen for the same reason,
   // and because two independently-mounted `<Modal>`s cannot both present.
   const squad = useMySquad(session?.user.id);
+  const goals = useMyGoals(session?.user.id);
 
   return (
     <Fragment>
@@ -50,7 +52,11 @@ export default function TabsLayout() {
       {/* `PermissionAsks` lives here rather than on a screen: the ask is keyed
           to what has happened to the user, not to where they are standing, and
           two independently-mounted `<Modal>`s cannot both present. */}
-      <PermissionAsks userId={session?.user.id} hasSquad={Boolean(squad.data)} />
+      <PermissionAsks
+        userId={session?.user.id}
+        hasSquad={Boolean(squad.data)}
+        hasGoal={(goals.data ?? []).length > 0}
+      />
     </Fragment>
   );
 }

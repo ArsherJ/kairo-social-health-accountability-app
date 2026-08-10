@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ScrollView,
   StyleSheet,
@@ -9,10 +10,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CORE_STATS,
+  currentLocalDate,
   evolutionStageForLevel,
   levelForXp,
   type CoreStat,
 } from '@kairo/core';
+import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
@@ -119,6 +122,7 @@ export default function Character() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
@@ -300,6 +304,19 @@ export default function Character() {
               ))}
             </View>
           )}
+
+          {/* The slot the sabotage callout left. A commitment belongs below the
+              day's numbers, not among them: today's score is a fact, and this is
+              a promise measured against it. */}
+          <GoalCard
+            userId={session?.user.id}
+            today={
+              profile.data?.timezone
+                ? currentLocalDate(new Date(), profile.data.timezone)
+                : undefined
+            }
+            onSetGoal={() => router.push('/goal/new')}
+          />
 
           <FirstSyncCallout
             userId={session?.user.id}
