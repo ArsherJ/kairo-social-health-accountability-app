@@ -17,9 +17,11 @@ export interface GoalRow {
   title: string;
   kind: string;
   target: number;
+  description: string | null;
   required_days: number | null;
   starts_on: string;
-  ends_on: string;
+  /** Null for an open-ended goal — cumulative only, enforced by CHECK. */
+  ends_on: string | null;
 }
 
 /** The row `finalize-days` will insert when a goal completes. */
@@ -74,8 +76,10 @@ export function planGoalCompletions(input: {
     if (input.alreadyCompleted.has(row.id)) continue;
 
     // The finalized day must be inside the window. Lexicographic comparison is
-    // correct for zero-padded ISO dates.
-    if (input.localDate < row.starts_on || input.localDate > row.ends_on) continue;
+    // correct for zero-padded ISO dates. An open-ended goal has no upper bound,
+    // so only the start date can exclude a day from it.
+    if (input.localDate < row.starts_on) continue;
+    if (row.ends_on !== null && input.localDate > row.ends_on) continue;
 
     const goal = toGoal(row);
     const days = input.daysByGoal.get(row.id) ?? [];
@@ -92,7 +96,9 @@ export function planGoalCompletions(input: {
         goal_id: row.id,
         user_id: input.userId,
         completed_on: input.localDate,
-        xp_awarded: goalCompletionXp(goal),
+        // `localDate` is both the day that finalized and the day the goal
+        // completed, which is exactly the span an open-ended goal is paid on.
+        xp_awarded: goalCompletionXp(goal, input.localDate),
       },
     });
   }

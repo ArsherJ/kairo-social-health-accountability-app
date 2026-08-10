@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,22 +9,27 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { addDays } from '@kairo/core';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { addDays, goalWindowDays } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { BackRow, Button, Label } from '@/ui/index.ts';
 import { useCreateGoal } from './mutations.ts';
 import { shortDate } from './goal-copy.ts';
 
 const TITLE_MAX = 60;
+const DESCRIPTION_MAX = 280;
 
 /**
  * The windows offered, in days.
  *
- * A date picker was the obvious build and the wrong one: the spec's own framing
- * is "days, weeks, or years", nobody commits to *17* days, and an arbitrary end
- * date is the single most common way to create a goal whose required_days cannot
- * fit its window. Fixed lengths make that class of error unreachable rather than
- * validated.
+ * These stay as the fast path — most commitments really are "a month" or "a
+ * year", and a chip is one tap where a picker is four. **A date picker sits
+ * behind `Custom` alongside them**, which overturns this file's original
+ * position ("nobody commits to *17* days"). The reasoning that outlived it:
+ * an arbitrary end date is the most common way to create a goal whose
+ * `required_days` cannot fit its window — so `windowDays` below is derived from
+ * whatever end date is chosen, and the same check runs against it either way.
+ * The error became reachable again; it did not become unguarded.
  */
 const WINDOWS = [
   { days: 7, label: '1 week' },
@@ -35,6 +40,22 @@ const WINDOWS = [
 
 type Kind = 'cumulative' | 'consistency';
 
+/** How the end of the window is being chosen. */
+type Span = 'preset' | 'custom' | 'open';
+
+/** The calendar day a `Date` falls on, in the device's own zone. */
+function isoDateOf(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** A `YYYY-MM-DD` back as a local `Date`, for seeding the picker. */
+function dateOfIso(localDate: string): Date {
+  const [y, m, d] = localDate.split('-').map(Number) as [number, number, number];
+  return new Date(y, m - 1, d);
+}
+
 /**
  * Set a target.
  *
@@ -43,6 +64,13 @@ type Kind = 'cumulative' | 'consistency';
  * the other. The daily bar and the day count are the same field in the schema
  * (`target` / `required_days`), and this screen is where the difference is made
  * legible.
+ *
+ * The submit button is **pinned**, not the last thing in the scroll. Picking
+ * "Most days" adds two fields, which pushed it off the bottom of the screen —
+ * hand-testing read that as the form having no submit at all. A footer also
+ * gives the disabled state somewhere to explain itself, which matters more here
+ * than usual: the button spends most of its life disabled on a target that has
+ * not been typed yet.
  */
 export function CreateGoalForm({
   userId,
@@ -61,25 +89,78 @@ export function CreateGoalForm({
 }) {
   const createGoal = useCreateGoal(userId);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [kind, setKind] = useState<Kind>('cumulative');
-  const [windowDays, setWindowDays] = useState<number>(30);
+  const [span, setSpan] = useState<Span>('preset');
+  const [presetDays, setPresetDays] = useState<number>(30);
+  const [customEnd, setCustomEnd] = useState<string>(() => addDays(today, 29));
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [target, setTarget] = useState('');
   const [requiredDays, setRequiredDays] = useState('');
 
-  const endsOn = useMemo(() => addDays(today, windowDays - 1), [today, windowDays]);
+  // Open-ended is cumulative-only (`goals_consistency_needs_end`), so switching
+  // to "Most days" while it is selected has to move the choice rather than let
+  // the form sit in a state the server will refuse.
+  useEffect(() => {
+    if (kind === 'consistency' && span === 'open') setSpan('preset');
+  }, [kind, span]);
+
+  const endsOn = useMemo(() => {
+    if (span === 'open') return null;
+    if (span === 'custom') return customEnd;
+    return addDays(today, presetDays - 1);
+  }, [span, customEnd, today, presetDays]);
+
+  // Through `goalWindowDays` rather than a second date subtraction here: it is
+  // the tested implementation, and the number this validates against has to be
+  // the same one the server's trigger measures.
+  const windowDays = goalWindowDays({
+    id: 'draft',
+    kind,
+    target: 0,
+    requiredDays: null,
+    startsOn: today,
+    endsOn,
+  });
 
   const targetNumber = Number.parseInt(target, 10);
   const daysNumber = Number.parseInt(requiredDays, 10);
 
   const titleOk = title.trim().length >= 1 && title.trim().length <= TITLE_MAX;
   const targetOk = Number.isFinite(targetNumber) && targetNumber > 0;
+  const windowOk = endsOn === null || endsOn >= today;
   // Mirrors the goals_validate trigger. Checking it here means the common
   // mistake is caught before a round trip, not that the server stops checking.
   const daysOk =
     kind === 'cumulative' ||
-    (Number.isFinite(daysNumber) && daysNumber > 0 && daysNumber <= windowDays);
+    (windowDays !== null &&
+      Number.isFinite(daysNumber) &&
+      daysNumber > 0 &&
+      daysNumber <= windowDays);
 
-  const valid = titleOk && targetOk && daysOk;
+  const valid = titleOk && targetOk && windowOk && daysOk;
+
+  /**
+   * Why the button is off, in the order the user would hit them.
+   *
+   * A disabled pill at 45% opacity says "no" and nothing else, and the most
+   * common reason by far is a target that has not been typed. Naming the
+   * missing piece is the difference between a form that looks broken and one
+   * that looks unfinished.
+   */
+  const blocker = valid
+    ? null
+    : !titleOk
+      ? 'Name it first.'
+      : !targetOk
+        ? kind === 'cumulative'
+          ? 'Add a points target.'
+          : 'Add the points to clear each day.'
+        : !windowOk
+          ? 'Pick an end date that is not in the past.'
+          : windowDays !== null && requiredDays.length > 0
+            ? `Days must be between 1 and ${windowDays} — the length of the window.`
+            : 'Say how many days you need to clear it.';
 
   // isPending flips through TanStack's notifyManager on a setTimeout(fn, 0), not
   // synchronously with mutate() — so a keyboard "Done" and an already-queued
@@ -93,6 +174,7 @@ export function CreateGoalForm({
     createGoal.mutate(
       {
         title,
+        description,
         kind,
         target: targetNumber,
         startsOn: today,
@@ -114,9 +196,15 @@ export function CreateGoalForm({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.fill}
     >
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <BackRow onPress={onCancel} />
+      {/* Outside the ScrollView: a back control that scrolls away is one the
+          user has to scroll up to reach. */}
+      <BackRow onPress={onCancel} />
 
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+      >
         <Label>{squadId ? 'NEW SQUAD GOAL' : 'NEW GOAL'}</Label>
         <Text style={styles.heading}>
           {squadId ? 'What are you all going for?' : 'What are you going for?'}
@@ -131,6 +219,22 @@ export function CreateGoalForm({
           maxLength={TITLE_MAX}
           returnKeyType="next"
           accessibilityLabel="Goal name"
+        />
+
+        {/* The "why" under the "what". Optional, and said to be — an unlabelled
+            second box reads as another required field. */}
+        <Text style={styles.section}>Why it matters (optional)</Text>
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="What this is for, or what it looks like when you get there"
+          placeholderTextColor={ramp.neutral[500]}
+          maxLength={DESCRIPTION_MAX}
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+          accessibilityLabel="Goal description"
         />
 
         <Text style={styles.section}>How it counts</Text>
@@ -169,16 +273,11 @@ export function CreateGoalForm({
               style={styles.input}
               value={requiredDays}
               onChangeText={setRequiredDays}
-              placeholder={String(Math.round(windowDays * 0.8))}
+              placeholder={windowDays === null ? '24' : String(Math.round(windowDays * 0.8))}
               placeholderTextColor={ramp.neutral[500]}
               keyboardType="number-pad"
               accessibilityLabel="Days required"
             />
-            {requiredDays.length > 0 && !daysOk && (
-              <Text style={styles.hint}>
-                Pick a number between 1 and {windowDays} — the length of the window.
-              </Text>
-            )}
           </>
         )}
 
@@ -188,18 +287,79 @@ export function CreateGoalForm({
             <Choice
               key={w.days}
               label={w.label}
-              selected={windowDays === w.days}
-              onPress={() => setWindowDays(w.days)}
+              selected={span === 'preset' && presetDays === w.days}
+              onPress={() => {
+                setSpan('preset');
+                setPresetDays(w.days);
+              }}
             />
           ))}
+          <Choice
+            label="Pick a date"
+            selected={span === 'custom'}
+            onPress={() => {
+              setSpan('custom');
+              setPickerOpen(true);
+            }}
+          />
+          {/* Hidden rather than disabled under "Most days": a greyed choice
+              invites a tap that has to then be explained, and the reason is
+              structural rather than temporary. */}
+          {kind === 'cumulative' && (
+            <Choice
+              label="No end date"
+              note="Until you get there"
+              selected={span === 'open'}
+              onPress={() => setSpan('open')}
+            />
+          )}
         </View>
 
+        {span === 'custom' && (
+          <View style={styles.picker}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change the end date"
+              onPress={() => setPickerOpen((open) => !open)}
+              style={({ pressed }) => [styles.pickerRow, pressed && styles.pressed]}
+            >
+              <Text style={styles.pickerLabel}>Ends</Text>
+              <Text style={styles.pickerValue}>{shortDate(customEnd, today)}</Text>
+            </Pressable>
+
+            {pickerOpen && (
+              <DateTimePicker
+                value={dateOfIso(customEnd)}
+                mode="date"
+                display="inline"
+                // The window cannot end before it starts, and it starts today.
+                // Bounding the picker is what keeps `goals_window_ordered` from
+                // being something the user can trip over.
+                minimumDate={dateOfIso(today)}
+                onChange={(_event, picked) => {
+                  if (Platform.OS !== 'ios') setPickerOpen(false);
+                  // `isoDateOf`, not `toISOString()`: the latter is UTC, so a
+                  // date picked in Manila after 08:00 would be stored as the
+                  // day before.
+                  if (picked) setCustomEnd(isoDateOf(picked));
+                }}
+              />
+            )}
+          </View>
+        )}
+
         <Text style={styles.window}>
-          Starts today, ends {shortDate(endsOn, today)}. Fixed once you set it.
+          {endsOn === null
+            ? 'Starts today, runs until you hit it. No deadline.'
+            : `Starts today, ends ${shortDate(endsOn, today)}. Fixed once you set it.`}
         </Text>
 
         {createGoal.isError && <Text style={styles.error}>{createGoal.error.message}</Text>}
+      </ScrollView>
 
+      {/* Pinned. Everything above scrolls; the one action does not. */}
+      <View style={styles.footer}>
+        {blocker !== null && <Text style={styles.blocker}>{blocker}</Text>}
         <Button
           label="Set the goal"
           variant="primary"
@@ -207,7 +367,7 @@ export function CreateGoalForm({
           busy={createGoal.isPending}
           onPress={submit}
         />
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -245,7 +405,7 @@ const styles = StyleSheet.create({
   // CreateSquadForm uses. Setting them in both places double-pads the page and
   // puts BackRow under the status bar.
   fill: { flex: 1 },
-  body: { paddingBottom: space.xl, gap: space.sm },
+  body: { paddingBottom: space.lg, gap: space.sm },
   heading: { ...font.display.small, fontSize: 22, color: colors.text, marginBottom: space.sm },
   section: { ...font.body.strong, fontSize: 12, color: ramp.neutral[700], marginTop: space.md },
   input: {
@@ -256,6 +416,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: 14,
   },
+  // Body face, not the display one: a paragraph set in Caprasimo is unreadable
+  // past a few words, and this field is the only place the user writes prose.
+  multiline: { ...font.body.body, fontSize: 15, minHeight: 84, lineHeight: 21 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   choice: {
     flexGrow: 1,
@@ -271,7 +434,31 @@ const styles = StyleSheet.create({
   choiceLabelOn: { color: ramp.accent[900] },
   choiceNote: { ...font.body.body, fontSize: 12, color: colors.muted, marginTop: 1 },
   choiceNoteOn: { color: ramp.accent[800] },
+  picker: { marginTop: space.sm },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  pickerLabel: { ...font.body.strong, fontSize: 13, color: ramp.neutral[700] },
+  pickerValue: { ...font.display.small, fontSize: 16, color: ramp.accent[800] },
   window: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.sm },
-  hint: { ...font.body.strong, fontSize: 12, color: ramp.accent[900] },
   error: { ...font.body.strong, fontSize: 12.5, color: ramp.accent[900], marginTop: space.sm },
+  // A hairline over the footer so the pinned action reads as chrome rather than
+  // as the next thing in the list.
+  footer: {
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: ramp.neutral[200],
+  },
+  blocker: {
+    ...font.body.strong,
+    fontSize: 12.5,
+    color: ramp.neutral[600],
+    textAlign: 'center',
+  },
 });

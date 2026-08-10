@@ -3,10 +3,9 @@ import { addDays, isFinalizable, mostRecentlyCompletedLocalDate } from '../../pa
 import {
   DEFAULT_SQUAD_PROGRAM,
   SQUAD_PROGRAMS,
-  USER_FOCUSES,
   weightedBoardTotal,
 } from '../../packages/kairo-core/src/program.ts';
-import { levelForXp } from '../../packages/kairo-core/src/progression.ts';
+import { levelForXp, ratingForStatPoints } from '../../packages/kairo-core/src/progression.ts';
 import { squadTopic } from '../../src/features/squad/squad-topic.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
@@ -80,6 +79,215 @@ describe('XP rollup', () => {
       expect(state.total_xp).toBe(xp);
       expect(state.level).toBe(levelForXp(xp));
     }
+  });
+});
+
+describe('heart rate and strain inputs', () => {
+  // Display only — nothing here reaches `daily_scores`, ranks anybody, or
+  // enters a goal. `computeStrain()` is a read-time projection over these rows.
+
+  it('leaves avg_heart_rate null on an ordinary sync', async () => {
+    // A phone-only user has no heart-rate source at all, and null must mean
+    // "not measured" rather than "resting" — computeStrain skips null hours.
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps)
+       values ($1, '2026-07-27', 7, 500)`,
+      [user],
+    );
+    const rows = await h.asService<{ avg_heart_rate: string | null }>(
+      'select avg_heart_rate from public.health_buckets where user_id = $1',
+      [user],
+    );
+    expect(rows[0]!.avg_heart_rate).toBeNull();
+  });
+
+  it('rejects an implausible bpm on the bucket', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asService(
+        `insert into public.health_buckets (user_id, local_date, hour, steps, avg_heart_rate)
+         values ($1, '2026-07-27', 7, 500, 300)`,
+        [user],
+      ),
+      /avg_heart_rate/,
+    );
+  });
+
+  it('stores one resting rate per local day', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_heart (user_id, local_date, resting_hr)
+       values ($1, '2026-07-27', 58)`,
+      [user],
+    );
+    // Idempotent under a re-sync, like every other health write.
+    await h.asService(
+      `insert into public.daily_heart (user_id, local_date, resting_hr)
+       values ($1, '2026-07-27', 61)
+       on conflict (user_id, local_date) do update set resting_hr = excluded.resting_hr`,
+      [user],
+    );
+    const rows = await h.asService<{ resting_hr: number }>(
+      'select resting_hr from public.daily_heart where user_id = $1',
+      [user],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.resting_hr).toBe(61);
+  });
+
+  it('keeps daily_heart owner-readable and client-unwritable', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await h.asService(
+      `insert into public.daily_heart (user_id, local_date, resting_hr)
+       values ($1, '2026-07-27', 58)`,
+      [owner],
+    );
+
+    const own = await h.asUser<{ resting_hr: number }>(
+      owner,
+      'select resting_hr from public.daily_heart',
+    );
+    expect(own).toHaveLength(1);
+
+    // Heart rate is at least as revealing as the hourly movement pattern §5
+    // already protects: it says when you slept and when you were stressed.
+    const theirs = await h.asUser(stranger, 'select resting_hr from public.daily_heart');
+    expect(theirs).toHaveLength(0);
+
+    await rejects(
+      h.asUser(
+        owner,
+        `insert into public.daily_heart (user_id, local_date, resting_hr)
+         values ($1, '2026-07-28', 40)`,
+        [owner],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('grants authenticated nothing beyond SELECT on daily_heart', async () => {
+    // New public tables inherit ALL from Supabase's default privileges, and ALL
+    // includes TRUNCATE — which RLS does not restrict.
+    const rows = await h.asService<{ privs: string }>(
+      `select string_agg(distinct privilege_type, ',' order by privilege_type) as privs
+       from information_schema.table_privileges
+       where table_name = 'daily_heart' and grantee = 'authenticated'`,
+    );
+    expect(rows[0]!.privs).toBe('SELECT');
+  });
+
+  it('cascades a deleted account', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_heart (user_id, local_date, resting_hr)
+       values ($1, '2026-07-27', 58)`,
+      [user],
+    );
+    await h.asService('delete from public.profiles where id = $1', [user]);
+    const rows = await h.asService('select 1 from public.daily_heart where user_id = $1', [user]);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe('per-stat ability rollups', () => {
+  async function ratings(userId: string) {
+    const rows = await h.asService<{
+      agi_total: number; str_total: number; end_total: number; vit_total: number;
+    }>(
+      `select agi_total, str_total, end_total, vit_total
+       from public.profiles where id = $1`,
+      [userId],
+    );
+    return rows[0]!;
+  }
+
+  async function setDayStats(
+    userId: string,
+    date: string,
+    stats: { agi: number; str: number; end: number; vit: number; xp?: number },
+  ) {
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, end_points, vit_points, xp_awarded)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       on conflict (user_id, local_date) do update set
+         agi_points = excluded.agi_points,
+         str_points = excluded.str_points,
+         end_points = excluded.end_points,
+         vit_points = excluded.vit_points,
+         xp_awarded = excluded.xp_awarded`,
+      [userId, date, stats.agi, stats.str, stats.end, stats.vit, stats.xp ?? 0],
+    );
+  }
+
+  it('starts at zero, which reads as rating 1', async () => {
+    const user = await h.createUser();
+    expect(await ratings(user)).toEqual({
+      agi_total: 0, str_total: 0, end_total: 0, vit_total: 0,
+    });
+  });
+
+  it('sums each stat across days independently', async () => {
+    const user = await h.createUser();
+    await setDayStats(user, '2026-07-26', { agi: 900, str: 200, end: 0, vit: 500 });
+    await setDayStats(user, '2026-07-27', { agi: 500, str: 200, end: 900, vit: 0 });
+    expect(await ratings(user)).toEqual({
+      agi_total: 1_400, str_total: 400, end_total: 900, vit_total: 500,
+    });
+  });
+
+  it('recomputes rather than increments, so re-syncing a day is idempotent', async () => {
+    // The property the whole design rests on. Background delivery rewrites the
+    // same day repeatedly; an incrementing rollup would triple this.
+    const user = await h.createUser();
+    for (let i = 0; i < 3; i++) {
+      await setDayStats(user, '2026-07-27', { agi: 900, str: 0, end: 0, vit: 0 });
+    }
+    expect((await ratings(user)).agi_total).toBe(900);
+  });
+
+  it('follows a same-tier rescore that leaves XP untouched', async () => {
+    // The reason `daily_scores_xp_rollup`'s early return had to widen. 5,200
+    // steps and 8,000 steps are both Silver, so a revision between them moves
+    // agi_points and not xp_awarded at all — and the old skip would have
+    // swallowed it silently, leaving the ability rating behind the days that
+    // earned it.
+    const user = await h.createUser();
+    await setDayStats(user, '2026-07-27', { agi: 500, str: 0, end: 0, vit: 0, xp: 25 });
+    await setDayStats(user, '2026-07-27', { agi: 620, str: 0, end: 0, vit: 0, xp: 25 });
+    expect((await ratings(user)).agi_total).toBe(620);
+  });
+
+  it('follows a deleted day back down', async () => {
+    const user = await h.createUser();
+    await setDayStats(user, '2026-07-27', { agi: 900, str: 900, end: 900, vit: 900 });
+    await h.asService('delete from public.daily_scores where user_id = $1', [user]);
+    expect(await ratings(user)).toEqual({
+      agi_total: 0, str_total: 0, end_total: 0, vit_total: 0,
+    });
+  });
+
+  it('feeds a rating that agrees with kairo-core', async () => {
+    // Cross-language check, the same one `level` gets: the rollup is the input
+    // and `ratingForStatPoints` is the curve, and nothing in SQL may reimplement
+    // the curve.
+    const user = await h.createUser();
+    for (const points of [0, 99, 100, 27_000, 328_500]) {
+      await setDayStats(user, '2026-07-27', { agi: points, str: 0, end: 0, vit: 0 });
+      const state = await ratings(user);
+      expect(state.agi_total).toBe(points);
+      expect(ratingForStatPoints(state.agi_total)).toBe(ratingForStatPoints(points));
+    }
+  });
+
+  it('is not client-writable — an ability cannot be minted', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'update public.profiles set agi_total = 999999 where id = $1', [user]),
+      /permission denied/i,
+    );
   });
 });
 
@@ -353,7 +561,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(14);
+    expect(rows[0]!.count).toBe(15);
   });
 
   it('enable row level security on every public table', async () => {
@@ -1166,60 +1374,56 @@ describe('seed_test_users allowlist', () => {
   });
 });
 
-describe('profiles.focus', () => {
-  it('starts null, because focus is skippable', async () => {
-    const user = await h.createUser();
-    const rows = await h.asService<{ focus: string | null }>(
-      'select focus from public.profiles where id = $1',
-      [user],
+describe('profiles.focus is gone', () => {
+  // Removed in 20260810140000. squads.program is the only focus concept — the
+  // same four choices, fixed at creation, and it actually weights the board.
+  // The character screen's lane now reads observed dominance instead.
+
+  it('no longer exists as a column', async () => {
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from information_schema.columns
+       where table_schema = 'public' and table_name = 'profiles'
+         and column_name = 'focus'`,
     );
-    expect(rows[0]!.focus).toBeNull();
+    expect(rows[0]!.n).toBe(0);
   });
 
-  it('accepts every focus @kairo/core declares', async () => {
-    const user = await h.createUser();
-    for (const focus of USER_FOCUSES) {
-      await h.asUser(user, 'update public.profiles set focus = $2 where id = $1', [
-        user,
-        focus,
-      ]);
-    }
-    const rows = await h.asService<{ focus: string }>(
-      'select focus from public.profiles where id = $1',
-      [user],
+  it('is absent from the column-scoped client grants', async () => {
+    // The grants are the written-down statement of what a client may write to
+    // `profiles`. Dropping a column prunes them automatically, so this asserts
+    // the *rest* of the list survived the revoke/re-grant intact — that is the
+    // half a careless rebuild would get wrong.
+    const rows = await h.asService<{ column_name: string }>(
+      `select distinct column_name from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and privilege_type = 'UPDATE' order by column_name`,
     );
-    expect(rows[0]!.focus).toBe(USER_FOCUSES[USER_FOCUSES.length - 1]);
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'birth_year',
+      'character_name',
+      'class',
+      'exclude_from_recap',
+      'height_cm',
+      'sex',
+      'timezone',
+      'weight_kg',
+    ]);
   });
 
-  it('rejects a focus the enum does not know', async () => {
-    const user = await h.createUser();
-    await rejects(
-      h.asUser(user, `update public.profiles set focus = 'cycling' where id = $1`, [
-        user,
-      ]),
-      /check constraint/i,
+  it('still keeps has_wearable out of those grants', async () => {
+    // Unrelated to focus, and that is the point: the rebuild above rewrote the
+    // whole list, and has_wearable being absent is the property 20260807100000
+    // added it for.
+    // Scoped to the write verbs: `profiles` carries a table-level SELECT for
+    // `authenticated`, which surfaces here as a SELECT row per column. Owner-
+    // only reads are RLS's job, not the grant's.
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and column_name = 'has_wearable'
+         and privilege_type in ('INSERT', 'UPDATE')`,
     );
-  });
-
-  it('can be set at profile creation, so onboarding needs no second round-trip', async () => {
-    const seeded = await h.asService<{ id: string }>(
-      'insert into auth.users (email) values ($1) returning id',
-      ['focus-insert-probe@example.test'],
-    );
-    const id = seeded[0]!.id;
-
-    await h.asUser(
-      id,
-      `insert into public.profiles (id, character_name, timezone, focus)
-       values ($1, 'Lane', 'Asia/Manila', 'running')`,
-      [id],
-    );
-
-    const rows = await h.asService<{ focus: string }>(
-      'select focus from public.profiles where id = $1',
-      [id],
-    );
-    expect(rows[0]!.focus).toBe('running');
+    expect(rows[0]!.n).toBe(0);
   });
 });
 
@@ -2011,7 +2215,7 @@ describe('goals', () => {
     const rows = await h.asUser<{ id: string }>(
       userId,
       `select id from public.create_goal(
-         'Ten thousand', 'cumulative', 60000, '2026-01-01'::date, '2026-01-30'::date)`,
+         'Ten thousand', null, 'cumulative', 60000, '2026-01-01'::date, '2026-01-30'::date)`,
     );
     return rows[0]!.id;
   }
@@ -2042,7 +2246,7 @@ describe('goals', () => {
       const goal = await h.asUser<{ id: string; required_members: number }>(
         leader,
         `select id, required_members from public.create_goal(
-           'Together', 'cumulative', 300000, '2026-01-01'::date, '2026-01-30'::date,
+           'Together', null, 'cumulative', 300000, '2026-01-01'::date, '2026-01-30'::date,
            null, $1)`,
         [squadId],
       );
@@ -2062,7 +2266,7 @@ describe('goals', () => {
       const goal = await h.asUser<{ id: string }>(
         leader,
         `select id from public.create_goal(
-           'Frozen', 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+           'Frozen', null, 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
       const joiner = await h.createUser();
@@ -2085,7 +2289,7 @@ describe('goals', () => {
       await rejects(
         h.asUser(
           outsider,
-          `select public.create_goal('Nope', 'cumulative', 1000,
+          `select public.create_goal('Nope', null, 'cumulative', 1000,
              '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
           [squadId],
         ),
@@ -2098,7 +2302,7 @@ describe('goals', () => {
       const goal = await h.asUser<{ required_members: number }>(
         leader,
         `select required_members from public.create_goal(
-           'Greedy', 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date,
+           'Greedy', null, 'cumulative', 1000, '2026-01-01'::date, '2026-01-30'::date,
            null, $1, 9::smallint)`,
         [squadId],
       );
@@ -2110,7 +2314,7 @@ describe('goals', () => {
       await rejects(
         h.asUser(
           user,
-          `select public.create_goal('Impossible', 'consistency', 2500,
+          `select public.create_goal('Impossible', null, 'consistency', 2500,
              '2026-01-01'::date, '2026-01-07'::date, 10::smallint)`,
         ),
         /exceeds the 7 day window/,
@@ -2122,11 +2326,94 @@ describe('goals', () => {
       await rejects(
         h.asUser(
           user,
-          `select public.create_goal('Backwards', 'cumulative', 1000,
+          `select public.create_goal('Backwards', null, 'cumulative', 1000,
              '2026-01-30'::date, '2026-01-01'::date)`,
         ),
         /goals_window_ordered/,
       );
+    });
+
+    it('stores a description and normalises a blank one to null', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ description: string | null }>(
+        user,
+        `select description from public.create_goal(
+           'Described', '  Because I said I would.  ', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date)`,
+      );
+      // Trimmed, not stored raw — the CHECK measures the trimmed length, so an
+      // untrimmed store and the constraint would disagree about the same value.
+      expect(rows[0]!.description).toBe('Because I said I would.');
+
+      const blank = await h.asUser<{ description: string | null }>(
+        user,
+        `select description from public.create_goal(
+           'Blank', '   ', 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date)`,
+      );
+      // Absent and empty must be one state, or the detail screen has to handle
+      // both. The CHECK would reject '' outright; the RPC folds it to null.
+      expect(blank[0]!.description).toBeNull();
+    });
+
+    it('rejects a description longer than the column allows', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asService(
+          `insert into public.goals
+             (created_by, title, description, kind, target, starts_on, ends_on)
+           values ($1, 'Long', repeat('x', 281), 'cumulative', 1000,
+                   '2026-01-01', '2026-01-30')`,
+          [user],
+        ),
+        /goals_description_check/,
+      );
+    });
+
+    it('creates an open-ended cumulative goal with no end date', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ id: string; ends_on: string | null }>(
+        user,
+        `select id, ends_on from public.create_goal(
+           'Half a million', null, 'cumulative', 500000, '2026-01-01'::date, null)`,
+      );
+      expect(rows[0]!.ends_on).toBeNull();
+
+      // The roster is still frozen, exactly as for a dated goal.
+      const participants = await h.asService<{ n: number }>(
+        'select count(*)::int as n from public.goal_participants where goal_id = $1',
+        [rows[0]!.id],
+      );
+      expect(participants[0]!.n).toBe(1);
+    });
+
+    it('refuses an open-ended consistency goal', async () => {
+      // "Clear the bar on 25 days, however long it takes" can never become
+      // unreachable, so it has no failure state and nothing for the pace marker
+      // to sit at. Forbidden in the schema rather than only discouraged in the UI.
+      const user = await h.createUser();
+      await rejects(
+        h.asUser(
+          user,
+          `select public.create_goal('Forever', null, 'consistency', 2500,
+             '2026-01-01'::date, null, 25::smallint)`,
+        ),
+        /goals_consistency_needs_end/,
+      );
+    });
+
+    it('skips the window validation for an open-ended goal rather than silently passing it', async () => {
+      // `required_days > (null - starts_on) + 1` is NULL, so the IF would never
+      // fire and the trigger would look present while enforcing nothing. The
+      // early return is what makes that explicit. A cumulative goal has no
+      // required_days at all, so reaching the trigger must simply be harmless.
+      const user = await h.createUser();
+      const rows = await h.asUser<{ id: string }>(
+        user,
+        `select id from public.create_goal(
+           'Open', null, 'cumulative', 1000, '2026-01-01'::date, null)`,
+      );
+      expect(rows[0]!.id).toBeTruthy();
     });
 
     it('requires required_days on a consistency goal and forbids it otherwise', async () => {
@@ -2221,7 +2508,7 @@ describe('goals', () => {
       const { leader, members, squadId } = await seedSquad(1);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Shared', 'cumulative', 1000,
+        `select id from public.create_goal('Shared', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
@@ -2237,7 +2524,7 @@ describe('goals', () => {
       const { leader, squadId } = await seedSquad(0);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Private', 'cumulative', 1000,
+        `select id from public.create_goal('Private', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
@@ -2280,8 +2567,9 @@ describe('goals', () => {
          group by table_name order by table_name`,
       );
       // SELECT and nothing else, on all three. A column-level UPDATE grant does
-      // not surface here — `column_privileges` is where `title` shows up, which
-      // is the next assertion and the reason both are needed.
+      // not surface here — `title` and `description` show up in
+      // `column_privileges`, which is the next assertion and the reason both
+      // are needed.
       expect(rows).toEqual([
         { table_name: 'goal_completions', privs: 'SELECT' },
         { table_name: 'goal_participants', privs: 'SELECT' },
@@ -2293,7 +2581,10 @@ describe('goals', () => {
          where table_name = 'goals' and grantee = 'authenticated'
            and privilege_type = 'UPDATE' order by column_name`,
       );
-      expect(cols).toEqual([{ column_name: 'title' }]);
+      // Exactly two, and the list is the point: everything else on a goal is
+      // fixed after creation, because moving a target mid-window would silently
+      // re-grade days already counted.
+      expect(cols).toEqual([{ column_name: 'description' }, { column_name: 'title' }]);
     });
 
     it('blocks a client from adding itself to somebody else’s goal', async () => {
@@ -2339,6 +2630,28 @@ describe('goals', () => {
       expect(rows.map((r) => r.total)).toEqual([100, 200]);
     });
 
+    it('has no upper bound for an open-ended goal, but keeps the lower one', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ id: string }>(
+        user,
+        `select id from public.create_goal(
+           'Open', null, 'cumulative', 500000, '2026-01-01'::date, null)`,
+      );
+      const goalId = rows[0]!.id;
+      await seedDay(user, '2025-12-31', 999);
+      await seedDay(user, '2026-01-01', 100);
+      await seedDay(user, '2027-06-15', 200);
+
+      const scores = await h.asUser<{ total: number }>(
+        user,
+        'select total from public.goal_window_scores($1)',
+        [goalId],
+      );
+      // A day eighteen months later still counts; the day before the start
+      // still does not. `ends_on is null` widens one bound, never both.
+      expect(scores.map((r) => r.total)).toEqual([100, 200]);
+    });
+
     it('reports status so the caller can exclude provisional days', async () => {
       const user = await h.createUser();
       const goalId = await personalGoal(user);
@@ -2359,7 +2672,7 @@ describe('goals', () => {
       const { leader, members, squadId } = await seedSquad(1);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Nobody moved', 'cumulative', 1000,
+        `select id from public.create_goal('Nobody moved', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
@@ -2399,7 +2712,7 @@ describe('goals', () => {
       const { leader, members, squadId } = await seedSquad(1);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Both', 'cumulative', 1000,
+        `select id from public.create_goal('Both', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
@@ -2496,7 +2809,7 @@ describe('goals', () => {
       const { leader, members, squadId } = await seedSquad(1);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Persist', 'cumulative', 1000,
+        `select id from public.create_goal('Persist', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );
@@ -2640,7 +2953,7 @@ describe('goals', () => {
       const { leader, squadId } = await seedSquad(0);
       const goal = await h.asUser<{ id: string }>(
         leader,
-        `select id from public.create_goal('Doomed', 'cumulative', 1000,
+        `select id from public.create_goal('Doomed', null, 'cumulative', 1000,
            '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
         [squadId],
       );

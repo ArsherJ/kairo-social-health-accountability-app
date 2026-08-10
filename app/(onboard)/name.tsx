@@ -11,7 +11,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHARACTER_NAME_MAX, isValidCharacterName } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
-import { beginFocusStep } from '@/features/onboarding/store.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
 import { Button, Label } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
@@ -39,13 +38,11 @@ export default function NameYourHunter() {
     submitting.current = true;
     createProfile.mutate(name, {
       // The profile row now exists, so the route gate reads this user as
-      // onboarded. beginFocusStep() holds it off long enough to ask the focus
-      // question; without it the gate would replace this stack with the tabs
-      // before the next screen mounted.
-      onSuccess: () => {
-        beginFocusStep();
-        router.replace('/focus');
-      },
+      // onboarded and would send them here on its own. Replacing explicitly
+      // rather than relying on that effect keeps the transition predictable and
+      // one frame earlier. This is the last onboarding step — the focus
+      // question that used to follow it is gone.
+      onSuccess: () => router.replace('/'),
       onSettled: () => {
         submitting.current = false;
       },

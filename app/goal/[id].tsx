@@ -1,20 +1,21 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { GoalBar } from '@/features/goals/GoalBar.tsx';
 import {
   progressLine,
-  shortDate,
+  windowLine,
   squadRequirementLine,
   statusLine,
 } from '@/features/goals/goal-copy.ts';
 import { useAbandonGoal } from '@/features/goals/mutations.ts';
 import { toGoal, useGoalDetail } from '@/features/goals/queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Avatar, BackRow, Label, Screen } from '@/ui/index.ts';
+import { setNavHidden } from '@/ui/chrome.ts';
+import { Avatar, BackRow, Button, Label, Screen } from '@/ui/index.ts';
 
 /**
  * One goal, in full: the window, your own bar, and where everybody else on it
@@ -39,6 +40,15 @@ export default function GoalDetail() {
 
   const detail = useGoalDetail(id, userId, today);
   const abandon = useAbandonGoal(userId);
+
+  // A card over the tab shell: the orbit nav is covered, not absent, so its
+  // clearance must stand down with it. Same shape as `goal/new`.
+  useFocusEffect(
+    useCallback(() => {
+      setNavHidden(true);
+      return () => setNavHidden(false);
+    }, []),
+  );
 
   const confirmAbandon = useCallback(() => {
     if (!id) return;
@@ -105,10 +115,21 @@ export default function GoalDetail() {
       <Label tone={shared ? 'sage' : 'accent'}>{shared ? 'SQUAD GOAL' : 'YOUR GOAL'}</Label>
       <Text style={styles.title}>{row.title}</Text>
       <Text style={styles.window}>
-        {shortDate(row.starts_on, today ?? row.starts_on)} –{' '}
-        {shortDate(row.ends_on, today ?? row.ends_on)} · {windowDays} days
-        {row.kind === 'consistency' && ` · ${row.target.toLocaleString()} a day`}
+        {windowLine({
+          startsOn: row.starts_on,
+          endsOn: row.ends_on,
+          today: today ?? row.starts_on,
+          windowDays,
+          dailyTarget: row.kind === 'consistency' ? row.target : null,
+        })}
       </Text>
+
+      {/* The "why", under the "what". Rendered only when there is one — an
+          empty line of muted text under every goal without a description would
+          be a hole in the layout rather than an absence. */}
+      {row.description !== null && row.description.trim() !== '' && (
+        <Text style={styles.description}>{row.description}</Text>
+      )}
 
       {rollup && standings.length > 0 && (
         <Text style={styles.rollup}>
@@ -148,21 +169,20 @@ export default function GoalDetail() {
         </>
       )}
 
-      {/* At the foot and styled as quiet text, not a header icon: this is rare,
-          irreversible, and must not sit next to anything tapped every day. Same
-          treatment as leaving a squad. */}
+      {/* At the foot, not in a header: this is rare, irreversible, and must not
+          sit next to anything tapped every day. It *is* a button now — the
+          outlined `destructive` variant keeps it from competing with anything
+          above it while still reading as a control. Same treatment as leaving a
+          squad, and the Alert.alert confirm is still the real guard. */}
       <View style={styles.leaveBlock}>
         {abandon.isError && <Text style={styles.error}>{abandon.error.message}</Text>}
-        <Pressable
-          accessibilityRole="button"
-          disabled={abandon.isPending}
+        <Button
+          label={shared ? 'Leave this goal' : 'Abandon this goal'}
+          variant="destructive"
           onPress={confirmAbandon}
-          style={({ pressed }) => [styles.leave, pressed && styles.pressed]}
-        >
-          <Text style={styles.leaveLabel}>
-            {shared ? 'Leave this goal' : 'Abandon this goal'}
-          </Text>
-        </Pressable>
+          disabled={abandon.isPending}
+          busy={abandon.isPending}
+        />
       </View>
     </Screen>
   );
@@ -173,6 +193,13 @@ const styles = StyleSheet.create({
   empty: { ...font.body.body, fontSize: 14, color: colors.muted, textAlign: 'center' },
   title: { ...font.display.small, fontSize: 24, color: colors.text, marginTop: space.xs },
   window: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.xs },
+  description: {
+    ...font.body.body,
+    fontSize: 14,
+    color: ramp.neutral[700],
+    marginTop: space.sm,
+    lineHeight: 20,
+  },
   rollup: { ...font.body.strong, fontSize: 12.5, color: ramp.sage[800], marginTop: space.sm },
   mine: { marginTop: space.lg },
   section: {
@@ -200,9 +227,9 @@ const styles = StyleSheet.create({
   memberName: { ...font.display.small, fontSize: 16, color: colors.text },
   memberMeta: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700], marginTop: 2 },
   tick: { ...font.display.minor, color: ramp.sage[800] },
-  leaveBlock: { marginTop: space.xl, alignItems: 'center', gap: space.sm },
-  leave: { paddingVertical: space.sm, paddingHorizontal: space.md },
-  leaveLabel: { ...font.body.strong, fontSize: 12.5, color: ramp.neutral[600] },
+  // `stretch`, not `center`: the button sizes itself, and centring it would
+  // shrink-wrap the pill to its label and undo the 52pt target.
+  leaveBlock: { marginTop: space.xl, gap: space.sm },
   pressed: { opacity: 0.6 },
   error: { ...font.body.strong, fontSize: 12.5, color: ramp.accent[900] },
 });

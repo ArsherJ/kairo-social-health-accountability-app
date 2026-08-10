@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 // `standings.ts`, not `queries.ts`: the latter imports the Supabase client, which
 // vitest cannot resolve. That split is the reason this module exists.
-import { standingsFor } from './standings.ts';
+import { pickLiveGoal, standingsFor } from './standings.ts';
 import type { Completion, GoalRow, WindowScore } from './standings.ts';
 
 const ME = 'me';
@@ -14,6 +14,7 @@ function goal(overrides: Partial<GoalRow> = {}): GoalRow {
     squad_id: 'sq',
     created_by: ME,
     title: 'Together',
+    description: null,
     kind: 'cumulative',
     target: 10_000,
     required_days: null,
@@ -136,5 +137,67 @@ describe('standingsFor', () => {
       score({ total: '2500' as unknown as number }),
     ]);
     expect(standings[0]!.progress.progress).toBe(2_500);
+  });
+});
+
+describe('pickLiveGoal', () => {
+  const started = { starts_on: '2026-01-01' };
+
+  it('returns nothing when there are no goals', () => {
+    expect(pickLiveGoal([], TODAY)).toBeNull();
+  });
+
+  it('ignores a window that has not opened yet', () => {
+    const future = goal({ id: 'future', starts_on: '2026-02-01', ends_on: '2026-02-28' });
+    expect(pickLiveGoal([future], TODAY)).toBeNull();
+  });
+
+  it('picks the live goal closing soonest', () => {
+    const late = goal({ id: 'late', ...started, ends_on: '2026-03-01' });
+    const soon = goal({ id: 'soon', ...started, ends_on: '2026-01-20' });
+    expect(pickLiveGoal([late, soon], TODAY)?.id).toBe('soon');
+  });
+
+  it('counts the last day of a window as live', () => {
+    const ending = goal({ id: 'ending', ...started, ends_on: TODAY });
+    expect(pickLiveGoal([ending], TODAY)?.id).toBe('ending');
+  });
+
+  it('treats an open-ended goal as live once it has started', () => {
+    const open = goal({ id: 'open', ...started, ends_on: null });
+    expect(pickLiveGoal([open], TODAY)?.id).toBe('open');
+  });
+
+  it('never lets an open-ended goal win a soonest-closing race', () => {
+    // The whole reason this was worth lifting out of the components: a null
+    // `ends_on` compared with `localeCompare` would have thrown or sorted first.
+    const open = goal({ id: 'open', ...started, ends_on: null });
+    const dated = goal({ id: 'dated', ...started, ends_on: '2026-03-01' });
+    expect(pickLiveGoal([open, dated], TODAY)?.id).toBe('dated');
+    expect(pickLiveGoal([dated, open], TODAY)?.id).toBe('dated');
+  });
+
+  it('falls back to an open-ended goal when it is the only live one', () => {
+    const open = goal({ id: 'open', ...started, ends_on: null });
+    const done = goal({ id: 'done', ...started, ends_on: '2026-01-10' });
+    expect(pickLiveGoal([done, open], TODAY)?.id).toBe('open');
+  });
+
+  it('returns null for a closed goal unless the past fallback is asked for', () => {
+    const done = goal({ id: 'done', ...started, ends_on: '2026-01-10' });
+    expect(pickLiveGoal([done], TODAY)).toBeNull();
+    expect(pickLiveGoal([done], TODAY, { fallbackToPast: true })?.id).toBe('done');
+  });
+
+  it('falls back to the most recently closed goal, not the oldest', () => {
+    const old = goal({ id: 'old', ...started, ends_on: '2026-01-05' });
+    const recent = goal({ id: 'recent', ...started, ends_on: '2026-01-12' });
+    expect(pickLiveGoal([old, recent], TODAY, { fallbackToPast: true })?.id).toBe('recent');
+  });
+
+  it('prefers a live goal over a closed one even with the fallback on', () => {
+    const done = goal({ id: 'done', ...started, ends_on: '2026-01-10' });
+    const live = goal({ id: 'live', ...started, ends_on: '2026-01-20' });
+    expect(pickLiveGoal([done, live], TODAY, { fallbackToPast: true })?.id).toBe('live');
   });
 });

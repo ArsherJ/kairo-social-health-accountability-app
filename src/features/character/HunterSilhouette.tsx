@@ -1,6 +1,6 @@
 import { Animated, Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
-import { colors, ramp, tierColors } from '@/theme.ts';
+import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
 
@@ -95,7 +95,7 @@ const BUILDS: Record<Exclude<Dominance, null>, Build> = {
   VIT: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
   // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, evenly
   // proportioned, and the only build that earns the ring.
-  balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: tierColors.gold, weight: 0.03, stance: 34 },
+  balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: earnedColor, weight: 0.03, stance: 34 },
 };
 
 /** A character with no points yet: the original neutral placeholder. */
@@ -138,7 +138,7 @@ export function HunterSilhouette({
       <GroundShadow width={shadowWidth} color={build.shade} opacity={shadowOpacity} />
 
       {dominance === 'balanced' && (
-        <PresenceRing size={shadowWidth * 1.35} color={tierColors.gold} />
+        <PresenceRing size={shadowWidth * 1.35} color={earnedColor} />
       )}
 
       {/* The float rides above the shadow rather than carrying it: a shadow

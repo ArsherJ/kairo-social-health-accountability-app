@@ -5,6 +5,7 @@ import { standingsFor, type Completion, type GoalRow, type WindowScore } from '.
 // Re-exported so callers have one import for the feature's shapes; the
 // definitions and the grouping live in `standings.ts`, which is pure and tested.
 export {
+  pickLiveGoal,
   standingsFor,
   toGoal,
   type Completion,
@@ -31,7 +32,7 @@ export const goalKeys = {
 };
 
 const GOAL_COLUMNS =
-  'id, squad_id, created_by, title, kind, target, required_days, required_members, starts_on, ends_on';
+  'id, squad_id, created_by, title, description, kind, target, required_days, required_members, starts_on, ends_on';
 
 /**
  * The caller's own personal goals, newest window first.
@@ -49,7 +50,11 @@ export function useMyGoals(userId: string | undefined) {
         .from('goals')
         .select(GOAL_COLUMNS)
         .is('squad_id', null)
-        .order('ends_on', { ascending: true });
+        // `nullsFirst: false` is explicit, not decorative: an open-ended goal has a
+        // null `ends_on`, and it belongs at the end of a list sorted by which
+        // deadline arrives first. Postgres already defaults ASC to NULLS LAST —
+        // saying so stops that being load-bearing trivia.
+        .order('ends_on', { ascending: true, nullsFirst: false });
       if (error) throw new Error(error.message);
       return (data ?? []) as GoalRow[];
     },
@@ -65,7 +70,11 @@ export function useSquadGoals(squadId: string | undefined) {
         .from('goals')
         .select(GOAL_COLUMNS)
         .eq('squad_id', squadId!)
-        .order('ends_on', { ascending: true });
+        // `nullsFirst: false` is explicit, not decorative: an open-ended goal has a
+        // null `ends_on`, and it belongs at the end of a list sorted by which
+        // deadline arrives first. Postgres already defaults ASC to NULLS LAST —
+        // saying so stops that being load-bearing trivia.
+        .order('ends_on', { ascending: true, nullsFirst: false });
       if (error) throw new Error(error.message);
       return (data ?? []) as GoalRow[];
     },

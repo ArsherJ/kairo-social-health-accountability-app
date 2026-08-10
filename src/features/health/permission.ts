@@ -25,6 +25,11 @@ export const KAIRO_READ_TYPES = [
   'HKQuantityTypeIdentifierAppleExerciseTime',
   'HKCategoryTypeIdentifierSleepAnalysis',
   'HKQuantityTypeIdentifierHeartRate',
+  // Apple computes this itself, once a day, from overnight readings. Kairo
+  // never derives it — a floor over the day's hourly averages would be the
+  // lowest hour, not a resting rate. Only used for strain's reserve
+  // denominator; absent is normal and falls back.
+  'HKQuantityTypeIdentifierRestingHeartRate',
   'HKWorkoutTypeIdentifier',
 ] as const;
 

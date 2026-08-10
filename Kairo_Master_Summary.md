@@ -134,6 +134,8 @@ REC Sleep Bonus:
 
 **The wearable incentive effect:** When a phone-only user sees a competitor with a 🔗 REC bonus on the leaderboard, they want it. This passively advertises the Xiaomi Band without you saying a word about accessories.
 
+> **Build note (2026-08-10, roadmap deviation #24).** A derived **Strain** score joins REC as a wearable-only display figure. HealthKit has no strain metric; it is computed from hourly average heart rate — which the anti-cheat cross-check below was already reading and discarding — as time spent high in the heart-rate reserve, weighted so hard hours dominate, saturating toward 21. **It is display only:** never stored on `daily_scores`, never ranked, never in a goal, so §12's server-authoritative rule is untouched.
+
 ### Metrics Deliberately Excluded
 - Water intake — manual log, trivially fakeable
 - Nutrition / calories — too complex, too easy to lie
@@ -150,7 +152,11 @@ Full ban systems are expensive and imperfect. The real anti-cheat is **social em
 - Flag clears after 3 clean days
 
 ### Onboarding Data Collection
-HealthKit's active calorie estimation (STR) requires height, weight, and age for accuracy. Collect these in onboarding. Users who skip get a persistent soft prompt: *"Add your height and weight in Settings for more accurate STR tracking."*
+HealthKit's active calorie estimation (STR) requires height, weight, and age for accuracy. Collect these in onboarding.
+
+> **Build note (2026-08-10).** Age now has a second reader: `220 - age` is the maximum-heart-rate estimate behind the **Strain** figure on the character screen (roadmap deviation #24). Still never required — an unset birth year falls back to a default ceiling rather than hiding strain.
+
+Users who skip get a persistent soft prompt: *"Add your height and weight in Settings for more accurate STR tracking."*
 
 ### Onboarding Flow Philosophy (v1.3): Character First, Permissions in Context
 iOS gives one clean shot at the HealthKit and notification prompts, and the naive flow stacks six friction gates before any fun. The chosen order: **name + character on screen within the first 60 seconds** (emotional investment), THEN the HealthKit permission framed as *"power your character with real life,"* notifications requested only after a squad or a goal in flight gives them a reason to exist, and body metrics deferred to the soft prompt. Every ask has a visible why.
@@ -173,7 +179,11 @@ Daily reset: 11:59 PM in the user's local timezone
 ```
 
 ### Squad Data Visibility (v1.3 decision)
-Squadmates see **tiers and scores only** — Bronze/Silver/Gold per stat and total score — never raw step counts, hourly movement patterns, or timestamps. VIT's hour-by-hour data reveals when someone sleeps, works, or is sedentary; that stays private to the owner. Competitive information is fully preserved; surveillance vibes and Data Privacy Act exposure are removed.
+Squadmates see **aggregates and scores only** — never raw step counts, hourly movement patterns, or timestamps.
+
+> **Build note (2026-08-10, roadmap deviation #23).** The per-stat aggregate a squadmate sees is now a numeric **ability rating** rather than a Bronze/Silver/Gold tier. The tiers below still score every day exactly as this section specifies — they simply stopped being the vocabulary a user reads. The privacy rule is unchanged or stronger: a rating is a lifetime aggregate, so unlike a tier it cannot be inverted to a same-day step range.
+
+VIT's hour-by-hour data reveals when someone sleeps, works, or is sedentary; that stays private to the owner. Competitive information is fully preserved; surveillance vibes and Data Privacy Act exposure are removed.
 
 ---
 
@@ -205,6 +215,8 @@ Classes affect art only. No stat bonuses. Keeps the game fair.
 
 ### Contribution Tiers Per Stat (Daily)
 No activity is required. Every stat contributes independently.
+
+> **Build note (2026-08-10, roadmap deviation #23).** These tables are the live scoring engine and are unchanged — `tierFor()` and `TIER_POINTS` implement them exactly, and `daily_scores.tiers` still records the result. **The tier names are internal to scoring and are shown nowhere in the app.** The character sheet and the leaderboard read a per-stat ability rating derived from lifetime points on the same curve as Level; the guidance line names raw units and points ("1,240 more steps for +400 AGI") rather than a rank. A medal describes one day, and the question a character sheet answers is cumulative.
 
 **AGI — Steps**
 | Tier | Steps | Score |
@@ -331,6 +343,8 @@ Two shapes, because "walk 1,000 km by March" and "be good 25 days out of 30" are
 
 A window may be days, weeks, months or years. Nothing caps it — a year-long goal is a legitimate thing to want, and it is the only feature in the app with a horizon longer than a streak.
 
+> **Build note (2026-08-10, roadmap deviation #21).** The end date is now picked outright — four preset windows, a date picker, or **no end date at all**. Open-ended is **cumulative-only** and the database enforces it: "clear the bar on 25 days, however long it takes" can never become unreachable, so it has no failure state and nothing for the pace marker to measure against. An open-ended goal's completion XP scales by the span it actually ran rather than by a window it does not have.
+
 ### Personal and Shared
 | Scope | Who commits | How it resolves |
 |---|---|---|
@@ -340,7 +354,7 @@ A window may be days, weeks, months or years. Nothing caps it — a year-long go
 A squad goal's roster is **frozen when the goal is created**, not read live from membership. "Everyone must hit it" is meaningless if the denominator moves when somebody joins or leaves halfway through.
 
 ### Fixed at Creation
-Title aside, a goal cannot be edited after it exists. Changing a target mid-window would silently re-grade every day already counted — the same reasoning that fixes `squads.program` at creation. Abandoning a goal is the escape hatch, and it is deliberately a different, visible act from quietly lowering the bar.
+Title and description aside, a goal cannot be edited after it exists. Changing a target mid-window would silently re-grade every day already counted — the same reasoning that fixes `squads.program` at creation. Abandoning a goal is the escape hatch, and it is deliberately a different, visible act from quietly lowering the bar.
 
 ### Completion
 | Reward | Value |

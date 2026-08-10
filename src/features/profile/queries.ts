@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import type { UserFocus } from '@kairo/core';
 import { DEMO_STREAK } from '@/features/demo/fixtures.ts';
 import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
@@ -17,6 +16,16 @@ export type Profile = {
   level: number;
   total_xp: number;
   /**
+   * Lifetime points per stat — rollups on `profiles`, maintained by the same
+   * trigger as `total_xp` and never client-writable. `ratingForStatPoints()`
+   * turns each into the ability number the character sheet shows in place of a
+   * Bronze/Silver/Gold medal.
+   */
+  agi_total: number;
+  str_total: number;
+  end_total: number;
+  vit_total: number;
+  /**
    * Observed by `sync-health` from the presence of sleep data, not claimed by
    * the client — the column has no client write grant.
    */
@@ -26,11 +35,6 @@ export type Profile = {
    * has one code path rather than a Legendary special case invented later.
    */
   is_legendary: boolean;
-  /**
-   * Self-declared training focus. Presentation only: it highlights a stat and
-   * changes copy, and touches no scoring. Null means skipped or never asked.
-   */
-  focus: UserFocus | null;
   // Body metrics (§5). Owner-only columns on an owner-only row, and null until
   // the user answers the soft prompt — never required, never asked twice.
   height_cm: number | null;
@@ -52,7 +56,8 @@ export function useProfile(userId: string | undefined) {
         .from('profiles')
         .select(
           'id, character_name, class, timezone, level, total_xp, has_wearable, ' +
-            'is_legendary, focus, height_cm, weight_kg, birth_year, sex',
+            'agi_total, str_total, end_total, vit_total, ' +
+            'is_legendary, height_cm, weight_kg, birth_year, sex',
         )
         .eq('id', userId as string)
         .maybeSingle();

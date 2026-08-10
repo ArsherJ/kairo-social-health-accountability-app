@@ -30,7 +30,17 @@ export type LeaderboardRow = {
   level: number;
   local_date: string;
   total: number;
+  /**
+   * Bronze/silver/gold per stat. Still returned by the RPC and still what the
+   * scorer records — no longer rendered anywhere. See `ratings`.
+   */
   tiers: Record<string, string>;
+  /**
+   * Lifetime points per stat, from the `profiles` rollups. `ratingForStatPoints`
+   * in @kairo/core turns each into the ability number the row shows; the curve
+   * is never reimplemented in SQL.
+   */
+  ratings: Record<string, number>;
   contributing_stats: number;
   has_rec: boolean;
   flagged: boolean;

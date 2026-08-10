@@ -3,11 +3,8 @@ import {
   PROGRAM_BOOST_MULTIPLIER,
   PROGRAM_WEIGHTS,
   SQUAD_PROGRAMS,
-  USER_FOCUSES,
   boostedStatFor,
-  focusToProgram,
   isSquadProgram,
-  isUserFocus,
   programWeight,
   weightedBoardTotal,
 } from './program.ts';
@@ -141,31 +138,5 @@ describe('weightedBoardTotal', () => {
         recBonus: 0,
       }),
     ).toBe(0);
-  });
-});
-
-describe('user focus', () => {
-  it('accepts every declared focus', () => {
-    for (const focus of USER_FOCUSES) {
-      expect(isUserFocus(focus)).toBe(true);
-    }
-  });
-
-  it('rejects a squad program name that is not a focus', () => {
-    expect(isUserFocus('all_around')).toBe(false);
-    expect(isUserFocus(null)).toBe(false);
-  });
-
-  it('maps a personal focus onto the program that shares its meta', () => {
-    expect(focusToProgram('running')).toBe('running');
-    expect(focusToProgram('gym')).toBe('gym');
-    expect(focusToProgram('walking')).toBe('walking');
-    expect(focusToProgram('general')).toBe('all_around');
-  });
-
-  it('maps an unset focus onto all_around', () => {
-    // Focus is skippable, so null is a normal value — never a special case the
-    // callers have to guard.
-    expect(focusToProgram(null)).toBe('all_around');
   });
 });

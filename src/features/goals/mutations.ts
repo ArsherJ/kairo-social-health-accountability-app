@@ -25,10 +25,13 @@ function goalErrorMessage(code: string | undefined, fallback: string): string {
 
 export interface NewGoal {
   title: string;
+  /** Optional, up to 280 characters. The "why", where the title is the "what". */
+  description?: string | null;
   kind: 'cumulative' | 'consistency';
   target: number;
   startsOn: string;
-  endsOn: string;
+  /** Null for an open-ended goal. Rejected by the server for `consistency`. */
+  endsOn: string | null;
   /** Consistency only: how many days must clear the bar. */
   requiredDays?: number | null;
   /** Null for a personal goal. */
@@ -41,6 +44,10 @@ export function useCreateGoal(userId: string | undefined) {
     mutationFn: async (goal: NewGoal): Promise<GoalRow> => {
       const { data, error } = await supabase.rpc('create_goal', {
         p_title: goal.title.trim(),
+        // Empty and absent are the same thing to the column, whose CHECK rejects
+        // a blank string — so a description the user started and cleared must
+        // arrive as null, not as ''.
+        p_description: goal.description?.trim() || null,
         p_kind: goal.kind,
         p_target: goal.target,
         p_starts_on: goal.startsOn,

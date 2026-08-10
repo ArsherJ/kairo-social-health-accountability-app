@@ -3,6 +3,7 @@ import {
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
 } from '@kingstinct/react-native-healthkit';
+import { currentLocalDate } from '@kairo/core';
 import { hourlySampleInstants } from './intervals.ts';
 import { sleepMinutesByDate, type SleepSegment } from './sleep-attribution.ts';
 import type { HealthMetric, HourlyReading } from './hourly-buckets.ts';
@@ -25,6 +26,9 @@ import type { SyncWindow } from './sync-window.ts';
  * the users most likely to be competitive (roadmap deviation #8).
  */
 const HOURLY: { hour: number } = { hour: 1 };
+
+/** Resting heart rate is one figure per day, not per hour. */
+const DAILY: { day: number } = { day: 1 };
 
 /**
  * Units are always explicit.
@@ -60,6 +64,8 @@ function finite(value: number | undefined): number {
 export interface HealthReadResult {
   readings: HourlyReading[];
   sleep: Array<{ localDate: string; minutes: number }>;
+  /** One per local day that had a reading. Wearable users only. */
+  restingHeartRate: Array<{ localDate: string; bpm: number }>;
 }
 
 export async function readHealthWindow(
@@ -133,13 +139,25 @@ export async function readHealthWindow(
 
   for (const interval of heartRate) {
     if (!interval.startDate) continue;
+    const bpm = finite(interval.averageQuantity?.quantity);
+
     readings.push({
       metric: 'elevatedHeartRate',
       startDate: interval.startDate,
-      value:
-        finite(interval.averageQuantity?.quantity) >= ELEVATED_HEART_RATE_BPM
-          ? 1
-          : 0,
+      value: bpm >= ELEVATED_HEART_RATE_BPM ? 1 : 0,
+    });
+
+    // The same number, kept rather than discarded. It used to be reduced to
+    // the boolean above and thrown away; `computeStrain()` needs the magnitude,
+    // and re-querying HealthKit for a value already in hand would be a second
+    // round trip for data this loop is already holding.
+    //
+    // Zero means "no reading this hour", which `toBuckets` maps to null — an
+    // hour with the watch off is unmeasured, not an hour at rest.
+    readings.push({
+      metric: 'avgHeartRate',
+      startDate: interval.startDate,
+      value: bpm,
     });
   }
 
@@ -181,8 +199,35 @@ export async function readHealthWindow(
     value: s.value as unknown as number,
   }));
 
+  // Resting heart rate is a per-day figure Apple derives itself from overnight
+  // readings, so it is a daily statistic rather than an hourly one — the same
+  // shape as sleep, and it lands in its own table for the same reason.
+  const resting = await queryStatisticsCollectionForQuantity(
+    'HKQuantityTypeIdentifierRestingHeartRate',
+    ['discreteAverage'],
+    window.fromUtc,
+    DAILY,
+    { filter, unit: 'count/min' },
+  );
+
+  const restingByDate = new Map<string, number>();
+  for (const interval of resting) {
+    if (!interval.startDate) continue;
+    const bpm = finite(interval.averageQuantity?.quantity);
+    if (bpm <= 0) continue;
+    // Keyed by the user's local date (§2), like everything else — a UTC day
+    // boundary would file a Manila morning's reading under the day before.
+    restingByDate.set(currentLocalDate(interval.startDate, timeZone), bpm);
+  }
+
   return {
     readings,
     sleep: sleepMinutesByDate(segments, window.dates, timeZone),
+    restingHeartRate: window.dates
+      .filter((localDate) => restingByDate.has(localDate))
+      .map((localDate) => ({
+        localDate,
+        bpm: Math.round(restingByDate.get(localDate)!),
+      })),
   };
 }

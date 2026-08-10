@@ -96,6 +96,16 @@ export interface NextTier {
    * the first band, where the floor is 0.
    */
   bandLow: number;
+  /**
+   * Points this stat would *gain* by crossing into `tier` — the difference
+   * between the two bands, not the new band's value.
+   *
+   * Here rather than in the caller because it is derived from `TIER_POINTS`,
+   * which this module owns and does not export. It exists so the character
+   * screen can say "1,240 more steps for +400 AGI": the bands still decide the
+   * number, they just stopped being the vocabulary the user reads.
+   */
+  pointsGain: number;
 }
 
 /**
@@ -109,11 +119,30 @@ export interface NextTier {
  */
 export function nextTierFor(stat: CoreStat, raw: number): NextTier | null {
   const t = THRESHOLDS[stat];
-  if (raw < t.bronze) return { tier: 'bronze', gap: Math.ceil(t.bronze - raw), bandLow: 0 };
-  if (raw < t.silver) {
-    return { tier: 'silver', gap: Math.ceil(t.silver - raw), bandLow: t.bronze };
+  if (raw < t.bronze) {
+    return {
+      tier: 'bronze',
+      gap: Math.ceil(t.bronze - raw),
+      bandLow: 0,
+      pointsGain: TIER_POINTS.bronze - TIER_POINTS.none,
+    };
   }
-  if (raw < t.gold) return { tier: 'gold', gap: Math.ceil(t.gold - raw), bandLow: t.silver };
+  if (raw < t.silver) {
+    return {
+      tier: 'silver',
+      gap: Math.ceil(t.silver - raw),
+      bandLow: t.bronze,
+      pointsGain: TIER_POINTS.silver - TIER_POINTS.bronze,
+    };
+  }
+  if (raw < t.gold) {
+    return {
+      tier: 'gold',
+      gap: Math.ceil(t.gold - raw),
+      bandLow: t.silver,
+      pointsGain: TIER_POINTS.gold - TIER_POINTS.silver,
+    };
+  }
   return null;
 }
 

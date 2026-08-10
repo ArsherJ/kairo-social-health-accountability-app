@@ -1,40 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { CORE_STATS, USER_FOCUSES } from '@kairo/core';
+import { CORE_STATS } from '@kairo/core';
 import { laneEmptyCopy, laneStat } from './lane.ts';
 
 describe('laneStat', () => {
-  it('points each focus at the stat it fills', () => {
-    expect(laneStat('running')).toBe('AGI');
-    expect(laneStat('gym')).toBe('STR');
-    expect(laneStat('walking')).toBe('VIT');
+  it('is the stat the user has actually been grinding', () => {
+    expect(laneStat('AGI')).toBe('AGI');
+    expect(laneStat('STR')).toBe('STR');
+    expect(laneStat('END')).toBe('END');
+    expect(laneStat('VIT')).toBe('VIT');
   });
 
-  it('highlights nothing for someone who trains a bit of everything', () => {
-    expect(laneStat('general')).toBeNull();
+  it('highlights nothing for someone whose four stats are level', () => {
+    // 'balanced' is the answer "a bit of everything". Picking a stat to speak
+    // for that user would be inventing a preference they have not shown.
+    expect(laneStat('balanced')).toBeNull();
   });
 
-  it('highlights nothing when focus was skipped', () => {
-    // Null focus is a normal value, not a missing one.
+  it('highlights nothing before there is any history to read', () => {
+    // Null is "nobody has moved yet"; undefined is "the query has not landed".
+    // Both mean the same thing here, and neither is an error.
     expect(laneStat(null)).toBeNull();
+    expect(laneStat(undefined)).toBeNull();
   });
 
   it('never highlights a stat the four-stat list does not contain', () => {
-    for (const focus of USER_FOCUSES) {
-      const stat = laneStat(focus);
-      if (stat !== null) expect(CORE_STATS).toContain(stat);
+    for (const stat of CORE_STATS) {
+      expect(CORE_STATS).toContain(laneStat(stat));
     }
   });
 });
 
 describe('laneEmptyCopy', () => {
-  it('speaks the focus’s own language on an empty bar', () => {
-    expect(laneEmptyCopy('running')).toBe('Your next run fills this bar.');
-    expect(laneEmptyCopy('gym')).toBe('Your next session fills this bar.');
-    expect(laneEmptyCopy('walking')).toBe('Your next walk fills this bar.');
+  it('speaks the lane’s own language, in activities rather than stat names', () => {
+    // "Your next run" is something a person can go and do. "Your next AGI" is not.
+    expect(laneEmptyCopy('AGI')).toBe('Your next walk or run fills this bar.');
+    expect(laneEmptyCopy('STR')).toBe('Your next session fills this bar.');
+    expect(laneEmptyCopy('END')).toBe('Your next workout fills this bar.');
+    expect(laneEmptyCopy('VIT')).toBe('Moving on the hour fills this bar.');
+  });
+
+  it('has copy for every core stat, so a lane can never render blank', () => {
+    for (const stat of CORE_STATS) {
+      expect(laneEmptyCopy(stat)).toBeTruthy();
+    }
   });
 
   it('says nothing when there is no lane to speak for', () => {
-    expect(laneEmptyCopy('general')).toBeNull();
+    expect(laneEmptyCopy('balanced')).toBeNull();
     expect(laneEmptyCopy(null)).toBeNull();
+    expect(laneEmptyCopy(undefined)).toBeNull();
   });
 });

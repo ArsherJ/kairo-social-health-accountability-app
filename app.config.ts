@@ -64,6 +64,11 @@ const config: ExpoConfig = {
     // Listed after the HealthKit plugin so the pairing is obvious; the two
     // touch different mods, so the order is not load-bearing.
     './plugins/withHealthKitBackgroundObservers',
+    // The native date picker behind the goal form's "Custom" end date. Config
+    // plugin rather than autolinking alone: it is what pins the compile SDK on
+    // Android, which V1.5 will need. Adding it means `npm run prebuild` before
+    // the next `npm run ios`.
+    '@react-native-community/datetimepicker',
   ],
 
   experiments: {

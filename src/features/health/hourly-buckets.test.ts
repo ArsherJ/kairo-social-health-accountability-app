@@ -45,6 +45,9 @@ describe('toBuckets — shape', () => {
       activeMinutes: 0,
       hadWorkout: false,
       elevatedHeartRate: false,
+      // Null, not 0. An hour with no reading is unmeasured, and computeStrain()
+      // skips it — a zero would be an hour recorded as below resting.
+      avgHeartRate: null,
     });
     expect(buckets.at(-1)?.hour).toBe(23);
   });
@@ -227,5 +230,77 @@ describe('toBuckets — DST', () => {
     expect(bucketAt(buckets, '2026-03-08', 2).steps).toBe(0);
     expect(bucketAt(buckets, '2026-03-08', 3).steps).toBe(200);
     expect(buckets).toHaveLength(24);
+  });
+});
+
+describe('toBuckets — heart rate', () => {
+  it('carries an hourly average through as a number', () => {
+    const buckets = toBuckets(
+      [reading('avgHeartRate', manilaHour(9), 118)],
+      ['2026-08-01'],
+      MANILA,
+    );
+    expect(bucketAt(buckets, '2026-08-01', 9).avgHeartRate).toBe(118);
+  });
+
+  it('leaves an hour with no reading null rather than zero', () => {
+    // The watch was on for one hour. The other 23 were not measured, and a
+    // measured 0 would read as 23 hours below resting.
+    const buckets = toBuckets(
+      [reading('avgHeartRate', manilaHour(9), 118)],
+      ['2026-08-01'],
+      MANILA,
+    );
+    expect(bucketAt(buckets, '2026-08-01', 10).avgHeartRate).toBeNull();
+  });
+
+  it('treats a zero reading as absent, because HealthKit returns 0 for no data', () => {
+    const buckets = toBuckets(
+      [reading('avgHeartRate', manilaHour(9), 0)],
+      ['2026-08-01'],
+      MANILA,
+    );
+    expect(bucketAt(buckets, '2026-08-01', 9).avgHeartRate).toBeNull();
+  });
+
+  it('averages two readings landing on one hour, never sums them', () => {
+    // The DST fall-back case, and the reason heart rate cannot go through the
+    // accumulate-then-round path the sums use: summing would report a resting
+    // hour as maximal effort, twice a year.
+    const buckets = toBuckets(
+      [
+        reading('avgHeartRate', new Date('2026-11-01T05:00:00.000Z'), 100),
+        reading('avgHeartRate', new Date('2026-11-01T06:00:00.000Z'), 140),
+      ],
+      ['2026-11-01'],
+      NEW_YORK,
+    );
+    expect(bucketAt(buckets, '2026-11-01', 1).avgHeartRate).toBe(120);
+  });
+
+  it('rounds to one decimal, matching numeric(5,1)', () => {
+    const buckets = toBuckets(
+      [
+        reading('avgHeartRate', new Date('2026-11-01T05:00:00.000Z'), 100),
+        reading('avgHeartRate', new Date('2026-11-01T06:00:00.000Z'), 101),
+      ],
+      ['2026-11-01'],
+      NEW_YORK,
+    );
+    expect(bucketAt(buckets, '2026-11-01', 1).avgHeartRate).toBe(100.5);
+  });
+
+  it('keeps the elevated flag independent of the number', () => {
+    // The boolean is what the anti-cheat cross-check reads (§5). Adding the
+    // number must not change that predicate's behaviour.
+    const at = manilaHour(9);
+    const buckets = toBuckets(
+      [reading('avgHeartRate', at, 150), reading('elevatedHeartRate', at, 1)],
+      ['2026-08-01'],
+      MANILA,
+    );
+    const hour = bucketAt(buckets, '2026-08-01', 9);
+    expect(hour.elevatedHeartRate).toBe(true);
+    expect(hour.avgHeartRate).toBe(150);
   });
 });

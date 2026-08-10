@@ -88,6 +88,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         active_minutes: b.activeMinutes,
         had_workout: b.hadWorkout ?? false,
         elevated_heart_rate: b.elevatedHeartRate ?? false,
+        // Null-safe on purpose: `?? null` writes an explicit NULL for an hour
+        // with no reading, which is what overwrites a stale value when a watch
+        // stops reporting. Whole-day emission (deviation #8) is only idempotent
+        // if absence overwrites, and that applies to this column too.
+        avg_heart_rate: b.avgHeartRate ?? null,
         updated_at: now.toISOString(),
       })),
       { onConflict: 'user_id,local_date,hour' },
@@ -118,6 +123,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
       { onConflict: 'user_id,local_date' },
     );
     if (error) return fail(`sleep upsert failed: ${error.message}`, 500);
+  }
+
+  // Resting heart rate, the other denominator strain needs. Its own table for
+  // the same reason sleep has one: it is a per-day figure Apple derives, not an
+  // hourly one, and a user can have one without the other.
+  //
+  // Display only — nothing below reads it, and no score depends on it.
+  if (request.restingHeartRate && request.restingHeartRate.length > 0) {
+    const { error } = await admin.from('daily_heart').upsert(
+      request.restingHeartRate.map((r) => ({
+        user_id: userId,
+        local_date: r.localDate,
+        resting_hr: r.bpm,
+        updated_at: now.toISOString(),
+      })),
+      { onConflict: 'user_id,local_date' },
+    );
+    if (error) return fail(`resting heart rate upsert failed: ${error.message}`, 500);
   }
 
   // Read the FULL day back rather than scoring the payload alone. A sync

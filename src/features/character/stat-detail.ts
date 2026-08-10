@@ -3,7 +3,6 @@ import {
   nextTierFor,
   type CoreStat,
   type DayTotals,
-  type Tier,
 } from '@kairo/core';
 
 /** How each stat's raw value reads in a sentence. Copy, so it lives here. */
@@ -20,10 +19,18 @@ export type StatDetail =
   | {
       kind: 'gap';
       stat: CoreStat;
-      /** This stat is the user's declared focus (§6's lane). */
+      /** This stat is the user's lane — their dominant stat (§6). */
       lane: boolean;
-      tier: Exclude<Tier, 'none'>;
+      /** Raw units still needed. */
       gap: number;
+      /**
+       * What closing that gap is worth, in points. Replaces the tier name the
+       * copy used to carry: the bands still decide this number — `nextTierFor`
+       * is still what finds the threshold — but Bronze/Silver/Gold became
+       * internal to scoring, so the sentence names the reward rather than the
+       * rank.
+       */
+      points: number;
       unit: string;
     };
 
@@ -46,11 +53,13 @@ function rawFor(stat: CoreStat, totals: DayTotals): number {
  * Named in the stat's own raw unit, because points are not something a user
  * can go outside and do.
  *
- * The user's **lane** wins when it still has room; a lane already at Gold has
- * nothing to ask for and falls through to the closest stat. This preference
- * used to belong to §6's weekly featured stat, which deviation #10 retired —
- * the lane is the branch's equivalent "the stat this user cares about", and
- * unlike featured it never widens a ceiling, only chooses what to mention.
+ * The user's **lane** wins when it still has room; a lane already at its top
+ * band has nothing to ask for and falls through to the closest stat. This
+ * preference used to belong to §6's weekly featured stat, which deviation #10
+ * retired — the lane is the branch's equivalent "the stat this user cares
+ * about", and unlike featured it never widens a ceiling, only chooses what to
+ * mention. Its input is now observed dominance rather than a declared focus,
+ * which changes where the preference comes from and nothing about this rule.
  */
 export function resolveStatDetail({
   totals,
@@ -63,7 +72,7 @@ export function resolveStatDetail({
 
   interface Open {
     stat: CoreStat;
-    tier: Exclude<Tier, 'none'>;
+    points: number;
     gap: number;
     /** Share of the current band still to go, 0–1. Comparable across stats. */
     remaining: number;
@@ -81,7 +90,7 @@ export function resolveStatDetail({
     const bandWidth = next.gap + raw - next.bandLow;
     open.push({
       stat,
-      tier: next.tier,
+      points: next.pointsGain,
       gap: next.gap,
       remaining: next.gap / bandWidth,
     });
@@ -102,8 +111,8 @@ export function resolveStatDetail({
     kind: 'gap',
     stat: chosen.stat,
     lane: chosen.stat === lane,
-    tier: chosen.tier,
     gap: chosen.gap,
+    points: chosen.points,
     unit: STAT_UNITS[chosen.stat],
   };
 }

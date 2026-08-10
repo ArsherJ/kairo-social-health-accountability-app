@@ -10,7 +10,6 @@ import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
-import { FocusCard } from '@/features/profile/FocusCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -66,8 +65,6 @@ export default function ProfileTab() {
           <StreakCard streak={streak.data} />
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
-
-          <FocusCard userId={userId} profile={profile.data} />
 
           <Panel>
             <Label>Timezone</Label>

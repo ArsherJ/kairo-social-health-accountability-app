@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { CORE_STATS } from '@kairo/core';
+import { CORE_STATS, type CoreStat } from '@kairo/core';
 import { space } from '@/theme.ts';
-import { TierCoin } from '@/ui/index.ts';
+import { StatCoin } from '@/ui/index.ts';
 
 /**
  * The four stats as a rail of coins down the edge of the diorama.
@@ -14,11 +14,12 @@ import { TierCoin } from '@/ui/index.ts';
  * open, not four separate buttons.
  */
 export function StatRail({
-  tiers,
+  ratings,
   expanded,
   onToggle,
 }: {
-  tiers: Record<string, string> | undefined;
+  /** Lifetime per-stat points from `profiles`. Undefined until it loads. */
+  ratings: Partial<Record<CoreStat, number>> | undefined;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -32,7 +33,7 @@ export function StatRail({
     >
       {CORE_STATS.map((stat) => (
         <View key={stat} style={styles.slot}>
-          <TierCoin stat={stat} tier={tiers?.[stat]} />
+          <StatCoin stat={stat} points={ratings?.[stat]} />
         </View>
       ))}
     </Pressable>

@@ -336,21 +336,20 @@ export function Leaderboard({
         onSetGoal={() => router.push(`/goal/new?squadId=${squad.id}`)}
       />
 
-      {/* Deliberately at the foot of the scroll and styled as quiet text, not
-          a header icon: this is rare, irreversible, and must not sit next to
-          the invite code someone taps every day. */}
+      {/* Deliberately at the foot of the scroll, not in a header: this is rare,
+          irreversible, and must not sit next to the invite code someone taps
+          every day. Outlined rather than filled so it stays quiet down here —
+          the `destructive` variant is exactly this compromise, and abandoning a
+          goal now uses the same one so the two cannot drift. */}
       <View style={styles.leaveBlock}>
         {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
-        <Pressable
-          accessibilityRole="button"
-          disabled={leave.isPending}
+        <Button
+          label={leave.isPending ? 'Leaving…' : 'Leave squad'}
+          variant="destructive"
           onPress={confirmLeave}
-          style={({ pressed }) => [styles.leave, pressed && styles.pressed]}
-        >
-          <Text style={[styles.leaveLabel, leave.isPending && styles.leaveLabelBusy]}>
-            {leave.isPending ? 'Leaving…' : 'Leave squad'}
-          </Text>
-        </Pressable>
+          disabled={leave.isPending}
+          busy={leave.isPending}
+        />
       </View>
     </Screen>  );
 }
@@ -448,9 +447,6 @@ const styles = StyleSheet.create({
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   error: { color: colors.damage, ...font.body.body, textAlign: 'center' },
   empty: { color: colors.muted, ...font.body.body, textAlign: 'center' },
-  leaveBlock: { marginTop: space.xl, alignItems: 'center' },
-  leave: { paddingVertical: space.sm, paddingHorizontal: space.lg },
-  leaveLabel: { ...font.body.strong, fontSize: 14, color: ramp.accent[700] },
-  leaveLabelBusy: { color: colors.muted },
+  leaveBlock: { marginTop: space.xl, gap: space.sm },
   pressed: { opacity: 0.85 },
 });
