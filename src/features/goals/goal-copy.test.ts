@@ -88,6 +88,23 @@ describe('statusLine', () => {
     expect(statusLine(p)).not.toContain('1 days');
   });
 
+  it('does not congratulate a goal nobody has started', () => {
+    // Day one, nothing logged. The required-so-far is zero too, so `onPace` is
+    // trivially true and the line used to read "on pace" against 0 of 60,000.
+    const p = evaluateGoal(cumulative(), [], '2026-01-01');
+    expect(p.progress).toBe(0);
+    expect(statusLine(p)).toContain('not started');
+    expect(statusLine(p)).not.toContain('on pace');
+  });
+
+  it('still says behind rather than not started once the shortfall is real', () => {
+    // Zero progress deep into the window is behind, and that is the more useful
+    // thing to say — "not started" only replaces the unearned verdict.
+    const p = evaluateGoal(cumulative(), days('2026-01-01', 10, 0), '2026-01-10');
+    expect(p.progress).toBe(0);
+    expect(statusLine(p)).toContain('behind pace');
+  });
+
   it('says a consistency goal is out of reach rather than counting down at it', () => {
     // 25 of 30 days needed, 6 finalized at zero: dead. Telling someone they have
     // 24 days left would be true and useless.
@@ -186,6 +203,13 @@ describe('squadRequirementLine', () => {
 
   it('treats a clamped requirement above the roster as everyone', () => {
     expect(squadRequirementLine(1, 9, 3)).toBe('1 hit it · needs everyone');
+  });
+
+  it('drops the roster framing on a squad of one', () => {
+    // "0 hit it · needs everyone" on a solo squad reads as a crowd withholding
+    // something from you, when the crowd is you.
+    expect(squadRequirementLine(0, 1, 1)).toBe('Not hit yet');
+    expect(squadRequirementLine(1, 1, 1)).toBe('You hit it');
   });
 });
 

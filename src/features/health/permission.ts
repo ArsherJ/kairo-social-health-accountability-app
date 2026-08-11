@@ -9,29 +9,12 @@ import {
   type HealthPermissionState,
   type RequestStatus,
 } from './permission-state.ts';
+import { KAIRO_READ_TYPES } from './read-types.ts';
 
-/**
- * Everything Kairo reads (§5). Steps and distance drive AGI, active energy
- * STR, exercise time END, hourly steps VIT, sleep REC. Heart rate and workouts
- * exist only for the anti-cheat cross-check (§20) — a normal jog must never
- * flag — and are requested here so the user is asked once rather than twice.
- *
- * Kairo never writes to Health, so there is no `toShare` list.
- */
-export const KAIRO_READ_TYPES = [
-  'HKQuantityTypeIdentifierStepCount',
-  'HKQuantityTypeIdentifierDistanceWalkingRunning',
-  'HKQuantityTypeIdentifierActiveEnergyBurned',
-  'HKQuantityTypeIdentifierAppleExerciseTime',
-  'HKCategoryTypeIdentifierSleepAnalysis',
-  'HKQuantityTypeIdentifierHeartRate',
-  // Apple computes this itself, once a day, from overnight readings. Kairo
-  // never derives it — a floor over the day's hourly averages would be the
-  // lowest hour, not a resting rate. Only used for strain's reserve
-  // denominator; absent is normal and falls back.
-  'HKQuantityTypeIdentifierRestingHeartRate',
-  'HKWorkoutTypeIdentifier',
-] as const;
+// Re-exported so existing callers keep their import site. The list itself lives
+// in `read-types.ts` because `disclosure.ts` and its test have to read it, and
+// nothing importing this file can be loaded by root Vitest.
+export { KAIRO_READ_TYPES };
 
 function toRequestStatus(status: AuthorizationRequestStatus): RequestStatus {
   if (status === AuthorizationRequestStatus.unnecessary) return 'unnecessary';

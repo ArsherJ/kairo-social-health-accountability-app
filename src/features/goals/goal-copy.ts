@@ -51,6 +51,17 @@ export function statusLine(progress: GoalProgress): string {
   if (days === 0) return 'Window closed.';
 
   const left = days === 1 ? 'Last day' : `${num(days)} days left`;
+
+  // Nothing logged yet is not a pace. On day one the elapsed fraction is zero,
+  // so the required-so-far is zero too and `onPace` is trivially true — which
+  // rendered "7 days left · on pace" against 0 of 1,000 and read as praise for
+  // having done nothing. Falling behind still outranks this: once the shortfall
+  // is real it is the more useful thing to say, so only the non-behind case is
+  // replaced.
+  if (progress.progress <= 0 && progress.onPace !== false) {
+    return `${left} · not started`;
+  }
+
   // "On pace" is only worth saying while there is still a race. Naming the
   // shortfall is more use than a verdict, so behind-pace gets the number.
   return progress.onPace ? `${left} · on pace` : `${left} · behind pace`;
@@ -163,6 +174,15 @@ export function squadRequirementLine(
   requiredMembers: number,
   rosterSize: number,
 ): string {
+  // A squad of one has no "everyone" to need. The N-of-M framing is right for a
+  // real roster — a squad goal is each member hitting the target individually,
+  // not a pooled total — but on a solo squad it turned "you have not started
+  // yet" into "0 hit it · needs everyone", which reads as a crowd withholding
+  // something from you.
+  if (rosterSize <= 1) {
+    return membersMet >= 1 ? 'You hit it' : 'Not hit yet';
+  }
+
   const whole = requiredMembers >= rosterSize;
   const need = whole ? 'everyone' : `${num(requiredMembers)} of ${num(rosterSize)}`;
   return `${num(membersMet)} hit it · needs ${need}`;

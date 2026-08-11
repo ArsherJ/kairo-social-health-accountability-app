@@ -15,7 +15,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 `app/(onboard)/character.tsx`, then `app/(onboard)/name.tsx`. The spec's ordering principle, and the reason for it: iOS gives one clean shot at the HealthKit and notification prompts, so stacking every permission ask before any fun front-loads friction that costs signups.
 
 1. **Character, then name, within the first 60 seconds** (§5) — emotional investment before any ask. `character.tsx` shows the two character bodies and commits nothing; `name.tsx` names the one picked and is where the profile row is INSERTed — once, on this second screen. Profile-row existence (`character_name` set) *is* the onboarding-complete marker (`app/_layout.tsx` gate) — no separate flag to desync, which is why the choice has to come *before* the name rather than after: deviation #22 deleted the `finishingOnboarding` flag when onboarding collapsed to one step, and asking anything after the INSERT would need it back (deviation #27).
-2. **HealthKit permission**, framed as "power your character with real life" — not a cold OS dialog.
+2. **HealthKit permission**, framed as "power your character with real life" — not a cold OS dialog. The sheet lists **every** type Kairo requests with what each is for, and that list is rendered from `HEALTH_DISCLOSURE` rather than written out: `disclosure.test.ts` fails if it and `read-types.ts` disagree in either direction. Prose could not stay honest — the copy named four types while the app asked for eight, and iOS showed the user the true list either way, which is what made it a trust problem rather than a wording one. The `NSHealthShareUsageDescription` in `app.config.ts` carries the same list and is the one half a test cannot lock, so it changes by hand.
 3. **Notifications**, requested only once a squad or a goal-in-flight gives them a reason to exist (§14) — not upfront.
 4. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate STR tracking") rather than blocking onboarding. Height/weight feed active-calorie (STR) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
 
@@ -70,6 +70,7 @@ The RPG avatar and the day's/lifetime scoring surface.
 - **Level** is permanent XP, never resets. Two players at the same level can look different — the character's visual build follows whichever stat dominates their lifetime rollup (§6): leaner/faster for AGI, broader silhouette for STR, endurance stance for END, recovery glow for VIT, and a rare "All-Rounder" look — unpurchasable, must be earned — when all four stay within 20% of each other.
 - **Strain** (roadmap deviation #24, 2026-08-10) is a derived, wearable-only, display-only figure from hourly heart rate — never stored on `daily_scores`, never ranked, never gates anything.
 - A rest day scores 0 and still costs the streak, but the goal card always says how many days are left to make it up (§6) — the app is designed to still be worth opening on a bad day.
+- **"How progress works"** (`app/progress.tsx`), linked from the foot of the expanded stat rail, explains the four numbers by the one thing that actually separates them — their timescale: daily score is today, ability ratings are lifetime per stat, level and XP are all-time, streak is the run of days. A route rather than a modal, because `PermissionAsks` owns the single modal the app may present. Offered at the point of expansion rather than beside the hero: expanding the rail *is* the question being asked.
 
 ### Squad (`squad.tsx`)
 The optional social layer (§7).
@@ -81,6 +82,9 @@ The optional social layer (§7).
 
 ### Profile (`profile.tsx`)
 Settings, body-metric soft prompt, account actions (including deletion — the legal erasure path noted in `CLAUDE.md`).
+
+- **Notifications** (`NotificationSettingsCard.tsx`) reports whether they are on, and offers `Linking.openSettings()` when iOS has a denial on file. Re-read on every foreground, because the state can only change in iOS Settings — so returning to the app is the only moment worth checking, and reading once at mount is precisely how the QA pass ended up with a screen describing permissions the user had already revoked. It sits above Timezone deliberately: the zone follows the device and cannot silently be wrong, whereas this can.
+- The card does **not** campaign for the permission back. A denial is a decision; the row's job is to make it legible and reversible. `shouldAskForNotifications` still owns the contextual ask, so an undetermined state shows no button here.
 
 ## 5. Goals (§8) — what replaced Sabotage
 

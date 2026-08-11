@@ -10,6 +10,7 @@ import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
+import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -65,6 +66,11 @@ export default function ProfileTab() {
           <StreakCard streak={streak.data} />
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
+
+          {/* Above Timezone because it is the one on this screen that can be
+              wrong without the user knowing: the zone follows the device, but a
+              notification permission revoked in iOS Settings is silent. */}
+          <NotificationSettingsCard />
 
           <Panel>
             <Label>Timezone</Label>
