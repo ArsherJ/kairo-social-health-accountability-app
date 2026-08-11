@@ -37,9 +37,11 @@ export default function ChooseCharacter() {
       <View style={styles.top}>
         <Label>CHOOSE YOUR CHARACTER</Label>
         <Text style={styles.title}>Who are you playing as?</Text>
-        <Text style={styles.help}>
-          This is the character that levels with you. You can change it later.
-        </Text>
+        {/* Deliberately silent on whether this can be changed later: it cannot yet.
+            `character_body` is in the UPDATE grant, but no screen writes it and the
+            spec scoped that toggle out — so a promise here would be one the app does
+            not keep, made at the highest-attention moment in onboarding. */}
+        <Text style={styles.help}>This is the character that levels with you.</Text>
 
         <View style={styles.row}>
           {CHOICES.map(({ body, art }) => (
@@ -91,8 +93,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'hidden',
+    // Transparent border reserves the space a selection border needs, so
+    // choosing a card only recolours the ring instead of resizing the card
+    // (RN insets borders, which would otherwise nudge the art on tap).
+    borderWidth: 3,
+    borderColor: 'transparent',
     ...shadow.sm,
   },
-  cardChosen: { borderWidth: 3, borderColor: colors.accent, ...shadow.md },
+  cardChosen: { borderColor: colors.accent, ...shadow.md },
   art: { width: '86%', height: '86%' },
 });
