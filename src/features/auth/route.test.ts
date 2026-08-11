@@ -88,8 +88,19 @@ describe('redirectTarget', () => {
     expect(at('signed-out', '(auth)')).toBeNull();
   });
 
-  it('sends a user with no profile to the name step, and leaves them there', () => {
-    expect(at('needs-profile', '(auth)')).toBe('/name');
+  it('sends a user with no profile to the character choice, and leaves them there', () => {
+    // The choice screen is the *first* onboarding step and the name screen is
+    // the second, but the gate only ever knows "has no profile row yet" — so
+    // it targets the first, and the (onboard) branch covers both.
+    //
+    // Onboarding is two screens again, and the profile still commits exactly
+    // once, on the second. The order is what makes that safe: deviation #22
+    // deleted the `finishingOnboarding` flag because a row committing on step
+    // 1 flipped resolveRoute to 'ready' underneath step 2. Asking anything
+    // after the INSERT needs that flag back.
+    expect(at('needs-profile', '(auth)')).toBe('/character');
+    expect(at('needs-profile', '(tabs)')).toBe('/character');
+    expect(at('needs-profile', undefined)).toBe('/character');
     expect(at('needs-profile', '(onboard)')).toBeNull();
   });
 
