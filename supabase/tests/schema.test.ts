@@ -7,6 +7,7 @@ import {
 } from '../../packages/kairo-core/src/program.ts';
 import { levelForXp, ratingForStatPoints } from '../../packages/kairo-core/src/progression.ts';
 import { squadTopic } from '../../src/features/squad/squad-topic.ts';
+import { planDay } from '../functions/_shared/sync-plan.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
 let h: Harness;
@@ -288,6 +289,98 @@ describe('per-stat ability rollups', () => {
       h.asUser(user, 'update public.profiles set agi_total = 999999 where id = $1', [user]),
       /permission denied/i,
     );
+  });
+});
+
+describe('planDay writes a row daily_scores can actually store', () => {
+  /**
+   * The seam that broke on 2026-08-09, and the only one nothing watched.
+   *
+   * `remove_sabotage` dropped `daily_scores.sabotage_delta` and the Edge
+   * Functions were not redeployed, so the live `sync-health` kept sending that
+   * column. Its bucket upsert runs first and committed; the score upsert 500'd.
+   * Health data landed and nothing scored for two days, silently.
+   *
+   * Every test passed throughout, because the two layers are tested apart:
+   * `sync-plan.test.ts` builds rows and never meets a database, and the suites
+   * above write `daily_scores` by hand and never call `planDay`. Neither can
+   * see the columns drift apart. This joins them — the row shape is taken from
+   * `planDay`'s real output rather than restated, so a column added, renamed or
+   * dropped on either side fails here at commit time.
+   *
+   * It does not replace `supabase/scripts/smoke-sync.mjs`: this proves the
+   * source agrees with the schema, and that proves the *deployed* function does.
+   */
+  const BUCKETS = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    steps: hour >= 8 && hour < 18 ? 1_100 : 0,
+    distanceM: hour >= 8 && hour < 18 ? 825 : 0,
+    activeKcal: hour >= 8 && hour < 18 ? 26 : 0,
+    activeMinutes: hour >= 8 && hour < 18 ? 6 : 0,
+  }));
+
+  function rowFor(userId: string) {
+    return planDay({
+      userId,
+      localDate: '2026-07-27',
+      timeZone: 'Asia/Manila',
+      now: new Date('2026-07-27T12:00:00Z'),
+      buckets: BUCKETS,
+      hadWorkoutHours: new Set(),
+      elevatedHeartRateHours: new Set(),
+      sleepMinutes: 420,
+      existingStatus: null,
+    }).row;
+  }
+
+  /** Insert whatever columns the planner emits, without naming them here. */
+  async function insertPlannedRow(row: Record<string, unknown>) {
+    const columns = Object.keys(row);
+    const placeholders = columns.map((_, i) => `$${i + 1}`);
+    const values = columns.map((c) => {
+      const value = row[c];
+      // jsonb goes over the wire as text; everything else is already scalar.
+      return value !== null && typeof value === 'object' ? JSON.stringify(value) : value;
+    });
+
+    await h.asService(
+      `insert into public.daily_scores (${columns.join(', ')})
+       values (${placeholders.join(', ')})`,
+      values,
+    );
+  }
+
+  it('every column planDay emits exists and accepts its value', async () => {
+    const user = await h.createUser();
+    const row = rowFor(user);
+
+    // Fails with `column "…" of relation "daily_scores" does not exist` the
+    // moment a migration drops something the planner still sends.
+    await insertPlannedRow(row as unknown as Record<string, unknown>);
+
+    const stored = await h.asService<{ total: number; xp_awarded: number }>(
+      'select total, xp_awarded from public.daily_scores where user_id = $1',
+      [user],
+    );
+    expect(stored[0]!.total).toBe(row.total);
+    expect(stored[0]!.xp_awarded).toBe(row.xp_awarded);
+  });
+
+  it('a day with real movement scores above zero and moves the rollups', async () => {
+    // The invariant the outage violated end to end: non-zero buckets must not
+    // be able to coexist with a zero score and untouched ability totals.
+    const user = await h.createUser();
+    const row = rowFor(user);
+    expect(row.total).toBeGreaterThan(0);
+
+    await insertPlannedRow(row as unknown as Record<string, unknown>);
+
+    const profile = await h.asService<{ agi_total: number; total_xp: number }>(
+      'select agi_total, total_xp from public.profiles where id = $1',
+      [user],
+    );
+    expect(profile[0]!.agi_total).toBeGreaterThan(0);
+    expect(profile[0]!.total_xp).toBeGreaterThan(0);
   });
 });
 
