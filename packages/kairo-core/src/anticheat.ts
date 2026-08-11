@@ -1,6 +1,6 @@
 /**
  * Anti-cheat is social, not punitive (spec §5, §20). A flag is shown to the
- * squad — it is never a ban and never reduces a score. The barkada polices
+ * squad — it is never a ban and never reduces a score. The squad polices
  * itself; our only job is to surface genuinely implausible data.
  *
  * The cost of a false positive is therefore high: accusing a real runner of

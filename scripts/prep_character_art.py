@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Kairo — Hunter art prep (key -> trim -> canvas)
+Kairo — character art prep (key -> trim -> canvas)
 
 Turns a generated character render into an asset that satisfies
-`assets/hunter/README.md`: transparent background, figure centred, feet on the
+`assets/character/README.md`: transparent background, figure centred, feet on the
 bottom edge, no aura baked in.
 
 Deliberately *not* `prep_assets.py`. That script keys, quantizes to ~6 colours
 and vectorizes, because gear swaps ship as SVG and a path budget is the whole
-point. The Hunter ships as a raster placeholder, so quantizing it would only
+point. The character ships as a raster placeholder, so quantizing it would only
 throw away shading the app is happy to render.
 
 What it does:
@@ -26,8 +26,8 @@ What it does:
 
 Usage:
     pip install Pillow numpy
-    python scripts/prep_hunter_art.py output/imagegen/hunter-character-anchor-final.png \
-        --out assets/hunter/anchor.png
+    python scripts/prep_character_art.py output/imagegen/hunter-character-anchor-final.png \
+        --out assets/character/anchor.png
 """
 
 import argparse

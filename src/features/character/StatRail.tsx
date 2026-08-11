@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { CORE_STATS, type CoreStat } from '@kairo/core';
+import { CORE_STATS, ratingForStatPoints, type CoreStat } from '@kairo/core';
 import { space } from '@/theme.ts';
-import { StatCoin } from '@/ui/index.ts';
+import { StatCoin, STAT_NAMES } from '@/ui/index.ts';
 
 /**
  * The four stats as a rail of coins down the edge of the diorama.
@@ -23,11 +23,22 @@ export function StatRail({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  // The rail is one Pressable, so its own label is all VoiceOver announces —
+  // whatever the coins draw inside it. That was a gap while the coins showed
+  // "AGI 12" (the ratings were simply never read out); with the letters now
+  // replaced by a glyph there is no text left to fall back to at all, so the
+  // ratings have to be spoken here or nowhere.
+  const spoken = CORE_STATS.map(
+    (stat) => `${STAT_NAMES[stat]} ${ratingForStatPoints(ratings?.[stat] ?? 0)}`,
+  ).join(', ');
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ expanded }}
-      accessibilityLabel={expanded ? 'Hide per-stat detail' : 'Show per-stat detail'}
+      accessibilityLabel={
+        `${spoken}. ${expanded ? 'Hide per-stat detail' : 'Show per-stat detail'}`
+      }
       onPress={onToggle}
       style={styles.rail}
     >

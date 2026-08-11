@@ -5,7 +5,7 @@ import { Panel } from '@/ui/index.ts';
 
 /**
  * An empty seat in the squad (§7): "locked slots are visible every day —
- * constant pull to invite barkada."
+ * constant pull to invite your squad."
  *
  * Deliberately the same height, padding and rhythm as `LeaderboardRow` so the
  * board reads as one list with gaps in it, not as a list followed by a banner.
@@ -31,7 +31,7 @@ export function LockedSlot({ rank }: { rank: number }) {
 
         <View style={styles.middle}>
           <Text style={styles.name}>Empty seat</Text>
-          <Text style={styles.meta}>Invite your barkada</Text>
+          <Text style={styles.meta}>Invite your squad</Text>
         </View>
       </View>
     </Panel>

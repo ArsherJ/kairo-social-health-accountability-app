@@ -15,14 +15,14 @@ workstream**, not at the Apple gate.
 
 ## D1. Hunter placeholder art
 
-§15 scopes MVP to "AI-placeholder static art". `HunterSilhouette` is still plain
+§15 scopes MVP to "AI-placeholder static art". `CharacterFigure` is still plain
 `View` primitives.
 
 The component already varies by evolution stage and dominant stat, and
 `app/(tabs)/index.tsx:75` passes both. **So this is asset generation plus
 swapping the primitives — the component's interface does not change.**
 
-- Assets under `assets/hunter/`, one per (stage × dominance) the component
+- Assets under `assets/character/`, one per (stage × dominance) the component
   already switches on, plus the `null`-dominance unstarted case.
 - `expo-asset` is already a dependency; no new package, no `react-native-svg`,
   no Rive. The 2026-08-01 spec's reasoning holds: adding an animation runtime

@@ -42,7 +42,7 @@
 | `src/ui/Meter.tsx` | The only bar |
 | `src/ui/TierChip.tsx` | Stat letter + tier colour |
 | `src/ui/Button.tsx` | `primary` / `secondary` / `ghost` |
-| `src/ui/Aura.tsx` | The glow, extracted from `HunterSilhouette` |
+| `src/ui/Aura.tsx` | The glow, extracted from `CharacterFigure` |
 | `src/ui/TabPill.tsx` | Floating bottom nav |
 | `src/ui/index.ts` | Barrel |
 | `src/features/character/standing.ts` (+ `.test.ts`) | Character standing line state |
@@ -50,7 +50,7 @@
 | `src/features/character/buckets.ts` | Own-day `health_buckets` query |
 | `src/features/squad/standing.ts` (+ `.test.ts`) | Squad hero rank state |
 
-**Modified:** `packages/kairo-core/src/scoring.ts`, `src/theme.ts`, `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/squad.tsx`, `app/(tabs)/profile.tsx`, `app/(auth)/sign-in.tsx`, `app/(onboard)/name.tsx`, `src/features/character/HunterSilhouette.tsx`, `src/features/character/StatBar.tsx`, `src/features/profile/XpBar.tsx`, `src/features/profile/StreakCard.tsx`, `src/features/profile/BodyMetricsCard.tsx`, `src/features/squad/Leaderboard.tsx`, `src/features/squad/LeaderboardRow.tsx`, `src/features/squad/LockedSlot.tsx`, `src/features/squad/SoloBoard.tsx`, `src/features/squad/CreateSquadForm.tsx`, `src/features/squad/JoinSquadForm.tsx`, `src/features/health/HealthPermissionSheet.tsx`, `package.json`.
+**Modified:** `packages/kairo-core/src/scoring.ts`, `src/theme.ts`, `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/squad.tsx`, `app/(tabs)/profile.tsx`, `app/(auth)/sign-in.tsx`, `app/(onboard)/name.tsx`, `src/features/character/CharacterFigure.tsx`, `src/features/character/StatBar.tsx`, `src/features/profile/XpBar.tsx`, `src/features/profile/StreakCard.tsx`, `src/features/profile/BodyMetricsCard.tsx`, `src/features/squad/Leaderboard.tsx`, `src/features/squad/LeaderboardRow.tsx`, `src/features/squad/LockedSlot.tsx`, `src/features/squad/SoloBoard.tsx`, `src/features/squad/CreateSquadForm.tsx`, `src/features/squad/JoinSquadForm.tsx`, `src/features/health/HealthPermissionSheet.tsx`, `package.json`.
 
 ---
 
@@ -918,25 +918,25 @@ git commit -m "Add the shared UI primitives"
 
 ---
 
-### Task 5: `Aura`, and `HunterSilhouette` on top of it
+### Task 5: `Aura`, and `CharacterFigure` on top of it
 
 **Files:**
 - Create: `src/ui/Aura.tsx`
-- Modify: `src/features/character/HunterSilhouette.tsx`
+- Modify: `src/features/character/CharacterFigure.tsx`
 
 **Interfaces:**
 - Produces: `<Aura size: number; color: string; opacity: number; halo?: boolean>`.
 
-**Behaviour that must not change.** `HunterSilhouette`'s `BUILDS` table is §6's evolution table and is not being redesigned. Aura size stays `160 + stage * 14`, opacity stays `0.1 + stage * 0.12 + build.glow`, the All-Rounder halo stays a ring at `size + 22`, and every `shoulders` / `torso` / `height` / `stance` value stays exactly as written.
+**Behaviour that must not change.** `CharacterFigure`'s `BUILDS` table is §6's evolution table and is not being redesigned. Aura size stays `160 + stage * 14`, opacity stays `0.1 + stage * 0.12 + build.glow`, the All-Rounder halo stays a ring at `size + 22`, and every `shoulders` / `torso` / `height` / `stance` value stays exactly as written.
 
-- [ ] **Step 1:** Move the `aura` and `halo` styles and their two `View`s out of `HunterSilhouette` into `src/ui/Aura.tsx`, taking size, colour, opacity and a `halo` flag as props. Copy the existing comment explaining why the All-Rounder gets a ring rather than more glow.
-- [ ] **Step 2:** In `HunterSilhouette`, replace the two `View`s with `<Aura size={auraSize} color={build.aura} opacity={auraOpacity} halo={dominance === 'balanced'} />`, and wrap the whole frame in an `Animated.View` whose `translateY` interpolates `useFloat()` over `[0, 1] → [0, -6]`.
+- [ ] **Step 1:** Move the `aura` and `halo` styles and their two `View`s out of `CharacterFigure` into `src/ui/Aura.tsx`, taking size, colour, opacity and a `halo` flag as props. Copy the existing comment explaining why the All-Rounder gets a ring rather than more glow.
+- [ ] **Step 2:** In `CharacterFigure`, replace the two `View`s with `<Aura size={auraSize} color={build.aura} opacity={auraOpacity} halo={dominance === 'balanced'} />`, and wrap the whole frame in an `Animated.View` whose `translateY` interpolates `useFloat()` over `[0, 1] → [0, -6]`.
 - [ ] **Step 3:** Run `npm run typecheck`. Expected: PASS.
 - [ ] **Step 4:** Run `npm run ios`. Confirm on device that the Hunter floats gently, and that switching a seeded account between builds still changes the silhouette and aura colour as before.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ui/Aura.tsx src/features/character/HunterSilhouette.tsx
+git add src/ui/Aura.tsx src/features/character/CharacterFigure.tsx
 git commit -m "Extract Aura and give the Hunter an idle float"
 ```
 
@@ -1492,7 +1492,7 @@ Keep its ceiling logic and its comments verbatim. Replace its hand-rolled track 
 
 - [ ] **Step 3: Rebuild `app/(tabs)/index.tsx`**
 
-Order: `Label` "LEVEL {n}" and the character name → `HunterSilhouette` → build label (still only when `dominance.data != null`, keeping the existing comment about not cheapening All-Rounder) → `<Numeral value={today?.total ?? 0} size="hero" color={colors.accent} animate />` → standing line → `StatRow` → detail line.
+Order: `Label` "LEVEL {n}" and the character name → `CharacterFigure` → build label (still only when `dominance.data != null`, keeping the existing comment about not cheapening All-Rounder) → `<Numeral value={today?.total ?? 0} size="hero" color={colors.accent} animate />` → standing line → `StatRow` → detail line.
 
 Standing line, from `resolveStanding({ hasSquad: squad.data === undefined ? undefined : squad.data !== null, rows: board.data })`:
 

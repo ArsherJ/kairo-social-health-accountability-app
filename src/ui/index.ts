@@ -11,6 +11,7 @@ export { Numeral } from './Numeral.tsx';
 export { Label } from './Label.tsx';
 export { Meter } from './Meter.tsx';
 export { StatCoin } from './StatCoin.tsx';
+export { StatIcon, STAT_NAMES } from './StatIcon.tsx';
 export { Button } from './Button.tsx';
 export { CtaPill } from './CtaPill.tsx';
 export { ProgressRing } from './ProgressRing.tsx';

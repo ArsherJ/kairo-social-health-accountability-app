@@ -44,7 +44,7 @@
 | `src/features/profile/timezone-sync.test.ts` | Timezone drift tests |
 | `src/features/character/queries.ts` | `useTodayScore()` for the device-local date |
 | `src/features/character/StatBar.tsx` | One stat row |
-| `src/features/character/HunterSilhouette.tsx` | Code-drawn placeholder art |
+| `src/features/character/CharacterFigure.tsx` | Code-drawn placeholder art |
 | `src/features/health/permission-state.ts` | Pure permission-state mapper |
 | `src/features/health/permission-state.test.ts` | Mapper tests |
 | `src/features/health/permission.ts` | Native HealthKit adapter (thin) |
@@ -1041,7 +1041,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
-export default function NameYourHunter() {
+export default function NameYourCharacter() {
   const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const createProfile = useCreateProfile(session?.user.id);
@@ -1175,7 +1175,7 @@ The payoff screen. With no health data every value is zero, so the empty state *
 **Files:**
 - Create: `src/features/character/queries.ts`
 - Create: `src/features/character/StatBar.tsx`
-- Create: `src/features/character/HunterSilhouette.tsx`
+- Create: `src/features/character/CharacterFigure.tsx`
 - Create: `app/(tabs)/_layout.tsx`
 - Create: `app/(tabs)/index.tsx`
 - Create: `app/(tabs)/squad.tsx`
@@ -1183,7 +1183,7 @@ The payoff screen. With no health data every value is zero, so the empty state *
 
 **Interfaces:**
 - Consumes: `useProfile` (Task 4), `signOut` (Task 3), theme tokens (Task 3), `currentLocalDate`, `levelForXp`, `evolutionStageForLevel`, `CORE_STATS` from `@kairo/core`
-- Produces: `useTodayScore(userId, timeZone)`; `<StatBar />`; `<HunterSilhouette />`. Task 7 modifies `app/(tabs)/index.tsx`.
+- Produces: `useTodayScore(userId, timeZone)`; `<StatBar />`; `<CharacterFigure />`. Task 7 modifies `app/(tabs)/index.tsx`.
 
 - [ ] **Step 1: Write the today-score query**
 
@@ -1307,7 +1307,7 @@ const styles = StyleSheet.create({
 
 - [ ] **Step 3: Write the Hunter placeholder**
 
-Create `src/features/character/HunterSilhouette.tsx`:
+Create `src/features/character/CharacterFigure.tsx`:
 
 ```tsx
 import { StyleSheet, View } from 'react-native';
@@ -1321,7 +1321,7 @@ import { colors, radius } from '@/theme.ts';
  * stages by dominant stat (§6). Until then `stage` only brightens the aura, so
  * levelling visibly does something.
  */
-export function HunterSilhouette({ stage }: { stage: 1 | 2 | 3 | 4 }) {
+export function CharacterFigure({ stage }: { stage: 1 | 2 | 3 | 4 }) {
   const auraOpacity = 0.1 + stage * 0.12;
 
   return (
@@ -1481,7 +1481,7 @@ Create `app/(tabs)/index.tsx`:
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CORE_STATS, evolutionStageForLevel, levelForXp, type CoreStat } from '@kairo/core';
-import { HunterSilhouette } from '@/features/character/HunterSilhouette.tsx';
+import { CharacterFigure } from '@/features/character/CharacterFigure.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
@@ -1525,7 +1525,7 @@ export default function Character() {
       <Text style={styles.label}>LEVEL {level}</Text>
       <Text style={styles.name}>{profile.data?.character_name ?? '—'}</Text>
 
-      <HunterSilhouette stage={stage} />
+      <CharacterFigure stage={stage} />
 
       <View style={styles.card}>
         <Text style={styles.label}>TODAY</Text>

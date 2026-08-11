@@ -123,7 +123,7 @@ Useful during verification:
 
 - [ ] **Task C2 — `useDominantStat(userId, timeZone)`.** Sums the caller's own recent `daily_scores` per stat over a named `DOMINANCE_WINDOW_DAYS` constant and feeds C1. Own rows only.
 
-- [ ] **Task C3 — `HunterSilhouette` by dominant stat.** Replace the aura-brightness-only placeholder. Its current docblock already says Phase 7 owns this. Vary the existing `View` primitives per §6's table — AGI leaner, STR broader, END a planted stance, VIT a recovery glow, balanced a distinct All-Rounder treatment — and keep `stage` (1–4) driving overall presence. No new dependencies; this is deliberately a placeholder (§15).
+- [ ] **Task C3 — `CharacterFigure` by dominant stat.** Replace the aura-brightness-only placeholder. Its current docblock already says Phase 7 owns this. Vary the existing `View` primitives per §6's table — AGI leaner, STR broader, END a planted stance, VIT a recovery glow, balanced a distinct All-Rounder treatment — and keep `stage` (1–4) driving overall presence. No new dependencies; this is deliberately a placeholder (§15).
 
 - [ ] **Task C4 — surface it.** Show the dominant stat as a small label near the Hunter on the character screen so the visual difference is legible rather than mysterious.
 

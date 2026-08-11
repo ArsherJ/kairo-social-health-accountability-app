@@ -347,7 +347,7 @@ budget-exempt as a side effect. See
 ## D. Polish, telemetry, defects
 
 - **Hunter placeholder art.** §15 says "AI-placeholder static art"; it is still
-  plain `View` primitives. `HunterSilhouette` already varies by evolution stage
+  plain `View` primitives. `CharacterFigure` already varies by evolution stage
   and dominant stat, so this is asset generation plus swapping the primitives —
   the component's interface does not change.
 - **Telemetry for silent failures** (Phase 1 follow-up #1, Phase 3 follow-up #4).

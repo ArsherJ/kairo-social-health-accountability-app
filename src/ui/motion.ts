@@ -93,7 +93,7 @@ export function useCountUp(value: number, enabled = true): number {
   return shown;
 }
 
-/** The Hunter's idle float. ±6px, 4.5s, forever. Nothing else uses this. */
+/** The character's idle float. ±6px, 4.5s, forever. Nothing else uses this. */
 export function useFloat(): Animated.Value {
   const { reduce: reduceMotion, ready: reduceMotionReady } = useReduceMotionState();
   const drift = useRef(new Animated.Value(0)).current;

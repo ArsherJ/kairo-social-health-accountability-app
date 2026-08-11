@@ -15,7 +15,7 @@ import { useCreateProfile } from '@/features/profile/create-profile.ts';
 import { Button, Label } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 
-export default function NameYourHunter() {
+export default function NameYourCharacter() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const session = useSessionStore((s) => s.session);
@@ -57,7 +57,7 @@ export default function NameYourHunter() {
       style={[styles.container, { paddingTop: insets.top + space.xl }]}
     >
       <View style={styles.top}>
-        <Label>NAME YOUR HUNTER</Label>
+        <Label>NAME YOUR CHARACTER</Label>
         <Text style={styles.title}>Who are you going to be?</Text>
         <Text style={styles.help}>
           This is the name your squad will see on the leaderboard. You can change it

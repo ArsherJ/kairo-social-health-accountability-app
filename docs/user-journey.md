@@ -19,7 +19,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 3. **Notifications**, requested only once a squad or a goal-in-flight gives them a reason to exist (§14) — not upfront.
 4. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate STR tracking") rather than blocking onboarding. Height/weight feed active-calorie (STR) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
 
-**MVP scope note:** ships one character class (Hunter) with placeholder art; the other three classes are V1 (§6).
+**MVP scope note:** ships one character class with placeholder art; the other three classes are V1 (§6). The class is internal — `profiles.class` defaults to `'hunter'` and no surface names it. **The character has no in-app noun** as of 2026-08-11 (roadmap deviation #26): it is "your character", never a Hunter.
 
 ## 3. The daily loop (§2)
 
@@ -49,6 +49,7 @@ The RPG avatar and the day's/lifetime scoring surface.
 
 - Four phone-only passive stats drive it: **AGI** (steps), **STR** (active calories), **END** (active minutes), **VIT** (hourly movement consistency — active hours with 250+ steps, not sleep; §5 explains why sleep can't be the phone-only vitality signal). **REC** (sleep) is a wearable-only bonus stat that simply doesn't appear without a wearable — zero penalty (§5, §6).
 - Each stat scores independently per day (None/Bronze/Silver/Gold → 0/200/500/900 pts) plus a consistency bonus for touching multiple stats in the same day (§6). **Tier names are internal to the scoring engine only** — nothing in the UI shows "Bronze/Silver/Gold" (roadmap deviation #23). What the player sees is a numeric **ability rating** built from lifetime per-stat points, plus a guidance line in raw units ("1,240 more steps for +400 AGI").
+- **The stats are glyphs on the rail, not letters** (2026-08-11): a footprint, a flexed arm, a stopwatch and a heart-pulse, each over its rating. The abbreviation survives one tap down, on the expanded bars — icon, `AGI`, and "Steps and distance" together — which is where a new player learns the mapping, and in the guidance sentence, which still names the stat in words.
 - **Level** is permanent XP, never resets. Two players at the same level can look different — the character's visual build follows whichever stat dominates their lifetime rollup (§6): leaner/faster for AGI, broader silhouette for STR, endurance stance for END, recovery glow for VIT, and a rare "All-Rounder" look — unpurchasable, must be earned — when all four stay within 20% of each other.
 - **Strain** (roadmap deviation #24, 2026-08-10) is a derived, wearable-only, display-only figure from hourly heart rate — never stored on `daily_scores`, never ranked, never gates anything.
 - A rest day scores 0 and still costs the streak, but the goal card always says how many days are left to make it up (§6) — the app is designed to still be worth opening on a bad day.

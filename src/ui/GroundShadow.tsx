@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { ramp, radius } from '../theme.ts';
 
 /**
- * The ellipse the Hunter stands on.
+ * The ellipse the character stands on.
  *
  * This replaced the old palette's aura. "Glow means earned" was a rule built
  * for a near-black app; on cream and sage a bright disc behind a figure reads

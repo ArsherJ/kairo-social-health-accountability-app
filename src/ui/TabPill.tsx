@@ -11,7 +11,7 @@ import { useChromeStore } from './chrome.ts';
  * these strings are load-bearing, not decoration.
  */
 const LABELS: Record<string, string> = {
-  index: 'Hunter',
+  index: 'Character',
   squad: 'Squad',
   profile: 'You',
 };
@@ -36,7 +36,7 @@ const ICONS: Record<string, 'user' | 'users'> = {
  * unmodified — including `insets`, which is why no `useSafeAreaInsets` call
  * lives in this file.
  *
- * Three discs rather than a bar: the Hunter sits centre and larger because it
+ * Three discs rather than a bar: the character sits centre and larger because it
  * is where the app opens and where it returns, and the other two orbit it.
  * The height is fixed at `NAV_HEIGHT` and `Screen` clears exactly that, so
  * changing one without the other hides content behind the nav.

@@ -107,7 +107,7 @@ function Gate() {
         // once they retry successfully.
         <View style={[styles.overlay, styles.errorContainer]}>
           <Panel variant="plain" style={styles.panelOverride}>
-            <Text style={styles.errorTitle}>Couldn't reach your Hunter</Text>
+            <Text style={styles.errorTitle}>Couldn't reach your character</Text>
             <Text style={styles.errorBody}>
               That's usually just a bad connection. Check your signal and try again.
             </Text>

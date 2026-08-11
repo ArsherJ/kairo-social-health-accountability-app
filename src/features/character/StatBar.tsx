@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { ratingForStatPoints, statPointsForRating } from '@kairo/core';
+import { ratingForStatPoints, statPointsForRating, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Meter } from '@/ui/index.ts';
+import { Meter, StatIcon } from '@/ui/index.ts';
 
 export function StatBar({
   stat,
@@ -11,7 +11,7 @@ export function StatBar({
   lane = false,
   laneEmptyCopy = null,
 }: {
-  stat: string;
+  stat: CoreStat;
   label: string;
   /** What this stat scored today. The "+N" beside the rating. */
   todayPoints: number;
@@ -48,10 +48,21 @@ export function StatBar({
   return (
     <View style={styles.row}>
       <View style={styles.header}>
-        <Text style={[styles.stat, lane && styles.statLane]}>
-          {stat}
-          {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
-        </Text>
+        {/* Icon *and* abbreviation, unlike the rail's coin. This is where the
+            mapping gets taught — glyph, name and "Steps and distance" on three
+            consecutive lines — so dropping the letters here would leave the
+            coin's glyph with nothing anywhere that explains it.
+
+            16pt against the 20pt Caprasimo beside it: here the glyph reinforces
+            text that is already present, so it should not out-shout it. On the
+            coin, where it is the only carrier, it leads. */}
+        <View style={styles.name}>
+          <StatIcon stat={stat} size={16} color={lane ? colors.accent : colors.text} />
+          <Text style={[styles.stat, lane && styles.statLane]}>
+            {stat}
+            {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
+          </Text>
+        </View>
         <View style={styles.numbers}>
           <Text style={styles.rating}>{rating}</Text>
           {/* Today's contribution, beside the ability it fed. The rating is
@@ -79,7 +90,18 @@ export function StatBar({
 
 const styles = StyleSheet.create({
   row: { marginTop: space.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  // `center`, not the `baseline` this was before the icon arrived. The left
+  // side is a wrapper View now, and Yoga resolves a View's baseline from its
+  // *first child* — which is the 16pt icon, not the 20pt name beside it. That
+  // would silently align the row against the wrong glyph. Both groups resolve
+  // to the same ~24pt height (a 20pt Caprasimo line either way), so centring
+  // renders identically and does not depend on how the wrapper is nested.
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  // `center` here for the real baseline reason: an icon glyph and a display
+  // face have unrelated baselines, so aligning them optically beats aligning
+  // them typographically. `flexShrink` so a long lane tag cannot push the
+  // rating off the row.
+  name: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexShrink: 1 },
   stat: { ...font.display.minor, color: colors.text },
   statLane: { color: colors.accent },
   laneTag: { ...font.body.label, color: colors.accent, fontSize: 10 },

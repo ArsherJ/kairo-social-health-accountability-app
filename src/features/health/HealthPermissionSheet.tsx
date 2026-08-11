@@ -11,7 +11,7 @@ import { notifyHealthPermissionGranted } from './useHealthSync.ts';
  * The in-context ask (§5), as sheet *content* rather than a sheet.
  *
  * It used to own its own `<Modal>` and its own visibility, mounted on the
- * character screen so the prompt overlaid the Hunter it was about to power.
+ * character screen so the prompt overlaid the character it was about to power.
  * That independence was the bug: `NotificationPermissionSheet` did the same
  * thing at the tabs shell, and two `<Modal>`s presenting on one root view
  * controller means UIKit refuses the second and suppresses it silently. See
@@ -70,12 +70,12 @@ export function HealthAsk({
       <Text style={styles.title}>Your real life is the game</Text>
       <Text style={styles.body}>
         Kairo reads your steps, distance, active calories and active minutes from
-        Apple Health. That is what levels your Hunter and puts you on the squad
+        Apple Health. That is what levels your character and puts you on the squad
         leaderboard.
       </Text>
       <Text style={styles.fine}>
-        Your squad only ever sees tiers and scores — never your raw numbers, and
-        never when you move. Kairo writes nothing back to Health.
+        Your squad only ever sees ability ratings and scores — never your raw
+        numbers, and never when you move. Kairo writes nothing back to Health.
       </Text>
 
       <Button

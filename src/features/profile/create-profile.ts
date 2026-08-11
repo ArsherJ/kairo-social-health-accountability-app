@@ -12,7 +12,7 @@ import { profileKey } from './queries.ts';
 const UNIQUE_VIOLATION = '23505';
 const INSUFFICIENT_PRIVILEGE = '42501';
 
-const GENERIC_ERROR_COPY = "Couldn't create your Hunter. Check your connection and try again.";
+const GENERIC_ERROR_COPY = "Couldn't create your character. Check your connection and try again.";
 
 export function useCreateProfile(userId: string | undefined) {
   const queryClient = useQueryClient();

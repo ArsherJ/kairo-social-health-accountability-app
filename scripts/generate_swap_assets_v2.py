@@ -3,7 +3,7 @@
 Kairo — chained swap asset generator (GPT Image 2)
 
 Every generation carries the character anchor as a persistent style reference,
-so gear reads as belonging to the same game as the hunter.
+so gear reads as belonging to the same game as the character.
 
 Reference roles:
   IMAGE 1  hunter-character-anchor-final.png  -> STYLE AUTHORITY (every call)

@@ -78,7 +78,7 @@ export function notificationCopy(
         title: 'A new day begins.',
         body: inSquad
           ? 'Your squad is already moving. 👊'
-          : 'Your Hunter is waiting. 👊',
+          : 'Your character is waiting. 👊',
       };
 
     case 'day_ending_soon':

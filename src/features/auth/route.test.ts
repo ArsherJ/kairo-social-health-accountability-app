@@ -64,7 +64,7 @@ describe('resolveRoute', () => {
   });
 
   it('does not treat a profile error as "no profile yet"', () => {
-    // Distinguishing these matters: needs-profile sends an existing Hunter to
+    // Distinguishing these matters: needs-profile sends an existing character to
     // the onboarding screen, which is the bug this route resolves.
     expect(
       resolveRoute({ ...base, hasSession: true, profileError: true, hasProfile: false }),

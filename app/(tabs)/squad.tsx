@@ -78,7 +78,7 @@ export default function Squad() {
   }
 
   // Solo mode replaces the old empty state: the tab is worth opening before
-  // the barkada joins (§7). Create and join stay one tap away.
+  // the squad fills up (§7). Create and join stay one tap away.
   if (pane === 'choose') {
     return (
       <SoloBoard

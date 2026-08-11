@@ -4,10 +4,10 @@ import type { Dominance } from '@kairo/core';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import type { Stop } from '@/ui/gradient.ts';
-import { HunterSilhouette } from './HunterSilhouette.tsx';
+import { CharacterFigure } from './CharacterFigure.tsx';
 
 /**
- * The world the Hunter stands in.
+ * The world the character stands in.
  *
  * This is the redesign's one big move: the character is not an illustration
  * inside a card, they are standing somewhere, and the interface floats over
@@ -17,7 +17,7 @@ import { HunterSilhouette } from './HunterSilhouette.tsx';
  * The sky is sage rather than a literal outdoors — Kairo is played in Manila
  * traffic and at 6am, and a photographic landscape would date instantly and
  * fight the flat character art. Sage also already means "your lane" in this
- * palette, so the ground the Hunter stands on is the same colour as the
+ * palette, so the ground the character stands on is the same colour as the
  * progress they are making.
  */
 
@@ -82,7 +82,7 @@ export function Diorama({
       <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
 
       <View style={[styles.stage, { bottom: height * 0.12 }]}>
-        <HunterSilhouette stage={stage} dominance={dominance} height={height * 0.6} />
+        <CharacterFigure stage={stage} dominance={dominance} height={height * 0.6} />
       </View>
 
       {children}

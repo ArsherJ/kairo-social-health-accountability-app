@@ -10,6 +10,23 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 
 **Bronze/Silver/Gold are internal to scoring as of 2026-08-10.** `tierFor()`, `TIER_POINTS` and `daily_scores.tiers` still decide every day exactly as §5/§6 specify — nothing about the engine changed. But no surface renders a tier name or colour any more: the character sheet and the leaderboard both show a numeric **ability rating** from `ratingForStatPoints()` over lifetime per-stat rollups on `profiles`. If you find UI naming a tier, it is stale. **`profiles.focus` was dropped the same day** — `squads.program` is the only focus concept, and the character screen's "lane" reads observed dominance instead.
 
+**"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
+character has no noun — it is "your character", and the centre tab is `Character`;
+a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do
+the dated docs under `docs/superpowers/`; both are historical records, not intent.
+Three things deliberately still say it and are *not* stale: `profiles.class`'s
+`'hunter'` default (inert internal enum, no surface renders it), the
+`output/imagegen/hunter-*.png` render sources, and the **art-direction prompts** in
+`scripts/generate_swap_assets*.py` plus §20's "dark fantasy hunter aesthetic" brief —
+that last one is a genuinely open decision the art regeneration has to settle, not a
+missed find-and-replace. Anywhere else, it is stale — fix it.
+
+**Stat identity is a glyph, not three letters, as of 2026-08-11.** `src/ui/StatIcon.tsx`
+owns the only mapping; `StatCoin`, `StatBar` and `LeaderboardRow` all read it. It is
+MaterialCommunityIcons on purpose while all chrome stays Feather — the split is
+hairline = *things you operate*, solid = *things you are*. Don't blur it in either
+direction.
+
 **Two documents hold the decisions. Read them before proposing changes.**
 
 - `Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here.

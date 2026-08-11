@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate identity-preserving hunter character variants with GPT Image."""
+"""Generate identity-preserving character variants with GPT Image."""
 
 from __future__ import annotations
 

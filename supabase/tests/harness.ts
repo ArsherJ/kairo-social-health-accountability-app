@@ -211,7 +211,7 @@ export async function setupHarness(): Promise<Harness> {
        values ($1, $2, $3, $4)`,
       [
         id,
-        opts.characterName ?? `Hunter${counter}`,
+        opts.characterName ?? `Character${counter}`,
         opts.timezone ?? 'Asia/Manila',
         opts.isLegendary ?? false,
       ],

@@ -616,7 +616,7 @@ describe('squad limits', () => {
     const leader = await h.createUser();
     const rows = await h.asUser<{ invite_code: string; max_members: number }>(
       leader,
-      `select invite_code, max_members from public.create_squad('Barkada')`,
+      `select invite_code, max_members from public.create_squad('Squad')`,
     );
     expect(rows[0]!.invite_code).toMatch(/^[A-Z0-9]{6}$/);
     // Unambiguous alphabet: no I, L, O, 0 or 1.

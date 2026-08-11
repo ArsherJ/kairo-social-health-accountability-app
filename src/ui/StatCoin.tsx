@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { ratingForStatPoints } from '@kairo/core';
+import { ratingForStatPoints, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, shadow } from '../theme.ts';
+import { StatIcon } from './StatIcon.tsx';
 
 /**
  * One stat as a coin, for the diorama's floating rail.
@@ -19,12 +20,20 @@ import { colors, font, radius, ramp, shadow } from '../theme.ts';
  * A rating never falls, which is why nothing here has an "unearned" state any
  * more: every stat is at least 1 from the first frame, and the coin is legible
  * before the first sync instead of showing a dash.
+ *
+ * **The three letters became a glyph on 2026-08-11.** 54pt is not enough room
+ * to set an abbreviation and a number and have either be the thing you see —
+ * the coin's whole job is *which stat* and *how far along*, and `AGI` only
+ * answers the first one for someone who already knows the vocabulary. What
+ * teaches the vocabulary is the expanded bar one tap below, which still carries
+ * icon **and** `AGI` **and** "Steps and distance"; the rail is the summary you
+ * read once you have learned it.
  */
 export function StatCoin({
   stat,
   points,
 }: {
-  stat: string;
+  stat: CoreStat;
   /** Lifetime points in this stat. Undefined until the profile loads. */
   points: number | undefined;
 }) {
@@ -36,7 +45,14 @@ export function StatCoin({
 
   return (
     <View style={[styles.coin, untrained && styles.idle]}>
-      <Text style={[styles.stat, untrained && styles.statIdle]}>{stat}</Text>
+      {/* 18pt, not 20: the inner box is 48pt after the 3pt border, and the
+          rating below it is 20pt of line. 18 leaves the glyph and the number
+          breathing room inside the ring instead of pressing on it. */}
+      <StatIcon
+        stat={stat}
+        size={18}
+        color={untrained ? colors.muted : ramp.accent[800]}
+      />
       <Text style={[styles.rating, untrained && styles.ratingIdle]}>{rating}</Text>
     </View>
   );
@@ -61,8 +77,6 @@ const styles = StyleSheet.create({
   // An untrained coin recedes rather than disappearing: the stat still has to
   // be findable on the rail before anything has been earned in it.
   idle: { backgroundColor: '#f9f4ed9e', borderColor: ramp.neutral[300] },
-  stat: { ...font.display.label, lineHeight: 14, color: ramp.accent[800] },
-  statIdle: { color: colors.muted },
   rating: { ...font.display.small, fontSize: 17, lineHeight: 20, color: colors.text },
   ratingIdle: { color: colors.muted },
 });

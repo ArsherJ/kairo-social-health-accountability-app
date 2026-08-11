@@ -27,7 +27,7 @@ import { nextPermissionAsk } from './ask-order.ts';
  *
  * Mounted at the tabs shell, not on a screen: the ask is keyed to what has
  * happened to the user, not to where they are standing. In practice the app
- * opens on the character tab, so the Health ask still overlays the Hunter it is
+ * opens on the character tab, so the Health ask still overlays the character it is
  * about to power, which is what §5 wanted from putting it there.
  */
 export function PermissionAsks({

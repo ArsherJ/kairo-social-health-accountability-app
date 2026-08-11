@@ -45,7 +45,7 @@ describe('dominantStat', () => {
     expect(dominantStat(points(900, 900, 0, 900))).toBe('AGI');
   });
 
-  // Ties have to resolve the same way every render, or the Hunter flickers
+  // Ties have to resolve the same way every render, or the character flickers
   // between two silhouettes on refetch.
   it('breaks a tie for the lead in a stable, declared order', () => {
     expect(dominantStat(points(500, 500, 0, 0))).toBe('AGI');

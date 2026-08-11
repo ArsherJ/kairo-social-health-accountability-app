@@ -5,7 +5,7 @@ import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
 
 /**
- * The Hunter. Static placeholder art where an asset exists for the
+ * The character. Static placeholder art where an asset exists for the
  * (stage × dominance) pair, and the original View primitives everywhere else —
  * still no new dependency (react-native-svg, Rive and Reanimated are all
  * deliberately not installed; §15 scopes MVP to *static* placeholder art, and
@@ -39,19 +39,19 @@ function artKey(stage: 1 | 2 | 3 | 4, dominance: Dominance | undefined): ArtKey 
  * built from the key: Metro resolves `require` statically, so a path with no
  * file behind it is a bundling error, not a runtime miss.
  *
- * To add one, drop the PNG in `assets/hunter/` and add its line here:
+ * To add one, drop the PNG in `assets/character/` and add its line here:
  *
- *     '3-STR': require('../../../assets/hunter/3-STR.png'),
+ *     '3-STR': require('../../../assets/character/3-STR.png'),
  *
- * `assets/hunter/README.md` lists every key and what each is meant to look
+ * `assets/character/README.md` lists every key and what each is meant to look
  * like. Up to 2:1 portrait, transparent background — the ground shadow is
  * drawn by this component, not baked into the art, so the same asset reads
  * correctly at every stage.
  */
-const HUNTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
+const CHARACTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
 
 /**
- * The baseline figure, used for any key `HUNTER_ART` does not cover yet.
+ * The baseline figure, used for any key `CHARACTER_ART` does not cover yet.
  *
  * §15's "AI-placeholder static art" as one asset instead of 24: the same
  * character every key is meant to depict, in the neutral build, with the
@@ -59,10 +59,10 @@ const HUNTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
  * grows with `stage` because the shadow does; what the anchor cannot express
  * is `dominance`, so a per-key entry above always wins over it.
  *
- * Built from the generated render by `scripts/prep_hunter_art.py` — the render
+ * Built from the generated render by `scripts/prep_character_art.py` — the render
  * ships on white with no alpha, which would show as a card on `colors.bg`.
  */
-const HUNTER_ANCHOR: ImageSourcePropType = require('../../../assets/hunter/anchor.png');
+const CHARACTER_ANCHOR: ImageSourcePropType = require('../../../assets/character/anchor.png');
 
 interface Build {
   /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
@@ -112,7 +112,7 @@ const BASE_SHOULDERS = 132;
 const BASE_TORSO_WIDTH = 104;
 const BASE_TORSO_HEIGHT = 96;
 
-export function HunterSilhouette({
+export function CharacterFigure({
   stage,
   dominance,
   height = 220,
@@ -124,7 +124,7 @@ export function HunterSilhouette({
   height?: number;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
-  const art = HUNTER_ART[artKey(stage, dominance)] ?? HUNTER_ANCHOR;
+  const art = CHARACTER_ART[artKey(stage, dominance)] ?? CHARACTER_ANCHOR;
 
   const scale = height / 220;
   const shadowWidth = (128 + stage * 18) * scale;

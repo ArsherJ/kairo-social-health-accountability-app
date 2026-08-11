@@ -312,7 +312,7 @@ export function Leaderboard({
       {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
 
       {/* §7: locked slots are visible every day, not only when solo — the
-          constant pull to invite the rest of the barkada. Ranked after every
+          constant pull to invite the rest of the squad. Ranked after every
           member, scored or not, so the numbering never skips or repeats.
           Gated on `rows.length > 0`: an empty board already showed the code
           above, and showing it twice was the earlier bug here. */}

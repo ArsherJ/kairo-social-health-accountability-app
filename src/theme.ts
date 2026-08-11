@@ -102,7 +102,7 @@ export const colors = {
  * old `tierColors.gold` carried, and neither is about a tier:
  *
  *   - the squad leader's row and a banked Streak Shield (`Panel`'s `earned` edge)
- *   - the All-Rounder's presence ring (`HunterSilhouette`)
+ *   - the All-Rounder's presence ring (`CharacterFigure`)
  *
  * Both mean "earned", and neither means "you" — which is the distinction that
  * kept them off `colors.accent` in the first place. Naming it for the job rather

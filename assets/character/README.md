@@ -1,8 +1,8 @@
-# Hunter placeholder art
+# Character placeholder art
 
 §15 scopes MVP to **AI-placeholder static art**. This directory holds it.
 
-`HunterSilhouette` (`src/features/character/HunterSilhouette.tsx`) looks each
+`CharacterFigure` (`src/features/character/CharacterFigure.tsx`) looks each
 file up by `${stage}-${dominance}`. **A missing file is not a bug** — the
 component falls back to `anchor.png`, so art can land one file at a time and a
 half-populated directory renders correctly.
@@ -16,8 +16,8 @@ is the neutral build, so it carries `stage` (the shadow under it grows) but not
 Regenerate it from a render with:
 
 ```bash
-python scripts/prep_hunter_art.py output/imagegen/hunter-character-anchor-final.png \
-    --out assets/hunter/anchor.png --aspect 0.60
+python scripts/prep_character_art.py output/imagegen/hunter-character-anchor-final.png \
+    --out assets/character/anchor.png --aspect 0.60
 ```
 
 That script does the three things a raw render needs: keys out the white
@@ -30,8 +30,8 @@ render rather than dropping the render in directly.
 Two steps, both required:
 
 1. Drop the PNG here as `<stage>-<dominance>.png`.
-2. Add its line to `HUNTER_ART` in the component:
-   `'3-STR': require('../../../assets/hunter/3-STR.png'),`
+2. Add its line to `CHARACTER_ART` in the component:
+   `'3-STR': require('../../../assets/character/3-STR.png'),`
 
 Metro resolves `require` statically, which is why step 2 cannot be automated
 away — a `require` naming a file that does not exist fails the bundle rather
@@ -50,8 +50,8 @@ than missing at runtime.
 - **Figure centred, feet at the bottom edge**, so a swap does not shift the
   layout under the TODAY card.
 - Reads on cream. The app is a warm light theme now (`colors.bg` is #f5ead8)
-  and the Hunter stands on a sage sky, so pure black merges into neither —
-  but `prep_hunter_art.py --lift` exists because a raw render often ships
+  and the character stands on a sage sky, so pure black merges into neither —
+  but `prep_character_art.py --lift` exists because a raw render often ships
   with its outline at 0,0,0.
 
 ## The keys

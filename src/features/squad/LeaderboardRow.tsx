@@ -3,7 +3,7 @@ import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
 import { boostChipLabel } from './program-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Avatar, Numeral } from '@/ui/index.ts';
+import { Avatar, Numeral, StatIcon, STAT_NAMES } from '@/ui/index.ts';
 
 /**
  * One squadmate.
@@ -100,13 +100,15 @@ export function LeaderboardRow({
               // deviation #18 applies to goal arithmetic — one implementation.
               const rating = ratingForStatPoints(row.ratings?.[stat] ?? 0);
               return (
-                <Text
+                <View
                   key={stat}
-                  accessibilityLabel={`${stat} ${rating}`}
-                  style={styles.rating}
+                  accessible
+                  accessibilityLabel={`${STAT_NAMES[stat]} ${rating}`}
+                  style={styles.ratingPair}
                 >
-                  {stat} {rating}
-                </Text>
+                  <StatIcon stat={stat} size={11} color={ramp.neutral[700]} />
+                  <Text style={styles.rating}>{rating}</Text>
+                </View>
               );
             })}
           </View>
@@ -170,7 +172,13 @@ const styles = StyleSheet.create({
   boostLabel: { ...font.body.label, fontSize: 9, color: ramp.sage[900] },
   // Wraps rather than truncating: four ratings plus a streak plus a boost chip
   // can outrun a phone's width, and a clipped ability number is worse than a
-  // second line.
+  // second line. The glyphs bought this line real room back — a footprint is
+  // narrower than "AGI" — so it wraps in fewer cases than it used to, but the
+  // long-name case still exists and this still has to survive it.
   ratings: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 2 },
+  // 2pt inside a pair against 6pt between them: the glyph and its number have
+  // to group, or four icons and four numbers read as two separate rows of
+  // things at this size.
+  ratingPair: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   rating: { ...font.body.label, fontSize: 9.5, color: ramp.neutral[700] },
 });

@@ -13,7 +13,7 @@ import { resolveSlots } from './slots.ts';
  * The squad tab before anyone joins (§7).
  *
  * §7 calls solo mode a "critical design decision" for a churn reason: one
- * person installs, their barkada does not follow, and an empty screen is what
+ * person installs, their friends do not follow, and an empty screen is what
  * they leave over. A squadless user already *scores* correctly — this is a
  * rendering problem — so the board shows their real day beside the seats
  * nobody is sitting in.

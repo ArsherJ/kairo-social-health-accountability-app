@@ -55,7 +55,7 @@ describe('day-boundary copy', () => {
     });
     expect(notificationCopy('day_starts', { rank: null, total: 0, inSquad: false })).toEqual({
       title: 'A new day begins.',
-      body: 'Your Hunter is waiting. 👊',
+      body: 'Your character is waiting. 👊',
     });
   });
 });

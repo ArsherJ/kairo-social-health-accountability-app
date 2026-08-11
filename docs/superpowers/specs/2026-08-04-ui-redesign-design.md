@@ -54,7 +54,7 @@ typography instead of on the background.
 
 ## The signature: glow means earned
 
-`HunterSilhouette` already renders an aura whose size and colour derive from real
+`CharacterFigure` already renders an aura whose size and colour derive from real
 health data. That becomes the app's only decorative device, under one rule:
 
 > Glow is never applied to something the user has not earned.
@@ -128,10 +128,10 @@ bars or buttons of their own any more.
 | `Meter` | The one bar idiom. `StatBar` and `XpBar` already duplicate this geometry on purpose ("two bar idioms in one app is one too many"); this makes it structural. |
 | `TierChip` | Stat letter + tier colour. Glows at Gold+, flat below. |
 | `Button` | `primary` / `secondary` / `ghost`, with press-scale and disabled state. |
-| `Aura` | Glow extracted from `HunterSilhouette` so the leading squadmate's row can speak the same language. Not the tab bar — see the glow rule above. |
+| `Aura` | Glow extracted from `CharacterFigure` so the leading squadmate's row can speak the same language. Not the tab bar — see the glow rule above. |
 | `TabPill` | Floating bottom nav, replacing the default `Tabs` bar. |
 
-`Aura` extraction must preserve `HunterSilhouette`'s existing behaviour exactly:
+`Aura` extraction must preserve `CharacterFigure`'s existing behaviour exactly:
 size and opacity from `stage`, colour and `glow` offset from the dominance
 `BUILDS` table, and the All-Rounder halo ring. That mapping is §6's evolution
 table and is not being redesigned here.
