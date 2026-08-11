@@ -29,6 +29,8 @@ export type SyncPolicyInput =
   | { kind: 'foreground'; at: number }
   | { kind: 'observer'; at: number }
   | { kind: 'permission-granted'; at: number }
+  /** The user tapped the status strip's retry. */
+  | { kind: 'manual'; at: number }
   | { kind: 'timer'; at: number }
   | { kind: 'sync-succeeded'; at: number }
   /**
@@ -121,6 +123,14 @@ export function reduceSyncPolicy(
     // Deliberately unthrottled. The user just tapped "Connect Apple Health"
     // and is looking at a screen showing zero (§5).
     case 'permission-granted':
+      return syncNow(state, input.at);
+
+    // Unthrottled for the same reason, and it needs saying: this is the escape
+    // hatch from a stale or failed sync, so the foreground throttle must not
+    // swallow it. Someone who taps "Try again" and sees nothing happen has been
+    // told the app is broken twice. `inFlight` above still applies — a tap
+    // during a running sync is remembered, not raced.
+    case 'manual':
       return syncNow(state, input.at);
 
     case 'foreground': {

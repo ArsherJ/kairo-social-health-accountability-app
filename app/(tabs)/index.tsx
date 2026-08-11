@@ -20,6 +20,7 @@ import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { StatRail } from '@/features/character/StatRail.tsx';
+import { SyncStatus } from '@/features/character/SyncStatus.tsx';
 import { TodayPanel } from '@/features/character/TodayPanel.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
@@ -324,6 +325,11 @@ export default function Character() {
                 : undefined
             }
           />
+
+          {/* Deliberately outside the panel's own null guard: an empty TODAY
+              panel is exactly when "waiting for your first sync" or "couldn't
+              sync" is the most useful thing on the screen. */}
+          <SyncStatus />
 
           {expanded && (
             <View style={styles.detailBlock}>

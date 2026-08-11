@@ -33,6 +33,23 @@ Anytime         →  Open the app: Character tab, Squad tab, or a goal's progres
 Sunday 10 PM    →  AI weekly recap card pushed to all squads (V1+).
 ```
 
+### The numbers say how old they are
+
+Under the TODAY panel on Character, a status line reports when health data last
+reached the server: `Synced 4 minutes ago` when healthy, `Last synced 3 hours
+ago · Sync now` once it goes stale, and `Couldn't sync. Showing data from 3
+hours ago · Try again` when the last attempt failed. `SyncStatus.tsx` renders
+it, `sync-status.ts` decides the wording, and retry enters the sync policy as a
+`manual` trigger — unthrottled, because it is the escape hatch from exactly the
+state it is reporting.
+
+This is not decoration. Between 9 and 11 August 2026 `sync-health` failed on
+every call while its bucket write kept committing, so the app displayed real,
+climbing step counts against a score of zero and gave no indication anything
+was wrong — for two days, to every user. `SyncState` had recorded the failure
+the whole time and nothing read it. A figure is now never shown without its
+provenance; see the addendum in `docs/qa/kairo-end-to-end-qa-report.md`.
+
 Because each player's day runs midnight-to-midnight in *their own* timezone, a squad spans multiple calendar dates at any instant — this is what makes the OFW-in-Dubai-vs-family-in-Cebu use case work at all, and it's why every score, bucket, and goal window is keyed by local date, never server time (see `CLAUDE.md` → Per-user local days).
 
 ### Three engagement hooks, one available with zero friends (§2)
