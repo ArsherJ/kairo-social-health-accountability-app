@@ -16,6 +16,7 @@ import type { ExpoConfig } from 'expo/config';
 const config: ExpoConfig = {
   name: 'Kairo',
   slug: 'kairo',
+  owner: 'eddytion47',
   version: '0.1.0',
   orientation: 'portrait',
   // Deep-link scheme. §14 routes eight notification types straight to a screen.
@@ -78,6 +79,9 @@ const config: ExpoConfig = {
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    eas: {
+      projectId: 'ccfa0966-3aa9-4548-b5a2-6e311816d8de',
+    },
   },
 };
 

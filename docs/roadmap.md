@@ -378,9 +378,12 @@ code that no longer exists, which is the honest cost of the pivot.
   `DeviceNotRegistered` ticket, and the dead token was purged with **no**
   `push_failed` row — an unregistered device is a cleanup, not a retryable
   failure. That exercises the whole path except Apple's last hop.
-  **Still owed at the gate:** `eas init` (there is no `extra.eas.projectId`, so
-  `getExpoPushTokenAsync` cannot mint a token yet — the client says so plainly
-  instead of throwing), then the APNs key via `eas credentials`.
+  **`eas init` done (2026-08-11):** project is `@eddytion47/kairo`
+  (`ccfa0966-3aa9-4548-b5a2-6e311816d8de`), `owner`/`extra.eas.projectId` set
+  by hand in `app.config.ts` since dynamic config can't be written
+  automatically. **Still owed at the gate:** the APNs key via
+  `eas credentials`, without which `getExpoPushTokenAsync` still cannot mint a
+  deliverable token.
 - ⚠️ **Noted, deliberately not fixed:** iOS logs *"you still need to add
   `remote-notification` to UIBackgroundModes"* because `expo-notifications`
   implements the background-notification delegate method. MVP sends only

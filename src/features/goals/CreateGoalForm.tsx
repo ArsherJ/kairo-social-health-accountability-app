@@ -336,12 +336,15 @@ export function CreateGoalForm({
                 // Bounding the picker is what keeps `goals_window_ordered` from
                 // being something the user can trip over.
                 minimumDate={dateOfIso(today)}
-                onChange={(_event, picked) => {
+                onValueChange={(_event, picked) => {
                   if (Platform.OS !== 'ios') setPickerOpen(false);
                   // `isoDateOf`, not `toISOString()`: the latter is UTC, so a
                   // date picked in Manila after 08:00 would be stored as the
                   // day before.
                   if (picked) setCustomEnd(isoDateOf(picked));
+                }}
+                onDismiss={() => {
+                  if (Platform.OS !== 'ios') setPickerOpen(false);
                 }}
               />
             )}
