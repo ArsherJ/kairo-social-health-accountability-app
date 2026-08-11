@@ -32,6 +32,20 @@ VARIANTS = {
         "Same character, same outfit, same pose. Face only differs: alert sharp "
         "expression, wide bright eyes, focused brow."
     ),
+    "character-anchor-female.png": (
+        "Same art style, same outfit, same line weight, same color palette, same "
+        "front-facing full-body framing, same white backdrop. The character is "
+        "female: longer black hair, softer jawline, suit tailored to a female "
+        "figure.\n\n"
+        "CRITICAL - the body proportions must be IDENTICAL to the input image. "
+        "The head must be the same size and the same fraction of total height as "
+        "the input: a very large chibi head, about 2.5 heads tall for the whole "
+        "figure. Keep the same wide round face shape, the same short arms and "
+        "legs, and the same overall height. Do NOT slim the body, do NOT lengthen "
+        "the legs, do NOT narrow the face, do NOT make the character taller or "
+        "more realistically proportioned. Only the hair, the jawline softness and "
+        "the torso shaping may change."
+    ),
 }
 
 
@@ -65,6 +79,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--size", default="1024x1536")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--variants",
+        help="Comma-separated filenames from VARIANTS to generate. Default: all.",
+    )
     return parser.parse_args()
 
 
@@ -83,7 +101,16 @@ def main() -> int:
         raise SystemExit(f"Bundled image CLI not found: {image_cli}")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    for filename, request in VARIANTS.items():
+
+    selected = VARIANTS
+    if args.variants:
+        wanted = [name.strip() for name in args.variants.split(",") if name.strip()]
+        missing = [name for name in wanted if name not in VARIANTS]
+        if missing:
+            raise SystemExit(f"Unknown variant(s): {', '.join(missing)}")
+        selected = {name: VARIANTS[name] for name in wanted}
+
+    for filename, request in selected.items():
         prompt = (
             "Use case: identity-preserve\n"
             "Input image: edit target and sole identity/style anchor.\n"
