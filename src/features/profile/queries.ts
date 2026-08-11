@@ -12,6 +12,12 @@ export type Profile = {
   id: string;
   character_name: string;
   class: string;
+  /**
+   * Which character the player chose at onboarding (§6, cosmetic only).
+   * Null for every profile created before the choice existed — those render
+   * the male anchor, which is what they already showed.
+   */
+  character_body: 'male' | 'female' | null;
   timezone: string;
   level: number;
   total_xp: number;
@@ -55,7 +61,7 @@ export function useProfile(userId: string | undefined) {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, character_name, class, timezone, level, total_xp, has_wearable, ' +
+          'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
             'agi_total, str_total, end_total, vit_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex',
         )

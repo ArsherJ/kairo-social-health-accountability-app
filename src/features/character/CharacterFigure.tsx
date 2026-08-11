@@ -1,5 +1,6 @@
 import { Animated, Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
+import type { CharacterBody } from '@/features/profile/character-body.ts';
 import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
@@ -51,18 +52,21 @@ function artKey(stage: 1 | 2 | 3 | 4, dominance: Dominance | undefined): ArtKey 
 const CHARACTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
 
 /**
- * The baseline figure, used for any key `CHARACTER_ART` does not cover yet.
+ * The baseline figure per body, used for any key `CHARACTER_ART` does not
+ * cover yet — which is currently every key.
  *
- * §15's "AI-placeholder static art" as one asset instead of 24: the same
- * character every key is meant to depict, in the neutral build, with the
- * shadow left to `<GroundShadow>` as the README requires. Presence still
- * grows with `stage` because the shadow does; what the anchor cannot express
- * is `dominance`, so a per-key entry above always wins over it.
+ * Written out rather than built from the body, for the same reason
+ * `CHARACTER_ART` is: Metro resolves `require` statically, so a computed path
+ * is not a path it can follow.
  *
- * Built from the generated render by `scripts/prep_character_art.py` — the render
- * ships on white with no alpha, which would show as a card on `colors.bg`.
+ * Built from the generated renders by `scripts/prep_character_art.py` — the
+ * renders ship on white with no alpha, which would show as a card on
+ * `colors.bg`.
  */
-const CHARACTER_ANCHOR: ImageSourcePropType = require('../../../assets/character/anchor.png');
+const ANCHORS: Record<CharacterBody, ImageSourcePropType> = {
+  male: require('../../../assets/character/anchor-male.png'),
+  female: require('../../../assets/character/anchor-female.png'),
+};
 
 interface Build {
   /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
@@ -115,16 +119,23 @@ const BASE_TORSO_HEIGHT = 96;
 export function CharacterFigure({
   stage,
   dominance,
+  body,
   height = 220,
 }: {
   stage: 1 | 2 | 3 | 4;
   /** Undefined while the query is in flight; null for an unstarted character. */
   dominance?: Dominance;
+  /**
+   * Which character. Null or undefined means the profile predates the choice
+   * (or has not loaded) — both render the male anchor, which is what those
+   * users already saw.
+   */
+  body?: CharacterBody | null;
   /** The figure's box. The diorama stands them taller than a card does. */
   height?: number;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
-  const art = CHARACTER_ART[artKey(stage, dominance)] ?? CHARACTER_ANCHOR;
+  const art = CHARACTER_ART[artKey(stage, dominance)] ?? ANCHORS[body ?? 'male'];
 
   const scale = height / 220;
   const shadowWidth = (128 + stage * 18) * scale;
