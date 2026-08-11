@@ -12,9 +12,9 @@ What a player actually walks through, end to end. Grounded in the current implem
 
 ## 2. Onboarding — "character first, permissions in context" (§5)
 
-`app/(onboard)/name.tsx`. The spec's ordering principle, and the reason for it: iOS gives one clean shot at the HealthKit and notification prompts, so stacking every permission ask before any fun front-loads friction that costs signups.
+`app/(onboard)/character.tsx`, then `app/(onboard)/name.tsx`. The spec's ordering principle, and the reason for it: iOS gives one clean shot at the HealthKit and notification prompts, so stacking every permission ask before any fun front-loads friction that costs signups.
 
-1. **Name + character on screen within the first 60 seconds** — emotional investment before any ask. Profile-row existence (`character_name` set) *is* the onboarding-complete marker (`app/_layout.tsx` gate) — no separate flag to desync.
+1. **Character, then name, within the first 60 seconds** (§5) — emotional investment before any ask. `character.tsx` shows the two character bodies and commits nothing; `name.tsx` names the one picked and is where the profile row is INSERTed — once, on this second screen. Profile-row existence (`character_name` set) *is* the onboarding-complete marker (`app/_layout.tsx` gate) — no separate flag to desync, which is why the choice has to come *before* the name rather than after: deviation #22 deleted the `finishingOnboarding` flag when onboarding collapsed to one step, and asking anything after the INSERT would need it back (deviation #27).
 2. **HealthKit permission**, framed as "power your character with real life" — not a cold OS dialog.
 3. **Notifications**, requested only once a squad or a goal-in-flight gives them a reason to exist (§14) — not upfront.
 4. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate STR tracking") rather than blocking onboarding. Height/weight feed active-calorie (STR) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
