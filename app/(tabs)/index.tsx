@@ -208,6 +208,7 @@ export default function Character() {
           stage={stage}
           dominance={dominance.data}
           body={profile.data?.character_body}
+          lifetimePoints={lifetime}
         >
           {/* The HUD. Everything here floats over the world rather than
               sitting in the page, which is the whole point of the direction —

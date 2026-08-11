@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { Dominance } from '@kairo/core';
+import type { CoreStat, Dominance } from '@kairo/core';
 import type { CharacterBody } from '@/features/profile/character-body.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
@@ -46,12 +46,15 @@ export function Diorama({
   stage,
   dominance,
   body,
+  lifetimePoints,
   children,
 }: {
   height: number;
   stage: 1 | 2 | 3 | 4;
   dominance?: Dominance;
   body?: CharacterBody | null;
+  /** Lifetime per-stat points, for the presence ring. See `aura.ts`. */
+  lifetimePoints?: Record<CoreStat, number>;
   /** The floating HUD. Absolutely positioned by the caller. */
   children?: ReactNode;
 }) {
@@ -90,6 +93,7 @@ export function Diorama({
           dominance={dominance}
           body={body}
           height={height * 0.6}
+          lifetimePoints={lifetimePoints}
         />
       </View>
 

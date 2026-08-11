@@ -1,9 +1,10 @@
 import { Animated, Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
-import type { Dominance } from '@kairo/core';
+import type { CoreStat, Dominance } from '@kairo/core';
 import type { CharacterBody } from '@/features/profile/character-body.ts';
 import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
+import { auraStrength } from './aura.ts';
 
 /**
  * The character. Static placeholder art where an asset exists for the
@@ -121,6 +122,7 @@ export function CharacterFigure({
   dominance,
   body,
   height = 220,
+  lifetimePoints,
 }: {
   stage: 1 | 2 | 3 | 4;
   /** Undefined while the query is in flight; null for an unstarted character. */
@@ -133,6 +135,11 @@ export function CharacterFigure({
   body?: CharacterBody | null;
   /** The figure's box. The diorama stands them taller than a card does. */
   height?: number;
+  /**
+   * Lifetime per-stat points from `profiles`. Drives the presence ring, which
+   * is the ability rating's only visual counterpart — see `aura.ts`.
+   */
+  lifetimePoints?: Record<CoreStat, number>;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
   const art = CHARACTER_ART[artKey(stage, dominance)] ?? ANCHORS[body ?? 'male'];
@@ -141,6 +148,8 @@ export function CharacterFigure({
   const shadowWidth = (128 + stage * 18) * scale;
   const shadowOpacity = 0.14 + stage * 0.03 + build.weight;
 
+  const aura = auraStrength({ lifetimePoints, balanced: dominance === 'balanced' });
+
   const float = useFloat();
   const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
@@ -148,8 +157,17 @@ export function CharacterFigure({
     <View style={[styles.frame, { height }]}>
       <GroundShadow width={shadowWidth} color={build.shade} opacity={shadowOpacity} />
 
-      {dominance === 'balanced' && (
-        <PresenceRing size={shadowWidth * 1.35} color={earnedColor} />
+      {/* The ring used to fire only for the All-Rounder. It now also carries
+          the ability rating — the number the character sheet leads with and the
+          one thing about progress the figure said nothing about. `stage` and
+          `dominance` above were already responding; they were invisible during
+          the QA session because nothing had scored since 9 August, not because
+          they were missing. */}
+      {aura !== 'none' && (
+        <PresenceRing
+          size={shadowWidth * (aura === 'strong' ? 1.5 : 1.35)}
+          color={aura === 'strong' ? colors.accent : earnedColor}
+        />
       )}
 
       {/* The float rides above the shadow rather than carrying it: a shadow

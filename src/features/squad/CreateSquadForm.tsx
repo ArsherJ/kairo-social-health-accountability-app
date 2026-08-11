@@ -12,22 +12,10 @@ import {
 import { DEFAULT_SQUAD_PROGRAM, type SquadProgram } from '@kairo/core';
 import { useCreateSquad } from './mutations.ts';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
+import { isValidSquadName, SQUAD_NAME_MAX, squadNameHint } from './squad-name.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 import { BackRow, Button, Label } from '@/ui/index.ts';
-
-const SQUAD_NAME_MIN = 2;
-const SQUAD_NAME_MAX = 30;
-
-/**
- * The database CHECK is `char_length(btrim(name)) between 2 and 30`, so the
- * client validates the *trimmed* length and submits the trimmed value. A rule
- * that disagrees with the constraint just moves the rejection to the server.
- */
-function isValidSquadName(raw: string): boolean {
-  const length = raw.trim().length;
-  return length >= SQUAD_NAME_MIN && length <= SQUAD_NAME_MAX;
-}
 
 export function CreateSquadForm({
   userId,
@@ -41,6 +29,7 @@ export function CreateSquadForm({
   const [program, setProgram] = useState<SquadProgram>(DEFAULT_SQUAD_PROGRAM);
 
   const valid = isValidSquadName(name);
+  const nameHint = squadNameHint(name);
 
   // isPending flips through TanStack's notifyManager on a setTimeout(fn, 0),
   // not synchronously with mutate(). A keyboard "Done" and an already-queued
@@ -105,6 +94,14 @@ export function CreateSquadForm({
           returnKeyType="done"
           onSubmitEditing={submit}
         />
+
+        {/* `maxLength` silently stops accepting characters at the limit — the
+            field just goes dead under your thumb with nothing to explain it,
+            which is what the QA pass hit reaching for a long name. The counter
+            appears only near the ceiling: a permanent 0/30 is noise on a field
+            almost nobody fills, and a limit you cannot see coming is the whole
+            complaint. Below it, an unarmed Create button gets a reason. */}
+        {nameHint !== null && <Text style={styles.nameHint}>{nameHint}</Text>}
 
         <Text style={styles.sectionLabel}>WHAT IS THIS SQUAD PLAYING?</Text>
         <Text style={styles.sectionHelp}>
@@ -193,6 +190,7 @@ const styles = StyleSheet.create({
   note: { color: colors.muted, fontSize: 12, marginTop: space.md, lineHeight: 18 },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   help: { color: colors.subtle, ...font.body.body, marginTop: space.sm, lineHeight: 22 },
+  nameHint: { color: colors.muted, ...font.body.strong, marginTop: space.sm },
   input: {
     marginTop: space.lg,
     // Explicitly zero, not omitted. React Native recycles native text inputs,
