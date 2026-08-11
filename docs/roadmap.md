@@ -602,6 +602,70 @@ Found by hand on the simulator while verifying the character body choice
 | 1 | **`app_events` and `device_tokens` referenced `public.profiles`**, which does not exist until onboarding commits it — so every telemetry write and token registration between sign-in and profile creation failed `23503`. The real cost was not the dropped row but that the **sign-in → abandon funnel was structurally unmeasurable**: a user who never names a character produced no events by construction, so the drop-off §15's beta most wants to count could not be counted. | ✅ **Fixed** — `20260811130000_account_scoped_telemetry_fks.sql` repoints both at `auth.users`, which exists from sign-in. Delete actions unchanged (`set null` / `cascade`); erasure unaffected because `profiles.id` already cascaded from `auth.users`. `track()` now reports whether the row landed, so a failed `app_open` no longer poisons the per-session dedupe marker and cost a whole day. |
 | 2 | ~~**There is no account-deletion path.** `delete_account()` does not exist — verified against the live project; `leave_squad` is the only routine of its kind, and `handle_profile_deletion` is a trigger. There is no delete-account UI in the client either.~~ **Done 2026-08-11**, `20260811140000_account_deletion.sql` plus `app/delete-account.tsx`. | The cascade underneath was already right — `profiles_handle_deletion` hands squad leadership on before the FK cascade fires — so the RPC and the screen were most of the work. The audit for it surfaced a real gap the QA pass had not: `goals.created_by` cascaded, so erasing an author destroyed a squad goal other members were part-way through. Now **SET NULL**, because that column confers only the `goals_update_own` title edit — succeeding it the way squad leadership succeeds would hand someone editorial control they never had. A new AFTER DELETE trigger, `profiles_collect_orphaned_goals`, sweeps goals left with neither creator nor participant; it must stay AFTER, since `goal_completions_xp_rollup` updates `profiles` and reaching a completion from a BEFORE trigger aborts the statement. Verified end-to-end against the live project with a throwaway account, not just in PGlite. |
 
+## End-to-end QA findings (2026-08-11)
+
+Full report and root-cause addendum: `docs/qa/kairo-end-to-end-qa-report.md`. It
+scored the build **4/10** for wider-MVP readiness. Most of what it found was
+real; two claims did not survive checking, and one whole class of finding was
+grading against a stale brief rather than against v1.4.
+
+**The headline is that three separate findings were one bug.** `sync-health` had
+been deployed since 7 August and the 9th's `remove_sabotage` migration dropped a
+column it still wrote. Its bucket upsert commits before its score upsert, so
+health data kept landing while nothing scored — for two days, silently, with all
+916 tests passing throughout because they exercise the source and nothing
+checked the deployed artifact.
+
+| QA # | Finding | Status |
+|---|---|---|
+| Q1 | **Release exposes no sign-in provider.** `availableProviders()` returns `[]` outside `__DEV__`, so a TestFlight build cannot acquire a session at all. | 🟨 **Open — the release blocker.** Blocked on Apple Developer Program enrolment, which is external. Spec'd end to end in `docs/sign-in-with-apple.md` so enrolment is the only slow part left. |
+| Q2 | **No in-app account deletion**, which App Store review requires. | ✅ **Done** — `20260811140000`, `app/delete-account.tsx`. See row 2 of the device-verification table above. |
+| Q3 | **Raw totals, score, ability ratings and rank all contradicted each other** — 44,000 steps against a score of 0 and ratings of 1. | ✅ **Root-caused and fixed.** A stale Edge Function deployment, not a logic bug. Redeployed; guarded two ways since (see the process gap below). |
+| Q4 | **Yesterday never finalized.** The report suspected the scheduler. | ✅ **Same bug as Q3, and the scheduler was healthy** — `cron.job_run_details` showed HTTP 200 hourly, returning `candidates: 0` because `finalizable_days()` can only finalize provisional rows that were never written. |
+| Q5 | **New Health data appeared only after a cold launch.** | ✅ **Fixed** — `useHealthSync` invalidated the score, profile and boards but not `todayBucketsKey`/`todayVitalsKey`, and the TODAY panel reads `health_buckets` back off the server. |
+| Q6 | **Sync failure was invisible.** Two days of 500s produced no signal to any user. | ✅ **Fixed** — `SyncState.lastError`/`lastSyncedAt` were persisted the whole time and reached no UI, as their own comment admitted. Now a status strip under the TODAY panel with a manual retry. |
+| Q7 | **The permission disclosure named four HealthKit types; the app requested eight.** | ✅ **Fixed, and test-locked.** `disclosure.ts` is derived from `read-types.ts` and `disclosure.test.ts` fails in both directions. `NSHealthShareUsageDescription` had the same defect and is the one half no test can lock. |
+| Q8 | **The invite loop stops at a plain-text code**; empty seats are not actionable. | ✅ **Fixed** — Share row plus tappable seats. Universal links deliberately deferred; they need a domain and the associated-domains entitlement. |
+| Q9 | **Xcode Run fails at the Hermes phase.** | ✅ **Fixed** — `NODE_BINARY` resolved absolutely by `scripts/write-xcode-env.mjs`, wired into `postinstall`/`postprebuild` because `ios/` is generated and gitignored. |
+| Q10 | **Notification revocation is silent**, with no status or route back. | ✅ **Status row done.** Delivery itself is still unproven end to end — see the risks below. |
+| Q11 | **"On pace" at 0 of 1,000 on day one.** | ✅ **Fixed** — `not started` where the verdict was unearned; a real shortfall still says behind. |
+| Q12 | **"Needs everyone" reads oddly.** Reported as wrong for an aggregate target. | ⚠️ **Premise incorrect** — squad goals are per-member N-of-M, not a pooled total, so the framing is right. The genuine defect was narrower: a squad of *one* has no "everyone". Only that case changed. |
+| Q13 | **Demo mode showed identical Today and Yesterday**, making it useless for manual regression. | ✅ **Fixed** — `DEMO_LEADERBOARD_COMPLETED` is its own finalized day with a different winner, ranked from its own totals. This was a deliberate choice with a comment defending it; it stopped being worth it once manual testing became the stated UI strategy. |
+| Q14 | **Cold launch is a blank cream screen for 3–4s.** | ✅ **Measured, then fixed.** Two causes: `startSessionListener` ran in `Gate`, which does not mount until fonts resolve, so a Keychain read and token refresh were queued behind five font files; and nothing was drawn during font loading, with no splash plugin over it. |
+| Q15 | **Too many progression concepts visible at once.** | ✅ **`app/progress.tsx`**, organised by the one thing that separates them — timescale. |
+| Q16 | **Body metrics prefill invented values** a user could accidentally save. | ❌ **Not a defect.** Those are `placeholder` strings on empty inputs; `parseBodyMetric('')` returns `null`. Nothing invented can be saved. |
+| Q17 | **The character is static; stat changes did not morph it.** | ❌ **Symptom of Q3.** `stage` (level bands) and `dominance` (§6 build) were already responding and were invisible because nothing had scored. The presence ring now also carries the ability rating (`aura.ts`) — the one progress signal the figure genuinely lacked. |
+| Q18 | **Sabotage 1/10, referrals 1/10, monetization 1/10, gear 4/10.** | ❌ **Scope mismatch, not regressions.** The supplied brief was v1.3-era. `docs/mvp-scope.md` is now the IN/OUT contract QA briefs cite. |
+| Q19 | **`deploy-sabotage` was still deployed and ACTIVE**, four days after the feature was deleted and its tables dropped. | ✅ **Deleted.** Not in the report — client-only testing cannot see an orphaned function. |
+
+### The process gap this exposed
+
+Nothing checked the deployed artifact against the repo, and the two layers of
+test could not see each other: `sync-plan.test.ts` builds score rows and never
+meets a database, while the schema suite writes `daily_scores` by hand and never
+calls `planDay`. Two guards now close that, and both are load-bearing:
+
+- **`supabase/tests/schema.test.ts`** inserts `planDay`'s *real* output into
+  `daily_scores`, with the column list derived from the row rather than
+  restated — so drift fails at commit time. Verified against the real
+  regression before being trusted.
+- **`supabase/scripts/smoke-sync.mjs`** runs a real sync through the *deployed*
+  function and asserts buckets, score and rollups agree — so drift fails at
+  deploy time. Run it after every `functions deploy`.
+
+The rule, now in `CLAUDE.md` and `README.md`: **a migration touching a table an
+Edge Function writes ships with that function's redeploy.**
+
+### Still unproven, and honest about it
+
+| Risk | Why it is still open |
+|---|---|
+| **Push delivery end to end** | Planner tests are green, but nothing has proven APNs registration → server dispatch → device receipt → tap routing. A green planner is not a delivered notification. The Profile status row addresses visibility, not delivery. |
+| **Invite redemption with two accounts** | Sharing works; joining, attribution, live reordering and rejoin have never been exercised with two real identities on two devices. |
+| **Sign in with Apple** | Cannot be tested without enrolment, including on a simulator. |
+| **Cron schedules** | All three `pg_cron` migrations sit in `UNSUPPORTED_MIGRATIONS` — no test covers them, by construction. They were verified by hand once. `net._http_response` is the only place their true outcome is visible, since `cron.job_run_details` reports only that the request was enqueued. |
+| **Physical-device pass** | Offline and poor network, background overnight, permission subsets, reinstall/upgrade, Dynamic Type, VoiceOver order, memory and battery. None run. |
+
 ## Phase 1 follow-ups (deferred, not blocking)
 
 Findings from the Phase 1 reviews that were deliberately deferred rather than
