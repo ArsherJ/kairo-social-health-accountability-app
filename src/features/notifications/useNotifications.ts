@@ -62,8 +62,24 @@ export function useAppOpenTelemetry(userId: string | undefined): void {
     function record() {
       const today = new Date().toDateString();
       if (lastTrackedDay === today) return;
+
+      // Claimed before the write, not after: two foregrounds in the same tick
+      // would otherwise both pass the check and write twice. The claim is
+      // released again below if the write did not land.
       lastTrackedDay = today;
-      track(userId, 'app_open');
+
+      void track(userId, 'app_open').then((landed) => {
+        // A failed write must not count as a send. This marker is what makes
+        // the dedupe work, so poisoning it turns one dropped row into a whole
+        // missing day — the next foreground would be suppressed too, and §14's
+        // "day starts" push reads exactly this signal. Offline at breakfast is
+        // the common case; the pre-profile 23503 that motivated the migration
+        // beside this change was the loud one.
+        //
+        // Guarded on the day still being ours, so a release cannot clobber a
+        // later day's successful claim.
+        if (!landed && lastTrackedDay === today) lastTrackedDay = null;
+      });
     }
 
     // The cold start is an open too, and it is the one that matters most: it is

@@ -592,6 +592,16 @@ All three are live and deliberate. Flagged here so they are decisions, not drift
 
 ---
 
+## Device-verification findings (2026-08-11)
+
+Found by hand on the simulator while verifying the character body choice
+(deviation #27). Neither was introduced by that work; both predate it.
+
+| # | Item | Status |
+|---|---|---|
+| 1 | **`app_events` and `device_tokens` referenced `public.profiles`**, which does not exist until onboarding commits it — so every telemetry write and token registration between sign-in and profile creation failed `23503`. The real cost was not the dropped row but that the **sign-in → abandon funnel was structurally unmeasurable**: a user who never names a character produced no events by construction, so the drop-off §15's beta most wants to count could not be counted. | ✅ **Fixed** — `20260811130000_account_scoped_telemetry_fks.sql` repoints both at `auth.users`, which exists from sign-in. Delete actions unchanged (`set null` / `cascade`); erasure unaffected because `profiles.id` already cascaded from `auth.users`. `track()` now reports whether the row landed, so a failed `app_open` no longer poisons the per-session dedupe marker and cost a whole day. |
+| 2 | **There is no account-deletion path.** `delete_account()` does not exist — verified against the live project; `leave_squad` is the only routine of its kind, and `handle_profile_deletion` is a trigger. There is no delete-account UI in the client either. `20260809120000_remove_sabotage.sql`'s closing comment and `CLAUDE.md` both described it as built and verified. | 🟨 **Open.** The comments are corrected; the feature is not. App Store review requires in-app account deletion for apps with account creation, so this blocks **Phase 9 / TestFlight submission**, not the beta build itself. Erasure today means deleting the `auth.users` row out of band. |
+
 ## Phase 1 follow-ups (deferred, not blocking)
 
 Findings from the Phase 1 reviews that were deliberately deferred rather than
