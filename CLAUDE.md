@@ -27,6 +27,15 @@ MaterialCommunityIcons on purpose while all chrome stays Feather — the split i
 hairline = *things you operate*, solid = *things you are*. Don't blur it in either
 direction.
 
+**Onboarding is two screens as of 2026-08-11** (roadmap deviation #27): choose a
+character body, then name it. **The profile row still commits exactly once**, on
+the name screen — that is load-bearing, not incidental. Deviation #22 deleted the
+`finishingOnboarding` flag when onboarding collapsed to one step; asking anything
+*after* the INSERT flips `resolveRoute` to `'ready'` under the unfinished screen
+and needs that flag back. Add onboarding steps *before* the name, never after.
+`profiles.character_body` is cosmetic and nullable (null = never asked); it is
+deliberately **not** `profiles.sex`, which stays dead.
+
 **Two documents hold the decisions. Read them before proposing changes.**
 
 - `Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here.

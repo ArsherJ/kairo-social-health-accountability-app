@@ -26,8 +26,8 @@ What it does:
 
 Usage:
     pip install Pillow numpy
-    python scripts/prep_character_art.py output/imagegen/hunter-character-anchor-final.png \
-        --out assets/character/anchor.png
+    python scripts/prep_character_art.py output/imagegen/character-anchor-female.png \
+        --out assets/character/anchor-female.png
 """
 
 import argparse

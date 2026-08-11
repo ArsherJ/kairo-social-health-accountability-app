@@ -4,20 +4,23 @@
 
 `CharacterFigure` (`src/features/character/CharacterFigure.tsx`) looks each
 file up by `${stage}-${dominance}`. **A missing file is not a bug** — the
-component falls back to `anchor.png`, so art can land one file at a time and a
+component falls back to `anchor-male.png`, so art can land one file at a time and a
 half-populated directory renders correctly.
 
-## `anchor.png`
+## `anchor-male.png` / `anchor-female.png`
 
-The baseline figure, standing in for every key that has no file of its own. It
-is the neutral build, so it carries `stage` (the shadow under it grows) but not
-`dominance` — a per-key file always wins over it.
+The baseline figure for each body, standing in for every key that has no file
+of its own. They are the neutral build, so they carry `stage` (the shadow under
+them grows) but not `dominance` — a per-key file always wins over them.
 
-Regenerate it from a render with:
+Which one renders is `profiles.character_body`, chosen in onboarding. NULL
+means never asked and falls back to the male anchor.
+
+Regenerate from a render with:
 
 ```bash
-python scripts/prep_character_art.py output/imagegen/hunter-character-anchor-final.png \
-    --out assets/character/anchor.png --aspect 0.60
+python scripts/prep_character_art.py output/imagegen/character-anchor-female.png \
+    --out assets/character/anchor-female.png --aspect 0.60
 ```
 
 That script does the three things a raw render needs: keys out the white
@@ -41,7 +44,7 @@ than missing at runtime.
 
 - **PNG, transparent background**, anything up to 2:1 portrait at 636 tall
   (@3×). The slot is 190 × 212 with `resizeMode="contain"`, so a narrower figure
-  is fine and simply sits centred — `anchor.png` is 382 × 636 and renders
+  is fine and simply sits centred — both anchors are 382 × 636 and render
   127 × 212.
 - **No shadow, no glow, no ring baked in.** The component draws the ground
   shadow (and the All-Rounder's ring) itself, sized from `stage`, so the same

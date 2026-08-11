@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Dominance } from '@kairo/core';
+import type { CharacterBody } from '@/features/profile/character-body.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import type { Stop } from '@/ui/gradient.ts';
@@ -44,11 +45,13 @@ export function Diorama({
   height,
   stage,
   dominance,
+  body,
   children,
 }: {
   height: number;
   stage: 1 | 2 | 3 | 4;
   dominance?: Dominance;
+  body?: CharacterBody | null;
   /** The floating HUD. Absolutely positioned by the caller. */
   children?: ReactNode;
 }) {
@@ -82,7 +85,12 @@ export function Diorama({
       <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
 
       <View style={[styles.stage, { bottom: height * 0.12 }]}>
-        <CharacterFigure stage={stage} dominance={dominance} height={height * 0.6} />
+        <CharacterFigure
+          stage={stage}
+          dominance={dominance}
+          body={body}
+          height={height * 0.6}
+        />
       </View>
 
       {children}

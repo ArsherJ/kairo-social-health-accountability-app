@@ -53,7 +53,7 @@ export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
 export function redirectTarget(input: {
   route: AppRoute;
   group: string | undefined;
-}): '/sign-in' | '/name' | '/' | null {
+}): '/sign-in' | '/character' | '/name' | '/' | null {
   switch (input.route) {
     case 'loading':
     case 'profile-error':
@@ -63,7 +63,10 @@ export function redirectTarget(input: {
     case 'signed-out':
       return input.group === '(auth)' ? null : '/sign-in';
     case 'needs-profile':
-      return input.group === '(onboard)' ? null : '/name';
+      // The *first* onboarding screen. The name screen is the second and is
+      // reached by pushing from it with the choice as a param — never by this
+      // gate, which only ever knows "has no profile row yet".
+      return input.group === '(onboard)' ? null : '/character';
     case 'ready':
       // Anywhere except the two shells a ready user has finished with. Written
       // as a denylist rather than `group === '(tabs)'` on purpose: stacked

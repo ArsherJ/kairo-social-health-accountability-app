@@ -201,7 +201,12 @@ export default function Character() {
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Diorama height={skyHeight} stage={stage} dominance={dominance.data}>
+        <Diorama
+          height={skyHeight}
+          stage={stage}
+          dominance={dominance.data}
+          body={profile.data?.character_body}
+        >
           {/* The HUD. Everything here floats over the world rather than
               sitting in the page, which is the whole point of the direction —
               so each piece carries its own translucent ground and a shadow. */}
