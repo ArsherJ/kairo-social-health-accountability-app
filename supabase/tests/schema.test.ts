@@ -1400,6 +1400,7 @@ describe('profiles.focus is gone', () => {
     );
     expect(rows.map((r) => r.column_name)).toEqual([
       'birth_year',
+      'character_body',
       'character_name',
       'class',
       'exclude_from_recap',
@@ -2963,5 +2964,88 @@ describe('goals', () => {
       ]);
       expect(rows).toEqual([]);
     });
+  });
+});
+
+describe('profiles.character_body', () => {
+  it('exists and is nullable', async () => {
+    const rows = await h.asService<{ is_nullable: string; data_type: string }>(
+      `select is_nullable, data_type from information_schema.columns
+       where table_schema = 'public' and table_name = 'profiles'
+         and column_name = 'character_body'`,
+    );
+    // NULL means "never asked", which is what every profile created before
+    // this column genuinely is. A not-null default would backfill an
+    // assertion nobody made.
+    expect(rows[0]!.is_nullable).toBe('YES');
+    expect(rows[0]!.data_type).toBe('text');
+  });
+
+  it('accepts male and female', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `update public.profiles set character_body = 'female' where id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ character_body: string }>(
+      `select character_body from public.profiles where id = $1`,
+      [user],
+    );
+    expect(rows[0]!.character_body).toBe('female');
+  });
+
+  it("rejects a value outside the CHECK, including sex's 'other'", async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asService(
+        `update public.profiles set character_body = 'other' where id = $1`,
+        [user],
+      ),
+      /character_body/,
+    );
+  });
+
+  it('lets a client set it on their own row', async () => {
+    const user = await h.createUser();
+    await h.asUser(
+      user,
+      `update public.profiles set character_body = 'male' where id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ character_body: string }>(
+      `select character_body from public.profiles where id = $1`,
+      [user],
+    );
+    expect(rows[0]!.character_body).toBe('male');
+  });
+
+  it('still refuses server-awarded columns after the grant rebuild', async () => {
+    // The rebuild rewrites the whole column list. This is the half a careless
+    // rebuild gets wrong: widening the grant past what was intended.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, `update public.profiles set level = 99 where id = $1`, [user]),
+      /permission denied/i,
+    );
+  });
+
+  it('is in the column-scoped INSERT grant', async () => {
+    const rows = await h.asService<{ column_name: string }>(
+      `select distinct column_name from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and privilege_type = 'INSERT' order by column_name`,
+    );
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'birth_year',
+      'character_body',
+      'character_name',
+      'class',
+      'exclude_from_recap',
+      'height_cm',
+      'id',
+      'sex',
+      'timezone',
+      'weight_kg',
+    ]);
   });
 });
