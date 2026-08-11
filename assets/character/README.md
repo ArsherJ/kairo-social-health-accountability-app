@@ -4,7 +4,7 @@
 
 `CharacterFigure` (`src/features/character/CharacterFigure.tsx`) looks each
 file up by `${stage}-${dominance}`. **A missing file is not a bug** — the
-component falls back to `anchor.png`, so art can land one file at a time and a
+component falls back to `anchor-male.png`, so art can land one file at a time and a
 half-populated directory renders correctly.
 
 ## `anchor-male.png` / `anchor-female.png`
@@ -44,7 +44,7 @@ than missing at runtime.
 
 - **PNG, transparent background**, anything up to 2:1 portrait at 636 tall
   (@3×). The slot is 190 × 212 with `resizeMode="contain"`, so a narrower figure
-  is fine and simply sits centred — `anchor.png` is 382 × 636 and renders
+  is fine and simply sits centred — both anchors are 382 × 636 and render
   127 × 212.
 - **No shadow, no glow, no ring baked in.** The component draws the ground
   shadow (and the All-Rounder's ring) itself, sized from `stage`, so the same

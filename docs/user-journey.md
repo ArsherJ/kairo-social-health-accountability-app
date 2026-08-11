@@ -19,7 +19,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 3. **Notifications**, requested only once a squad or a goal-in-flight gives them a reason to exist (§14) — not upfront.
 4. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate STR tracking") rather than blocking onboarding. Height/weight feed active-calorie (STR) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
 
-**MVP scope note:** ships one character class with placeholder art; the other three classes are V1 (§6). The class is internal — `profiles.class` defaults to `'hunter'` and no surface names it. **The character has no in-app noun** as of 2026-08-11 (roadmap deviation #26): it is "your character", never a Hunter.
+**MVP scope note:** ships one character class with placeholder art; the other three classes are V1 (§6). The class is internal — `profiles.class` defaults to `'hunter'` and no surface names it. **The character has no in-app noun** as of 2026-08-11 (roadmap deviation #26): it is "your character", never a Hunter. **Onboarding asks which of two character bodies you play as** (2026-08-11, deviation #27) before asking for a name; the answer is `profiles.character_body`, and it is cosmetic only.
 
 ## 3. The daily loop (§2)
 
