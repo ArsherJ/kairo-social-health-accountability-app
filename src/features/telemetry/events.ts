@@ -27,16 +27,34 @@ export type AppEventType =
   | 'timezone_sync_failed'
   | 'health_permission_failed';
 
-export function track(
+/**
+ * Fire-and-forget by design — telemetry must never block or fail a user
+ * action — but it **reports** its outcome, which is not the same thing.
+ *
+ * The returned promise resolves `true` only when the row actually landed.
+ * Callers that dedupe (`useAppOpenTelemetry`) need it: marking an event as
+ * sent when the write failed suppresses every retry for the rest of the
+ * session, which turns one dropped row into a whole missing day. Callers with
+ * nothing to dedupe can keep ignoring the return, exactly as before — it never
+ * rejects, so an ignored promise cannot become an unhandled rejection.
+ */
+export async function track(
   userId: string | undefined,
   type: AppEventType,
   payload: Record<string, unknown> = {},
-): void {
-  if (!userId) return;
-  void supabase
+): Promise<boolean> {
+  if (!userId) return false;
+
+  // `await`ed rather than `.then()`-chained because PostgREST's builder is a
+  // thenable, not a Promise — chaining it yields `PromiseLike<boolean>`, which
+  // has no `.catch`, and callers would inherit that sharp edge.
+  const { error } = await supabase
     .from('app_events')
-    .insert({ user_id: userId, type, payload })
-    .then(({ error }) => {
-      if (error) console.warn('[telemetry]', type, error.code, error.message);
-    });
+    .insert({ user_id: userId, type, payload });
+
+  if (error) {
+    console.warn('[telemetry]', type, error.code, error.message);
+    return false;
+  }
+  return true;
 }

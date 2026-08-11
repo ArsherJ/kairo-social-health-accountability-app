@@ -2965,3 +2965,107 @@ describe('goals', () => {
     });
   });
 });
+
+describe('telemetry and device tokens belong to the account, not the character', () => {
+  // Both tables originally referenced `public.profiles`, which does not exist
+  // for a user until onboarding finishes. Every write between sign-in and
+  // profile creation therefore failed 23503 — observed on device 2026-08-11:
+  //
+  //   [telemetry] app_open 23503 ... violates "app_events_user_id_fkey"
+  //   [notifications] token registration failed 23503 ... "device_tokens_user_id_fkey"
+  //
+  // The cost was never the dropped row. It is that the sign-in -> abandon
+  // funnel could not be measured *at all*: a user who never names a character
+  // produced no events by construction, so the one drop-off a beta most wants
+  // to count was structurally invisible. A push token and a telemetry event
+  // belong to an account and a device; neither is a property of the character.
+
+  async function bareAuthUser(email: string): Promise<string> {
+    const rows = await h.asService<{ id: string }>(
+      'insert into auth.users (email) values ($1) returning id',
+      [email],
+    );
+    return rows[0]!.id;
+  }
+
+  it('records an app_open for a signed-in user who has no profile yet', async () => {
+    const id = await bareAuthUser('pre-profile-event@example.test');
+
+    await h.asUser(
+      id,
+      `insert into public.app_events (user_id, type) values ($1, 'app_open')`,
+      [id],
+    );
+
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.app_events where user_id = $1`,
+      [id],
+    );
+    expect(rows[0]!.n).toBe(1);
+  });
+
+  it('registers a device token before the profile exists', async () => {
+    const id = await bareAuthUser('pre-profile-token@example.test');
+
+    await h.asUser(
+      id,
+      `insert into public.device_tokens (token, user_id, platform)
+       values ('ExponentPushToken[pre-profile]', $1, 'ios')`,
+      [id],
+    );
+
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.device_tokens where user_id = $1`,
+      [id],
+    );
+    expect(rows[0]!.n).toBe(1);
+  });
+
+  it('still erases both when the account is deleted', async () => {
+    // The cascade `profiles` was giving was always transitive — deleting an
+    // auth.users row cascades to profiles, which cascaded onward to these.
+    // Pointing straight at auth.users keeps erasure and removes the middleman,
+    // so this asserts the guarantee did not move.
+    const id = await bareAuthUser('erasure-probe@example.test');
+    await h.asService(
+      `insert into public.app_events (user_id, type) values ($1, 'app_open')`,
+      [id],
+    );
+    await h.asService(
+      `insert into public.device_tokens (token, user_id, platform)
+       values ('ExponentPushToken[erasure]', $1, 'ios')`,
+      [id],
+    );
+
+    await h.asService('delete from auth.users where id = $1', [id]);
+
+    // `on delete cascade` — the token is gone with the account.
+    const tokens = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.device_tokens where user_id = $1`,
+      [id],
+    );
+    expect(tokens[0]!.n).toBe(0);
+
+    // `on delete set null` — the event survives, de-identified. Telemetry is
+    // aggregate; keeping the row without an owner is the point of that rule.
+    const orphaned = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.app_events
+       where user_id is null and type = 'app_open'`,
+    );
+    expect(orphaned[0]!.n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('targets auth.users rather than public.profiles', async () => {
+    const rows = await h.asService<{ table_name: string; foreign_table: string }>(
+      `select c.conrelid::regclass::text as table_name,
+              c.confrelid::regclass::text as foreign_table
+         from pg_constraint c
+        where c.conname in ('app_events_user_id_fkey', 'device_tokens_user_id_fkey')
+        order by table_name`,
+    );
+    expect(rows).toEqual([
+      { table_name: 'app_events', foreign_table: 'auth.users' },
+      { table_name: 'device_tokens', foreign_table: 'auth.users' },
+    ]);
+  });
+});
