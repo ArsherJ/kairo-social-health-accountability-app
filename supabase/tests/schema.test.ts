@@ -2062,6 +2062,159 @@ describe('leave_squad', () => {
   });
 });
 
+describe('delete_account', () => {
+  /** Everything erasure has to reach, counted in one go. */
+  async function residue(userId: string) {
+    const rows = await h.asService<{ table_name: string; n: number }>(
+      `select 'profiles' as table_name, count(*)::int as n from public.profiles where id = $1
+       union all select 'daily_scores', count(*)::int from public.daily_scores where user_id = $1
+       union all select 'health_buckets', count(*)::int from public.health_buckets where user_id = $1
+       union all select 'streaks', count(*)::int from public.streaks where user_id = $1
+       union all select 'squad_members', count(*)::int from public.squad_members where user_id = $1
+       union all select 'device_tokens', count(*)::int from public.device_tokens where user_id = $1
+       union all select 'auth_users', count(*)::int from auth.users where id = $1`,
+      [userId],
+    );
+    return Object.fromEntries(rows.map((r) => [r.table_name, r.n]));
+  }
+
+  it('erases the account and everything keyed to it', async () => {
+    const user = await h.createUser({ characterName: 'Leaving' });
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total, xp_awarded)
+       values ($1, '2026-07-27', 900, 25)`,
+      [user],
+    );
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps)
+       values ($1, '2026-07-27', 9, 1200)`,
+      [user],
+    );
+
+    await h.asUser(user, 'select public.delete_account()');
+
+    expect(await residue(user)).toEqual({
+      profiles: 0,
+      daily_scores: 0,
+      health_buckets: 0,
+      streaks: 0,
+      squad_members: 0,
+      device_tokens: 0,
+      auth_users: 0,
+    });
+  });
+
+  it('requires a session — an anonymous caller cannot erase anybody', async () => {
+    await rejects(h.asService('select public.delete_account()'), /authentication required/);
+  });
+
+  it('hands the squad on rather than destroying it for everyone else', async () => {
+    // The BEFORE DELETE trigger runs succession before the FK cascade, so the
+    // leader erasing their account must not take the squad with them.
+    const leader = await h.createUser({ characterName: 'Leader' });
+    const rows = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Survivors')`,
+    );
+    const squadId = rows[0]!.id;
+    const member = await h.createUser({ characterName: 'Member' });
+    await h.asUser(member, 'select public.join_squad($1)', [rows[0]!.invite_code]);
+
+    await h.asUser(leader, 'select public.delete_account()');
+
+    const squad = await h.asService<{ leader_id: string }>(
+      'select leader_id from public.squads where id = $1',
+      [squadId],
+    );
+    expect(squad).toHaveLength(1);
+    expect(squad[0]!.leader_id).toBe(member);
+  });
+
+  it('deletes a squad whose last member leaves this way', async () => {
+    const leader = await h.createUser({ characterName: 'Solo' });
+    const rows = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Empties')`,
+    );
+
+    await h.asUser(leader, 'select public.delete_account()');
+
+    const squad = await h.asService(
+      'select 1 from public.squads where id = $1',
+      [rows[0]!.id],
+    );
+    expect(squad).toHaveLength(0);
+  });
+
+  describe("other people's goals", () => {
+    it('survives with a null creator rather than being destroyed', async () => {
+      // The gap this migration closed. `created_by` cascaded, so erasing the
+      // author took a squad goal away from everyone still working on it.
+      const leader = await h.createUser({ characterName: 'Author' });
+      const rows = await h.asUser<{ id: string; invite_code: string }>(
+        leader,
+        `select id, invite_code from public.create_squad('Goalies')`,
+      );
+      const member = await h.createUser({ characterName: 'Other' });
+      await h.asUser(member, 'select public.join_squad($1)', [rows[0]!.invite_code]);
+
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Shared', null, 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [rows[0]!.id],
+      );
+      const goalId = goal[0]!.id;
+
+      await h.asUser(leader, 'select public.delete_account()');
+
+      const stored = await h.asService<{ created_by: string | null }>(
+        'select created_by from public.goals where id = $1',
+        [goalId],
+      );
+      expect(stored).toHaveLength(1);
+      expect(stored[0]!.created_by).toBeNull();
+
+      // And the survivor is still on it — a goal without its roster would be
+      // a different kind of loss.
+      const participants = await h.asService(
+        'select 1 from public.goal_participants where goal_id = $1 and user_id = $2',
+        [goalId, member],
+      );
+      expect(participants).toHaveLength(1);
+    });
+
+    it('lets nobody inherit the right to rename an orphaned goal', async () => {
+      // `created_by = auth.uid()` against NULL is never true, which is the
+      // intended reading of SET NULL here rather than an accident of it.
+      const leader = await h.createUser({ characterName: 'Author' });
+      const rows = await h.asUser<{ id: string; invite_code: string }>(
+        leader,
+        `select id, invite_code from public.create_squad('Goalies')`,
+      );
+      const member = await h.createUser({ characterName: 'Other' });
+      await h.asUser(member, 'select public.join_squad($1)', [rows[0]!.invite_code]);
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Shared', null, 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [rows[0]!.id],
+      );
+
+      await h.asUser(leader, 'select public.delete_account()');
+
+      await h.asUser(member, `update public.goals set title = 'Mine now' where id = $1`, [
+        goal[0]!.id,
+      ]);
+      const stored = await h.asService<{ title: string }>(
+        'select title from public.goals where id = $1',
+        [goal[0]!.id],
+      );
+      expect(stored[0]!.title).toBe('Shared');
+    });
+  });
+});
+
 describe('users_at_local_hour', () => {
   interface HourRow {
     user_id: string;
@@ -3024,7 +3177,11 @@ describe('goals', () => {
   });
 
   describe('erasure', () => {
-    it('cascades goals and completions when an account is deleted', async () => {
+    it('takes a personal goal with the account, leaving nothing behind', async () => {
+      // `created_by` stopped cascading in 20260811140000 so that a shared goal
+      // survives its author. A personal goal has nobody to survive *for*, and
+      // an orphan row is that user's content outliving their erasure — so the
+      // deletion trigger collects it instead.
       const user = await h.createUser();
       const goalId = await personalGoal(user);
       await h.asService(
@@ -3041,6 +3198,36 @@ describe('goals', () => {
         [goalId],
       );
       expect(rows[0]).toEqual({ goals: 0, parts: 0, comps: 0 });
+    });
+
+    it('leaves a goal alone when somebody else is still on it', async () => {
+      // The other half of the same rule, and the reason the cleanup above is
+      // scoped rather than "delete goals with no participants".
+      const { leader, squadId } = await seedSquad(1);
+      const others = await h.asService<{ user_id: string }>(
+        'select user_id from public.squad_members where squad_id = $1 and user_id <> $2',
+        [squadId, leader],
+      );
+      const goal = await h.asUser<{ id: string }>(
+        leader,
+        `select id from public.create_goal('Shared', null, 'cumulative', 1000,
+           '2026-01-01'::date, '2026-01-30'::date, null, $1)`,
+        [squadId],
+      );
+
+      await h.asService('delete from public.profiles where id = $1', [leader]);
+
+      const rows = await h.asService<{ created_by: string | null }>(
+        'select created_by from public.goals where id = $1',
+        [goal[0]!.id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.created_by).toBeNull();
+      const parts = await h.asService(
+        'select 1 from public.goal_participants where goal_id = $1 and user_id = $2',
+        [goal[0]!.id, others[0]!.user_id],
+      );
+      expect(parts).toHaveLength(1);
     });
 
     it('cascades a squad goal when the squad is deleted', async () => {

@@ -21,7 +21,12 @@ import {
 export type GoalRow = {
   id: string;
   squad_id: string | null;
-  created_by: string;
+  /**
+   * Null once the creator erases their account. The goal and every
+   * participant's progress survive that — only the authorship link goes, and
+   * with it the `goals_update_own` right to rename it (20260811140000).
+   */
+  created_by: string | null;
   title: string;
   description: string | null;
   kind: 'cumulative' | 'consistency';

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -18,6 +19,7 @@ import { Button, Label, Panel, Screen } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
 
 export default function ProfileTab() {
+  const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -104,6 +106,16 @@ export default function ProfileTab() {
       <Button
         label="Sign out"
         onPress={() => void signOut()}
+        variant="ghost"
+      />
+
+      {/* Below sign-out, and only reachable through a screen that explains
+          what it does. Apple requires an in-app path for this; putting it
+          anywhere more prominent would make the reversible action compete
+          with the irreversible one. */}
+      <Button
+        label="Delete account"
+        onPress={() => router.push('/delete-account')}
         variant="ghost"
       />
     </Screen>

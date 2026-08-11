@@ -81,7 +81,10 @@ The optional social layer (§7).
 - **Squad programs** (`squads.program`) are the one "focus" concept left in the app — fixed at squad creation, unlike a per-player goal (see `docs/roadmap.md`, 2026-08-07 scope addition).
 
 ### Profile (`profile.tsx`)
-Settings, body-metric soft prompt, account actions (including deletion — the legal erasure path noted in `CLAUDE.md`).
+Settings, body-metric soft prompt, and account actions.
+
+- **Delete account** (`app/delete-account.tsx`, migration `20260811140000`) is a route rather than an alert, gated on typing `DELETE`. It is the one action with no undo, and a two-tap dialog optimises for the person who already decided while the whole cost lands on the person who had not. It sits below Sign out so the reversible action does not compete with the irreversible one.
+- The screen says what *survives*, because "everything is deleted" would be simpler and false: squad leadership passes to the longest-standing member (or the squad goes too, if you were the last), and a shared goal keeps running for everyone else with your name off it. Someone erasing an account to get out of a squad deserves to know the squad continues.
 
 - **Notifications** (`NotificationSettingsCard.tsx`) reports whether they are on, and offers `Linking.openSettings()` when iOS has a denial on file. Re-read on every foreground, because the state can only change in iOS Settings — so returning to the app is the only moment worth checking, and reading once at mount is precisely how the QA pass ended up with a screen describing permissions the user had already revoked. It sits above Timezone deliberately: the zone follows the device and cannot silently be wrong, whereas this can.
 - The card does **not** campaign for the permission back. A denial is a decision; the row's job is to make it legible and reversible. `shouldAskForNotifications` still owns the contextual ask, so an undetermined state shows no button here.
