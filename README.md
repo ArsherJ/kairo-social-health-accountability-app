@@ -79,7 +79,24 @@ Two separate things have to be in place, and Xcode reports both as one error
    **Manage Certificates… → `+` → Apple Development**.
 
 `security find-identity -v -p codesigning` tells you whether the second one is
-done — "0 valid identities found" means it is not.
+done — "0 valid identities found" means it is not. Two identical
+`Apple Development` certificates is normal (Xcode makes one on sign-in, and
+Manage Certificates can make another) and does not break signing; Apple caps
+you at two, so revoke one before setting up a second Mac.
+
+Then the device itself, checked with `xcrun devicectl list devices`:
+
+1. Connect by USB — a **data** cable; a charge-only one never shows up and
+   reports nothing.
+2. Unlock the phone, tap **Trust This Computer?**, enter the passcode.
+3. **Settings → Privacy & Security → Developer Mode → On**, then restart.
+   Required on iOS 16+, and **the menu item does not appear until the phone has
+   been plugged into a Mac running Xcode at least once** — so this cannot be
+   done ahead of step 1. Skipping it installs the app and then refuses to
+   launch it.
+
+After the first USB pairing, Xcode → Window → Devices and Simulators →
+**Connect via network** makes it wireless.
 
 Sign in with Apple and HealthKit both need a real device anyway; the simulator
 throws `ERR_REQUEST_UNKNOWN` for the first and returns no data for the second.
