@@ -2,10 +2,13 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { currentLocalDate } from '@kairo/core';
+import { todayBucketsKey, todayVitalsKey } from '@/features/character/buckets.ts';
 import { todayScoreKey } from '@/features/character/queries.ts';
 import { profileKey } from '@/features/profile/queries.ts';
 import { squadKeys } from '@/features/squad/queries.ts';
 import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
+import { onSyncRequested, resetSyncStatus, setSyncStatus } from './status-store.ts';
+import { loadSyncState } from './storage.ts';
 import {
   initialSyncPolicyState,
   reduceSyncPolicy,
@@ -52,6 +55,15 @@ export function useHealthSync(
     state.current = initialSyncPolicyState;
     let cancelled = false;
 
+    // Seed from the durable record before the first sync resolves, so a relaunch
+    // reads "Synced 20 minutes ago" rather than claiming nothing has ever run.
+    const stored = loadSyncState(userId);
+    setSyncStatus({
+      syncing: false,
+      lastSyncedAt: stored.lastSyncedAt,
+      lastError: stored.lastError,
+    });
+
     function clearTimer() {
       if (timer.current !== null) {
         clearTimeout(timer.current);
@@ -60,6 +72,8 @@ export function useHealthSync(
     }
 
     async function sync() {
+      setSyncStatus({ syncing: true });
+
       const outcome = await runHealthSync(
         userId as string,
         timeZone as string,
@@ -67,17 +81,40 @@ export function useHealthSync(
       );
       if (cancelled) return;
 
+      // Published from the state `runHealthSync` just persisted rather than
+      // from `outcome`, so the strip and the durable record can never disagree
+      // about when the last success actually was.
+      const persisted = loadSyncState(userId as string);
+      setSyncStatus({
+        syncing: false,
+        lastSyncedAt: persisted.lastSyncedAt,
+        lastError: persisted.lastError,
+      });
+
       if (outcome.ok) {
+        const localDate = currentLocalDate(new Date(), timeZone as string);
+
         // The score, the level it rolls up into, and the board the user is
         // ranked on are all downstream of the buckets that just landed.
         void queryClient.invalidateQueries({
-          queryKey: todayScoreKey(
-            userId,
-            currentLocalDate(new Date(), timeZone as string),
-          ),
+          queryKey: todayScoreKey(userId, localDate),
         });
         void queryClient.invalidateQueries({ queryKey: profileKey(userId) });
         void queryClient.invalidateQueries({ queryKey: squadKeys.allBoards() });
+
+        // The raw figures are downstream too, and were the omission that made
+        // the 9-11 Aug outage look like a *rendering* delay: the TODAY panel
+        // reads `health_buckets` straight back off the server, so a sync that
+        // wrote buckets left them on screen stale until the next cold launch —
+        // which is exactly when the numbers appeared to "jump". Anything the
+        // sync can move has to be listed here, or the screen disagrees with
+        // the database and there is no way to tell which one is wrong.
+        void queryClient.invalidateQueries({
+          queryKey: todayBucketsKey(userId, localDate),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: todayVitalsKey(userId, localDate),
+        });
       }
 
       dispatch(
@@ -120,11 +157,20 @@ export function useHealthSync(
     };
     permissionListeners.add(onPermissionGranted);
 
+    // Retry goes through the reducer like every other trigger, so `inFlight`
+    // still serialises it and a tap during a running sync is remembered rather
+    // than racing its own write.
+    const unsubscribeRetry = onSyncRequested(() => {
+      dispatch({ kind: 'manual', at: Date.now() });
+    });
+
     return () => {
       cancelled = true;
       clearTimer();
       appState.remove();
       permissionListeners.delete(onPermissionGranted);
+      unsubscribeRetry();
+      resetSyncStatus();
       for (const subscription of subscriptions) subscription.remove();
     };
   }, [userId, timeZone, queryClient]);

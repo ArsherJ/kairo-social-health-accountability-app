@@ -27,7 +27,27 @@ export default function RootLayout() {
     ...Feather.font,
   });
 
-  if (!fontsLoaded && !fontError) return null;
+  // Started here rather than in `Gate`, which is the whole point: `Gate` does
+  // not mount until the fonts resolve, so restoring the session — a Keychain
+  // read and, usually, a token refresh over the network — used to be queued
+  // *behind* five font files rather than run alongside them. Two waits in
+  // series where one would do, which is most of the 3-4s blank launch the QA
+  // pass measured. Effects still run on a render that returns null, so this
+  // fires on the first frame either way.
+  useEffect(() => startSessionListener(), []);
+
+  // A blank frame, for as long as the fonts take. There is no splash-screen
+  // plugin holding anything over it, so this *was* the cream nothing the user
+  // stared at. A spinner needs no typeface, which is exactly why it is the only
+  // thing that can be drawn here — a wordmark would render in the system face
+  // and then snap to Caprasimo, trading a blank screen for a flicker.
+  if (!fontsLoaded && !fontError) {
+    return (
+      <View style={[styles.overlay, styles.centered]}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -63,8 +83,6 @@ function Gate() {
   const sessionLoading = useSessionStore((s) => s.loading);
   const profile = useProfile(session?.user.id);
 
-  useEffect(() => startSessionListener(), []);
-
   const route = resolveRoute({
     sessionLoading,
     hasSession: Boolean(session),
@@ -96,8 +114,16 @@ function Gate() {
       />
 
       {route === 'loading' && (
-        <View style={[styles.overlay, styles.centered]}>
-          <ActivityIndicator color={colors.accent} />
+        // Past the font gate, so this hold can carry the brand where the one in
+        // RootLayout cannot. Deliberately a wordmark and not a skeleton of the
+        // character screen: a skeleton promises the shape of content that is
+        // still being decided — a brand-new user has no squad, no score and no
+        // streak — so it would resolve into something structurally different
+        // and read as a glitch. A hold that says "Kairo" is the honest version
+        // of "we know what you are waiting for".
+        <View style={[styles.overlay, styles.centered, styles.holdContainer]}>
+          <Text style={styles.holdMark}>KAIRO</Text>
+          <ActivityIndicator color={colors.accent} style={styles.holdSpinner} />
         </View>
       )}
 
@@ -139,6 +165,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   centered: { justifyContent: 'center' },
+  holdContainer: { alignItems: 'center' },
+  holdMark: { color: colors.accent, ...font.display.brand },
+  holdSpinner: { marginTop: space.lg },
   errorContainer: {
     justifyContent: 'center',
     paddingHorizontal: space.lg,

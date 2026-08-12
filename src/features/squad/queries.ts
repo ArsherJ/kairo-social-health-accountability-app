@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { SquadProgram } from '@kairo/core';
 import {
   DEMO_LEADERBOARD,
+  DEMO_LEADERBOARD_COMPLETED,
   DEMO_MEMBER_COUNT,
   DEMO_SQUAD,
 } from '@/features/demo/fixtures.ts';
@@ -176,10 +177,16 @@ export function useSquadLeaderboard(
     },
   });
 
-  // Both modes get the same rows. "Yesterday" on fixture data would be a
-  // second invented day, and the toggle is not what these fixtures exist to
-  // exercise.
-  return demo ? demoResult<LeaderboardRow[]>(DEMO_LEADERBOARD) : query;
+  // Each mode gets its own day. They used to share one array, which made the
+  // Today/Yesterday toggle a no-op under demo — so the control that proves
+  // `mode` reaches `squad_leaderboard()` could not be checked by hand, which is
+  // the only way UI is checked here.
+  if (demo) {
+    return demoResult<LeaderboardRow[]>(
+      mode === 'completed' ? DEMO_LEADERBOARD_COMPLETED : DEMO_LEADERBOARD,
+    );
+  }
+  return query;
 }
 
 /**

@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { font, ramp, radius, space } from '@/theme.ts';
 import { Panel } from '@/ui/index.ts';
 
@@ -17,24 +17,60 @@ import { Panel } from '@/ui/index.ts';
  * The border is the one place the warm system's "a card is a tint, not an
  * outline" rule is deliberately broken: an absence has no tint to be.
  */
-export function LockedSlot({ rank }: { rank: number }) {
-  return (
-    <Panel variant="plain" style={styles.row}>
-      {/* Panel does not forward extra props to its View, so the label lives
-          on this inner wrapper instead. */}
-      <View style={styles.content} accessibilityLabel={`Empty squad seat ${rank}`}>
-        <Text style={styles.rank}>{rank}</Text>
+export function LockedSlot({
+  rank,
+  onPress,
+}: {
+  rank: number;
+  /**
+   * Opens the share sheet. Optional because the solo board renders these
+   * before a squad — and therefore an invite code — exists at all; there the
+   * seat is a picture of what a squad looks like, not an action.
+   */
+  onPress?: () => void;
+}) {
+  // A row that says "Invite your squad" and cannot be tapped is the QA pass's
+  // finding in miniature: the affordance was already drawn, down to the `+`
+  // disc, and did nothing. Where there is a code to share, the whole row is now
+  // the button.
+  const Body = (
+    <View style={styles.content} accessibilityLabel={`Empty squad seat ${rank}`}>
+      <Text style={styles.rank}>{rank}</Text>
 
-        <View style={styles.disc}>
-          <Feather name="plus" size={20} color={ramp.neutral[600]} />
-        </View>
-
-        <View style={styles.middle}>
-          <Text style={styles.name}>Empty seat</Text>
-          <Text style={styles.meta}>Invite your squad</Text>
-        </View>
+      <View style={styles.disc}>
+        <Feather name="plus" size={20} color={ramp.neutral[600]} />
       </View>
-    </Panel>
+
+      <View style={styles.middle}>
+        <Text style={styles.name}>Empty seat</Text>
+        <Text style={styles.meta}>
+          {onPress ? 'Tap to invite' : 'Invite your squad'}
+        </Text>
+      </View>
+    </View>
+  );
+
+  if (!onPress) {
+    return (
+      <Panel variant="plain" style={styles.row}>
+        {/* Panel does not forward extra props to its View, so the label lives
+            on this inner wrapper instead. */}
+        {Body}
+      </Panel>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Invite someone to squad seat ${rank}`}
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <Panel variant="plain" style={styles.row}>
+        {Body}
+      </Panel>
+    </Pressable>
   );
 }
 
@@ -52,6 +88,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: ramp.sage[300],
   },
+  pressed: { opacity: 0.6 },
   content: { flexDirection: 'row', alignItems: 'center' },
   rank: { width: 18, color: ramp.neutral[500], ...font.display.minor },
   disc: {

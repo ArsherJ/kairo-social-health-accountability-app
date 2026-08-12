@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { track } from '@/features/telemetry/events.ts';
 import { Button } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
+import { HEALTH_DISCLOSURE } from './disclosure.ts';
 import { requestHealthPermission } from './permission.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
@@ -69,10 +70,22 @@ export function HealthAsk({
       <Text style={styles.label}>POWER YOUR CHARACTER</Text>
       <Text style={styles.title}>Your real life is the game</Text>
       <Text style={styles.body}>
-        Kairo reads your steps, distance, active calories and active minutes from
-        Apple Health. That is what levels your character and puts you on the squad
-        leaderboard.
+        Your activity levels your character and puts you on the squad
+        leaderboard. Here is everything Kairo reads from Apple Health:
       </Text>
+
+      {/* Rendered from HEALTH_DISCLOSURE rather than written out, so the list
+          cannot fall behind what the app actually requests — which is exactly
+          how it came to name four types while asking for eight. */}
+      <View style={styles.disclosure}>
+        {HEALTH_DISCLOSURE.map((group) => (
+          <View key={group.label} style={styles.disclosureRow}>
+            <Text style={styles.disclosureLabel}>{group.label}</Text>
+            <Text style={styles.disclosurePurpose}>{group.purpose}</Text>
+          </View>
+        ))}
+      </View>
+
       <Text style={styles.fine}>
         Your squad only ever sees ability ratings and scores — never your raw
         numbers, and never when you move. Kairo writes nothing back to Health.
@@ -103,6 +116,25 @@ const styles = StyleSheet.create({
   label: { color: colors.accent, ...font.body.label },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
+  disclosure: { marginTop: space.md },
+  // Hairline-separated rows rather than bullets: this is a schedule of what is
+  // being asked for, and it should read like one.
+  disclosureRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingVertical: space.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  disclosureLabel: { color: colors.text, ...font.body.strong, flexShrink: 0 },
+  disclosurePurpose: {
+    color: colors.muted,
+    ...font.body.strong,
+    flexShrink: 1,
+    textAlign: 'right',
+    marginLeft: space.sm,
+  },
   fine: { color: colors.muted, fontSize: 13, marginTop: space.md },
   error: { color: colors.damage, fontSize: 13, marginTop: space.md, lineHeight: 19 },
   later: {

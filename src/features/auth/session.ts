@@ -65,3 +65,26 @@ export async function signOut(): Promise<void> {
     if (userId) clearSyncState(userId);
   }
 }
+
+/**
+ * Erase the account, then sign out.
+ *
+ * The server half is `delete_account()`, which deletes the caller's
+ * `auth.users` row and cascades from there. It takes no argument — the only
+ * account it can erase is `auth.uid()` — so nothing here chooses a target.
+ *
+ * Sign-out afterwards rather than relying on the dead session to fail: the JWT
+ * stays cryptographically valid until it expires, so without this the client
+ * would sit on a token for a user who no longer exists and render errors
+ * instead of the gate. `signOut()` also clears the query cache and the local
+ * sync state, which is the rest of what erasure has to mean on this device.
+ *
+ * The RPC is awaited outside the try in `signOut`, so a failed deletion throws
+ * to the caller with the session still intact — a partially erased account the
+ * user cannot get back into would be far worse than an error message.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase.rpc('delete_account');
+  if (error) throw new Error(error.message);
+  await signOut();
+}

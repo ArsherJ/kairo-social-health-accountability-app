@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,6 +11,7 @@ import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
+import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -17,6 +19,7 @@ import { Button, Label, Panel, Screen } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
 
 export default function ProfileTab() {
+  const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -66,6 +69,11 @@ export default function ProfileTab() {
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
 
+          {/* Above Timezone because it is the one on this screen that can be
+              wrong without the user knowing: the zone follows the device, but a
+              notification permission revoked in iOS Settings is silent. */}
+          <NotificationSettingsCard />
+
           <Panel>
             <Label>Timezone</Label>
             <Text style={styles.value}>{profile.data.timezone}</Text>
@@ -98,6 +106,16 @@ export default function ProfileTab() {
       <Button
         label="Sign out"
         onPress={() => void signOut()}
+        variant="ghost"
+      />
+
+      {/* Below sign-out, and only reachable through a screen that explains
+          what it does. Apple requires an in-app path for this; putting it
+          anywhere more prominent would make the reversible action compete
+          with the irreversible one. */}
+      <Button
+        label="Delete account"
+        onPress={() => router.push('/delete-account')}
         variant="ghost"
       />
     </Screen>

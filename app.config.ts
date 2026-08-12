@@ -28,6 +28,23 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.arsherj.kairo',
     supportsTablet: false,
+    // Xcode refuses to sign for a physical device without a team, and
+    // `expo prebuild --clean` deletes `ios/` — so setting it in Xcode's UI
+    // survives exactly until the next prebuild. Declaring it here is what makes
+    // device builds reproducible. Not a secret: a Team ID appears in every
+    // app's provisioning profile.
+    //
+    // It does not create the signing certificate. That comes from adding the
+    // Apple ID under Xcode → Settings → Accounts, which is per-machine and
+    // cannot live in config.
+    appleTeamId: '8C53KVSFWK',
+    // Writes the Sign in with Apple entitlement. Like HealthKit's, the matching
+    // capability must ALSO be enabled on the App ID in the Developer portal —
+    // without it the entitlement is present, the button renders, and
+    // `signInAsync` fails with ERR_REQUEST_UNKNOWN, which looks identical to a
+    // device that is not signed into an Apple ID. Changing this needs a native
+    // rebuild (`npm run prebuild && npm run ios`), not a JS reload.
+    usesAppleSignIn: true,
     infoPlist: {
       // HealthKit is iPhone-only; declaring it keeps the App Store listing honest.
       UIRequiredDeviceCapabilities: ['healthkit'],
@@ -47,8 +64,17 @@ const config: ExpoConfig = {
       '@kingstinct/react-native-healthkit',
       {
         // Framed as the spec's onboarding copy: the ask has a visible why (§5).
+        //
+        // Names every type in `src/features/health/read-types.ts`, not just the
+        // four that score. This string is what iOS shows in the system dialog
+        // and in Settings, so it is the one place a user can compare what was
+        // promised against what was requested — it said four while the app
+        // asked for eight, which is the QA pass's trust finding at its source.
+        // `src/features/health/disclosure.ts` carries the in-app half and is
+        // test-locked to the request list; this string cannot be, so it has to
+        // be changed by hand whenever that list changes.
         NSHealthShareUsageDescription:
-          'Kairo reads your steps, distance, active calories and active minutes to power your character and your squad leaderboard.',
+          'Kairo reads steps, distance, active calories and active minutes to score your character; sleep, heart rate and resting heart rate to show your recovery and strain; and workouts to confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.',
         // Declared because iOS requires the string whenever the entitlement is
         // present. Shipped builds never request write access at all — only the
         // `__DEV__` simulator seeder in src/features/health/dev-seed.ts does,

@@ -13,6 +13,10 @@ android/
 !.env.example
 GoogleService-Info.plist
 google-services.json
+# Apple signing keys. The Sign in with Apple .p8 downloads exactly once and
+# signs the client secret; keep it outside the repo entirely, but ignore the
+# pattern too so a stray copy in the working tree cannot be committed.
+*.p8
 
 # Supabase CLI scratch
 supabase/.temp/

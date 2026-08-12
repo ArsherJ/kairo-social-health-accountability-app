@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Feather from '@expo/vector-icons/Feather';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +21,7 @@ import {
 } from './queries.ts';
 import { useLeaveSquad } from './mutations.ts';
 import { boostChipLabel, programLabel } from './program-copy.ts';
+import { shareInvite } from './share-invite.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
 import { SquadGoalPanel } from '@/features/goals/SquadGoalPanel.tsx';
@@ -103,13 +105,28 @@ function standingSubline(standing: SquadStanding): SublinePart[] | null {
  * a board with open seats wants it above the seats, and a full, scored
  * squad has no seat left to invite anyone into, so neither fires.
  */
-function InviteCode({ code }: { code: string }) {
+function InviteCode({ code, squadName }: { code: string; squadName: string }) {
   return (
     <Panel variant="plain" style={styles.codeCard}>
       <Text style={styles.codeLabel}>INVITE CODE</Text>
       <Text style={styles.code} selectable>
         {code}
       </Text>
+
+      {/* The card used to end here, and that was the whole social loop: six
+          characters to read aloud. The code stays `selectable` for anyone who
+          wants to long-press it; this is the path for everyone else, and it
+          puts Messenger and Viber one tap away rather than a toast. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Share the invite code for ${squadName}`}
+        hitSlop={space.sm}
+        onPress={() => void shareInvite({ squadName, inviteCode: code })}
+        style={({ pressed }) => [styles.shareRow, pressed && styles.pressedRow]}
+      >
+        <Feather name="share" size={14} color={ramp.sage[700]} />
+        <Text style={styles.shareLabel}>Share invite</Text>
+      </Pressable>
     </Panel>
   );
 }
@@ -301,7 +318,7 @@ export function Leaderboard({
       {board.isSuccess && rows.length === 0 && (
         <View style={styles.centered}>
           <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
-          <InviteCode code={squad.invite_code} />
+          <InviteCode code={squad.invite_code} squadName={squad.name} />
         </View>
       )}
 
@@ -316,10 +333,19 @@ export function Leaderboard({
           member, scored or not, so the numbering never skips or repeats.
           Gated on `rows.length > 0`: an empty board already showed the code
           above, and showing it twice was the earlier bug here. */}
-      {rows.length > 0 && locked > 0 && <InviteCode code={squad.invite_code} />}
+      {rows.length > 0 && locked > 0 && <InviteCode code={squad.invite_code} squadName={squad.name} />}
 
       {Array.from({ length: locked }, (_, index) => (
-        <LockedSlot key={index} rank={(memberCount.data ?? 0) + index + 1} />
+        <LockedSlot
+          key={index}
+          rank={(memberCount.data ?? 0) + index + 1}
+          onPress={() =>
+            void shareInvite({
+              squadName: squad.name,
+              inviteCode: squad.invite_code,
+            })
+          }
+        />
       ))}
 
       {/* The slot the sabotage feed left, doing the opposite job: the feed was
@@ -413,6 +439,14 @@ const styles = StyleSheet.create({
   },
   boostLabel: { ...font.body.label, fontSize: 11.5, letterSpacing: 0, color: ramp.accent[800] },
   codeCard: { alignItems: 'center', backgroundColor: ramp.sage[200] },
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: space.sm,
+    paddingVertical: space.xs,
+  },
+  shareLabel: { ...font.body.strong, color: ramp.sage[700], marginLeft: space.xs },
+  pressedRow: { opacity: 0.6 },
   codeLabel: { ...font.body.label, color: ramp.sage[700], textTransform: 'uppercase' },
   code: {
     ...font.display.major,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { StatRail } from '@/features/character/StatRail.tsx';
+import { SyncStatus } from '@/features/character/SyncStatus.tsx';
 import { TodayPanel } from '@/features/character/TodayPanel.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
@@ -206,6 +208,7 @@ export default function Character() {
           stage={stage}
           dominance={dominance.data}
           body={profile.data?.character_body}
+          lifetimePoints={lifetime}
         >
           {/* The HUD. Everything here floats over the world rather than
               sitting in the page, which is the whole point of the direction —
@@ -325,6 +328,11 @@ export default function Character() {
             }
           />
 
+          {/* Deliberately outside the panel's own null guard: an empty TODAY
+              panel is exactly when "waiting for your first sync" or "couldn't
+              sync" is the most useful thing on the screen. */}
+          <SyncStatus />
+
           {expanded && (
             <View style={styles.detailBlock}>
               {CORE_STATS.map((stat) => (
@@ -338,6 +346,20 @@ export default function Character() {
                   laneEmptyCopy={laneCopy}
                 />
               ))}
+
+              {/* Offered here rather than beside the hero because expanding
+                  the rail is the moment someone is already asking what these
+                  numbers mean. A permanent link by the score would be a help
+                  affordance competing with the thing it explains. */}
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="How progress works"
+                hitSlop={space.sm}
+                onPress={() => router.push('/progress')}
+                style={({ pressed }) => pressed && { opacity: 0.6 }}
+              >
+                <Text style={styles.helpLink}>How progress works</Text>
+              </Pressable>
             </View>
           )}
 
@@ -444,4 +466,10 @@ const styles = StyleSheet.create({
   detail: { ...font.body.body, fontSize: 14.5, color: ramp.sage[700], marginTop: space.sm },
   meta: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.xs },
   detailBlock: { marginTop: space.sm },
+  helpLink: {
+    ...font.body.strong,
+    color: colors.accent,
+    marginTop: space.md,
+    alignSelf: 'flex-start',
+  },
 });

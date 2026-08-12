@@ -51,6 +51,25 @@ describe('triggers', () => {
     expect(command).toEqual({ kind: 'sync-now' });
   });
 
+  it('syncs immediately when the user taps retry, throttle or not', () => {
+    // The escape hatch from a stale or failed sync. A tap well inside the
+    // foreground throttle must still run: someone looking at "Couldn't sync"
+    // who taps "Try again" and sees nothing happen has been told twice that
+    // the app is broken.
+    const state = afterSync(1_000);
+    const [, command] = reduceSyncPolicy(state, { kind: 'manual', at: 1_100 });
+    expect(command).toEqual({ kind: 'sync-now' });
+  });
+
+  it('remembers a retry tapped during a running sync instead of racing it', () => {
+    const [state, command] = reduceSyncPolicy(
+      { ...initialSyncPolicyState, inFlight: true },
+      { kind: 'manual', at: 500 },
+    );
+    expect(command).toEqual({ kind: 'none' });
+    expect(state.missedWhileInFlight).toBe(true);
+  });
+
   it('coalesces a burst of observer events into one sync', () => {
     // HealthKit fires the observer several times for what a user did once.
     const { command, state } = run(
