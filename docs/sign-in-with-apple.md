@@ -1,7 +1,12 @@
 # Sign in with Apple
 
-**Status (2026-08-12): the app side is built. What remains is portal
-configuration and a device test.**
+**Status (2026-08-12): app side built, App ID registered, client secret
+installed. What remains is the device test.**
+
+Live configuration, for the record: App ID `com.arsherj.kairo`, Sign in with
+Apple key `2LBN6YJCCS`, team `8C53KVSFWK`, and the project's
+`external_apple_enabled` is `true` with client id `com.arsherj.kairo`. **The
+client secret expires 2027-02-08.**
 
 Apple Developer Program enrolment came through, which was the blocker. This
 document was a plan; it is now a runbook, and the checklist at the bottom is the
@@ -18,11 +23,17 @@ thing to work through.
 | Apple's branded button on the sign-in screen | `app/(auth)/sign-in.tsx` |
 | Error copy, cancellation handling | `src/features/auth/apple-error.ts` (+6 tests) |
 | Client-secret minting | `npm run apple-secret` |
+| App ID + capabilities registered | done 2026-08-12 |
+| Client secret installed on the project | done 2026-08-12, expires **2027-02-08** |
 | Account deletion, which Apple requires | `delete_account()`, `app/delete-account.tsx` |
 
-## What is left
+## The setup, and what is left
 
-### 1. Register the App ID, with all three capabilities
+Steps 1–3 were done on 2026-08-12 and are kept as the record of what was
+configured and why — you will need them again when the secret expires. **Step 5
+is the only one still open.**
+
+### 1. Register the App ID, with all three capabilities ✅
 
 Fresh enrolment starts with no App IDs at all, so this is a registration rather
 than an edit. Developer portal → Certificates, Identifiers & Profiles →
@@ -79,7 +90,7 @@ Apple throws `ERR_REQUEST_UNKNOWN`, which is indistinguishable from a device
 not signed into an Apple ID. Push cannot have an APNs key attached by
 `eas credentials`.
 
-### 2. A key for the client secret
+### 2. A key for the client secret ✅
 
 Developer portal → Keys → **+** → tick **Sign in with Apple** → configure it
 against the `com.arsherj.kairo` primary App ID → Continue → Register.
@@ -91,7 +102,7 @@ making another. Keep it outside the repo — it is a signing key, and a
 Note the **Key ID** (also in the filename Apple gives you,
 `AuthKey_<KEYID>.p8`) and your **Team ID** (portal → Membership details).
 
-### 3. Mint the secret and install it on Supabase
+### 3. Mint the secret and install it on Supabase ✅
 
 Apple does not issue a client secret. It is an ES256 JWT you sign yourself, and
 **it expires — Apple's ceiling is 15,777,000 seconds, about 182 days.**
@@ -118,7 +129,20 @@ for every user at once with no code change to blame — structurally the same
 silent failure as the August 2026 deployment gap, and just as hard to attribute
 after the fact. Re-running the script with the same key mints a fresh one.
 
-### 4. Rebuild natively
+**Nothing here can be verified before the device test, and the check that looks
+like it would is a trap.** Posting a bogus authorization code to
+`https://appleid.apple.com/auth/token` appears to separate `invalid_client`
+(bad secret) from `invalid_grant` (secret fine, code refused). Measured on
+2026-08-12, it does not: a wrong Team ID, a wrong Key ID, a valid secret sent
+under somebody else's client id, and the literal string `garbage` all return
+`invalid_grant`, identically to a correct secret. `grant_type=refresh_token`
+behaves the same, and `/auth/revoke` returns 200 with an empty body for a
+garbage secret. Apple validates the code first and never reaches the
+credentials. A check built on this reports success for a secret that cannot
+work, which is worse than no check. `scripts/apple-client-secret.mjs` carries
+the same warning so it does not get re-added.
+
+### 4. Rebuild natively ✅
 
 ```bash
 npm run prebuild        # regenerates ios/, writes the entitlement, rewrites .xcode.env.local
@@ -127,7 +151,7 @@ npm run ios
 
 The entitlement is native. A JS reload will not pick it up.
 
-### 5. Verify on a real device
+### 5. Verify on a real device ⬜ — the only step left
 
 Sign in with Apple wants a device signed into an Apple ID; the simulator
 generally throws `ERR_REQUEST_UNKNOWN`, which `apple-error.ts` renders as

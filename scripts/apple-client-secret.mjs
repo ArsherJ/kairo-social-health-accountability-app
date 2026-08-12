@@ -49,15 +49,17 @@ function fail(message) {
   process.exit(1);
 }
 
+const BOOLEAN_FLAGS = new Set(['push']);
+
 function parseArgs(argv) {
-  const args = { push: false };
+  const args = {};
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--push') {
-      args.push = true;
+    if (!arg.startsWith('--')) fail(`unexpected argument ${arg}`);
+    if (BOOLEAN_FLAGS.has(arg.slice(2))) {
+      args[arg.slice(2)] = true;
       continue;
     }
-    if (!arg.startsWith('--')) fail(`unexpected argument ${arg}`);
     const value = argv[i + 1];
     if (value === undefined || value.startsWith('--')) fail(`${arg} needs a value`);
     args[arg.slice(2)] = value;
@@ -125,6 +127,29 @@ function supabaseToken() {
   }
   fail('no Supabase CLI token in the Keychain. Run: supabase login');
 }
+
+/**
+ * There is no way to verify this secret without a real user.
+ *
+ * Recorded because it looks like there should be, and the plausible-looking
+ * check is actively harmful. Attempting a token exchange with a deliberately
+ * bogus code seems like it would separate `invalid_client` (bad secret) from
+ * `invalid_grant` (secret fine, code refused). It does not. Measured against
+ * Apple on 2026-08-12, every one of these returns `invalid_grant`:
+ *
+ *   - correct secret          - wrong `kid`
+ *   - wrong `iss` (Team ID)   - the literal string "garbage"
+ *   - a valid secret sent with somebody else's client_id
+ *
+ * `/auth/token` with `grant_type=refresh_token` behaves the same way, and
+ * `/auth/revoke` returns 200 with an empty body for a garbage secret. Apple
+ * validates the code or token first and never reaches the credentials, so a
+ * check built on this reports success for a secret that cannot work — worse
+ * than no check, because it is a green light with nothing behind it.
+ *
+ * The first real signal is a sign-in on a device. `docs/sign-in-with-apple.md`
+ * lists what to check when that fails.
+ */
 
 async function push({ projectRef, clientId, secret }) {
   const response = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/config/auth`, {

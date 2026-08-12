@@ -104,14 +104,14 @@ Hours track the spec's 305–430h MVP estimate (§16).
 - ⬜ EAS dev client built and running on the physical iPhone
 - 🟨 **Developer Program enrolment — done 2026-08-12.** It gated the three items
   below; all three are now merely unticked rather than blocked.
-- ⬜ **Register the App ID `com.arsherj.kairo`** at developer.apple.com, with
-  **HealthKit + Sign in with Apple + Push Notifications** all ticked in one
-  pass — the three capabilities the generated `Kairo.entitlements` asks for.
-  Enrolment was fresh, so this is a registration, not an edit. A missing
-  capability never fails the build; it installs and the feature silently does
-  nothing. Field-by-field walkthrough in `docs/sign-in-with-apple.md`.
-- ⬜ **Mint the Apple client secret** — `npm run apple-secret`, and diary the
-  expiry it prints.
+- ✅ **App ID `com.arsherj.kairo` registered** 2026-08-12, with **HealthKit +
+  Sign in with Apple + Push Notifications** — the three capabilities the
+  generated `Kairo.entitlements` asks for. A missing capability never fails the
+  build; it installs and the feature silently does nothing, which is why all
+  three went in one pass.
+- ✅ **Apple client secret minted and installed** on the project 2026-08-12
+  (key `2LBN6YJCCS`). **Expires 2027-02-08** — re-run `npm run apple-secret`
+  before then, or sign-in dies for every user at once.
 - ⬜ **APNs auth key, uploaded with `eas credentials`.** No
   `GoogleService-Info.plist` — deviation #15 replaced FCM with Expo's push
   service, and the server holds no push credential at all.
@@ -680,7 +680,7 @@ Edge Function writes ships with that function's redeploy.**
 |---|---|
 | **Push delivery end to end** | Planner tests are green, but nothing has proven APNs registration → server dispatch → device receipt → tap routing. A green planner is not a delivered notification. The Profile status row addresses visibility, not delivery. |
 | **Invite redemption with two accounts** | Sharing works; joining, attribution, live reordering and rejoin have never been exercised with two real identities on two devices. |
-| **Sign in with Apple** | Built 2026-08-12, exercised by nobody. The simulator generally throws `ERR_REQUEST_UNKNOWN`, so the first real signal comes from a device signed into an Apple ID. Two failure modes are invisible until then: a missing App ID capability looks identical to a signed-out device, and an expired client secret would take sign-in down for everyone at once with nothing in the codebase to blame. |
+| **Sign in with Apple** | Built and fully configured 2026-08-12; exercised by nobody. The simulator generally throws `ERR_REQUEST_UNKNOWN`, so the first real signal comes from a device signed into an Apple ID — and **there is no earlier one**. The obvious pre-check is a trap: posting a bogus code to Apple's token endpoint returns `invalid_grant` for a correct secret, a wrong Team ID, a wrong Key ID and the literal string `garbage` alike, because Apple validates the code before the credentials. A check built on it reports success for a secret that cannot work. Measured 2026-08-12; the finding is recorded in `docs/sign-in-with-apple.md` and in the script, so it does not get re-added. |
 | **Cron schedules** | All three `pg_cron` migrations sit in `UNSUPPORTED_MIGRATIONS` — no test covers them, by construction. They were verified by hand once. `net._http_response` is the only place their true outcome is visible, since `cron.job_run_details` reports only that the request was enqueued. |
 | **Physical-device pass** | Offline and poor network, background overnight, permission subsets, reinstall/upgrade, Dynamic Type, VoiceOver order, memory and battery. None run. |
 
