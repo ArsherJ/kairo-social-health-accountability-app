@@ -104,9 +104,14 @@ Hours track the spec's 305–430h MVP estimate (§16).
 - ⬜ EAS dev client built and running on the physical iPhone
 - 🟨 **Developer Program enrolment — done 2026-08-12.** It gated the three items
   below; all three are now merely unticked rather than blocked.
-- ⬜ **Enable HealthKit capability on the App ID** at developer.apple.com
-- ⬜ **Enable Sign in with Apple on the App ID**, and mint the client secret
-  (`npm run apple-secret`). See `docs/sign-in-with-apple.md`.
+- ⬜ **Register the App ID `com.arsherj.kairo`** at developer.apple.com, with
+  **HealthKit + Sign in with Apple + Push Notifications** all ticked in one
+  pass — the three capabilities the generated `Kairo.entitlements` asks for.
+  Enrolment was fresh, so this is a registration, not an edit. A missing
+  capability never fails the build; it installs and the feature silently does
+  nothing. Field-by-field walkthrough in `docs/sign-in-with-apple.md`.
+- ⬜ **Mint the Apple client secret** — `npm run apple-secret`, and diary the
+  expiry it prints.
 - ⬜ **APNs auth key, uploaded with `eas credentials`.** No
   `GoogleService-Info.plist` — deviation #15 replaced FCM with Expo's push
   service, and the server holds no push credential at all.

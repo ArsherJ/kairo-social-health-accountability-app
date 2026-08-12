@@ -22,17 +22,43 @@ thing to work through.
 
 ## What is left
 
-### 1. App ID capability
+### 1. Register the App ID, with all three capabilities
 
-Developer portal → Certificates, Identifiers & Profiles → Identifiers →
-`com.arsherj.kairo` → enable **Sign in with Apple**, and save.
+Fresh enrolment starts with no App IDs at all, so this is a registration rather
+than an edit. Developer portal → Certificates, Identifiers & Profiles →
+Identifiers → **+**.
 
-Check **HealthKit** is enabled on the same screen while you are there. Both
-entitlements are written by `app.config.ts`, and for both of them the portal is
-the other half: without the capability the build installs fine and the feature
-silently fails. For HealthKit that means no data; for Apple that means
-`ERR_REQUEST_UNKNOWN`, which is indistinguishable from a device that is not
-signed into an Apple ID.
+| Field | Value |
+|---|---|
+| Type | **App** (not App Clip) |
+| Description | `Kairo` — alphanumerics and spaces only |
+| Bundle ID | **Explicit** → `com.arsherj.kairo` |
+
+Explicit, not Wildcard: a wildcard App ID cannot carry any of the three
+capabilities below. The bundle ID is permanent and must match `app.config.ts`
+exactly.
+
+Under **Capabilities**, tick **HealthKit**, **Sign in with Apple** (leave the
+Configure default, "Enable as a primary App ID") and **Push Notifications**.
+That is precisely what `npm run prebuild` writes into
+`ios/Kairo/Kairo.entitlements`:
+
+```
+com.apple.developer.applesignin                   → Sign in with Apple
+com.apple.developer.healthkit                     → HealthKit
+com.apple.developer.healthkit.background-delivery → no portal toggle; covered by HealthKit
+aps-environment                                   → Push Notifications
+```
+
+Ignore the **App Services** and **Additional Capabilities** tabs. Those cover
+entitlements needing Apple's written approval; Kairo uses none of them, so
+there is no request to file.
+
+**Do all three in one pass.** A missing capability does not fail the build — it
+installs fine and the feature silently does nothing. HealthKit returns no data.
+Apple throws `ERR_REQUEST_UNKNOWN`, which is indistinguishable from a device
+not signed into an Apple ID. Push cannot have an APNs key attached by
+`eas credentials`.
 
 ### 2. A key for the client secret
 
