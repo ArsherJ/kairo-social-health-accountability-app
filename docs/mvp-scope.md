@@ -50,6 +50,10 @@ squad is a layer on top.
   individually. Not a pooled total.
 
 ### Account
+- **Sign in with Apple** — the only provider a Release build offers. Moved in
+  scope on 2026-08-12, when Developer Program enrolment came through; the app
+  side is built and the portal configuration is a checklist in
+  `docs/sign-in-with-apple.md`.
 - Anonymous sign-in **in development builds only**.
 - In-app **account deletion** with cascade (`20260811140000`).
 - Notification permission asked in context, with a status row in Profile.
@@ -73,7 +77,6 @@ a regression.
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Universal links / deep linking** | Needs a domain, a hosted `apple-app-site-association`, the associated-domains entitlement and route handling. Sharing works without it today. | QA finding Q8 |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
-| **Sign in with Apple** | Blocked on Apple Developer Program enrolment. **This is the release blocker** — Release builds currently expose no provider at all. | `docs/sign-in-with-apple.md` |
 | **Android** | iOS first. | §15 |
 
 ---
@@ -100,9 +103,11 @@ regeneration to settle, not a missed find-and-replace.
 ## Before calling anything "MVP ready"
 
 Readiness is not a score out of ten; it is this list. Open items as of
-2026-08-11:
+2026-08-12:
 
-- [ ] **Sign in with Apple in a Release/TestFlight build** — nothing ships without it.
+- [ ] **Sign in with Apple in a Release/TestFlight build** — nothing ships
+      without it. The app side is built; what is left is the App ID capability,
+      the client secret, and a device pass. See `docs/sign-in-with-apple.md`.
 - [ ] **Push delivery proven end to end**: registration → dispatch → receipt → tap routing.
 - [ ] **Invite redemption with two real accounts**, including live reordering and rejoin.
 - [ ] **A physical-device pass**: offline, background overnight, reinstall, Dynamic Type, VoiceOver, battery.

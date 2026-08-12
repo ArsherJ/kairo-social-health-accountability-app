@@ -10,6 +10,12 @@ What a player actually walks through, end to end. Grounded in the current implem
 
 `app/(auth)/sign-in.tsx` — the only gate before the app is usable. No paywall, no forced squad.
 
+**Sign in with Apple**, and nothing else in a shipped build. It renders through Apple's own `AppleAuthenticationButton` rather than Kairo's pill, because their Human Interface Guidelines require it — black on the cream ground, since Apple's white style lands within a few points of `surfaceLift` and stops reading as a control. Cancelling the Apple sheet is silent: `apple-error.ts` maps `ERR_REQUEST_CANCELED` to no message at all, because backing out is a choice and an error line next to the button reads as a broken app.
+
+Development builds get a second, quieter path underneath — anonymous sign-in as a ghost button under a **Development build** eyebrow. Not an "or": the two are not alternatives of equal standing, and `__DEV__` compiles the whole block out of anything that reaches TestFlight. Saying which build you are looking at is the true thing to put there.
+
+The portal-side configuration this depends on, and the client secret's ~182-day expiry, are in `docs/sign-in-with-apple.md`.
+
 ## 2. Onboarding — "character first, permissions in context" (§5)
 
 `app/(onboard)/character.tsx`, then `app/(onboard)/name.tsx`. The spec's ordering principle, and the reason for it: iOS gives one clean shot at the HealthKit and notification prompts, so stacking every permission ask before any fun front-loads friction that costs signups.

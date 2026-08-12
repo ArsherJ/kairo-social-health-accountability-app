@@ -28,6 +28,13 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.arsherj.kairo',
     supportsTablet: false,
+    // Writes the Sign in with Apple entitlement. Like HealthKit's, the matching
+    // capability must ALSO be enabled on the App ID in the Developer portal —
+    // without it the entitlement is present, the button renders, and
+    // `signInAsync` fails with ERR_REQUEST_UNKNOWN, which looks identical to a
+    // device that is not signed into an Apple ID. Changing this needs a native
+    // rebuild (`npm run prebuild && npm run ios`), not a JS reload.
+    usesAppleSignIn: true,
     infoPlist: {
       // HealthKit is iPhone-only; declaring it keeps the App Store listing honest.
       UIRequiredDeviceCapabilities: ['healthkit'],

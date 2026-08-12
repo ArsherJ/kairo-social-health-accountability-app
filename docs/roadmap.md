@@ -102,8 +102,14 @@ Hours track the spec's 305–430h MVP estimate (§16).
 - ✅ HealthKit background-delivery entitlement confirmed in generated `ios/`
 - ✅ Supabase client with Keychain-backed session storage
 - ⬜ EAS dev client built and running on the physical iPhone
+- 🟨 **Developer Program enrolment — done 2026-08-12.** It gated the three items
+  below; all three are now merely unticked rather than blocked.
 - ⬜ **Enable HealthKit capability on the App ID** at developer.apple.com
-- ⬜ Firebase `GoogleService-Info.plist` + APNs auth key
+- ⬜ **Enable Sign in with Apple on the App ID**, and mint the client secret
+  (`npm run apple-secret`). See `docs/sign-in-with-apple.md`.
+- ⬜ **APNs auth key, uploaded with `eas credentials`.** No
+  `GoogleService-Info.plist` — deviation #15 replaced FCM with Expo's push
+  service, and the server holds no push credential at all.
 
 **Dev environment constraint — read before debugging connection errors.**
 Outbound Postgres `:5432` is blocked on the current network, and Supabase's
@@ -132,7 +138,14 @@ local stack is ever genuinely needed — so far nothing has required one.
 - ✅ Device timezone captured at profile creation and reconciled on foreground
 - ✅ Pure decision logic (route gate, permission state, timezone rule) unit-tested in Node; native and rendering code kept thin
 - ✅ `profiles` INSERT grant column-scoped — RLS constrains rows, not columns
-- ⬜ Sign in with Apple (blocked on the Apple Developer Program). **Spec'd in full: `docs/sign-in-with-apple.md`** — enrolment is the only slow part left, everything after it is written down, including the client-secret JWT's six-month expiry and the fact that name/email arrive exactly once.
+- 🟨 Sign in with Apple — **app side built 2026-08-12**, the day enrolment came
+  through. `appleProvider` with the nonce flow, Apple's branded button on the
+  sign-in screen, `usesAppleSignIn` writing the entitlement, and
+  `npm run apple-secret` to mint the client-secret JWT and push it to the
+  project. What remains is portal configuration and a device pass, both
+  checklisted in `docs/sign-in-with-apple.md`. Two things there are worth not
+  rediscovering: the secret **expires in ~182 days** and takes sign-in down for
+  everyone when it does, and name/email arrive exactly once.
 - Body metrics deferred to the soft prompt, never a gate
 - ✅ Hand-verified on the simulator — the onboarding flow was walked end to end
   by hand, which is this phase's acceptance criterion (UI is verified on device,
@@ -588,7 +601,7 @@ All three are live and deliberate. Flagged here so they are decisions, not drift
 | 6 | "the squad leaderboard compares most-recently-completed days" (§2) | `squad_leaderboard()` defaults to each member's **current** local day | This is the live in-progress board the app shows all day, which §2 also implies ("1 hour left. You're in Nth place"). The settled cross-timezone view is a second mode the RPC now also has — **delivered in Phase 4** via the `'completed'` mode parameter. |
 | 8 | "Observer queries + background delivery, **anchored reads with persisted anchors**" (this roadmap, Phase 3) | **Hourly statistics-collection queries over a bounded window; no anchors at all.** State is a dirty *date* set, and every dirty day is sent whole — all 24 hours, zeros included. | Four reasons. (a) `HKStatisticsCollectionQuery` with `cumulativeSum` applies Apple's cross-source dedup, so an iPhone and a paired Watch do not double-count steps; raw anchored samples would mean reimplementing it, and getting it wrong inflates scores for the most competitive users. (b) Hourly bucketing falls out of the query — raw samples would need proportional splitting of a walk spanning 08:50–09:10. (c) Apple's retroactive revisions are free, because re-reading returns corrected totals into an endpoint that already rescores the whole day. (d) A stale anchor is silent, permanent data loss; a window high-water mark's worst case is re-reading data already sent, which the idempotent upsert absorbs. **Whole-day emission is what replaces `deletedSamples`:** an hour revised *downward* is sent as an explicit zero, so the stale bucket is overwritten rather than stranded. 31 days × 24 = 744 is what sizes the window against `MAX_BUCKETS_PER_SYNC = 750`. |
 | 9 | — | **A DST day contributes 23 or 25 wall-clock hours but only 24 buckets** | `health_buckets.hour` is `check (hour between 0 and 23)` with a PK on `(user, local_date, hour)`. On a fall-back day the two 01:00 hours are summed into one bucket, so VIT sees 24 candidate hours instead of 25; spring-forward gives 23. ±1 activeHour, twice a year, DST users only. The alternative is a schema change plus a disambiguator column. Not worth it — the day's *total* is preserved either way. |
-| 7 | Apple/Google sign-in (§15) | **Anonymous sign-in in development builds only** | The Apple Developer Program is not yet purchased, so Sign in with Apple cannot be enabled on the App ID. Anonymous is one tap with no form — the same shape Apple's flow will have — so onboarding is rehearsed against the flow that ships. `availableProviders()` returns an empty list outside `__DEV__`, so it cannot reach TestFlight. **Disable anonymous sign-ins on the project when Apple lands.** |
+| 7 | Apple/Google sign-in (§15) | **Apple, plus anonymous in development builds only.** Google stays deferred to V1.5's Android work. | Anonymous was the whole of this deviation until 2026-08-12, because the Developer Program had not been purchased and Sign in with Apple cannot be enabled on the App ID without it. It was one tap with no form — the same shape Apple's flow has — so onboarding was rehearsed against the flow that ships. **Apple landed 2026-08-12** and `availableProviders()` now returns it unconditionally; anonymous survives behind `__DEV__` for simulator work. One line here has been **reversed**: it used to say "disable anonymous sign-ins on the project when Apple lands", and that is the wrong lever. `external_anonymous_users_enabled` stays `true` — the `__DEV__` guard, not the project setting, is what keeps anonymous out of TestFlight, and turning the setting off would break every dev sign-in without making Release one bit safer. |
 
 ---
 
@@ -618,7 +631,7 @@ checked the deployed artifact.
 
 | QA # | Finding | Status |
 |---|---|---|
-| Q1 | **Release exposes no sign-in provider.** `availableProviders()` returns `[]` outside `__DEV__`, so a TestFlight build cannot acquire a session at all. | 🟨 **Open — the release blocker.** Blocked on Apple Developer Program enrolment, which is external. Spec'd end to end in `docs/sign-in-with-apple.md` so enrolment is the only slow part left. |
+| Q1 | **Release exposes no sign-in provider.** `availableProviders()` returns `[]` outside `__DEV__`, so a TestFlight build cannot acquire a session at all. | 🟨 **App side fixed 2026-08-12**, when enrolment came through. `availableProviders()` returns Apple unconditionally, and the sign-in screen renders Apple's branded button. Still open until the App ID capability and client secret are configured and it has run on a device — checklist in `docs/sign-in-with-apple.md`. |
 | Q2 | **No in-app account deletion**, which App Store review requires. | ✅ **Done** — `20260811140000`, `app/delete-account.tsx`. See row 2 of the device-verification table above. |
 | Q3 | **Raw totals, score, ability ratings and rank all contradicted each other** — 44,000 steps against a score of 0 and ratings of 1. | ✅ **Root-caused and fixed.** A stale Edge Function deployment, not a logic bug. Redeployed; guarded two ways since (see the process gap below). |
 | Q4 | **Yesterday never finalized.** The report suspected the scheduler. | ✅ **Same bug as Q3, and the scheduler was healthy** — `cron.job_run_details` showed HTTP 200 hourly, returning `candidates: 0` because `finalizable_days()` can only finalize provisional rows that were never written. |
@@ -662,7 +675,7 @@ Edge Function writes ships with that function's redeploy.**
 |---|---|
 | **Push delivery end to end** | Planner tests are green, but nothing has proven APNs registration → server dispatch → device receipt → tap routing. A green planner is not a delivered notification. The Profile status row addresses visibility, not delivery. |
 | **Invite redemption with two accounts** | Sharing works; joining, attribution, live reordering and rejoin have never been exercised with two real identities on two devices. |
-| **Sign in with Apple** | Cannot be tested without enrolment, including on a simulator. |
+| **Sign in with Apple** | Built 2026-08-12, exercised by nobody. The simulator generally throws `ERR_REQUEST_UNKNOWN`, so the first real signal comes from a device signed into an Apple ID. Two failure modes are invisible until then: a missing App ID capability looks identical to a signed-out device, and an expired client secret would take sign-in down for everyone at once with nothing in the codebase to blame. |
 | **Cron schedules** | All three `pg_cron` migrations sit in `UNSUPPORTED_MIGRATIONS` — no test covers them, by construction. They were verified by hand once. `net._http_response` is the only place their true outcome is visible, since `cron.job_run_details` reports only that the request was enqueued. |
 | **Physical-device pass** | Offline and poor network, background overnight, permission subsets, reinstall/upgrade, Dynamic Type, VoiceOver order, memory and battery. None run. |
 
