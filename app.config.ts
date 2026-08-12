@@ -28,6 +28,16 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.arsherj.kairo',
     supportsTablet: false,
+    // Xcode refuses to sign for a physical device without a team, and
+    // `expo prebuild --clean` deletes `ios/` — so setting it in Xcode's UI
+    // survives exactly until the next prebuild. Declaring it here is what makes
+    // device builds reproducible. Not a secret: a Team ID appears in every
+    // app's provisioning profile.
+    //
+    // It does not create the signing certificate. That comes from adding the
+    // Apple ID under Xcode → Settings → Accounts, which is per-machine and
+    // cannot live in config.
+    appleTeamId: '8C53KVSFWK',
     // Writes the Sign in with Apple entitlement. Like HealthKit's, the matching
     // capability must ALSO be enabled on the App ID in the Developer portal —
     // without it the entitlement is present, the button renders, and

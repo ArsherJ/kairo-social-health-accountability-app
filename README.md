@@ -61,6 +61,29 @@ deletes it afterwards. It fails loudly on exactly that signature: buckets
 accepted, no score written. `docs/qa/kairo-end-to-end-qa-report.md` has the
 full post-mortem.
 
+### Building onto a physical device
+
+```bash
+npx expo run:ios --device      # npm run ios targets the simulator
+```
+
+Two separate things have to be in place, and Xcode reports both as one error
+(`Signing for "Kairo" requires a development team` /
+`No code signing certificates are available to use`):
+
+1. **The team**, which is `ios.appleTeamId` in `app.config.ts`. Setting it in
+   Xcode's UI instead works until the next `expo prebuild --clean`, which
+   deletes `ios/` wholesale.
+2. **A signing certificate**, which is per-machine and cannot live in config:
+   **Xcode → Settings → Accounts → `+` → Apple ID**, then select the team →
+   **Manage Certificates… → `+` → Apple Development**.
+
+`security find-identity -v -p codesigning` tells you whether the second one is
+done — "0 valid identities found" means it is not.
+
+Sign in with Apple and HealthKit both need a real device anyway; the simulator
+throws `ERR_REQUEST_UNKNOWN` for the first and returns no data for the second.
+
 ### The Sign in with Apple client secret expires
 
 Apple does not issue a client secret — it is an ES256 JWT signed with the `.p8`

@@ -145,11 +145,19 @@ the same warning so it does not get re-added.
 ### 4. Rebuild natively ✅
 
 ```bash
-npm run prebuild        # regenerates ios/, writes the entitlement, rewrites .xcode.env.local
-npm run ios
+npm run prebuild                # regenerates ios/, writes the entitlement
+npx expo run:ios --device       # not `npm run ios`, which targets the simulator
 ```
 
 The entitlement is native. A JS reload will not pick it up.
+
+**Device builds need two things Xcode reports as one error.** The team is
+`ios.appleTeamId` in `app.config.ts` (`8C53KVSFWK`) — it lives there rather than
+in Xcode's UI because `prebuild --clean` deletes `ios/` and takes any UI setting
+with it. The signing certificate is per-machine and cannot live in config:
+Xcode → Settings → Accounts → `+` → Apple ID, then Manage Certificates… → `+`
+→ Apple Development. `security find-identity -v -p codesigning` says whether
+that half is done.
 
 ### 5. Verify on a real device ⬜ — the only step left
 
