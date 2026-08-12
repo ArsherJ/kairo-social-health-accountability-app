@@ -1,17 +1,22 @@
 # Xcode Cloud — building Kairo without a USB cable
 
-**Status as of 2026-08-12.** Nothing below is done yet; this is the plan.
+**Status as of 2026-08-12.** Everything doable from a terminal is done. What
+remains needs App Store Connect, Xcode's UI, and the phone.
 
 | Step | State |
 |---|---|
-| 1. Record the deviation | ⬜ |
-| 2. Commit `ios/` | ⬜ |
-| 3. `ci_scripts/ci_post_clone.sh` | ⬜ |
-| 4. Build-number + encryption config | ⬜ |
-| 5. App Store Connect app record | ⬜ |
-| 6. Create the workflow | ⬜ |
-| 7. First build → TestFlight | ⬜ |
-| 8. Verify on device | ⬜ |
+| 1. Record the deviation | ✅ roadmap deviation #28, `README.md`, `CLAUDE.md` |
+| 2. Commit `ios/` | ✅ 20 files; `Pods/`, `build/`, `xcuserdata/`, `.xcode.env.local` still ignored |
+| 3. `ci_post_clone.sh` | ✅ **at `ios/ci_scripts/`, not the repo root** — see the correction below |
+| 4. Build-number + encryption config | ✅ `ios.buildNumber`, `ios.config.usesNonExemptEncryption`, `ci_pre_xcodebuild.sh` |
+| 5. App Store Connect app record | ⬜ **manual — App Store Connect** |
+| 6. Create the workflow | ⬜ **manual — Xcode UI** |
+| 7. First build → TestFlight | 🟡 branch pushed; the build starts when the workflow exists |
+| 8. Verify on device | ⬜ **manual — needs the phone** |
+
+Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
+was changed: step 4's config edits landed *before* the prebuild in step 2, so
+`ios/` was regenerated once rather than twice.
 
 ## Why this exists
 
@@ -107,35 +112,46 @@ ls ios/Kairo.xcodeproj/xcshareddata/xcschemes/Kairo.xcscheme
 git add ios && git status --short ios | head -20
 ```
 
-## 3. `ci_scripts/ci_post_clone.sh`
+## 3. `ci_scripts/` — and where it actually goes
 
-Xcode Cloud runs `ci_scripts/ci_post_clone.sh` from the repo root after cloning
-and before resolving dependencies. It must be executable (`chmod +x`) or it is
-silently skipped.
+**Correction to this plan as written.** It said the repo root. Apple's docs are
+explicit that it is not:
 
-```bash
-#!/bin/sh
-set -e
+> Custom build scripts reside in a directory named `ci_scripts` that's located
+> **in the same directory as your Xcode project or workspace**, and Xcode Cloud
+> runs your custom build scripts with this directory as the root directory.
 
-# Xcode Cloud images ship Homebrew but not node.
-brew install node@22
-brew link --overwrite --force node@22
+For this repo the workspace is `ios/Kairo.xcworkspace`, so the scripts belong at
+`ios/ci_scripts/`. The failure mode of getting this wrong is that the scripts
+are silently skipped and the build dies in `pod install` with no node — 25
+minutes to learn something the docs already said.
 
-cd "$CI_PRIMARY_REPOSITORY_PATH"
+That collides with `expo prebuild --clean`, which deletes `ios/` wholesale. So
+the arrangement is the one `write-xcode-env.mjs` already established:
 
-npm ci
+- **`scripts/ci/*.sh` is the source of truth.** Edit these.
+- **`ios/ci_scripts/*.sh` is a generated copy**, committed like the rest of
+  `ios/`, reinstalled by `scripts/install-ci-scripts.mjs`.
+- `postprebuild` runs the installer, so a prebuild cannot quietly remove them.
+  `npm run ci-scripts` does it by hand.
 
-# ios/.xcode.env resolves NODE_BINARY with `command -v node`, and Xcode runs
-# script phases under a restricted PATH. Same failure as locally
-# (`line 9: : command not found`), same fix — see scripts/write-xcode-env.mjs.
-node scripts/write-xcode-env.mjs
+The installer also sets mode `755`. That is load-bearing twice over: Xcode Cloud
+honours a script's shebang **only** if the file is executable, and otherwise
+runs it as `zsh <file>`.
 
-# ios/Pods is not committed. Podfile.lock is, so this is deterministic.
-cd ios && pod install
-```
-
+`ci_post_clone.sh` installs node (the images ship Homebrew, Xcode and CocoaPods
+but no node — and Expo's Podfile shells out to node, so `pod install` needs it
+first), runs `npm ci`, regenerates `.xcode.env.local`, and runs `pod install`.
 The `write-xcode-env` reuse is the important line: that script already exists for
-the identical local failure, and it is why the Hermes phase will not fail in CI.
+the identical local failure, and it is why the Hermes phase does not fail in CI.
+
+`ci_pre_xcodebuild.sh` does two things — the build number below, and a hard
+assertion that `EXPO_PUBLIC_SUPABASE_URL` and
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are present. That assertion is step 8's
+"the one assumption in this plan worth verifying early", moved to where it costs
+30 seconds instead of a build and a TestFlight round trip: without those
+variables the archive succeeds, uploads, installs, and throws "Supabase config
+missing" on launch.
 
 ## 4. Build number and export compliance
 
@@ -148,12 +164,22 @@ Two things TestFlight needs that `app.config.ts` does not currently set:
   `ci_scripts/ci_pre_xcodebuild.sh` that writes `CI_BUILD_NUMBER` into
   `ios/Kairo/Info.plist` with `PlistBuddy`. Prefer the script; a manual bump will
   be forgotten.
-- **`ITSAppUsesNonExemptEncryption: false`** in `ios.infoPlist`. Without it App
-  Store Connect asks an export-compliance question on *every* build and holds
-  processing until answered. Kairo uses only HTTPS, which is exempt.
+- **`ITSAppUsesNonExemptEncryption: false`.** Without it App Store Connect asks
+  an export-compliance question on *every* build and holds processing until
+  answered. Kairo uses only HTTPS, which is exempt. Set through Expo's own
+  `ios.config.usesNonExemptEncryption` rather than a raw `ios.infoPlist` key —
+  `@expo/config-plugins`' `UsesNonExemptEncryption` mod is what writes the plist
+  entry, and going through it keeps the two from disagreeing.
 
 Both changes go in `app.config.ts`, then `npm run prebuild`, then commit the
 regenerated `ios/` — per consequence 3 above.
+
+**Done, with the script chosen over the manual bump.** `ci_pre_xcodebuild.sh`
+patches `CFBundleVersion` with `PlistBuddy`; the committed literal is `1` and
+stays the local-build value. Verified in the regenerated project:
+`ITSAppUsesNonExemptEncryption` is `false`, `CFBundleVersion` is `1`, and
+`ios/Kairo/Kairo.entitlements` carries `com.apple.developer.applesignin`,
+`com.apple.developer.healthkit` and `…healthkit.background-delivery`.
 
 ## 5. App Store Connect app record
 
@@ -173,8 +199,10 @@ Xcode → **Product → Xcode Cloud → Create Workflow**, with `ios/Kairo.xcwor
 open. Apple will ask to install its GitHub App on
 `ArsherJ/kairo-social-health-accountability-app`; grant it.
 
-- **Start condition:** branch changes on `fix/health-sync-visibility` while
-  testing, or manual. Move to `main` once merged.
+- **Start condition:** branch changes on **`chore/xcode-cloud`** while testing,
+  or manual. Move to `main` once merged. (This plan originally named
+  `fix/health-sync-visibility`; that branch was merged in `46b747b` before any
+  of this ran, so the work landed on a new one.)
 - **Environment:** latest Xcode 26.x. Do not pin older — the project is RN 0.86 /
   Expo SDK 57.
 - **Action:** **Archive**, distribution **TestFlight (Internal Testing Only)**.
@@ -191,11 +219,14 @@ profiles through App Store Connect. The `security find-identity` prerequisite in
 
 ## 7. First build
 
-The branch has never been pushed:
+The branch is pushed:
 
 ```bash
-git push -u origin fix/health-sync-visibility
+git push -u origin chore/xcode-cloud
 ```
+
+Nothing builds until step 6 creates the workflow — Xcode Cloud has no standing
+to watch a repository it has not been pointed at.
 
 Expect 20–30 minutes for a first React Native archive (cold Pods cache). At
 ~25 min a build, the included 25 hours/month is roughly 50 builds — ample.
@@ -230,6 +261,20 @@ Two things to fold in while the build is on the device:
   history rather than pushing it.
 - **An unshared scheme is invisible to Xcode Cloud.** If the workflow cannot find
   `Kairo`, check `xcshareddata/xcschemes/` survived the prebuild.
+- **`ci_scripts` at the repo root is silently ignored** — it goes beside the
+  workspace, at `ios/ci_scripts/`. And it is generated: edit `scripts/ci/`, then
+  `npm run ci-scripts`. Editing the copy under `ios/` works until the next
+  prebuild reverts it without saying so.
+- **A script without the executable bit is run as `zsh <file>`,** shebang
+  ignored. `install-ci-scripts.mjs` sets `755`; `git ls-files -s
+  ios/ci_scripts/` should show `100755`, and git will not preserve the bit if it
+  was `100644` when first added.
+- **`aps-environment` is `development` in the committed entitlements.** That is
+  what prebuild writes and it is correct to leave alone — Xcode rewrites this
+  one entitlement to `production` when signing with a distribution profile.
+  Push notifications (§14) arriving in TestFlight is the confirmation; if they
+  do not, this is the first thing to check and the *only* entitlement where the
+  committed value is not the shipped one.
 - **Sign in with Apple has a client secret that expires 2027-02-08.** Unrelated to
   this setup, but it takes sign-in down for every user at once and will look like
   a build problem. `npm run apple-secret` re-mints it.

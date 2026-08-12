@@ -31,8 +31,9 @@ npm run test:schema      # schema (PGlite) + Edge Function planners
 npm run typecheck        # tsc + workspace tsc + deno check, all three
 
 npm run ios              # build + run on simulator
-npm run prebuild         # regenerate ios/ from app.config.ts
+npm run prebuild         # regenerate ios/ from app.config.ts — COMMIT THE RESULT
 npm run xcode-env        # rewrite ios/.xcode.env.local (see below)
+npm run ci-scripts       # reinstall ios/ci_scripts/ from scripts/ci/ (postprebuild does this)
 npm run apple-secret     # mint the Sign in with Apple client secret (see below)
 
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project
@@ -173,12 +174,21 @@ Developer Mode does not appear in Settings until a pairing has completed, so a
 missing Developer Mode menu is a *symptom* of the above, not a separate problem
 to chase.
 
-**If USB pairing is blocked and cannot be unblocked**, skip the cable entirely:
-build on EAS and install over the air. `eas device:create` registers the phone
-through a link opened on the device itself, and an internal-distribution build
-installs from a URL — neither step touches USB. Sign in with Apple and HealthKit
-both work in such a build, which is the only reason a physical device is needed
-here.
+**USB pairing is blocked on this machine and cannot be unblocked**, so the cable
+is skipped entirely: **Kairo builds on Xcode Cloud and installs through
+TestFlight.** Apple's machines archive the app and the App Store installs it —
+no step touches USB. Setup and the operating rules are in `docs/xcode-cloud.md`;
+EAS Build solves the same problem and was the alternative. Sign in with Apple
+and HealthKit both work in such a build, which is the only reason a physical
+device is needed here.
+
+**`ios/` is therefore a committed directory** (roadmap deviation #28), not a
+generated one — Xcode Cloud configures a workflow against a scheme that has to
+exist in the repo. The consequence that bites: `app.config.ts` is no longer the
+source of truth for native config. Changing `usesAppleSignIn`,
+`NSHealthShareUsageDescription`, a plugin, or anything else native now needs
+`npm run prebuild` **and a commit of the regenerated `ios/`**, or the change
+silently never reaches the build.
 
 After the first USB pairing, Xcode → Window → Devices and Simulators →
 **Connect via network** makes it wireless.
@@ -211,7 +221,9 @@ makes it look like broken source rather than a broken environment.
 
 `npm run xcode-env` writes `ios/.xcode.env.local` with an absolute path. It
 runs automatically after `npm install` and `npm run prebuild`; run it by hand
-after changing node versions. The file cannot be committed — `ios/` is
-generated and gitignored, and `expo prebuild --clean` deletes the directory.
+after changing node versions. This one file stays uncommitted even though the
+rest of `ios/` is now committed — it holds a machine-specific absolute path, so
+it is per-machine by definition. Xcode Cloud regenerates it in
+`ci_post_clone.sh`, which is why the Hermes phase does not fail there either.
 
 See `CLAUDE.md` for environment constraints (why `supabase db push` / `psql` / `supabase start` don't work on this dev machine), architecture, and testing conventions before making changes.

@@ -11,6 +11,16 @@ import type { ExpoConfig } from 'expo/config';
  * The matching capability must ALSO be enabled on the App ID in the Apple
  * Developer portal. Without it the build installs fine and silently returns no
  * health data — a genuinely miserable thing to debug.
+ *
+ * THIS FILE IS NO LONGER THE SOURCE OF TRUTH FOR NATIVE CONFIG. `ios/` is
+ * committed so Xcode Cloud can resolve a scheme (roadmap deviation #28), and
+ * prebuild does not run in CI — the committed `ios/Kairo/Info.plist` and
+ * `Kairo.entitlements` are what ship. Changing anything native here
+ * (`usesAppleSignIn`, `NSHealthShareUsageDescription`, the HealthKit plugin's
+ * `background: true`, a new plugin) requires `npm run prebuild` AND a commit of
+ * the regenerated `ios/`, or the change silently does not reach the build.
+ * The JS side is unaffected: `extra` and `EXPO_PUBLIC_*` are evaluated during
+ * the bundle phase of the Xcode build, so CI environment variables do land.
  */
 
 const config: ExpoConfig = {
@@ -45,6 +55,20 @@ const config: ExpoConfig = {
     // device that is not signed into an Apple ID. Changing this needs a native
     // rebuild (`npm run prebuild && npm run ios`), not a JS reload.
     usesAppleSignIn: true,
+    // CFBundleVersion. Every TestFlight upload needs a unique one, and because
+    // `ios/` is committed (roadmap deviation #28) prebuild does not run in CI —
+    // so this value cannot be derived from `CI_BUILD_NUMBER` through the config.
+    // `ci_scripts/ci_pre_xcodebuild.sh` overwrites it in the built Info.plist
+    // with Xcode Cloud's monotonic build number. This literal is therefore the
+    // local-build value and the floor, not what ships.
+    buildNumber: '1',
+    config: {
+      // Writes `ITSAppUsesNonExemptEncryption: false`. Without it App Store
+      // Connect asks the export-compliance question on *every* upload and holds
+      // processing until it is answered. Kairo's only cryptography is HTTPS,
+      // which is exempt under the standard ATS/HTTPS exemption.
+      usesNonExemptEncryption: false,
+    },
     infoPlist: {
       // HealthKit is iPhone-only; declaring it keeps the App Store listing honest.
       UIRequiredDeviceCapabilities: ['healthkit'],
