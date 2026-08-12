@@ -54,6 +54,25 @@ Ignore the **App Services** and **Additional Capabilities** tabs. Those cover
 entitlements needing Apple's written approval; Kairo uses none of them, so
 there is no request to file.
 
+**Three sub-options sit next to the ones you want, and all three stay off:**
+
+- **HealthKit → Estimate Recalibration.** It gates
+  `recalibrateEstimates(...)`, for apps correcting Apple's *estimated* cardio
+  fitness and running metrics. Kairo requests `toRead` only
+  (`permission.ts`), the Expo plugin never writes the matching entitlement,
+  and the sole `toShare` in the tree is the `__DEV__` simulator seeder.
+- **Push Notifications → Broadcast.** Live Activity broadcast channels, which
+  need a Live Activity to broadcast to. Kairo has no widget extension and
+  sends per-user alerts through Expo (deviation #15).
+- **Sign in with Apple → anything but the "primary App ID" default.** Grouping
+  with an existing primary is for a family of apps sharing one Apple ID
+  identity space; Kairo is one app.
+
+The failure direction is one-way — an entitlement the App ID lacks breaks
+signing, a capability the app never asks for signs fine — so these are
+pointless rather than dangerous. Leave them off anyway: an unused entitlement
+is a question at App Review with no good answer.
+
 **Do all three in one pass.** A missing capability does not fail the build — it
 installs fine and the feature silently does nothing. HealthKit returns no data.
 Apple throws `ERR_REQUEST_UNKNOWN`, which is indistinguishable from a device
