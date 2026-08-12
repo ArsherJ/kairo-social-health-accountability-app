@@ -213,6 +213,14 @@ open. Apple will ask to install its GitHub App on
   `.env`. **Do not add `OPENAI_API_KEY`**; it is used only by the local
   swap-asset scripts and has no business in a build that ships.
 
+  Both names are asserted by `ci_pre_xcodebuild.sh`, so a missing one fails the
+  build in seconds with the variable named in the log rather than shipping an
+  archive that throws on launch. The mechanism is confirmed working locally: the
+  `[CP-User] Generate app.config for prebuilt Constants.manifest` phase reads
+  `process.env` at build time and bakes the values into
+  `EXConstants.bundle/app.config`, which is what `Constants.expoConfig.extra`
+  reads. In CI that `process.env` is the workflow's Environment section.
+
 Signing needs no local certificate: Xcode Cloud manages its own certificates and
 profiles through App Store Connect. The `security find-identity` prerequisite in
 `README.md` applies to local device builds only.
