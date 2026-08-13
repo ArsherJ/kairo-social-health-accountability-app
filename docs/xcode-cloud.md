@@ -11,7 +11,7 @@ remains needs App Store Connect, Xcode's UI, and the phone.
 | 4. Build-number + encryption config | ✅ `ios.buildNumber`, `ios.config.usesNonExemptEncryption`, `ci_pre_xcodebuild.sh` |
 | 5. App Store Connect app record | ⬜ **manual — App Store Connect** |
 | 6. Create the workflow | ⬜ **manual — Xcode UI** |
-| 7. First build → TestFlight | 🟡 branch pushed; the build starts when the workflow exists |
+| 7. First build → TestFlight | 🟡 build 1 archived and exported for the App Store; its dev/ad-hoc exports fail permanently (see landmines) |
 | 8. Verify on device | ⬜ **manual — needs the phone** |
 
 Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
@@ -307,6 +307,22 @@ Two things to fold in while the build is on the device:
 - **An Archive action alone never reaches TestFlight.** Distribution is a
   post-action. A workflow that runs green and produces an artifact nobody can
   install is this, every time.
+- **Every build reports two export errors, permanently.** The archive action
+  exports three ways — app-store, development, ad-hoc — and the last two fail
+  with `No profiles for 'com.arsherj.kairo' were found`. Apple's API gives the
+  reason in `IDEDistributionProvisioning.log`: *"Your team has no devices from
+  which to generate a provisioning profile."* A development or ad-hoc profile
+  must contain a registered device, registering one needs a USB pairing, and
+  that is the constraint this whole document exists to route around. So it is
+  not fixable here and is not worth chasing. **TestFlight installs the app-store
+  export, which is unaffected** — check `** EXPORT SUCCEEDED **` in
+  `app-store-export-archive-logs/` and `** ARCHIVE SUCCEEDED **` before
+  believing a red build.
+- **A first React Native archive reports ~92 warnings.** `umbrella header for
+  module 'jsi' does not include header …`, `the variable "setTimeout" was not
+  declared …`, `Direct call to eval()`. All are RN/Hermes noise. Build 1 showed
+  "94 issues" and it was these 92 plus the 2 export errors above — nothing in
+  Kairo's own code.
 - **Steps 5 and 6 are ordered, not independent.** The TestFlight post-action is
   disabled until an App Store Connect app record exists, and reads as a
   half-finished Xcode Cloud setup rather than as a missing record — the
