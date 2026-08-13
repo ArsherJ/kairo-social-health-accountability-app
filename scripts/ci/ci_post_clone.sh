@@ -46,22 +46,29 @@ node scripts/write-xcode-env.mjs
 # that expo-modules-autolinking creates from a pre-install hook — and that hook
 # discards the script's exit status, so a failure there is silent.
 #
-# On Xcode Cloud the classification came out wrong. Build 2's archive log runs
-# [CP] Embed Pods Frameworks with 7 of its 8 install_framework calls; the missing
-# one is ExpoModulesJSI. Archive, export and upload all still succeed, and the
-# app dies on launch with:
+# That inspection came out "static" on a fresh checkout, so
+# Pods-Kairo-frameworks.sh was generated with 7 of its 8 install_framework
+# calls, ExpoModulesJSI missing. Archive, export and upload all still succeed,
+# and the app dies on launch with:
 #   Library not loaded: @rpath/ExpoModulesJSI.framework/ExpoModulesJSI
-# That is what shipped to TestFlight.
+# That is what shipped to TestFlight as build 3.
 #
-# A fully-fresh `pod install` on the dev Mac (no Pods/, no Products/, CocoaPods
-# 1.17.0) emits all 8, so the difference is environmental and is NOT yet pinned
-# down — CI never prints its CocoaPods version, which is the leading suspect.
-# The diagnostics below exist to close that gap from the next build's log.
+# ROOT CAUSE (found via build 5's `file` diagnostic below, which reported the
+# stub binary as "empty"): patches/expo-modules-jsi+57.0.4.patch had been
+# generated while the package held local Xcode build output, so it carried
+# `apple/Products/` and `apple/.DerivedData/` along with its real source fixes.
+# A diff cannot encode a Mach-O binary — those stanzas are just "Binary files
+# ... differ" — so patch-package recreated the framework binary as a ZERO-BYTE
+# file on every `npm ci`. create-stub-xcframework.sh is deliberately
+# non-destructive and keeps an existing binary, so the empty one survived, and
+# CocoaPods read 0 bytes as "not a dynamic framework". The patch is now filtered
+# to its 15 Swift source fixes and the failure is reproducible on demand by
+# restoring the old one.
 #
-# Creating the stub explicitly is idempotent and puts it in place before
-# CocoaPods runs, with `set -e` free to catch a failure the hook would swallow.
-# The assertion after `pod install` is the real protection: it converts a
-# crash-on-launch into a build failure that names its own cause.
+# Creating the stub explicitly is belt-and-braces: it runs before CocoaPods with
+# `set -e` free to catch a failure the hook would swallow. The assertion after
+# `pod install` is the real protection — it converts a crash-on-launch into a
+# build failure that names its own cause, and it is what caught this.
 JSI_APPLE_DIR="$CI_PRIMARY_REPOSITORY_PATH/node_modules/expo-modules-jsi/apple"
 if [ -f "$JSI_APPLE_DIR/scripts/create-stub-xcframework.sh" ]; then
   # Invoked through `bash` rather than executed, so a missing exec bit cannot

@@ -3,10 +3,10 @@
 **Status as of 2026-08-13.** The pipeline works end to end: a push to
 `chore/xcode-cloud` archives on Apple's machines and lands in TestFlight. The
 first build to make it through **crashed on launch** — `Library not loaded:
-@rpath/ExpoModulesJSI.framework/ExpoModulesJSI` — because `pod install` on
-Apple's image silently declined to embed one framework. A guard now fails the
-build instead of shipping it; see the landmines. Step 8 resumes once a guarded
-build installs.
+@rpath/ExpoModulesJSI.framework/ExpoModulesJSI` — because a patch-package patch
+carrying stale Xcode build output made `pod install` skip embedding one
+framework. Fixed at the cause, with a guard that fails the build rather than
+shipping it again; see the landmines. Step 8 resumes on the next build.
 
 | Step | State |
 |---|---|
@@ -17,7 +17,7 @@ build installs.
 | 5. App Store Connect app record | ✅ created |
 | 6. Create the workflow | ✅ Archive + TestFlight Internal Testing post-action, `chore/xcode-cloud`, both env vars secret |
 | 7. First build → TestFlight | ✅ green once one iOS device was registered in the portal (builds 1–2 failed the dev/ad-hoc exports — see landmines) |
-| 8. Verify on device | ⛔ first TestFlight build installed and **crashed on launch** (missing `ExpoModulesJSI.framework`) — guard added, needs a re-run |
+| 8. Verify on device | 🟡 build 3 installed and **crashed on launch** (missing `ExpoModulesJSI.framework`); cause fixed and reproduced both ways locally — awaiting a green build to verify on |
 
 Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
 was changed: step 4's config edits landed *before* the prebuild in step 2, so
@@ -365,21 +365,37 @@ Two things to fold in while the build is on the device:
   ExpoModulesWorklets. The binary still links against it, so dyld fails at
   launch.
 
-  **Why it is not reproducible here:** a fully-fresh `pod install` on this Mac —
-  no `ios/Pods/`, no `Products/`, CocoaPods 1.17.0 — emits all 8. Both
-  possibilities were tested and neither reproduced it. The difference is
-  environmental and still unidentified; CI never prints its CocoaPods version,
-  which is the leading suspect. `ci_post_clone.sh` now prints `pod --version`
-  and the stub's Mach-O type so the next log settles it.
+  **The cause was `patches/expo-modules-jsi+57.0.4.patch`, and it is worth
+  understanding because the same trap is one careless `npx patch-package` away
+  in any package.** That patch was 11 MB: 15 genuine Swift 6 source fixes
+  (`weak let` → `nonisolated(unsafe) weak var`, `abs` → `Swift.abs`) plus 576
+  diffs of `apple/.DerivedData/` and 30 of `apple/Products/` — local Xcode
+  build output that happened to be sitting in `node_modules` when the patch was
+  generated. **A diff cannot encode a Mach-O binary.** Those stanzas are only
+  `Binary files /dev/null and b/… differ`, carrying no content, so on every
+  `npm ci` patch-package recreated
+  `Products/ExpoModulesJSI.xcframework/ios-arm64/…/ExpoModulesJSI` as a
+  **zero-byte file**. `create-stub-xcframework.sh` is deliberately
+  non-destructive — it keeps any existing slice binary — so the empty file
+  survived, and CocoaPods read 0 bytes as "not dynamic".
 
-  The guard is the part that matters: `ci_post_clone.sh` creates the stub
-  explicitly (via `bash`, so a missing exec bit cannot no-op it) and then
-  **asserts ExpoModulesJSI is in the embed script**, failing the build if not.
-  A crash-on-launch becomes a build failure naming its own cause. This is the
-  same shape as the Supabase env-var assertions and `smoke-sync.mjs`: the thing
-  tests cannot see is the deployed artifact, so the check belongs in the
-  pipeline. If the assertion ever fires, the escalation is to pin CocoaPods to
-  the version this Mac runs.
+  It never reproduced on this Mac because `node_modules` here already held a
+  real binary from an earlier local build, which the same non-destructive rule
+  preserved. Restoring the old patch and reinstalling the package from its npm
+  tarball reproduces it exactly: `file` reports `empty` and the embed list comes
+  out at 7. With the patch filtered to its 15 source hunks (11 MB → 14 KB), the
+  stub script builds a real dylib and the list comes out at 8.
+
+  **When regenerating a patch for a package with an Xcode build in it, exclude
+  the build output** — `npx patch-package <pkg> --exclude '(\.DerivedData|Products)/'`
+  — or the next patch reintroduces this.
+
+  The guard stays regardless: `ci_post_clone.sh` creates the stub explicitly
+  (via `bash`, so a missing exec bit cannot no-op it) and then **asserts
+  ExpoModulesJSI is in the embed script**, failing the build if not. It is what
+  caught this, and it is the same shape as the Supabase env-var assertions and
+  `smoke-sync.mjs`: what tests cannot see is the deployed artifact, so the check
+  belongs in the pipeline.
 - **A first React Native archive reports ~92 warnings.** `umbrella header for
   module 'jsi' does not include header …`, `the variable "setTimeout" was not
   declared …`, `Direct call to eval()`. All are RN/Hermes noise. Build 1 showed
