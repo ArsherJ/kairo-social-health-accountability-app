@@ -11,7 +11,7 @@ remains needs App Store Connect, Xcode's UI, and the phone.
 | 4. Build-number + encryption config | ✅ `ios.buildNumber`, `ios.config.usesNonExemptEncryption`, `ci_pre_xcodebuild.sh` |
 | 5. App Store Connect app record | ⬜ **manual — App Store Connect** |
 | 6. Create the workflow | ⬜ **manual — Xcode UI** |
-| 7. First build → TestFlight | 🟡 build 1 archived and exported for the App Store; its dev/ad-hoc exports fail permanently (see landmines) |
+| 7. First build → TestFlight | ❌ builds 1–2 archive and export for the App Store, then fail the action on the dev/ad-hoc exports — **blocked on registering one iOS device** (see landmines) |
 | 8. Verify on device | ⬜ **manual — needs the phone** |
 
 Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
@@ -307,17 +307,29 @@ Two things to fold in while the build is on the device:
 - **An Archive action alone never reaches TestFlight.** Distribution is a
   post-action. A workflow that runs green and produces an artifact nobody can
   install is this, every time.
-- **Every build reports two export errors, permanently.** The archive action
-  exports three ways — app-store, development, ad-hoc — and the last two fail
-  with `No profiles for 'com.arsherj.kairo' were found`. Apple's API gives the
-  reason in `IDEDistributionProvisioning.log`: *"Your team has no devices from
-  which to generate a provisioning profile."* A development or ad-hoc profile
-  must contain a registered device, registering one needs a USB pairing, and
-  that is the constraint this whole document exists to route around. So it is
-  not fixable here and is not worth chasing. **TestFlight installs the app-store
-  export, which is unaffected** — check `** EXPORT SUCCEEDED **` in
-  `app-store-export-archive-logs/` and `** ARCHIVE SUCCEEDED **` before
-  believing a red build.
+- **The archive action fails until one iOS device is registered in the account,
+  and it fails in a way that looks like it should be ignorable.** It exports
+  three ways — app-store, development, ad-hoc — and the last two die with
+  `No profiles for 'com.arsherj.kairo' were found`. Apple's API gives the reason
+  in `IDEDistributionProvisioning.log`: *"Your team has no devices from which to
+  generate a provisioning profile. Connect a device to use or manually add
+  device IDs in Certificates, Identifiers & Profiles."* A development or ad-hoc
+  profile must contain at least one device; this team has none, because
+  registering one normally requires the USB pairing this document exists to
+  route around.
+
+  **Two of the three exports failing fails the whole action, and a failed action
+  skips every post-action** — so nothing uploads and App Store Connect lists no
+  build, even though `** ARCHIVE SUCCEEDED **` and the app-store export reported
+  `** EXPORT SUCCEEDED **` and wrote a real IPA. Builds 1 and 2 both failed
+  exactly this way and were misread as cosmetic first time round.
+
+  The device does not have to be the test phone — the profile only needs a
+  non-empty device list. Getting a UDID without USB is the actual problem; any
+  non-corporate computer (Finder on a Mac, iTunes on Windows, `libimobiledevice`
+  on Linux) reads it in a minute, and `ios/Kairo/Kairo.entitlements` is not
+  involved. Deployment Preparation does not help: Apple documents it as
+  determining *how Xcode Cloud signs your app*, not which export variants run.
 - **A first React Native archive reports ~92 warnings.** `umbrella header for
   module 'jsi' does not include header …`, `the variable "setTimeout" was not
   declared …`, `Direct call to eval()`. All are RN/Hermes noise. Build 1 showed
