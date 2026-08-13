@@ -1,8 +1,12 @@
 # Xcode Cloud — building Kairo without a USB cable
 
 **Status as of 2026-08-13.** The pipeline works end to end: a push to
-`chore/xcode-cloud` archives on Apple's machines and lands in TestFlight. All
-that remains is step 8 — installing the build and verifying it on the phone.
+`chore/xcode-cloud` archives on Apple's machines and lands in TestFlight. The
+first build to make it through **crashed on launch** — `Library not loaded:
+@rpath/ExpoModulesJSI.framework/ExpoModulesJSI` — because `pod install` on
+Apple's image silently declined to embed one framework. A guard now fails the
+build instead of shipping it; see the landmines. Step 8 resumes once a guarded
+build installs.
 
 | Step | State |
 |---|---|
@@ -13,7 +17,7 @@ that remains is step 8 — installing the build and verifying it on the phone.
 | 5. App Store Connect app record | ✅ created |
 | 6. Create the workflow | ✅ Archive + TestFlight Internal Testing post-action, `chore/xcode-cloud`, both env vars secret |
 | 7. First build → TestFlight | ✅ green once one iOS device was registered in the portal (builds 1–2 failed the dev/ad-hoc exports — see landmines) |
-| 8. Verify on device | ⬜ **manual — needs the phone** |
+| 8. Verify on device | ⛔ first TestFlight build installed and **crashed on launch** (missing `ExpoModulesJSI.framework`) — guard added, needs a re-run |
 
 Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
 was changed: step 4's config edits landed *before* the prebuild in step 2, so
@@ -345,6 +349,37 @@ Two things to fold in while the build is on the device:
   that USB pairing normally satisfies as a side effect. Xcode Cloud removes the
   cable from the *build*, not from every assumption Apple's tooling makes about
   one having been plugged in.
+- **A green archive can still ship an app that cannot launch.** The first build
+  to reach TestFlight died instantly with `Library not loaded:
+  @rpath/ExpoModulesJSI.framework/ExpoModulesJSI`. Nothing was red anywhere: the
+  archive succeeded, all three exports succeeded, the upload succeeded.
+
+  `expo-modules-jsi` ships no binary in its npm package — the xcframework is
+  produced by a build-time script phase. But whether CocoaPods *embeds* that
+  framework is decided much earlier, at `pod install` time, by inspecting a stub
+  xcframework that `expo-modules-autolinking` creates from a pre-install hook
+  whose exit status it discards. On Apple's image that inspection came out
+  "static", so `Pods-Kairo-frameworks.sh` was generated with 8 frameworks minus
+  one. Build 2's archive log runs `[CP] Embed Pods Frameworks` with exactly 7
+  `install_framework` calls, ExpoModulesJSI absent between ExpoModulesCore and
+  ExpoModulesWorklets. The binary still links against it, so dyld fails at
+  launch.
+
+  **Why it is not reproducible here:** a fully-fresh `pod install` on this Mac —
+  no `ios/Pods/`, no `Products/`, CocoaPods 1.17.0 — emits all 8. Both
+  possibilities were tested and neither reproduced it. The difference is
+  environmental and still unidentified; CI never prints its CocoaPods version,
+  which is the leading suspect. `ci_post_clone.sh` now prints `pod --version`
+  and the stub's Mach-O type so the next log settles it.
+
+  The guard is the part that matters: `ci_post_clone.sh` creates the stub
+  explicitly (via `bash`, so a missing exec bit cannot no-op it) and then
+  **asserts ExpoModulesJSI is in the embed script**, failing the build if not.
+  A crash-on-launch becomes a build failure naming its own cause. This is the
+  same shape as the Supabase env-var assertions and `smoke-sync.mjs`: the thing
+  tests cannot see is the deployed artifact, so the check belongs in the
+  pipeline. If the assertion ever fires, the escalation is to pin CocoaPods to
+  the version this Mac runs.
 - **A first React Native archive reports ~92 warnings.** `umbrella header for
   module 'jsi' does not include header …`, `the variable "setTimeout" was not
   declared …`, `Direct call to eval()`. All are RN/Hermes noise. Build 1 showed
