@@ -205,9 +205,22 @@ open. Apple will ask to install its GitHub App on
   of this ran, so the work landed on a new one.)
 - **Environment:** latest Xcode 26.x. Do not pin older — the project is RN 0.86 /
   Expo SDK 57.
-- **Action:** **Archive**, distribution **TestFlight (Internal Testing Only)**.
-  Internal testers skip Beta App Review, so builds land in minutes rather than a
-  day.
+- **Action:** **Archive**. Its *Deployment Preparation* setting offers exactly
+  three values — **None**, **TestFlight (Internal Testing Only)**, and
+  **TestFlight and App Store**. Either TestFlight value works; **TestFlight and
+  App Store** is a superset and is the one to pick if the internal-only option is
+  not offered. Internal testers skip Beta App Review under both, because that is
+  a property of *internal* testing rather than of this setting. The only cost of
+  the App Store-eligible archive is stricter upload validation — already
+  satisfied here by `ITSAppUsesNonExemptEncryption`, the committed
+  `PrivacyInfo.xcprivacy`, and the 1024 icon.
+- **Post-action: TestFlight Internal Testing.** *(This plan originally missed
+  this step and described distribution as part of the Archive action; it is not.
+  Archiving and distributing are separate, and a workflow with only the Archive
+  action produces an artifact that never reaches TestFlight.)* Click **+** next
+  to **Post-Actions**, choose **TestFlight Internal Testing**, and select a
+  tester group. If the picker is empty, create the group first in App Store
+  Connect → Kairo → TestFlight → Internal Testing → **+**.
 - **Environment variables** (mark secret):
   `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — values from
   `.env`. **Do not add `OPENAI_API_KEY`**; it is used only by the local
@@ -267,6 +280,13 @@ Two things to fold in while the build is on the device:
   `ios/Kairo/Kairo.entitlements` before suspecting the portal.
 - **`ios/Pods` must stay ignored.** 1.2 GB. If it lands in a commit, rewrite
   history rather than pushing it.
+- **An Archive action alone never reaches TestFlight.** Distribution is a
+  post-action. A workflow that runs green and produces an artifact nobody can
+  install is this, every time.
+- **External testing requires a clean build; internal does not.** Apple's own
+  warning is that Environment → Clean "significantly increases the time it takes
+  to perform a build". Leave it off while testing internally, and expect the
+  jump when external testers are added.
 - **An unshared scheme is invisible to Xcode Cloud.** If the workflow cannot find
   `Kairo`, check `xcshareddata/xcschemes/` survived the prebuild.
 - **`ci_scripts` at the repo root is silently ignored** — it goes beside the
