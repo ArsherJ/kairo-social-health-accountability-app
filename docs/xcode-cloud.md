@@ -193,6 +193,20 @@ Store Connect → Apps → **+** → New App:
 
 No screenshots, pricing or review submission are needed for internal TestFlight.
 
+**This step gates step 6's post-action, so it cannot be deferred past it.** Apple:
+"you need an app record in App Store Connect for your app. If you already have an
+app record, Xcode Cloud uses it automatically. If you don't have an app record,
+Xcode helps you create one after you grant Xcode Cloud access to your Git
+repository." Until one exists the TestFlight post-action is greyed out —
+*unavailable until setup completes* — while the notification post-actions, which
+target nothing, stay enabled.
+
+Creating it through Xcode's onboarding prompt instead of App Store Connect is
+equivalent and asks for the same fields. Either way the **name collides**: "Kairo"
+is taken on the App Store. The name is editable until first release and internal
+TestFlight publishes nothing, so take a working name now rather than solving
+branding mid-flow.
+
 ## 6. Create the workflow
 
 Xcode → **Product → Xcode Cloud → Create Workflow**, with `ios/Kairo.xcworkspace`
@@ -221,6 +235,16 @@ open. Apple will ask to install its GitHub App on
   to **Post-Actions**, choose **TestFlight Internal Testing**, and select a
   tester group. If the picker is empty, create the group first in App Store
   Connect → Kairo → TestFlight → Internal Testing → **+**.
+
+  **It is greyed out during the first-run wizard** — "unavailable until setup
+  completes" — because no app record exists yet (step 5). Do not fight it there.
+  Finish onboarding with whatever workflow Xcode suggests, create the app record
+  when prompted, then reopen **Report navigator → Cloud → the workflow → Edit
+  Workflow**; the post-action is selectable from that screen. Nothing chosen in
+  the wizard is load-bearing, because everything in it is editable afterwards.
+  Two of its defaults do need correcting in that same pass: it starts builds on
+  the **default branch** (`main`, not `chore/xcode-cloud`) and it carries none of
+  the environment variables below.
 - **Environment variables** (mark secret):
   `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — values from
   `.env`. **Do not add `OPENAI_API_KEY`**; it is used only by the local
@@ -283,6 +307,12 @@ Two things to fold in while the build is on the device:
 - **An Archive action alone never reaches TestFlight.** Distribution is a
   post-action. A workflow that runs green and produces an artifact nobody can
   install is this, every time.
+- **Steps 5 and 6 are ordered, not independent.** The TestFlight post-action is
+  disabled until an App Store Connect app record exists, and reads as a
+  half-finished Xcode Cloud setup rather than as a missing record — the
+  notification post-actions beside it stay enabled, so the section does not look
+  blocked. If step 5 stalls (the name is taken), finish the workflow without the
+  post-action and add it later; the workflow is editable.
 - **External testing requires a clean build; internal does not.** Apple's own
   warning is that Environment → Clean "significantly increases the time it takes
   to perform a build". Leave it off while testing internally, and expect the
