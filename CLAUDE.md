@@ -93,6 +93,22 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **`ios/` is committed as of 2026-08-12** (roadmap deviation #28), because Xcode Cloud configures a workflow against a scheme in a project that has to exist in the repo. Only build output stays ignored: `ios/Pods/` (1.2 GB, reinstalled in CI from the committed `Podfile.lock`), `ios/build/`, `ios/DerivedData/`, `ios/.xcode.env.local`, `xcuserdata/`. **The consequence that bites: `app.config.ts` is no longer the source of truth for native config.** The committed `Info.plist` and `Kairo.entitlements` are what ship, so changing `usesAppleSignIn`, `NSHealthShareUsageDescription`, the HealthKit plugin's `background: true` or any plugin needs `npm run prebuild` **and a commit of the regenerated `ios/`**, or the change silently never reaches the build — the same class of failure as shipping a migration without its Edge Function redeploy. The JS half is unaffected: `extra` and `EXPO_PUBLIC_*` are evaluated during the Xcode build's bundle phase, so workflow environment variables do land. Xcode Cloud's build scripts live at `ios/ci_scripts/` because Apple looks for `ci_scripts` **beside the project, not at the repo root**; `expo prebuild --clean` deletes them, so `scripts/ci/` is their source of truth and `postprebuild` reinstalls them — the same arrangement, and the same reason, as `write-xcode-env.mjs`.
 
+**React Native core is built from source as of 2026-08-13** (roadmap deviation #29),
+via `plugins/withReactNativeFromSource.js` → `ios.buildReactNativeFromSource`. This is
+not a preference: Meta's prebuilt `React.xcframework` is compiled against libc++ 19,
+CocoaPods compiles `ExpoModulesCore` against the installed Xcode's libc++ 21, and the
+two disagree about `sizeof(ShadowNodeFamily)` by 64 bytes — so every Expo view
+overflows its own heap block and the app dies before the first frame. Headers are
+byte-identical; nothing warns. **Do not re-enable prebuilts to speed up CI** —
+`ci_post_clone.sh` fails the build if the `React-Core-prebuilt` pod comes back.
+The debugging lesson is the durable part: the crash surfaced as
+`-[RCTComponentViewFactory createComponentViewWithComponentHandle:]`, which reads as
+an unregistered Fabric component and is not one. A crash signature that **varies
+between runs of the same binary** is heap corruption, not a bug where it crashed;
+reproduce it with a Release *simulator* build (100%, no TestFlight round trip) and
+pin it with Guard Malloc, leaving `MALLOC_PROTECT_BEFORE` unset. Full account in
+`docs/xcode-cloud.md` under Known landmines.
+
 ## Architecture
 
 ### `packages/kairo-core` is the keystone

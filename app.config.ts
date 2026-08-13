@@ -84,6 +84,14 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-secure-store',
     './plugins/withIosBuildWarningFixes',
+    // Load-bearing, not an optimisation choice. Meta's prebuilt React
+    // xcframework is compiled against libc++ 19 while CocoaPods builds Expo's
+    // pods against the installed Xcode's libc++ 21, and the two disagree on
+    // `sizeof(ShadowNodeFamily)` by 64 bytes — every Expo view created
+    // overflows its own heap block. Removing this brings back a launch crash
+    // whose stack lands somewhere different on every run. Full write-up in the
+    // plugin.
+    './plugins/withReactNativeFromSource',
     [
       '@kingstinct/react-native-healthkit',
       {

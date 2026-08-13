@@ -96,3 +96,27 @@ if ! grep -q 'ExpoModulesJSI\.framework' "$EMBED_SCRIPT"; then
   echo "error: see the ExpoModulesJSI embed guard in scripts/ci/ci_post_clone.sh." >&2
   exit 1
 fi
+
+# --- prebuilt React core guard ----------------------------------------------
+# React Native 0.86 links Meta's prebuilt React.xcframework by default. Meta
+# compiles it against libc++ 19 (Xcode 16); CocoaPods compiles ExpoModulesCore
+# against the installed Xcode's libc++ 21. They disagree on
+# `sizeof(ShadowNodeFamily)` by 64 bytes, so every Expo view overflows its own
+# heap block and the app dies before the first frame — at a *different* stack
+# every run, because the corruption surfaces at some later allocation. That is
+# what shipped as the `createComponentViewWithComponentHandle` crash.
+#
+# `plugins/withReactNativeFromSource.js` sets `ios.buildReactNativeFromSource`,
+# which makes ios/Podfile export RCT_USE_PREBUILT_RNCORE=0 and RCT_USE_RN_DEP=0.
+# Assert the outcome rather than the input: a lost plugin, a stale committed
+# Podfile.properties.json or an upstream default change all land here, and all
+# of them otherwise produce a green archive that crashes on every device.
+if [ -d "Pods/React-Core-prebuilt" ]; then
+  echo "error: pod install linked Meta's prebuilt React.xcframework." >&2
+  echo "error: its libc++ ABI does not match the pods CocoaPods builds locally," >&2
+  echo "error: and the app will corrupt its heap and crash on launch." >&2
+  echo "error: expected ios.buildReactNativeFromSource=true in Podfile.properties.json" >&2
+  echo "error: see plugins/withReactNativeFromSource.js." >&2
+  exit 1
+fi
+echo "--- React core built from source (no React-Core-prebuilt pod) ---"

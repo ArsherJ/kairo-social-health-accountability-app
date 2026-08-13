@@ -430,3 +430,57 @@ Two things to fold in while the build is on the device:
 - **Sign in with Apple has a client secret that expires 2027-02-08.** Unrelated to
   this setup, but it takes sign-in down for every user at once and will look like
   a build problem. `npm run apple-secret` re-mints it.
+- **The *second* green archive also shipped an app that could not launch, for a
+  completely different reason: Meta's prebuilt `React.xcframework`.** Build 4
+  reached TestFlight and died on the first frame in
+  `-[RCTComponentViewFactory createComponentViewWithComponentHandle:]`, which
+  reads like a component that failed to register. It is not. Nothing is missing.
+
+  React Native 0.86 links React core, ReactNativeDependencies and hermesvm as
+  **prebuilt binary xcframeworks** (the `React-Core-prebuilt` pod) to cut build
+  times. Meta compiles those against a pinned toolchain — the shipped binaries
+  carry libc++'s `abi:ne190102` tag (libc++ 19, Xcode 16). Every pod CocoaPods
+  builds locally, `ExpoModulesCore` among them, compiles against whatever Xcode
+  is installed — 26.6 here, `abi:nqe210106`, libc++ 21. libc++ changed the layout
+  of a type `facebook::react::ShadowNodeFamily` holds by value between those
+  versions, so the two halves of the app disagree about its size: **400 bytes as
+  `React.framework` sees it, 336 as `ExpoModulesCore` sees it.** The headers on
+  disk are byte-identical, so nothing warns and nothing fails to build.
+
+  `ExpoViewComponentDescriptor::createFamily` inlines
+  `make_shared<ShadowNodeFamily>`, so ExpoModulesCore allocates its own short
+  360-byte block and then calls React's out-of-line constructor, which writes
+  out to offset 400 — **64 bytes past the end of the block, for every Expo view
+  created.**
+
+  **The reason this is worth a landmine entry is the debugging shape, not the
+  bug.** The overflow scribbles the malloc metadata of whatever block happens to
+  sit next, so the process dies at some *later, unrelated* allocation. Five
+  consecutive launches of one binary produced three different crash signatures:
+  the `RCTComponentViewFactory` one Apple reported, a malloc freelist abort on
+  the JS thread inside `RCTTextLayoutManager`'s cache, and another on the main
+  thread inside `ProcessInfo.environment` reached from SwiftUI under
+  `-[UINavigationController loadView]`. Every one of them leads into React
+  Native's or Apple's code, which is innocent.
+
+  **A signature that changes between runs of the same binary is heap corruption,
+  not a bug where it crashed.** Two things settle it quickly, and both are worth
+  reaching for before reading any more stack traces: build Release for the
+  *simulator* (`npx expo run:ios --configuration Release`) — this reproduced
+  100% of the time locally, so no TestFlight round trip is needed — and then run
+  it under Guard Malloc, `SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib`,
+  which traps on the offending write itself. Leave `MALLOC_PROTECT_BEFORE`
+  **unset**: it moves the guard page in front of each allocation, which hides
+  overflows and reports the app as perfectly healthy.
+
+  **Fixed by building React Native from source** —
+  `plugins/withReactNativeFromSource.js` sets `ios.buildReactNativeFromSource`,
+  which makes `ios/Podfile` export `RCT_USE_PREBUILT_RNCORE=0` and
+  `RCT_USE_RN_DEP=0`. One compiler, one layout, mismatch impossible. The cost is
+  the whole reason prebuilts exist: CI now compiles React Native itself, so
+  expect a substantially longer build. `ci_post_clone.sh` fails the build if the
+  `React-Core-prebuilt` pod comes back.
+
+  Note the shape, because it generalises past this one pod: **any prebuilt C++
+  binary in the dependency graph is a silent ABI contract with the toolchain
+  that built it.** Bumping Xcode can break it without a single warning.
