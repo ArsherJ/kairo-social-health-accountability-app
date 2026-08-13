@@ -1,7 +1,8 @@
 # Xcode Cloud — building Kairo without a USB cable
 
-**Status as of 2026-08-12.** Everything doable from a terminal is done. What
-remains needs App Store Connect, Xcode's UI, and the phone.
+**Status as of 2026-08-13.** The pipeline works end to end: a push to
+`chore/xcode-cloud` archives on Apple's machines and lands in TestFlight. All
+that remains is step 8 — installing the build and verifying it on the phone.
 
 | Step | State |
 |---|---|
@@ -9,9 +10,9 @@ remains needs App Store Connect, Xcode's UI, and the phone.
 | 2. Commit `ios/` | ✅ 20 files; `Pods/`, `build/`, `xcuserdata/`, `.xcode.env.local` still ignored |
 | 3. `ci_post_clone.sh` | ✅ **at `ios/ci_scripts/`, not the repo root** — see the correction below |
 | 4. Build-number + encryption config | ✅ `ios.buildNumber`, `ios.config.usesNonExemptEncryption`, `ci_pre_xcodebuild.sh` |
-| 5. App Store Connect app record | ⬜ **manual — App Store Connect** |
-| 6. Create the workflow | ⬜ **manual — Xcode UI** |
-| 7. First build → TestFlight | ❌ builds 1–2 archive and export for the App Store, then fail the action on the dev/ad-hoc exports — **blocked on registering one iOS device** (see landmines) |
+| 5. App Store Connect app record | ✅ created |
+| 6. Create the workflow | ✅ Archive + TestFlight Internal Testing post-action, `chore/xcode-cloud`, both env vars secret |
+| 7. First build → TestFlight | ✅ green once one iOS device was registered in the portal (builds 1–2 failed the dev/ad-hoc exports — see landmines) |
 | 8. Verify on device | ⬜ **manual — needs the phone** |
 
 Steps 1–4 and 7's push were executed on branch `chore/xcode-cloud`. The order
@@ -279,6 +280,15 @@ Expect 20–30 minutes for a first React Native archive (cold Pods cache). At
 Then on the phone: install TestFlight, sign in with the same Apple ID, accept the
 internal-tester invite, install Kairo.
 
+**Between the green build and the install there is a processing wait.** App Store
+Connect → Kairo → TestFlight shows the build as *Processing* for a few minutes
+before it becomes installable; it does not appear in the phone's TestFlight app
+until that clears. Two things to confirm on that screen while waiting: the build
+number matches `CI_BUILD_NUMBER` (proof `ci_pre_xcodebuild.sh`'s PlistBuddy patch
+ran) and no export-compliance question is being asked (proof
+`ITSAppUsesNonExemptEncryption` shipped). If the internal group has no testers,
+add yourself there — the post-action distributes to the group, not to the account.
+
 ## 8. Verify
 
 Work the eight-item checklist at the bottom of `docs/sign-in-with-apple.md` —
@@ -324,12 +334,17 @@ Two things to fold in while the build is on the device:
   `** EXPORT SUCCEEDED **` and wrote a real IPA. Builds 1 and 2 both failed
   exactly this way and were misread as cosmetic first time round.
 
-  The device does not have to be the test phone — the profile only needs a
-  non-empty device list. Getting a UDID without USB is the actual problem; any
-  non-corporate computer (Finder on a Mac, iTunes on Windows, `libimobiledevice`
-  on Linux) reads it in a minute, and `ios/Kairo/Kairo.entitlements` is not
-  involved. Deployment Preparation does not help: Apple documents it as
-  determining *how Xcode Cloud signs your app*, not which export variants run.
+  **Fixed by registering one device** under Certificates, Identifiers & Profiles
+  → Devices; the next build went green and reached TestFlight. The device does not
+  have to be the test phone — the profile only needs a non-empty device list, and
+  `ios/Kairo/Kairo.entitlements` is not involved. Deployment Preparation is not
+  the lever: Apple documents it as determining *how Xcode Cloud signs your app*,
+  not which export variants run.
+
+  Note the shape of this, because it will recur: an account-level prerequisite
+  that USB pairing normally satisfies as a side effect. Xcode Cloud removes the
+  cable from the *build*, not from every assumption Apple's tooling makes about
+  one having been plugged in.
 - **A first React Native archive reports ~92 warnings.** `umbrella header for
   module 'jsi' does not include header …`, `the variable "setTimeout" was not
   declared …`, `Direct call to eval()`. All are RN/Hermes noise. Build 1 showed
