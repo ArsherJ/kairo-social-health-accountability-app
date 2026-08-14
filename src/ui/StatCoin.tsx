@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { ratingForStatPoints, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, shadow } from '../theme.ts';
-import { StatIcon, STAT_NAMES } from './StatIcon.tsx';
+import { StatIcon } from './StatIcon.tsx';
 import { Text } from './Text.tsx';
 
 /**
@@ -46,17 +46,12 @@ export function StatCoin({
 
   return (
     <View
-      // One element, not two. Read separately a coin announces "7" with no way
-      // to know which stat, because `StatIcon` is deliberately hidden and the
-      // rating is the only text — the whole point of the glyph-over-letters
-      // change on 2026-08-11 is that there is no abbreviation left to read.
-      // STAT_NAMES exists for exactly this and was never wired up here.
-      accessible
-      accessibilityLabel={
-        untrained
-          ? `${STAT_NAMES[stat]}, untrained`
-          : `${STAT_NAMES[stat]}, ability ${rating}`
-      }
+      // No accessible name of its own. The only caller is `StatRail`, which is
+      // a single Pressable whose label already speaks all four ratings — a
+      // second element here either does nothing or splits one control into
+      // four. The coin's job for a screen reader is to stay out of the way.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[styles.coin, untrained && styles.idle]}
     >
       {/* 18pt, not 20: the inner box is 48pt after the 3pt border, and the
