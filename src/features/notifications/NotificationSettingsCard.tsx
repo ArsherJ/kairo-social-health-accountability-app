@@ -29,15 +29,25 @@ export function NotificationSettingsCard() {
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
 
   /**
-   * Which APNs environment this build registered against.
+   * Which APNs environment this build registered against — where readable.
    *
-   * Read from the running app rather than inferred from `app.config.ts`,
-   * because since deviation #28 the config is not what ships — the committed
-   * `ios/Kairo/Kairo.entitlements` is. This is the only place the two can be
-   * compared, and it has to work in a Release build, since TestFlight is the
-   * only install where the question has an answer.
+   * It is not readable on TestFlight: `expo-application` parses
+   * `embedded.mobileprovision`, and App Store distribution strips that file
+   * from the bundle. So this is `null` on exactly the install the value was
+   * wanted for, and `deliveryStatus` leans on registration instead.
    */
   const [environment, setEnvironment] = useState<PushEnvironment>(null);
+
+  /**
+   * A simulator cannot register with APNs at all, and saying so is different
+   * from reporting a failure.
+   *
+   * The release type answers this without a provisioning profile — its native
+   * implementation falls back to a compile-time simulator check when the file
+   * is absent — which is precisely why it, and not a null environment, is what
+   * decides.
+   */
+  const [isSimulator, setIsSimulator] = useState(false);
 
   // Not polled. `upsertDeviceToken` publishes, so a registration that lands a
   // second after this card mounts updates it instead of leaving a stale
@@ -48,10 +58,13 @@ export function NotificationSettingsCard() {
     void readNotificationPermission().then(setPermission);
     void Application.getIosPushNotificationServiceEnvironmentAsync()
       .then(setEnvironment)
-      // Android, or an older runtime without the native method. Neither is a
-      // failure worth surfacing — `deliveryStatus` treats null as "simulator",
-      // and V1.5 will want its own answer here anyway.
+      // Android, or a runtime without the native method. Not a failure worth
+      // surfacing: null is already the normal TestFlight answer, and
+      // `deliveryStatus` reports registration rather than depending on it.
       .catch(() => setEnvironment(null));
+    void Application.getIosApplicationReleaseTypeAsync()
+      .then((type) => setIsSimulator(type === Application.ApplicationReleaseType.SIMULATOR))
+      .catch(() => setIsSimulator(false));
   }, []);
 
   useEffect(() => {
@@ -67,7 +80,7 @@ export function NotificationSettingsCard() {
   if (permission === null) return null;
 
   const status = notificationStatus(permission);
-  const delivery = deliveryStatus({ permission, environment, registered });
+  const delivery = deliveryStatus({ permission, isSimulator, environment, registered });
 
   return (
     <Panel>

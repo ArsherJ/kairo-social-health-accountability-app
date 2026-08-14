@@ -36,41 +36,57 @@ describe('notificationStatus', () => {
 });
 
 describe('deliveryStatus', () => {
-  const granted = { permission: 'granted' as const, environment: 'production' as const };
+  const onDevice = {
+    permission: 'granted' as const,
+    isSimulator: false,
+    environment: null as null | 'development' | 'production',
+  };
 
   it('says nothing when the permission has not been granted', () => {
     // There is no registration to report on, and the row above already
     // explains the state. A second line would just repeat it.
     for (const permission of ['denied', 'undetermined'] as const) {
       expect(
-        deliveryStatus({ permission, environment: null, registered: false }),
+        deliveryStatus({ ...onDevice, permission, registered: false }),
       ).toBeNull();
     }
   });
 
-  it('distinguishes a simulator from a failure', () => {
-    // A simulator cannot register with APNs at all — expo-application returns
-    // null there. Reporting that as "not registered" would send someone
-    // debugging a problem that does not exist, on the device where most hand
-    // verification happens.
-    const copy = deliveryStatus({ ...granted, environment: null, registered: false });
-    expect(copy).toMatch(/simulator/i);
-    expect(copy).not.toMatch(/not registered/i);
+  it('decides simulator from the release type, never from a missing environment', () => {
+    // The regression this test exists for. `expo-application` reads
+    // aps-environment out of embedded.mobileprovision, and TestFlight strips
+    // that file — so a perfectly healthy TestFlight device reports a null
+    // environment. The first version of this called that "simulator" and told
+    // a phone it could not receive push while it was receiving push.
+    expect(
+      deliveryStatus({ ...onDevice, environment: null, registered: true }),
+    ).not.toMatch(/simulator/i);
+
+    expect(
+      deliveryStatus({ ...onDevice, isSimulator: true, registered: false }),
+    ).toMatch(/simulator/i);
   });
 
   it('names the state that is otherwise invisible: permission on, no token', () => {
     // The server addresses device_tokens. Permission granted with no row there
     // means every push reaches nobody, and nothing anywhere says so.
-    expect(deliveryStatus({ ...granted, registered: false })).toMatch(/not registered/i);
+    expect(deliveryStatus({ ...onDevice, registered: false })).toMatch(/not registered/i);
   });
 
-  it('reports the APNs environment either way, since that is the whole question', () => {
-    // The build ships whatever `aps-environment` the committed ios/ carries
-    // (deviation #28). This line is how that value is read back off a real
-    // device instead of inferred from the archive.
-    expect(deliveryStatus({ ...granted, registered: true })).toMatch(/production/);
-    expect(
-      deliveryStatus({ ...granted, environment: 'development', registered: true }),
-    ).toMatch(/development/);
+  it('reports registration alone where the environment cannot be read', () => {
+    // TestFlight. "Registered" is the whole of the answer there, and it is a
+    // strong one: getExpoPushTokenAsync fails outright when the entitlement is
+    // wrong, so a token existing is evidence the entitlement is right.
+    const copy = deliveryStatus({ ...onDevice, environment: null, registered: true });
+    expect(copy).toMatch(/registered/i);
+    expect(copy).not.toMatch(/null|undefined|unknown/i);
+  });
+
+  it('appends the environment where the provisioning profile is present to read it', () => {
+    for (const environment of ['development', 'production'] as const) {
+      expect(deliveryStatus({ ...onDevice, environment, registered: true })).toMatch(
+        environment,
+      );
+    }
   });
 });

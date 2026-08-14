@@ -54,10 +54,17 @@ export function notificationStatus(
 }
 
 /**
- * The APNs environment the running build actually registered against.
+ * The APNs environment the running build registered against, when it can be
+ * read at all.
  *
- * `'development'` is the sandbox, `'production'` is the live service, and
- * `null` is a simulator, which cannot register with APNs at all.
+ * **`null` does not mean simulator.** `expo-application` reads this out of
+ * `embedded.mobileprovision`, and App Store and TestFlight distribution strip
+ * that file from the bundle — the library's own `appReleaseType` has an
+ * explicit branch for its absence. So on the one install where the question
+ * matters most, the answer is structurally unavailable. Treating that null as
+ * "simulator" is a mistake this diagnostic shipped with on 2026-08-14 and it
+ * told a TestFlight device it could not receive push while it was receiving
+ * push. Simulator is decided by the release type instead.
  */
 export type PushEnvironment = 'development' | 'production' | null;
 
@@ -65,36 +72,44 @@ export type PushEnvironment = 'development' | 'production' | null;
  * A one-line delivery diagnostic, shown under the permission state.
  *
  * This exists because granting the permission proves nothing about whether a
- * push can arrive. Two things sit between the two and both fail silently: the
- * `aps-environment` entitlement baked into the committed `ios/` (deviation
- * #28 means EAS is not there to set it), and whether a token was ever handed
- * to the server. Neither is visible from a log this machine can read — USB
- * pairing is blocked at the kernel — so the build has to say so itself.
+ * push can arrive, and the gap between the two is silent. It ships in Release
+ * on purpose: `__DEV__` would hide it from TestFlight, which is the only place
+ * the question can be asked.
  *
- * It ships in Release on purpose. `__DEV__` would hide it from TestFlight,
- * which is the only place the question can be asked.
+ * **What it reports is registration, not the entitlement** — a correction to
+ * how it was first built. Registration is both knowable everywhere and the
+ * stronger signal: `getExpoPushTokenAsync` fails outright with "no valid
+ * aps-environment entitlement string found" when the entitlement is wrong, so
+ * a token that exists is evidence the entitlement is right. The environment is
+ * appended only where it can be read, and its absence is not worth explaining
+ * to a beta tester.
  *
  * Returns `null` when there is nothing worth saying: no permission means no
  * registration was attempted, and the row above already explains that.
  */
 export function deliveryStatus(input: {
   permission: NotificationPermission;
+  /** From the release type, not from a missing environment. See above. */
+  isSimulator: boolean;
   environment: PushEnvironment;
   registered: boolean;
 }): string | null {
   if (input.permission !== 'granted') return null;
 
-  if (input.environment === null) {
-    // A simulator. Worth naming rather than reporting a failure — nothing is
-    // wrong, and this is where most hand verification happens.
+  if (input.isSimulator) {
+    // Worth naming rather than reporting a failure — nothing is wrong, and
+    // this is where most hand verification happens.
     return 'Delivery: simulator — this device cannot receive push.';
   }
 
-  if (!input.registered) {
-    // The state that used to be invisible: permission on, no token, so the
-    // server has nothing to address and every push silently reaches nobody.
-    return `Delivery: not registered (${input.environment}). Reopen Kairo to retry.`;
-  }
+  // The state that would otherwise be invisible: permission on, no token, so
+  // the server has nothing to address and every push reaches nobody.
+  if (!input.registered) return 'Delivery: not registered. Reopen Kairo to retry.';
 
-  return `Delivery: registered (${input.environment}).`;
+  // The environment rides along only when the provisioning profile is present
+  // to be read — a development or ad-hoc build. On TestFlight there is no
+  // profile in the bundle and "registered" is the whole of the answer.
+  return input.environment === null
+    ? 'Delivery: registered.'
+    : `Delivery: registered (${input.environment}).`;
 }
