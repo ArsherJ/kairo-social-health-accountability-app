@@ -34,13 +34,20 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
 
       <Label tone="sage">Streak</Label>
 
+      {/* Each figure pairs with its caption as one element. Read separately
+          they arrive as "12", "current", "45", "longest" — every number
+          before the word that says what it counts. */}
       <View style={styles.figures}>
-        <View>
-          <Text style={styles.figure}>{current}</Text>
+        <View accessible accessibilityLabel={`Current streak, ${current} days`}>
+          <Text scale="fixed" style={styles.figure}>
+            {current}
+          </Text>
           <Text style={styles.caption}>current</Text>
         </View>
-        <View>
-          <Text style={[styles.figure, styles.figureQuiet]}>{longest}</Text>
+        <View accessible accessibilityLabel={`Longest streak, ${longest} days`}>
+          <Text scale="fixed" style={[styles.figure, styles.figureQuiet]}>
+            {longest}
+          </Text>
           <Text style={styles.caption}>longest</Text>
         </View>
       </View>
@@ -49,7 +56,15 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
           works if you know you have one *before* the day you need it, and a
           line of small print under two big numbers is not where anyone looks. */}
       <View style={[styles.shield, shieldBanked && styles.shieldBanked]}>
-        <Feather name="shield" size={19} color={ramp.sage[700]} />
+        {/* The sentence beside it already says whether the shield is banked,
+            so an announced glyph would prefix every reading with "shield". */}
+        <Feather
+          name="shield"
+          size={19}
+          color={ramp.sage[700]}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
         <Text style={shieldBanked ? styles.shieldReady : styles.shieldSpent}>
           {shieldBanked
             ? 'Shield banked — one missed day is safe'

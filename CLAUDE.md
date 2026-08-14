@@ -21,6 +21,33 @@ Three things deliberately still say it and are *not* stale: `profiles.class`'s
 that last one is a genuinely open decision the art regeneration has to settle, not a
 missed find-and-replace. Anywhere else, it is stale — fix it.
 
+**`src/ui/Text.tsx` is the only Text, as of 2026-08-14.** Import it from `@/ui`,
+never from `react-native` — the two are otherwise identical, which is exactly
+why the wrong one is easy to reach for. It exists because React Native scales
+with Dynamic Type without an upper bound, so at the largest accessibility sizes
+a 34pt display line became ~80pt and every fixed-height row tore apart. It
+**caps, never refuses**: `allowFontScaling={false}` would make the layout safe
+by making the app unreadable for the people the setting exists for, and it
+appears nowhere in this codebase. Three scales, chosen by *what the type sits
+inside* rather than by how important it is — `prose` (1.8) for copy in
+containers that grow, `chrome` (1.4) for buttons and meta lines, `fixed` (1.2)
+for type locked to drawn geometry. `prose` is the default so tightening is
+deliberate, and it belongs in the component that owns the geometry.
+
+**Kairo says things without words, and each one needs an accessible name.** A
+stat is a glyph with no letters beside it; the character's level band, dominant
+stat and ability rating are shape, shadow and ring. The pattern, set by
+`StatIcon`, is: **a decorative or duplicative element is hidden**
+(`accessibilityElementsHidden`), and **the group that means something is one
+element with a composed label**. `STAT_NAMES` is the single source for stat
+words — `Dominance` is `CoreStat | 'balanced' | null`, so it covers the figure
+too and a parallel table would drift. Where composition has real edges it gets a
+tested pure module: `src/features/squad/row-label.ts` exists because a
+leaderboard row was twelve separate stops (a six-person board took seventy-odd
+swipes), and because "1-day streak" is right on screen and wrong out loud.
+Before adding a label, check the text already beside it — `GoalBar`'s pace
+marker needed nothing, since `statusLine()` already says "behind pace".
+
 **Stat identity is a glyph, not three letters, as of 2026-08-11.** `src/ui/StatIcon.tsx`
 owns the only mapping; `StatCoin`, `StatBar` and `LeaderboardRow` all read it. It is
 MaterialCommunityIcons on purpose while all chrome stays Feather — the split is
