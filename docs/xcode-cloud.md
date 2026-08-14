@@ -75,6 +75,26 @@ bites:
 
 Record this in `docs/roadmap.md`'s approved-deviations table before doing it.
 
+### `eas.json` exists and does not mean we build with EAS
+
+Added 2026-08-14, and it is exactly one thing: **`eas credentials` refuses to
+run without it.** Push delivery goes through Expo's push service (deviation
+#15), which means the APNs key has to be uploaded to Expo, and the only
+supported way to do that is the credentials command — which scopes everything
+to a build profile and therefore insists on a profile existing, even when no
+build will ever use it.
+
+Nothing in the Xcode Cloud path reads this file. `ci_post_clone.sh` does not,
+`xcodebuild` does not, and the `production` profile in it has never produced a
+build. Do not infer from its presence that EAS Build is an option here — it was
+evaluated and declined (see *Why this exists*), and the reasons have not
+changed.
+
+`appVersionSource` is `local` rather than `remote` on purpose. Remote would say
+Expo owns the build number; it does not. `ci_pre_xcodebuild.sh` overwrites
+`CFBundleVersion` with Xcode Cloud's `CI_BUILD_NUMBER` (step 4), and a config
+claiming otherwise is a trap for whoever reads it next.
+
 ## 1. Record the deviation
 
 Add a row to the approved-deviations table in `docs/roadmap.md`: `ios/` is
