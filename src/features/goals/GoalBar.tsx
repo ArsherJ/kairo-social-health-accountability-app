@@ -39,17 +39,33 @@ export function GoalBar({
   const { progress } = standing;
   const tone = goalTone(progress);
 
+  // One element rather than three. The pace marker needs no separate
+  // announcement — `statusLine` already puts "behind pace" into words, which
+  // is why `Meter` stays hidden here rather than being given a label that
+  // would say the same thing again in percentages.
+  const spokenLabel = [
+    showTitle ? row.title : null,
+    progressLine(row.kind, progress),
+    statusLine(progress),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
-    <View>
+    <View accessible accessibilityLabel={spokenLabel}>
       {showTitle && (
-        <Text style={styles.title} numberOfLines={1}>
+        <Text scale="chrome" style={styles.title} numberOfLines={1}>
           {row.title}
         </Text>
       )}
 
       <View style={styles.numbers}>
-        <Text style={styles.progress}>{progressLine(row.kind, progress)}</Text>
-        <Text style={[styles.status, styles[tone]]}>{statusLine(progress)}</Text>
+        <Text scale="chrome" style={styles.progress}>
+          {progressLine(row.kind, progress)}
+        </Text>
+        <Text scale="chrome" style={[styles.status, styles[tone]]}>
+          {statusLine(progress)}
+        </Text>
       </View>
 
       <Meter

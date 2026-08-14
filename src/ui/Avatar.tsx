@@ -46,13 +46,24 @@ export function Avatar({
 
   return (
     <View
+      // Hidden, like `StatIcon`. The disc is a way to tell four people apart at
+      // a glance, and every place it appears already draws the name beside it —
+      // so announced it contributes a bare letter ("J") between the rank and
+      // the name it is standing in for.
+      accessibilityElementsHidden
+      importantForAccessibility="no"
       style={[
         styles.disc,
         { width: size, height: size, backgroundColor: tint.bg },
         ringed && { borderWidth: 2, borderColor: ramp.neutral[100] },
       ]}
     >
-      <Text style={[styles.initial, { color: tint.ink, fontSize: size * 0.38 }]}>{initial}</Text>
+      {/* `fixed`: the disc is a fixed square and the initial is sized as a
+          fraction of it, so scaling the glyph alone pushes it out of the
+          circle. Nothing is lost — the name is the accessible carrier. */}
+      <Text scale="fixed" style={[styles.initial, { color: tint.ink, fontSize: size * 0.38 }]}>
+        {initial}
+      </Text>
     </View>
   );
 }

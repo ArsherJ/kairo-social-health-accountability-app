@@ -72,6 +72,12 @@ export default function NameYourCharacter() {
           autoFocus
           autoCorrect={false}
           maxLength={CHARACTER_NAME_MAX}
+          // "Aeon" is a placeholder, and unlabelled a screen reader reads
+          // it as a value already filled in — on the one screen where the
+          // whole task is choosing your own.
+          accessibilityLabel="Character name"
+          accessibilityHint={`Up to ${CHARACTER_NAME_MAX} characters`}
+          maxFontSizeMultiplier={1.4}
           placeholder="Aeon"
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}

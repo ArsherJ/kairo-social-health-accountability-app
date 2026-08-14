@@ -78,6 +78,9 @@ export function CreateSquadForm({
           autoFocus
           autoCorrect={false}
           maxLength={SQUAD_NAME_MAX}
+          accessibilityLabel="Squad name"
+          accessibilityHint={`Up to ${SQUAD_NAME_MAX} characters`}
+          maxFontSizeMultiplier={1.4}
           placeholder="Barangay Runners"
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}

@@ -81,6 +81,7 @@ export default function DeleteAccount() {
 
       <Text style={styles.prompt}>Type {CONFIRM_WORD} to confirm.</Text>
       <TextInput
+        maxFontSizeMultiplier={1.4}
         value={typed}
         onChangeText={setTyped}
         editable={!busy}

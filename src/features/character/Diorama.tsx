@@ -4,6 +4,7 @@ import type { CoreStat, Dominance } from '@kairo/core';
 import type { CharacterBody } from '@/features/profile/character-body.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
+import { STAT_NAMES } from '@/ui/StatIcon.tsx';
 import type { Stop } from '@/ui/gradient.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
 
@@ -40,6 +41,23 @@ const FADE: Stop[] = [
   { color: '#f5ead859', at: 0.55 },
   { color: colors.bg, at: 1 },
 ];
+
+/**
+ * The figure, in words.
+ *
+ * `STAT_NAMES` rather than a second map of its own: `Dominance` is
+ * `CoreStat | 'balanced' | null`, so the stat case is already named once, and
+ * a parallel table here is exactly the drift `StatIcon`'s comment warns about.
+ *
+ * `balanced` is the All-Rounder and is worth saying — it is a build someone
+ * worked toward, not the absence of one.
+ */
+function describeFigure(stage: 1 | 2 | 3 | 4, dominance?: Dominance): string {
+  const base = `Your character, stage ${stage} of 4`;
+  if (!dominance) return base;
+  if (dominance === 'balanced') return `${base}, balanced build`;
+  return `${base}, built for ${STAT_NAMES[dominance]}`;
+}
 
 export function Diorama({
   height,
@@ -87,7 +105,21 @@ export function Diorama({
 
       <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
 
-      <View style={[styles.stage, { bottom: height * 0.12 }]}>
+      <View
+        // The figure is the app's centrepiece and it is drawn, not written —
+        // three things are said by shape alone (§6): the ground shadow by
+        // level band, the build proportions by dominant stat, the presence
+        // ring by ability rating. Without a name it is invisible to a screen
+        // reader, and the character screen becomes a HUD floating over
+        // nothing.
+        //
+        // Deliberately said in the app's own vocabulary: "your character",
+        // never a Hunter (deviation #26).
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={describeFigure(stage, dominance)}
+        style={[styles.stage, { bottom: height * 0.12 }]}
+      >
         <CharacterFigure
           stage={stage}
           dominance={dominance}
@@ -97,6 +129,9 @@ export function Diorama({
         />
       </View>
 
+      {/* Outside the figure's element on purpose: the HUD is the stat rail,
+          and its coins carry their own labels. Collapsing the whole diorama
+          would swallow them. */}
       {children}
     </View>
   );

@@ -168,6 +168,7 @@ export function BodyMetricsCard({
                     {limit.unit ? ` (${limit.unit})` : ''}
                   </Text>
                   <TextInput
+                    maxFontSizeMultiplier={1.4}
                     value={drafts[field]}
                     onChangeText={(text) => edit(field, text)}
                     placeholder={placeholder}

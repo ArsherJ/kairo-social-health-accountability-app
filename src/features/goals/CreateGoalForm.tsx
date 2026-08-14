@@ -202,6 +202,7 @@ export function CreateGoalForm({
         </Text>
 
         <TextInput
+          maxFontSizeMultiplier={1.4}
           style={styles.input}
           value={title}
           onChangeText={setTitle}
@@ -216,6 +217,7 @@ export function CreateGoalForm({
             second box reads as another required field. */}
         <Text style={styles.section}>Why it matters (optional)</Text>
         <TextInput
+          maxFontSizeMultiplier={1.4}
           style={[styles.input, styles.multiline]}
           value={description}
           onChangeText={setDescription}
@@ -248,6 +250,7 @@ export function CreateGoalForm({
           {kind === 'cumulative' ? 'Points to reach' : 'Points to clear each day'}
         </Text>
         <TextInput
+          maxFontSizeMultiplier={1.4}
           style={styles.input}
           value={target}
           onChangeText={setTarget}
@@ -261,6 +264,7 @@ export function CreateGoalForm({
           <>
             <Text style={styles.section}>Days you need to clear it</Text>
             <TextInput
+              maxFontSizeMultiplier={1.4}
               style={styles.input}
               value={requiredDays}
               onChangeText={setRequiredDays}

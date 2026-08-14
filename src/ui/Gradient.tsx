@@ -28,7 +28,16 @@ export function Gradient({
   const bands = useMemo(() => rampColors(stops, steps), [stops, steps]);
 
   return (
-    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+    <View
+      style={[StyleSheet.absoluteFill, style]}
+      pointerEvents="none"
+      // Banded fill, so this is `steps` sibling Views deep. Left visible to
+      // assistive tech it is that many empty stops between the header and the
+      // character — the accessibility equivalent of the `pointerEvents="none"`
+      // already on this line.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       {bands.map((color, i) => (
         <View key={i} style={{ flex: 1, backgroundColor: color }} />
       ))}

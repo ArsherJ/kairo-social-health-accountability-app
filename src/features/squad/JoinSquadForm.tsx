@@ -78,6 +78,17 @@ export function JoinSquadForm({
           style={styles.input}
           returnKeyType="done"
           onSubmitEditing={submit}
+          // The field's only visible name is the eyebrow and the title two
+          // lines up, which a screen reader reaches as separate elements
+          // before it ever gets here — so unlabelled it announces as "text
+          // field, AB12CD" and the placeholder reads as a value already
+          // entered.
+          accessibilityLabel="Squad invite code"
+          accessibilityHint={`${INVITE_CODE_LENGTH} characters, letters and numbers`}
+          // The field is the whole form and it is autofocused, so a cap here
+          // is what keeps the code visible as it is typed rather than
+          // scrolling out of a fixed-height box.
+          maxFontSizeMultiplier={1.4}
         />
 
         {valid && preview.isPending && (
