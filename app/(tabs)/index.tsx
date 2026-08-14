@@ -216,20 +216,33 @@ export default function Character() {
                   </View>
                 ))}
               </View>
-              <Text style={styles.squadText} numberOfLines={1}>
+              {/* `fixed` throughout the HUD. These are short numerals and
+                  labels on a drawn surface, and every value here is repeated
+                  at full `prose` scale further down the page — level and XP in
+                  the TODAY panel, the streak on Profile, the ratings in the
+                  expanded StatBars. Nothing becomes unreadable; it becomes
+                  readable lower down.
+
+                  The nested span needs its own: `maxFontSizeMultiplier` is set
+                  per-Text and `Text` always passes one, so leaving it off
+                  would cap this word at 1.8 inside a line capped at 1.2. */}
+              <Text scale="fixed" style={styles.squadText} numberOfLines={1}>
                 {standing.ahead.name} is{' '}
-                <Text style={styles.squadGap}>{standing.ahead.gap.toLocaleString()}</Text> ahead
+                <Text scale="fixed" style={styles.squadGap}>
+                  {standing.ahead.gap.toLocaleString()}
+                </Text>{' '}
+                ahead
               </Text>
             </View>
           )}
 
           <View style={[styles.levelPill, { top: insets.top + space.xl + space.sm }]}>
             <View style={styles.levelDisc}>
-              <Text style={styles.levelNumber}>{level}</Text>
+              <Text scale="fixed" style={styles.levelNumber}>{level}</Text>
             </View>
             <View style={styles.levelBody}>
               <Meter fraction={xp.fraction} color={ramp.accent[500]} height={9} />
-              <Text style={styles.levelMeta}>
+              <Text scale="fixed" style={styles.levelMeta}>
                 {xp.intoLevel.toLocaleString()} / {xp.neededForNext.toLocaleString()} XP
               </Text>
             </View>
@@ -241,8 +254,10 @@ export default function Character() {
           <View style={[styles.hudRight, { top: insets.top + space.xl + space.sm }]}>
             {(streak.data?.current_streak ?? 0) > 0 && (
               <View style={styles.pill}>
-                <Text style={styles.streakNumber}>{streak.data?.current_streak}</Text>
-                <Text style={styles.streakUnit}>
+                <Text scale="fixed" style={styles.streakNumber}>
+                  {streak.data?.current_streak}
+                </Text>
+                <Text scale="fixed" style={styles.streakUnit}>
                   day{streak.data?.current_streak === 1 ? '' : 's'}
                 </Text>
               </View>
@@ -426,7 +441,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   levelNumber: { ...font.display.minor, color: colors.bg },
-  levelBody: { width: 96 },
+  // minWidth, not width: the meter and its XP line still align at the default
+  // text size, but scaled content grows the box instead of being clipped by
+  // it. Same reason `LeaderboardRow`'s rank uses minWidth.
+  levelBody: { minWidth: 96 },
   levelMeta: { ...font.body.label, color: ramp.neutral[700], letterSpacing: 0, marginTop: 4 },
 
   hudRight: {
