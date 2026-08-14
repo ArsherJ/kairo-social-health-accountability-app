@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import { fetchWithTimeout } from './fetch-timeout.ts';
 import { secureStorage } from './secure-storage.ts';
 
 /**
@@ -36,6 +37,15 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     persistSession: true,
     // There is no browser redirect flow here; native deep links carry the session.
     detectSessionInUrl: false,
+  },
+  global: {
+    // supabase-js sets no timeout and neither does fetch, so a black-holed
+    // host — DNS resolves, the connection never completes — produces a promise
+    // that never settles. A WiFi network blocking *.supabase.co did exactly
+    // that on 2026-08-14 and left the app on the KAIRO hold overlay
+    // permanently, through relaunches and a reinstall, because a query with no
+    // data reads as 'loading' and nothing ever errored. See fetch-timeout.ts.
+    fetch: fetchWithTimeout(fetch),
   },
 });
 

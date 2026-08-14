@@ -12,14 +12,23 @@ import { onlineManager, QueryClient } from '@tanstack/react-query';
  * connection returns. The character screen's retry affordance and the
  * `profile-error` cover in `app/_layout.tsx` were both absorbing that.
  *
- * `isInternetReachable` is deliberately preferred over `isConnected`, with a
- * fallback for the null it reports before the first reachability probe
- * resolves: a phone attached to a captive-portal wifi is `isConnected` and
- * cannot reach Supabase.
+ * This is TanStack's documented React Native recipe, unmodified. It first
+ * shipped here reading `isInternetReachable` instead, reasoning that a phone on
+ * a captive-portal wifi is `isConnected` and still cannot reach Supabase. That
+ * reasoning is true and the trade is still wrong, because the two failures are
+ * not symmetrical: `isInternetReachable` is NetInfo's own probe against an
+ * unrelated third-party endpoint, so a network that blocks *that* — while
+ * Supabase is perfectly reachable — reports offline forever. Queries then
+ * `pause()` rather than run, which never errors, which the gate renders as an
+ * endless spinner. A captive portal, by contrast, produces an ordinary failed
+ * request that the retry panel already handles.
+ *
+ * Prefer the false positive that fails loudly over the false negative that
+ * hangs. `fetch-timeout.ts` is what catches the captive-portal case.
  */
 onlineManager.setEventListener((setOnline) =>
   NetInfo.addEventListener((state) => {
-    setOnline(Boolean(state.isInternetReachable ?? state.isConnected));
+    setOnline(Boolean(state.isConnected));
   }),
 );
 
