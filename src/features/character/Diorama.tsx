@@ -120,18 +120,24 @@ export function Diorama({
         accessibilityLabel={describeFigure(stage, dominance)}
         style={[styles.stage, { bottom: height * 0.12 }]}
       >
-        <CharacterFigure
-          stage={stage}
-          dominance={dominance}
-          body={body}
-          height={height * 0.6}
-          lifetimePoints={lifetimePoints}
-        />
+        {/* `accessible` on the wrapper should collapse this on iOS and did
+            not, on the 2026-08-14 build, so the figure is hidden explicitly
+            rather than trusting the implicit behaviour. Same fix, same
+            reason, as `LeaderboardRow`. */}
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <CharacterFigure
+            stage={stage}
+            dominance={dominance}
+            body={body}
+            height={height * 0.6}
+            lifetimePoints={lifetimePoints}
+          />
+        </View>
       </View>
 
-      {/* Outside the figure's element on purpose: the HUD is the stat rail,
-          and its coins carry their own labels. Collapsing the whole diorama
-          would swallow them. */}
+      {/* Outside the figure's element on purpose: the HUD lives here — the
+          level and streak pills and the stat rail, each of which names
+          itself. Collapsing the whole diorama would swallow them. */}
       {children}
     </View>
   );

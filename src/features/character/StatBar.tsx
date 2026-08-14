@@ -65,8 +65,16 @@ export function StatBar({
     .join(', ');
 
   return (
+    // `accessible` alone should collapse this on iOS and did not, on the
+    // 2026-08-14 build — so each direct child below is hidden explicitly
+    // rather than trusting the implicit behaviour. Same fix, same reason, as
+    // `LeaderboardRow`. Do not remove one half thinking it is redundant.
     <View accessible accessibilityLabel={spokenLabel} style={styles.row}>
-      <View style={styles.header}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.header}
+      >
         {/* Icon *and* abbreviation, unlike the rail's coin. This is where the
             mapping gets taught — glyph, name and "Steps and distance" on three
             consecutive lines — so dropping the letters here would leave the
@@ -96,7 +104,13 @@ export function StatBar({
           )}
         </View>
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.label}
+      >
+        {label}
+      </Text>
 
       {/* One hue, and width is the whole message: how far into this rating you
           are. Colour used to carry the tier, which meant the bar was saying two
@@ -106,7 +120,15 @@ export function StatBar({
         <Meter fraction={Math.max(0, Math.min(1, fill))} color={colors.accent} />
       </View>
 
-      {showLaneCopy && <Text style={styles.laneCopy}>{laneEmptyCopy}</Text>}
+      {showLaneCopy && (
+        <Text
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.laneCopy}
+        >
+          {laneEmptyCopy}
+        </Text>
+      )}
     </View>
   );
 }

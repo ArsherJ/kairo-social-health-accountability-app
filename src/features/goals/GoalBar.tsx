@@ -52,14 +52,28 @@ export function GoalBar({
     .join(', ');
 
   return (
+    // `accessible` alone should collapse this on iOS and did not, on the
+    // 2026-08-14 build — so each direct child below is hidden explicitly
+    // rather than trusting the implicit behaviour. Same fix, same reason, as
+    // `LeaderboardRow`. Do not remove one half thinking it is redundant.
     <View accessible accessibilityLabel={spokenLabel}>
       {showTitle && (
-        <Text scale="chrome" style={styles.title} numberOfLines={1}>
+        <Text
+          scale="chrome"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.title}
+          numberOfLines={1}
+        >
           {row.title}
         </Text>
       )}
 
-      <View style={styles.numbers}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.numbers}
+      >
         <Text scale="chrome" style={styles.progress}>
           {progressLine(row.kind, progress)}
         </Text>

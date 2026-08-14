@@ -36,19 +36,47 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
 
       {/* Each figure pairs with its caption as one element. Read separately
           they arrive as "12", "current", "45", "longest" — every number
-          before the word that says what it counts. */}
+          before the word that says what it counts.
+
+          `accessible` alone should collapse these on iOS and did not, on the
+          2026-08-14 build, so both texts inside each figure are hidden
+          explicitly rather than trusting the implicit behaviour. Same fix,
+          same reason, as `LeaderboardRow`. Do not remove one half thinking it
+          is redundant. */}
       <View style={styles.figures}>
         <View accessible accessibilityLabel={`Current streak, ${current} days`}>
-          <Text scale="fixed" style={styles.figure}>
+          <Text
+            scale="fixed"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.figure}
+          >
             {current}
           </Text>
-          <Text style={styles.caption}>current</Text>
+          <Text
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.caption}
+          >
+            current
+          </Text>
         </View>
         <View accessible accessibilityLabel={`Longest streak, ${longest} days`}>
-          <Text scale="fixed" style={[styles.figure, styles.figureQuiet]}>
+          <Text
+            scale="fixed"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[styles.figure, styles.figureQuiet]}
+          >
             {longest}
           </Text>
-          <Text style={styles.caption}>longest</Text>
+          <Text
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.caption}
+          >
+            longest
+          </Text>
         </View>
       </View>
 
