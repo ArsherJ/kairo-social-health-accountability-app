@@ -647,6 +647,58 @@ simulator. If `setupBackgroundObservers` ever stops resolving it says so loudly
 in the device console (`[Kairo] HealthKit background observers NOT registered`),
 which is the whole reason that branch is not silent.
 
+### Push delivery, proven end to end (2026-08-14)
+
+**Closed.** Registration → dispatch → receipt → tap routing, all on hardware
+from a TestFlight install.
+
+What it took was more than verification, because **the client half did not
+exist**. The server had been sending a deep-link payload in every push since the
+notification engine shipped — `{trigger, localDate, screen}` from
+`dispatch-notifications`, `goalId` from `finalize-days` — and nothing read it.
+There was no `setNotificationHandler`, so a push arriving while the app was open
+displayed nothing at all, and no response listener, so a tap opened the app
+wherever it happened to be. `src/features/notifications/routing.ts` is the fix.
+
+The evidence, in the order it was gathered:
+
+| Leg | How it was shown |
+|---|---|
+| Registration | `device_tokens` row updated 05:16 UTC by the production build. Strong on its own: `getExpoPushTokenAsync` fails with *"no valid aps-environment entitlement string found"* when the entitlement is wrong |
+| Delivery | Expo ticket `ok`, then an **APNs receipt** of `ok` — Apple accepted it, not merely Expo |
+| Display | Banner appeared with the app foregrounded, which is what `setNotificationHandler` bought |
+| Tap routing | All three app states — foreground, backgrounded, force-quit — each landing on the right tab |
+| The real dispatcher | `{"candidates":1,"sent":1,"suppressed":0,"failures":[]}` |
+
+The dispatcher was tested by **moving the profile's timezone to a zone at local
+23:00** (`America/Belize`) and invoking the function the way cron does, through
+`net.http_post` with the Vault secrets — so the shared secret was never handled
+directly. Reverted to `Asia/Manila` immediately after. Do not open the app
+during that window: `useTimezoneSync` reconciles the column from the device and
+would undo it mid-test.
+
+Two things this surfaced that are worth keeping:
+
+- **`notification_log` was empty until this run.** The scheduled engine had
+  never delivered anything in production — unsurprising in hindsight, since the
+  APNs key was not uploaded to Expo until the same day, but nothing anywhere
+  said so. The one row it now holds carries `local_date = 2026-08-13`, which is
+  Belize's date and not Jay's; it is a test artifact and is left in place
+  because it is a true record of the first successful send.
+- **`getIosPushNotificationServiceEnvironmentAsync()` cannot answer on
+  TestFlight.** It parses `embedded.mobileprovision`, and App Store
+  distribution strips that file — `EXProvisioningProfile.m`'s own
+  `appReleaseType` has an explicit branch for its absence. A diagnostic built on
+  it shipped in this build and told the phone it was a simulator while it was
+  receiving push. Corrected to report registration instead, which is knowable
+  everywhere and is the stronger signal.
+
+`supabase/scripts/send-test-push.mjs` now exists so this does not have to be
+re-derived. It bypasses the dispatcher on purpose: if it succeeds and a
+scheduled push never arrives, the fault is candidate selection or the budget,
+not credentials — two failures that otherwise present identically as "no
+notification".
+
 ## End-to-end QA findings (2026-08-11)
 
 Full report and root-cause addendum: `docs/qa/kairo-end-to-end-qa-report.md`. It

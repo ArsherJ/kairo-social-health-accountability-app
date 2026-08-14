@@ -110,16 +110,15 @@ Readiness is not a score out of ten; it is this list. Open items as of
       live outside git (the App ID capability and the ES256 client secret) are
       in place; the secret's expiry is the thing to diary. See
       `docs/sign-in-with-apple.md`.
-- [ ] **Push delivery proven end to end**: registration → dispatch → receipt → tap routing.
-      The client half was **missing entirely until 2026-08-14** — the server
-      had been sending `screen`/`goalId` in every push since the notification
-      engine shipped and nothing read it, so there was no tap routing, and a
-      push arriving in the foreground was not displayed at all. Both are built
-      now (`src/features/notifications/routing.ts`), along with an on-device
-      delivery readout in Profile. What remains is genuinely verification, plus
-      the one credential nothing in git can see: the **APNs key uploaded to
-      Expo** (`eas credentials`), without which every send returns a ticket
-      error.
+- [x] **Push delivery proven end to end** — done 2026-08-14: registration →
+      dispatch → APNs receipt → banner → tap routing in all three app states,
+      plus a real `dispatch-notifications` run returning
+      `{"candidates":1,"sent":1,"failures":[]}`. The client half was **missing
+      entirely** until that day — the server had been sending `screen`/`goalId`
+      in every push since the engine shipped and nothing read it. Built as
+      `src/features/notifications/routing.ts`; the APNs key is uploaded to
+      Expo; re-runnable via `supabase/scripts/send-test-push.mjs`. Full account
+      in `docs/roadmap.md`.
 - [ ] **Invite redemption with two real accounts**, including live reordering and rejoin.
 - [ ] **A physical-device pass**: offline, background overnight, reinstall, Dynamic Type, VoiceOver, battery.
 - [x] Health ingest reconciles, and says how fresh it is.
