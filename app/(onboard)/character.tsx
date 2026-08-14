@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CharacterBody } from '@/features/profile/character-body.ts';
-import { Button, Label } from '@/ui/index.ts';
+import { Button, Label, Text } from '@/ui/index.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 
 /**

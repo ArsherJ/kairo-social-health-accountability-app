@@ -1,18 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { addDays, goalWindowDays } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { BackRow, Button, Label } from '@/ui/index.ts';
+import { BackRow, Button, Label, Text } from '@/ui/index.ts';
 import { useCreateGoal } from './mutations.ts';
 import { shortDate } from './goal-copy.ts';
 

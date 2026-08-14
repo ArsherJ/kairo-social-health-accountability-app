@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, font, ramp, space } from '@/theme.ts';
-import { Meter } from '@/ui/index.ts';
+import { Meter, Text } from '@/ui/index.ts';
 import {
   fillFraction,
   goalTone,

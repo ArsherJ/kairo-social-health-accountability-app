@@ -1,13 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CORE_STATS,
@@ -37,7 +30,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
-import { Avatar, Label, Meter, Numeral, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
+import { Avatar, Label, Meter, Numeral, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
 
 /**
  * §6's evolution table, said out loud. The silhouette differences are real but

@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/index.ts';
 import { computeStrain, maxHeartRateForAge, type DayTotals } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 

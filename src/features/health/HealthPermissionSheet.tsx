@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { track } from '@/features/telemetry/events.ts';
-import { Button } from '@/ui/index.ts';
+import { Button, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
 import { HEALTH_DISCLOSURE } from './disclosure.ts';

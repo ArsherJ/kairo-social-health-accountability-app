@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { CreateSquadForm } from '@/features/squad/CreateSquadForm.tsx';
@@ -9,7 +9,7 @@ import { SoloBoard } from '@/features/squad/SoloBoard.tsx';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { colors, font } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { Button, Screen } from '@/ui/index.ts';
+import { Button, Screen, Text } from '@/ui/index.ts';
 
 /** Which of the no-squad screens is showing. Local state, not a route. */
 type Pane = 'choose' | 'create' | 'join';

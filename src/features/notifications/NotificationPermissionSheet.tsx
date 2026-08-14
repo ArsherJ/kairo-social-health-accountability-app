@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { Button } from '@/ui/index.ts';
+import { Pressable, StyleSheet } from 'react-native';
+import { Button, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import type { NotificationPermission } from './ask-policy.ts';
 import { registerDeviceToken, requestNotificationPermission } from './permission.ts';

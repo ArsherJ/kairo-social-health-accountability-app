@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './Text.tsx';
 import { colors, font, ramp, radius } from '../theme.ts';
 
 /**

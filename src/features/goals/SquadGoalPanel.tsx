@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { CtaPill, Label } from '@/ui/index.ts';
+import { CtaPill, Label, Text } from '@/ui/index.ts';
 import { GoalBar } from './GoalBar.tsx';
 import { deadlineLine, squadRequirementLine } from './goal-copy.ts';
 import { pickLiveGoal, toGoal, useGoalDetail, useSquadGoals } from './queries.ts';

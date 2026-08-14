@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Label } from '@/ui/index.ts';
+import { Label, Text } from '@/ui/index.ts';
 import type { Streak } from './queries.ts';
 
 /**

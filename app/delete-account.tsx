@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { deleteAccount } from '@/features/auth/session.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, Button, Screen } from '@/ui/index.ts';
+import { BackRow, Button, Screen, Text } from '@/ui/index.ts';
 
 /**
  * Erase everything.

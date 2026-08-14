@@ -1,6 +1,7 @@
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet } from 'react-native';
 import { colors, font, ramp, radius, shadow, space } from '../theme.ts';
 import { usePressScale } from './motion.ts';
+import { Text } from './Text.tsx';
 
 /**
  * Caprasimo on a pill. The system sets `.btn` in the display face, which is
@@ -27,6 +28,11 @@ export function Button({
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         accessibilityRole="button"
+        // Named on the control rather than left to the child, because the
+        // child goes away: while `busy` the label is replaced by a spinner,
+        // and a button whose name vanishes mid-action is announced as
+        // "button, busy" with no indication of which one.
+        accessibilityLabel={label}
         accessibilityState={{ disabled: inert, busy }}
         disabled={inert}
         onPress={onPress}
@@ -37,7 +43,12 @@ export function Button({
         {busy ? (
           <ActivityIndicator color={variant === 'primary' ? colors.bg : colors.accent} />
         ) : (
-          <Text style={[styles.label, styles[`${variant}Label`]]}>{label}</Text>
+          // `chrome`: `base` sets minHeight rather than height, so the pill
+          // grows with the label — but a Caprasimo action line past ~1.4x
+          // wraps, and a two-line button stops reading as one.
+          <Text scale="chrome" style={[styles.label, styles[`${variant}Label`]]}>
+            {label}
+          </Text>
         )}
       </Pressable>
     </Animated.View>

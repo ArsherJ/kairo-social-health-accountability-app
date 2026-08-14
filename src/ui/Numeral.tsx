@@ -1,6 +1,7 @@
-import { Text, type TextStyle } from 'react-native';
+import { type TextStyle } from 'react-native';
 import { colors, font } from '../theme.ts';
 import { useCountUp, useReduceMotionState } from './motion.ts';
+import { Text } from './Text.tsx';
 
 /**
  * Every focal point in Kairo is a number, and this is the only thing that
@@ -62,5 +63,19 @@ export function Numeral({
   // caller-supplied `color`/`opacity` silently beating the anti-flash guard
   // would be a correctness bug, not a feature. If a real escape hatch is ever
   // needed, add a dedicated prop rather than reordering this.
-  return <Text style={[font.display[size], style, { color, opacity }]}>{shown}</Text>;
+  return (
+    <Text
+      // `fixed`: hero is already 64pt and every numeral in the app sits in
+      // drawn geometry — a coin, a ring, a fixed-height row. Growing it does
+      // not make it more readable, it makes it collide.
+      scale="fixed"
+      style={[font.display[size], style, { color, opacity }]}
+      // Announce the settled number, never the count-up. A screen reader
+      // re-reads a changing value, so an animating Numeral would otherwise
+      // narrate every frame between 0 and the total.
+      accessibilityLabel={typeof value === 'number' ? value.toLocaleString() : value}
+    >
+      {shown}
+    </Text>
+  );
 }

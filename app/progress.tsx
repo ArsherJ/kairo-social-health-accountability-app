@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, font, ramp, space } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, Screen } from '@/ui/index.ts';
+import { BackRow, Screen, Text } from '@/ui/index.ts';
 
 /**
  * How progress works — one place, four ideas.

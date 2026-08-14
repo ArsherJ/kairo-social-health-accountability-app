@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ratingForStatPoints, statPointsForRating, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Meter, StatIcon } from '@/ui/index.ts';
+import { Meter, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 export function StatBar({
   stat,
@@ -45,8 +45,27 @@ export function StatBar({
 
   const showLaneCopy = lane && todayPoints === 0 && laneEmptyCopy !== null;
 
+  // Said out loud, the bar is otherwise four fragments — "AGI", "41", "+320",
+  // "Steps and distance" — with the abbreviation read as a word and the
+  // meter's fill, which is progress toward the next rating, carried only by
+  // its width and therefore not said at all.
+  //
+  // Composed here rather than in a module of its own: every number is derived
+  // three lines up, and extracting would mean passing five arguments to avoid
+  // two ternaries.
+  const spokenLabel = [
+    lane ? `${STAT_NAMES[stat]}, your lane` : STAT_NAMES[stat],
+    `ability ${rating}`,
+    `${Math.round(Math.max(0, Math.min(1, fill)) * 100)} percent to ${rating + 1}`,
+    todayPoints > 0 ? `plus ${todayPoints.toLocaleString()} today` : null,
+    label,
+    showLaneCopy ? laneEmptyCopy : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
-    <View style={styles.row}>
+    <View accessible accessibilityLabel={spokenLabel} style={styles.row}>
       <View style={styles.header}>
         {/* Icon *and* abbreviation, unlike the rail's coin. This is where the
             mapping gets taught — glyph, name and "Steps and distance" on three
@@ -58,18 +77,22 @@ export function StatBar({
             coin, where it is the only carrier, it leads. */}
         <View style={styles.name}>
           <StatIcon stat={stat} size={16} color={lane ? colors.accent : colors.text} />
-          <Text style={[styles.stat, lane && styles.statLane]}>
+          <Text scale="chrome" style={[styles.stat, lane && styles.statLane]}>
             {stat}
             {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
           </Text>
         </View>
         <View style={styles.numbers}>
-          <Text style={styles.rating}>{rating}</Text>
+          <Text scale="chrome" style={styles.rating}>
+            {rating}
+          </Text>
           {/* Today's contribution, beside the ability it fed. The rating is
               slow by design, so a good day would otherwise move nothing the
               user can see. */}
           {todayPoints > 0 && (
-            <Text style={styles.today}>+{todayPoints.toLocaleString()}</Text>
+            <Text scale="chrome" style={styles.today}>
+              +{todayPoints.toLocaleString()}
+            </Text>
           )}
         </View>
       </View>

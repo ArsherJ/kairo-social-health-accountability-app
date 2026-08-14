@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { AppState, Linking, StyleSheet, Text } from 'react-native';
+import { AppState, Linking, StyleSheet } from 'react-native';
 import * as Application from 'expo-application';
-import { Button, Label, Panel } from '@/ui/index.ts';
+import { Button, Label, Panel, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
 import type { NotificationPermission } from './ask-policy.ts';
 import {

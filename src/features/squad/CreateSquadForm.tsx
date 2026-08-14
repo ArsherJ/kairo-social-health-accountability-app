@@ -1,21 +1,12 @@
 import { useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { DEFAULT_SQUAD_PROGRAM, type SquadProgram } from '@kairo/core';
 import { useCreateSquad } from './mutations.ts';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
 import { isValidSquadName, SQUAD_NAME_MAX, squadNameHint } from './squad-name.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { colors, font, radius, space } from '@/theme.ts';
-import { BackRow, Button, Label } from '@/ui/index.ts';
+import { BackRow, Button, Label, Text } from '@/ui/index.ts';
 
 export function CreateSquadForm({
   userId,

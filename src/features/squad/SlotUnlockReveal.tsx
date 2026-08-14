@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
+import { Text } from '@/ui/index.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
 import { shouldRevealUnlock } from './slots.ts';
 

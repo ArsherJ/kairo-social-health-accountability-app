@@ -1,9 +1,9 @@
-import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, space } from '@/theme.ts';
-import { Button, Numeral, Screen } from '@/ui/index.ts';
+import { Button, Numeral, Screen, Text } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';

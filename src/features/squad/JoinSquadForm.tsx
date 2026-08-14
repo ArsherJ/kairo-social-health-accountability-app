@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { INVITE_CODE_LENGTH, isValidInviteCode } from './invite-code.ts';
 import { useJoinSquad } from './mutations.ts';
 import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
 import { useSquadPreview } from './queries.ts';
 import { colors, font, radius, space } from '@/theme.ts';
-import { BackRow, Button, Label, Panel } from '@/ui/index.ts';
+import { BackRow, Button, Label, Panel, Text } from '@/ui/index.ts';
 
 export function JoinSquadForm({
   userId,

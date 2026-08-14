@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { availableProviders, type SignInProvider } from '@/features/auth/providers.ts';
-import { Button } from '@/ui/index.ts';
+import { Button, Text } from '@/ui/index.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 
 /** Matches `Button`'s `minHeight`, so the two stack on one rhythm. */

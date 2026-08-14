@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import Feather from '@expo/vector-icons/Feather';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
@@ -29,7 +21,7 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Numeral, Panel, Screen } from '@/ui/index.ts';
+import { Button, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },

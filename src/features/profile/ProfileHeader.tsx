@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { ProgressRing } from '@/ui/index.ts';
+import { ProgressRing, Text } from '@/ui/index.ts';
 import { xpProgress } from './xp-progress.ts';
 
 const RING = 96;

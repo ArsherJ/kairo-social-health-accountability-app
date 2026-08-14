@@ -1,5 +1,5 @@
 import { Fragment, useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
@@ -10,7 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
 import { startSessionListener, useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { Panel, Button } from '@/ui/index.ts';
+import { Panel, Button, Text } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, space } from '@/theme.ts';
 

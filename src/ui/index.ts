@@ -7,6 +7,7 @@ export { GroundShadow, PresenceRing } from './GroundShadow.tsx';
 export { Avatar } from './Avatar.tsx';
 export { Gradient } from './Gradient.tsx';
 export { rampColors, type Stop } from './gradient.ts';
+export { Text, textScale, type TextScale, type TextProps } from './Text.tsx';
 export { Numeral } from './Numeral.tsx';
 export { Label } from './Label.tsx';
 export { Meter } from './Meter.tsx';

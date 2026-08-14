@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Label, Panel } from '@/ui/index.ts';
+import { Button, Label, Panel, Text } from '@/ui/index.ts';
 import {
   BODY_METRIC_LIMITS,
   parseBodyMetric,

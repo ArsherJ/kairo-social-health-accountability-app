@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { font, ramp, radius, space } from '@/theme.ts';
-import { Panel } from '@/ui/index.ts';
+import { Panel, Text } from '@/ui/index.ts';
 
 /**
  * An empty seat in the squad (§7): "locked slots are visible every day —

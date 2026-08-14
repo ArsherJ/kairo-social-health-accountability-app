@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/index.ts';
 import type { CoreStat } from '@kairo/core';
 import { colors, font, radius, space } from '@/theme.ts';
 import { firstSyncHeadline } from './first-sync.ts';

@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, font, radius, space } from '../theme.ts';
+import { Text } from './Text.tsx';
 
 /**
  * A call to action that **is not itself tappable** — the card around it is.
@@ -17,7 +18,13 @@ import { colors, font, radius, space } from '../theme.ts';
 export function CtaPill({ label, tone = 'accent' }: { label: string; tone?: 'accent' | 'sage' }) {
   return (
     <View style={[styles.pill, tone === 'sage' && styles.sage]}>
-      <Text style={styles.label}>{label}</Text>
+      {/* `chrome`, and deliberately not marked up as a control: the card
+          around this is the `Pressable`, so VoiceOver should reach one
+          element that ends "…Set a goal", not a button nested in a button.
+          Same reasoning as the comment above about overlapping targets. */}
+      <Text scale="chrome" style={styles.label}>
+        {label}
+      </Text>
     </View>
   );
 }

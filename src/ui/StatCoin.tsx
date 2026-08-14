@@ -1,7 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ratingForStatPoints, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, shadow } from '../theme.ts';
-import { StatIcon } from './StatIcon.tsx';
+import { StatIcon, STAT_NAMES } from './StatIcon.tsx';
+import { Text } from './Text.tsx';
 
 /**
  * One stat as a coin, for the diorama's floating rail.
@@ -44,7 +45,20 @@ export function StatCoin({
   const untrained = (points ?? 0) <= 0;
 
   return (
-    <View style={[styles.coin, untrained && styles.idle]}>
+    <View
+      // One element, not two. Read separately a coin announces "7" with no way
+      // to know which stat, because `StatIcon` is deliberately hidden and the
+      // rating is the only text — the whole point of the glyph-over-letters
+      // change on 2026-08-11 is that there is no abbreviation left to read.
+      // STAT_NAMES exists for exactly this and was never wired up here.
+      accessible
+      accessibilityLabel={
+        untrained
+          ? `${STAT_NAMES[stat]}, untrained`
+          : `${STAT_NAMES[stat]}, ability ${rating}`
+      }
+      style={[styles.coin, untrained && styles.idle]}
+    >
       {/* 18pt, not 20: the inner box is 48pt after the 3pt border, and the
           rating below it is 20pt of line. 18 leaves the glyph and the number
           breathing room inside the ring instead of pressing on it. */}
@@ -53,7 +67,12 @@ export function StatCoin({
         size={18}
         color={untrained ? colors.muted : ramp.accent[800]}
       />
-      <Text style={[styles.rating, untrained && styles.ratingIdle]}>{rating}</Text>
+      {/* `fixed`: 54pt circle with a 3pt border and a glyph above the number.
+          There is no room to grow, and the label above is what carries the
+          value at any text size. */}
+      <Text scale="fixed" style={[styles.rating, untrained && styles.ratingIdle]}>
+        {rating}
+      </Text>
     </View>
   );
 }

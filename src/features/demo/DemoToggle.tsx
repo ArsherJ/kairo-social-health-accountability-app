@@ -1,6 +1,6 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { font, ramp, space } from '@/theme.ts';
-import { Button } from '@/ui/index.ts';
+import { Button, Text } from '@/ui/index.ts';
 import { useDemoStore, toggleDemo } from './store.ts';
 
 /**

@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
@@ -15,7 +10,7 @@ import { NotificationSettingsCard } from '@/features/notifications/NotificationS
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
-import { Button, Label, Panel, Screen } from '@/ui/index.ts';
+import { Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
 
 export default function ProfileTab() {

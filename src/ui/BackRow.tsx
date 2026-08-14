@@ -1,5 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Text } from './Text.tsx';
 import { colors, font, space } from '../theme.ts';
 
 /**

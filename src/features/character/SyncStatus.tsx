@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/index.ts';
 import Feather from '@expo/vector-icons/Feather';
 import { requestSync, useSyncStatusStore } from '@/features/health/status-store.ts';
 import { syncStatus } from '@/features/health/sync-status.ts';

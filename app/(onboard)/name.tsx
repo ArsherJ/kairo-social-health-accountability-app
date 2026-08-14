@@ -1,19 +1,12 @@
 import { useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHARACTER_NAME_MAX, isValidCharacterName } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { parseCharacterBody } from '@/features/profile/character-body.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
-import { Button, Label } from '@/ui/index.ts';
+import { Button, Label, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 
 export default function NameYourCharacter() {

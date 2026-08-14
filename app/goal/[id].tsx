@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
@@ -15,7 +15,7 @@ import { useAbandonGoal } from '@/features/goals/mutations.ts';
 import { toGoal, useGoalDetail } from '@/features/goals/queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { Avatar, BackRow, Button, Label, Screen } from '@/ui/index.ts';
+import { Avatar, BackRow, Button, Label, Screen, Text } from '@/ui/index.ts';
 
 /**
  * One goal, in full: the window, your own bar, and where everybody else on it
