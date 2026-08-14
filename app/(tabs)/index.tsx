@@ -205,74 +205,125 @@ export default function Character() {
         >
           {/* The HUD. Everything here floats over the world rather than
               sitting in the page, which is the whole point of the direction —
-              so each piece carries its own translucent ground and a shadow. */}
+              so each piece carries its own translucent ground and a shadow.
 
-          {standing.kind === 'ranked' && standing.ahead && (
-            <View style={[styles.squadPill, { top: insets.top + space.sm }]}>
-              <View style={styles.faces}>
-                {others.map((row, i) => (
-                  <View key={row.user_id} style={i > 0 && styles.overlap}>
-                    <Avatar name={row.character_name} size={24} ringed />
-                  </View>
-                ))}
-              </View>
-              {/* `fixed` throughout the HUD. These are short numerals and
-                  labels on a drawn surface, and every value here is repeated
-                  at full `prose` scale further down the page — level and XP in
-                  the TODAY panel, the streak on Profile, the ratings in the
-                  expanded StatBars. Nothing becomes unreadable; it becomes
-                  readable lower down.
+              One absolutely-positioned column rather than four separately
+              positioned pieces: the old version pinned each at a hardcoded
+              offset (+8, +48, +48, +132) which silently assumed the pills were
+              a certain height. At large Dynamic Type sizes they grew past each
+              other's offsets and overlapped. Flexbox computes it now, so
+              growth pushes downward and cannot collide.
 
-                  The nested span needs its own: `maxFontSizeMultiplier` is set
-                  per-Text and `Text` always passes one, so leaving it off
-                  would cap this word at 1.8 inside a line capped at 1.2. */}
-              <Text scale="fixed" style={styles.squadText} numberOfLines={1}>
-                {standing.ahead.name} is{' '}
-                <Text scale="fixed" style={styles.squadGap}>
-                  {standing.ahead.gap.toLocaleString()}
-                </Text>{' '}
-                ahead
-              </Text>
-            </View>
-          )}
+              `box-none` so the column does not swallow taps meant for the
+              diorama, while the rail inside it stays tappable. */}
+          <View
+            pointerEvents="box-none"
+            style={[styles.hud, { top: insets.top + space.sm }]}
+          >
+            {standing.kind === 'ranked' && standing.ahead && (
+              <View style={styles.squadPill}>
+                <View style={styles.faces}>
+                  {others.map((row, i) => (
+                    <View key={row.user_id} style={i > 0 && styles.overlap}>
+                      <Avatar name={row.character_name} size={24} ringed />
+                    </View>
+                  ))}
+                </View>
+                {/* `fixed` throughout the HUD. These are short numerals and
+                    labels on a drawn surface, and every value here is repeated
+                    at full `prose` scale further down the page — level and XP
+                    in the TODAY panel, the streak on Profile, the ratings in
+                    the expanded StatBars. Nothing becomes unreadable; it
+                    becomes readable lower down.
 
-          <View style={[styles.levelPill, { top: insets.top + space.xl + space.sm }]}>
-            <View style={styles.levelDisc}>
-              <Text scale="fixed" style={styles.levelNumber}>{level}</Text>
-            </View>
-            <View style={styles.levelBody}>
-              <Meter fraction={xp.fraction} color={ramp.accent[500]} height={9} />
-              <Text scale="fixed" style={styles.levelMeta}>
-                {xp.intoLevel.toLocaleString()} / {xp.neededForNext.toLocaleString()} XP
-              </Text>
-            </View>
-          </View>
-
-          {/* The streak is the only persistent pill. A goal in flight belongs
-              on the shelf below, where it has room for a target and a date —
-              not squeezed into a second pill up here. */}
-          <View style={[styles.hudRight, { top: insets.top + space.xl + space.sm }]}>
-            {(streak.data?.current_streak ?? 0) > 0 && (
-              <View style={styles.pill}>
-                <Text scale="fixed" style={styles.streakNumber}>
-                  {streak.data?.current_streak}
-                </Text>
-                <Text scale="fixed" style={styles.streakUnit}>
-                  day{streak.data?.current_streak === 1 ? '' : 's'}
+                    The nested span needs its own: `maxFontSizeMultiplier` is
+                    set per-Text and `Text` always passes one, so leaving it
+                    off would cap this word at 1.8 inside a line capped at
+                    1.2. */}
+                <Text scale="fixed" style={styles.squadText} numberOfLines={1}>
+                  {standing.ahead.name} is{' '}
+                  <Text scale="fixed" style={styles.squadGap}>
+                    {standing.ahead.gap.toLocaleString()}
+                  </Text>{' '}
+                  ahead
                 </Text>
               </View>
             )}
-          </View>
 
-          {!score.isPending && (
-            <View style={[styles.rail, { top: insets.top + 132 }]}>
-              <StatRail
-                ratings={lifetime}
-                expanded={expanded}
-                onToggle={() => setExpanded((e) => !e)}
-              />
+            <View style={styles.hudRow}>
+              {/* Never grouped at all before, so the level and its XP line read
+                  as loose numbers. Children hidden explicitly, same as
+                  `LeaderboardRow`. */}
+              <View
+                accessible
+                accessibilityLabel={
+                  `Level ${level}, ${xp.intoLevel.toLocaleString()} of ` +
+                  `${xp.neededForNext.toLocaleString()} XP`
+                }
+                style={styles.levelPill}
+              >
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={styles.levelDisc}
+                >
+                  <Text scale="fixed" style={styles.levelNumber}>{level}</Text>
+                </View>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={styles.levelBody}
+                >
+                  <Meter fraction={xp.fraction} color={ramp.accent[500]} height={9} />
+                  <Text scale="fixed" style={styles.levelMeta}>
+                    {xp.intoLevel.toLocaleString()} / {xp.neededForNext.toLocaleString()} XP
+                  </Text>
+                </View>
+              </View>
+
+              {/* The streak is the only persistent pill. A goal in flight
+                  belongs on the shelf below, where it has room for a target
+                  and a date — not squeezed into a second pill up here.
+
+                  "3 day streak", not "3-day": the hyphenated form is right on
+                  screen and wrong out loud, the same rule `row-label.ts`
+                  tests. */}
+              {(streak.data?.current_streak ?? 0) > 0 && (
+                <View
+                  accessible
+                  accessibilityLabel={`${streak.data?.current_streak} day streak`}
+                  style={styles.pill}
+                >
+                  <Text
+                    scale="fixed"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={styles.streakNumber}
+                  >
+                    {streak.data?.current_streak}
+                  </Text>
+                  <Text
+                    scale="fixed"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={styles.streakUnit}
+                  >
+                    day{streak.data?.current_streak === 1 ? '' : 's'}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
+
+            {!score.isPending && (
+              <View style={styles.railRow}>
+                <StatRail
+                  ratings={lifetime}
+                  expanded={expanded}
+                  onToggle={() => setExpanded((e) => !e)}
+                />
+              </View>
+            )}
+          </View>
         </Diorama>
 
         <View style={styles.shelf}>
@@ -401,8 +452,26 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: TAB_PILL_CLEARANCE },
 
   // — the floating HUD —
-  squadPill: {
+  // One column. `left`/`right` rather than a width, so the row below can put
+  // the level pill against one edge and the streak pill against the other.
+  // Nothing here carries a vertical offset any more: the container is placed
+  // once, and flexbox spaces what is inside it. That is the property that
+  // stops large Dynamic Type sizes from stacking pills on top of each other,
+  // so do not reintroduce a `top` on any child.
+  hud: {
     position: 'absolute',
+    left: space.md,
+    right: space.md,
+    gap: space.sm,
+  },
+  hudRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  railRow: { alignItems: 'flex-end' },
+
+  squadPill: {
     alignSelf: 'center',
     maxWidth: '86%',
     flexDirection: 'row',
@@ -421,8 +490,11 @@ const styles = StyleSheet.create({
   squadGap: { color: ramp.accent[700] },
 
   levelPill: {
-    position: 'absolute',
-    left: space.md,
+    // The row is the vertical fix's horizontal twin: two content-sized pills
+    // in a `space-between` row overflow rather than wrap, and RN defaults
+    // `flexShrink` to 0. The level pill is the one that grows (a long XP line),
+    // so it is the one that yields. `levelBody`'s minWidth is its floor.
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
@@ -447,13 +519,6 @@ const styles = StyleSheet.create({
   levelBody: { minWidth: 96 },
   levelMeta: { ...font.body.label, color: ramp.neutral[700], letterSpacing: 0, marginTop: 4 },
 
-  hudRight: {
-    position: 'absolute',
-    right: space.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-  },
   pill: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -466,7 +531,6 @@ const styles = StyleSheet.create({
   },
   streakNumber: { ...font.display.minor, color: ramp.accent[700] },
   streakUnit: { ...font.body.label, color: ramp.accent[700], letterSpacing: 0 },
-  rail: { position: 'absolute', right: space.md },
 
   // — the cream shelf —
   shelf: { paddingHorizontal: space.lg, paddingTop: space.sm },
