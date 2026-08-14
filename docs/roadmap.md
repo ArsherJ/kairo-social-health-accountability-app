@@ -764,6 +764,54 @@ The investigation also surfaced, and reverted, a deviation in
 produce the same endless spinner, since that field is a probe against an
 unrelated third-party endpoint and paused queries never error.
 
+### What the accessibility pass found on hardware (2026-08-14)
+
+Build `90f75aa` shipped Dynamic Type caps and VoiceOver names. Tested on an
+iPhone at the largest accessibility text size and with VoiceOver, it produced
+three findings. Design spec:
+`docs/superpowers/specs/2026-08-14-accessibility-device-fixes-design.md`.
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | The **character tab** is unreadable at the largest text size; Squad and Profile are fine. | ✅ **Fixed.** It was the app's only absolutely-positioned chrome — four HUD layers pinned at `+8`, `+48`, `+48` and a magic `+132`, each silently assuming the pills were a certain height. Every other screen uses `paddingTop` and flows, which is exactly why only this one broke. Now one flowing column, and the HUD's text caps at `fixed` (1.2×). |
+| 2 | VoiceOver reads a **leaderboard row as separate stops** despite the row carrying `accessible` + `accessibilityLabel`. | ✅ **Fixed**, and it is the important one: **a technique shipped across six components in that build does not do what it claims.** iOS is documented to collapse descendants of an `accessible` parent and did not here. |
+| 3 | Layout stays sized for large text after returning to normal, until relaunch. | ⛔️ **Won't fix** — see below. |
+
+**Finding 2's mechanism is unconfirmed, and the fix deliberately does not depend
+on knowing it.** RN `Text` is an accessibility element by default, `Numeral`
+carries its own label, and this app is New Architecture only; any of those could
+be the cause, and the React Native docs do not settle it. Rather than diagnose
+and hope, the parent keeps `accessible` + `accessibilityLabel` **and** every
+direct child is hidden outright with `accessibilityElementsHidden` +
+`importantForAccessibility="no-hide-descendants"`. Applied to `LeaderboardRow`,
+`StatBar`, `GoalBar`, `StreakCard`'s two figures and `Diorama`'s figure. Both
+halves are load-bearing — neither is redundant.
+
+**Finding 3 is a decision, not an oversight.** A relaunch clears it, so nothing
+is persisted: this is React Native not re-measuring existing views when iOS's
+content size category changes at runtime — font sizes update, the boxes laid out
+around them do not. There is no supported RN subscription for
+`UIContentSizeCategoryDidChangeNotification`, so a fix means a native module or
+a global remount hack, both more risk than the bug. Exposure is limited to a
+user who changes text size with Kairo open and does not relaunch, and finding
+1's fix makes the mis-sized intermediate state far less destructive.
+
+**A regression from the same pass, reverted.** `StatCoin` was given `accessible`
++ `accessibilityLabel`. Its only call site is `StatRail`, which is one
+`Pressable` whose label already speaks all four ratings — its own comment says
+so — making the change either a no-op or a split of one control into four.
+Strictly wrong either way. This was the second instance of that mistake in one
+pass, after `GoalBar`'s pace marker (correctly left alone, because
+`statusLine()` already says "behind pace"), so the rule is now stated in
+`CLAUDE.md`: **before adding an accessible name, read what is already spoken
+around it.**
+
+**The standing process change:** finding 2 cost a full TestFlight build to
+discover and would have cost another to confirm. It did not need to — both
+findings reproduce on the simulator. Accessibility *structure* is verified in
+Xcode's Accessibility Inspector before a build is cut. This qualifies, and does
+not replace, "UI is verified by hand on device".
+
 ## End-to-end QA findings (2026-08-11)
 
 Full report and root-cause addendum: `docs/qa/kairo-end-to-end-qa-report.md`. It

@@ -48,6 +48,32 @@ swipes), and because "1-day streak" is right on screen and wrong out loud.
 Before adding a label, check the text already beside it — `GoalBar`'s pace
 marker needed nothing, since `statusLine()` already says "behind pace".
 
+**Three rules the 2026-08-14 device pass added.** First: **grouping is
+explicit.** `accessible` + `accessibilityLabel` on a parent is documented to
+collapse its descendants on iOS and *did not* on that build — a leaderboard row
+still read as separate stops. The mechanism is unconfirmed and the fix
+deliberately does not depend on it: the parent keeps both props **and** every
+direct child is hidden with `accessibilityElementsHidden` +
+`importantForAccessibility="no-hide-descendants"`. Neither half is redundant;
+removing one is how this comes back. Second: **the character HUD's layout stays
+flow-based.** It was the app's only absolutely-positioned chrome, pinned at
+`+8`/`+48`/`+48`/`+132`, and those constants assumed pill heights nothing
+enforced — at large Dynamic Type the pills grew past each other and overlapped.
+It is one flowing column now; do not reintroduce a `top` on any child. Third:
+**before adding an accessible name, read what is already spoken around it.** A
+label that repeats an adjacent line is noise; a label inside a control that
+already names itself is a bug — `StatCoin` got one inside `StatRail`, which is a
+single `Pressable` already speaking all four ratings, and it was reverted.
+
+**Accessibility structure is verified in Xcode's Accessibility Inspector on the
+simulator before a TestFlight build is cut.** This qualifies the "UI is verified
+by hand on device" posture below rather than replacing it: the grouping failure
+above cost a full build to find and another to confirm, and the inspector
+answers *"is this row one element or twelve"* directly, with no VoiceOver
+gestures and no build. Dynamic Type needs no GUI at all —
+`xcrun simctl ui booted content_size accessibility-extra-extra-extra-large`
+sets it and `xcrun simctl io booted screenshot` captures the result.
+
 **Stat identity is a glyph, not three letters, as of 2026-08-11.** `src/ui/StatIcon.tsx`
 owns the only mapping; `StatCoin`, `StatBar` and `LeaderboardRow` all read it. It is
 MaterialCommunityIcons on purpose while all chrome stays Feather — the split is
