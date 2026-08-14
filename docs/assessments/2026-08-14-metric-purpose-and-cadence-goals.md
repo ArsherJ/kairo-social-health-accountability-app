@@ -1,10 +1,14 @@
 # Metric Purpose & Cadence Goals — Assessment and Plan
 
-**Status:** brainstorm, not yet decided. Nothing in this file is built and nothing
-here overrides `Kairo_Master_Summary.md` or `docs/roadmap.md`'s approved-deviations
-table — it exists so the idea survives past one conversation, on the precedent of
+**Status:** Part 1 (below) is the original brainstorm and stands as written.
+**Part 2 (end of file) records founder decisions on solo mode** — walking,
+strength, running, and the adaptive-challenge engine are settled. **Squad
+alignment is still open** and is the next pass. Nothing here overrides
+`Kairo_Master_Summary.md` or `docs/roadmap.md`'s approved-deviations table on
+its own — this is the staging ground, on the precedent of
 `docs/assessments/2026-08-06-onboarding-and-program-selection.md`, which went
-through the same "assessment → founder decision → roadmap deviation" path.
+through the same "assessment → founder decision → roadmap deviation" path and
+carries its own decisions in a "Part 2" the same way.
 
 **The founder's framing, condensed:** the app shows numbers without saying what
 they're *for*, and Goals (§8) are too abstract — a goal is just "N points by a
@@ -287,3 +291,131 @@ this conversation's.
 4. **Timing:** bundle §2+§3.1 into current work, and treat §3.2 as a V1-scoped
    proposal alongside the already-deferred N-of-M squad streak — or is cadence
    goals wanted sooner, ahead of the beta?
+
+---
+
+# Part 2 — Solo mode: founder decisions (2026-08-14)
+
+Open decision 1 from Part 1 (verification fidelity) is answered by what
+follows. Open decisions 2–4 are superseded — solo mode no longer routes
+through the `cadence` `GoalKind` sketched in §3.2 at all; see §10. **Squad
+alignment (how any of this attaches to a squad) is explicitly not decided
+here** — that's the next pass.
+
+## 9. Decisions recorded
+
+- **Walking stays exactly as Part 1 proposed**: a flat, permanent, solo
+  baseline at 10,000 steps (§3.1) — presentation over existing AGI data, no
+  schema, never scaled up even as a user improves. It is a public-health
+  number, not a personal-progress one, and the two must not be conflated.
+- **"Gym" is replaced by calisthenics**: push-ups, pull-ups, squats, curl-ups
+  — bodyweight, no equipment, feasible at home. This drops the squad `gym`
+  program's implicit "you need a gym" framing in favor of something every
+  solo user can actually do, which matters because Strength is being
+  redesigned as a solo-first challenge before it's a squad one at all.
+- **Running is pace-based**, not steps-based, and that is accepted as real
+  scope: it requires reading HealthKit **workout sessions** (`.running`
+  activity type, with distance and duration), not just the hourly buckets
+  `sync-health` stores today. This is the same "(b)" fidelity fork Part 1
+  flagged and left open for cadence goals — it is now committed to for Run
+  specifically, and accepted as a real ingest change, not a copy change.
+  Worth restating the side benefit noted mid-conversation: reading workout
+  sessions is also the only reliable way to tell a **run** apart from a
+  **walk** at the data layer, since both currently collapse into the same
+  AGI steps/distance signal. Solving Run's data need solves that ambiguity
+  for free.
+- **Rep-counting (push-ups, pull-ups, squats, curl-ups by name) is real and
+  buildable, but is a follow-on capability, not part of this pass.** Verified
+  against a real shipped app (Puuush): Watch-motion rep counting (CoreMotion
+  accelerometer/gyroscope) and camera-based rep/form counting (Apple's Vision
+  framework, `VNDetectHumanBodyPoseRequest`) are both proven techniques. The
+  one thing that does **not** carry over: HealthKit has no standard field for
+  a rep count, so a third-party rep-counting app syncing to Apple Health
+  gives Kairo nothing beyond the workout-session-and-calories signal it
+  already gets from any workout — **reading another app's rep count is not
+  an integration path.** If Kairo wants reps, Kairo has to count them itself,
+  via one of two genuinely separate native builds:
+  - a **watchOS companion app/extension** (CoreMotion + a rep-detection
+    algorithm) — new native platform surface; this codebase has none today
+    (iOS-only via Expo, per `CLAUDE.md`);
+  - **on-device camera pose detection** (Vision framework) — no third-party
+    ML dependency needed, but real bespoke rep/form logic, a live-camera UI,
+    its own accuracy validation, and its own privacy story (a camera on a
+    body mid-exercise is a more sensitive ask than a step count, even fully
+    on-device).
+
+  Both are named as **the most genuinely differentiated idea raised in this
+  whole conversation** — neither Stompers nor Charlie (§3's named
+  competitors) do verified-form calisthenics — but sized honestly: each is
+  its own initiative, not a line item inside this redesign. **When either
+  ships, it should slot in exactly where REC and Strain already sit**: a
+  bonus/display signal, present only when the capability exists ("no Watch,
+  no camera permission → the row simply doesn't appear, zero penalty" — REC's
+  own rule, reused), never something competitive rank depends on. That is not
+  a formality — an on-device classifier carries real false-positive/negative
+  risk that accelerometer step-counting and GPS distance don't, and the app's
+  whole anti-cheat posture (§5) leans on signals that are hard to fake. Bonus-
+  first is how the app already handles a signal it trusts less than the core
+  four stats; there is no reason for rep-counting to be the exception.
+
+## 10. Revised solo-mode shape
+
+Three areas, each different enough in what data backs them that they should
+not be forced into one mechanic:
+
+| Area | Metric | Scored signal today | New data need |
+|---|---|---|---|
+| **Walk** | Steps | AGI, as-is | None — flat 10,000 baseline, presentation only |
+| **Strength** | Calisthenics effort | STR (active calories / workout-session presence) | None at first; rep-counting is a later, capability-gated bonus (§9) |
+| **Run** | Pace | New — not covered by AGI today | HealthKit workout-session read (distance, duration, `.running` type) |
+
+**None of these are a `GoalKind`.** Part 1's §3.2 sketched cadence goals as a
+new `GoalKind` on the existing `goals` table; that no longer fits, because the
+mechanic solo mode needs is **adaptive**, not fixed. §8's Goal invariant —
+"fixed at creation... changing a target mid-window would silently re-grade
+every day already counted" — is deliberate and stays true for user-authored
+Goals. What solo mode wants is a target that *moves as the user's level
+moves*, which breaks that invariant on purpose. That is a different concept,
+not a variant of Goals, and gets its own name: **Challenges.**
+
+## 11. The Challenges engine
+
+System-authored, per-user, per-area (Strength and Run; Walk stays flat and
+opts out of this entirely — see §9). Sketch, for the next pass to size
+properly:
+
+- A **rolling personal baseline** per area — trailing average effort for
+  Strength, trailing average pace for Run — computed the same way
+  `dominantStat()` already reasons over a window of stat points
+  (`packages/kairo-core/src/dominance.ts`), just a different window and a
+  different output.
+- The next challenge sits a small, deliberate step above that baseline —
+  progressive overload, not an arbitrary jump. Before a baseline exists (a
+  brand-new Run user with no tracked runs yet), the challenge is a starter
+  target whose job is to *establish* one, not to test the user.
+- **It must be able to ease, not just tighten.** A challenge missed
+  repeatedly should back off rather than keep climbing. A pure one-way
+  ratchet would quietly reintroduce the exact failure mode goals replaced
+  sabotage to avoid — §1's "progress is still progress" — by turning a bad
+  week into a permanently harder app instead of a forgiven one.
+- **Sleep/recovery as a difficulty input is real, but honestly wearable-only.**
+  REC and Strain do not exist for a phone-only user — §5 is explicit that the
+  REC row "simply doesn't appear — zero penalty" without a wearable. So a
+  recovery-aware challenge engine can only ever apply to the subset of users
+  a Watch or band covers; for everyone else, the honest behavior is that the
+  app has no recovery signal and should not act as if it does. Same
+  discipline as the gym-accuracy note in `program-copy.ts`.
+- Architecturally this is a small new pure module in `kairo-core` (baseline
+  calculation + step-up/step-down rule, table-driven and clock-free like
+  everything else there), not an extension of `goal.ts`.
+
+## 12. What's still open
+
+Squad alignment. The one thought worth carrying into that pass, raised mid-
+conversation and not yet designed: if Strength/Run targets are personalized,
+a squad commitment could read as "everyone clears their **own** current
+challenge N times this week" rather than one flat number for the whole
+squad — which would resolve the fairness problem the original
+`docs/assessments/2026-08-06-onboarding-and-program-selection.md` raised
+against a literal "gym program" (mismatched squadmates competing on a target
+that isn't equally hard for both of them). Not decided — next pass.
