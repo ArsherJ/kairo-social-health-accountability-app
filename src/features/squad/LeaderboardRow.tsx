@@ -44,6 +44,12 @@ export function LeaderboardRow({
       // with the ranking arriving in fragments. `leaderboardRowLabel` owns the
       // reading order, and is tested — the pluralisation and the partial
       // ratings map are both wrong in ways that look right.
+      //
+      // `accessible` alone should collapse this on iOS and did not, on the
+      // 2026-08-14 build. The mechanism is unconfirmed — RN Text is an
+      // accessibility element by default and this app is New Architecture
+      // only — so the children are hidden explicitly rather than trusting the
+      // implicit behaviour. Do not remove one half thinking it is redundant.
       accessible
       accessibilityLabel={leaderboardRowLabel({
         rank: row.rank,
@@ -72,13 +78,25 @@ export function LeaderboardRow({
         row.is_self && styles.self,
       ]}
     >
-      <Text scale="fixed" style={[styles.rank, row.is_self && styles.rankSelf]}>
+      <Text
+        scale="fixed"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[styles.rank, row.is_self && styles.rankSelf]}
+      >
         {row.rank}
       </Text>
 
+      {/* `Avatar` already hides itself. */}
       <Avatar name={row.character_name} self={row.is_self} />
 
-      <View style={styles.middle}>
+      {/* Hiding the wrapper takes the whole name / meta / ratings subtree with
+          it, which is why this is four props and not twenty. */}
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.middle}
+      >
         <View style={styles.nameLine}>
           <Text
             scale="chrome"
@@ -160,12 +178,13 @@ export function LeaderboardRow({
         </View>
       </View>
 
-      <Numeral
-        value={row.total}
-        size="minor"
-        color={row.is_self ? ramp.accent[800] : colors.text}
-      />
-
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Numeral
+          value={row.total}
+          size="minor"
+          color={row.is_self ? ramp.accent[800] : colors.text}
+        />
+      </View>
     </View>
   );
 }
