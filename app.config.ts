@@ -123,6 +123,24 @@ const config: ExpoConfig = {
     // Listed after the HealthKit plugin so the pairing is obvious; the two
     // touch different mods, so the order is not load-bearing.
     './plugins/withHealthKitBackgroundObservers',
+    [
+      // Declared for one reason: `mode` writes `aps-environment` into the
+      // entitlements, and Expo's default is `development` — the APNs *sandbox*.
+      // On an EAS build that value is rewritten to `production` for a
+      // distribution build, but this project archives through Xcode Cloud,
+      // which ships the committed `ios/` exactly as it finds it (deviation
+      // #28). Nothing else in the repo declared the intent, so the entitlement
+      // was arriving implicitly at Expo's default and no one had said whether
+      // that was meant.
+      //
+      // TestFlight is production distribution, so `production` is what it
+      // should say. This does not by itself prove push works — Expo's service
+      // relays to both APNs environments — which is why
+      // `NotificationSettingsCard` reads the value back off the running device
+      // rather than leaving it as an inference about the archive.
+      'expo-notifications',
+      { mode: 'production' },
+    ],
     // The native date picker behind the goal form's "Custom" end date. Config
     // plugin rather than autolinking alone: it is what pins the compile SDK on
     // Android, which V1.5 will need. Adding it means `npm run prebuild` before

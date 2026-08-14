@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +13,30 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { Panel, Button } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, space } from '@/theme.ts';
+
+/**
+ * What iOS does with a push that lands while Kairo is already open.
+ *
+ * The default is nothing at all — no banner, no sound, no entry in the list —
+ * which reads exactly like push being broken. §14's day-boundary pair is the
+ * one most likely to arrive with the app in hand, since 23:00 local is when
+ * somebody is checking whether they closed their rings.
+ *
+ * Module scope on purpose: this configures the library rather than a component,
+ * and registering it inside `RootLayout` would re-run it on every render.
+ *
+ * `shouldShowBanner` / `shouldShowList` replace the single deprecated
+ * `shouldShowAlert`. No badge: nothing in Kairo maintains a count, and a badge
+ * that only ever increments is worse than none.
+ */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
   // A font error proceeds rather than blocking: RN falls back to the system

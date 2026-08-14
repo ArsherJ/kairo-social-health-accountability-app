@@ -10,6 +10,7 @@ import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
   useDeviceTokenRegistration,
+  useNotificationRouting,
 } from '@/features/notifications/useNotifications.ts';
 import { colors } from '@/theme.ts';
 import { TabPill } from '@/ui/TabPill.tsx';
@@ -26,6 +27,12 @@ export default function TabsLayout() {
 
   useAppOpenTelemetry(session?.user.id);
   useDeviceTokenRegistration(session?.user.id);
+
+  // Deliberately here and not in `Gate`. This layout only mounts for a user
+  // `resolveRoute()` calls 'ready', so mounting it is the readiness check —
+  // and a tap that launched the app cold is still waiting in
+  // `useLastNotificationResponse()` by the time we get here.
+  useNotificationRouting();
 
   // Mounted at the shell rather than on one screen: the ask is keyed to what
   // has happened to the user, not to where they happen to be standing. The

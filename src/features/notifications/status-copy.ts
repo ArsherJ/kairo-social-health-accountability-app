@@ -52,3 +52,49 @@ export function notificationStatus(
     action: null,
   };
 }
+
+/**
+ * The APNs environment the running build actually registered against.
+ *
+ * `'development'` is the sandbox, `'production'` is the live service, and
+ * `null` is a simulator, which cannot register with APNs at all.
+ */
+export type PushEnvironment = 'development' | 'production' | null;
+
+/**
+ * A one-line delivery diagnostic, shown under the permission state.
+ *
+ * This exists because granting the permission proves nothing about whether a
+ * push can arrive. Two things sit between the two and both fail silently: the
+ * `aps-environment` entitlement baked into the committed `ios/` (deviation
+ * #28 means EAS is not there to set it), and whether a token was ever handed
+ * to the server. Neither is visible from a log this machine can read — USB
+ * pairing is blocked at the kernel — so the build has to say so itself.
+ *
+ * It ships in Release on purpose. `__DEV__` would hide it from TestFlight,
+ * which is the only place the question can be asked.
+ *
+ * Returns `null` when there is nothing worth saying: no permission means no
+ * registration was attempted, and the row above already explains that.
+ */
+export function deliveryStatus(input: {
+  permission: NotificationPermission;
+  environment: PushEnvironment;
+  registered: boolean;
+}): string | null {
+  if (input.permission !== 'granted') return null;
+
+  if (input.environment === null) {
+    // A simulator. Worth naming rather than reporting a failure — nothing is
+    // wrong, and this is where most hand verification happens.
+    return 'Delivery: simulator — this device cannot receive push.';
+  }
+
+  if (!input.registered) {
+    // The state that used to be invisible: permission on, no token, so the
+    // server has nothing to address and every push silently reaches nobody.
+    return `Delivery: not registered (${input.environment}). Reopen Kairo to retry.`;
+  }
+
+  return `Delivery: registered (${input.environment}).`;
+}

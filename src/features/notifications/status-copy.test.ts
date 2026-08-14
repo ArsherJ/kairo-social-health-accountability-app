@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { notificationStatus } from './status-copy.ts';
+import { deliveryStatus, notificationStatus } from './status-copy.ts';
 
 describe('notificationStatus', () => {
   it('offers a route to Settings only when iOS will not let Kairo ask again', () => {
@@ -32,5 +32,45 @@ describe('notificationStatus', () => {
     for (const permission of ['granted', 'denied', 'undetermined'] as const) {
       expect(notificationStatus(permission).help).not.toMatch(/sorry|oops|please/i);
     }
+  });
+});
+
+describe('deliveryStatus', () => {
+  const granted = { permission: 'granted' as const, environment: 'production' as const };
+
+  it('says nothing when the permission has not been granted', () => {
+    // There is no registration to report on, and the row above already
+    // explains the state. A second line would just repeat it.
+    for (const permission of ['denied', 'undetermined'] as const) {
+      expect(
+        deliveryStatus({ permission, environment: null, registered: false }),
+      ).toBeNull();
+    }
+  });
+
+  it('distinguishes a simulator from a failure', () => {
+    // A simulator cannot register with APNs at all — expo-application returns
+    // null there. Reporting that as "not registered" would send someone
+    // debugging a problem that does not exist, on the device where most hand
+    // verification happens.
+    const copy = deliveryStatus({ ...granted, environment: null, registered: false });
+    expect(copy).toMatch(/simulator/i);
+    expect(copy).not.toMatch(/not registered/i);
+  });
+
+  it('names the state that is otherwise invisible: permission on, no token', () => {
+    // The server addresses device_tokens. Permission granted with no row there
+    // means every push reaches nobody, and nothing anywhere says so.
+    expect(deliveryStatus({ ...granted, registered: false })).toMatch(/not registered/i);
+  });
+
+  it('reports the APNs environment either way, since that is the whole question', () => {
+    // The build ships whatever `aps-environment` the committed ios/ carries
+    // (deviation #28). This line is how that value is read back off a real
+    // device instead of inferred from the archive.
+    expect(deliveryStatus({ ...granted, registered: true })).toMatch(/production/);
+    expect(
+      deliveryStatus({ ...granted, environment: 'development', registered: true }),
+    ).toMatch(/development/);
   });
 });

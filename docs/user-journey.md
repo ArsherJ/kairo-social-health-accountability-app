@@ -39,6 +39,30 @@ Anytime         →  Open the app: Character tab, Squad tab, or a goal's progres
 Sunday 10 PM    →  AI weekly recap card pushed to all squads (V1+).
 ```
 
+### Tapping a push lands somewhere specific
+
+Every notification carries a destination, and as of 2026-08-14 the app acts on
+it. `dispatch-notifications` sends `screen: 'squad'` or `'character'` with the
+three scheduled triggers; `finalize-days` sends `screen: 'goals'` with the
+`goalId` that just completed. A tap goes to the squad tab, the character tab, or
+**that goal's own screen** — the most specific destination the product has.
+
+Three details are load-bearing rather than incidental:
+
+- The character destination is `/`, the tabs index. It is **not** `/character`,
+  which is the onboarding body picker — routing a signed-in user there would
+  drop them into onboarding and have `redirectTarget()` bounce them out again.
+- A tap that launches the app from terminated is not lost while the session and
+  profile resolve. `useLastNotificationResponse()` retains the response, so the
+  routing hook reads it when the tabs shell finally mounts, seconds later.
+- A push arriving while the app is already open now shows a banner. Before
+  `setNotificationHandler`, iOS displayed nothing at all in the foreground —
+  which reads exactly like push being broken, and 11 PM is precisely when
+  someone is likely to have the app in hand.
+
+An unrecognised payload is ignored rather than acted on, so a push from a newer
+server than the installed build cannot send anyone somewhere that does not exist.
+
 ### The numbers say how old they are
 
 Under the TODAY panel on Character, a status line reports when health data last
@@ -96,6 +120,7 @@ Settings, body-metric soft prompt, and account actions.
 
 - **Notifications** (`NotificationSettingsCard.tsx`) reports whether they are on, and offers `Linking.openSettings()` when iOS has a denial on file. Re-read on every foreground, because the state can only change in iOS Settings — so returning to the app is the only moment worth checking, and reading once at mount is precisely how the QA pass ended up with a screen describing permissions the user had already revoked. It sits above Timezone deliberately: the zone follows the device and cannot silently be wrong, whereas this can.
 - The card does **not** campaign for the permission back. A denial is a decision; the row's job is to make it legible and reversible. `shouldAskForNotifications` still owns the contextual ask, so an undetermined state shows no button here.
+- When the permission *is* granted, a **delivery line** sits under the copy: `Delivery: registered (production).` It reports the APNs environment the running build registered against and whether the server has a token to address. Granting the permission proves neither, and both fail silently — so a beta tester can read this line back instead of the failure being invisible. It ships in Release on purpose; `__DEV__` would hide it from TestFlight, which is the only install where the question has an answer. On a simulator it says so, rather than reporting a failure that is not one.
 
 ## 5. Goals (§8) — what replaced Sabotage
 

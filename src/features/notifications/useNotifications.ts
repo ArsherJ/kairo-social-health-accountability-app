@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { track } from '@/features/telemetry/events.ts';
 import {
   handleDeviceTokenRotation,
   readNotificationPermission,
   registerDeviceToken,
 } from './permission.ts';
+import { notificationTarget } from './routing.ts';
 
 /**
  * Keeps this device's push registration current.
@@ -41,6 +43,72 @@ export function useDeviceTokenRegistration(userId: string | undefined): void {
       subscription.remove();
     };
   }, [userId]);
+}
+
+/**
+ * Takes the user where a tapped notification promised to take them.
+ *
+ * Every push carries a destination — `dispatch-notifications` sends
+ * `{ trigger, localDate, screen }` and `finalize-days` adds `goalId` — and
+ * until this existed nothing read any of it. §14 specifies the deep link; the
+ * server half has been sending it correctly the whole time.
+ *
+ * `notificationTarget()` decides, this performs, and the split is what lets the
+ * mapping be tested in Node. See `routing.ts` for why the payload is treated as
+ * untrusted.
+ *
+ * **Both entry paths are wired, and they are not redundant.** Expo's docs are
+ * explicit that on iOS the response listener fires in all three app states, but
+ * that Android may deliver a background or terminated tap only as a startup
+ * value — so `useLastNotificationResponse()` is the Android-shaped half, live
+ * now rather than discovered missing during V1.5. The dedupe below is what
+ * keeps the overlap harmless.
+ *
+ * **Mount this in `app/(tabs)/_layout.tsx` and nowhere else.** That layout
+ * exists only for a user `resolveRoute()` calls `'ready'`, so its mounting *is*
+ * the readiness condition — no flag to pass and none to get wrong. Mounting it
+ * in `Gate` instead would let a tap navigate to `/squad` while `redirectTarget`
+ * was pushing a half-onboarded user into `(onboard)`, and the two would fight.
+ *
+ * The cold-start tap survives the wait that implies. A tap launching the app
+ * from terminated produces its response within the first frame, seconds before
+ * the session and profile resolve and this layout mounts — but
+ * `useLastNotificationResponse()` holds the last response rather than emitting
+ * it once, so mounting late still reads it. That is the difference between it
+ * and the listener, and the reason both are here.
+ */
+export function useNotificationRouting(): void {
+  const router = useRouter();
+  const lastResponse = Notifications.useLastNotificationResponse();
+
+  /** Notification ids already acted on — the dedupe across both paths. */
+  const handled = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    function handle(response: Notifications.NotificationResponse | null | undefined) {
+      if (!response) return;
+
+      // Without this, the listener and the retained last-response both act on
+      // the same warm tap, and the second navigate lands on a screen the user
+      // has to press back through twice.
+      const id = response.notification.request.identifier;
+      if (handled.current.has(id)) return;
+      handled.current.add(id);
+
+      const target = notificationTarget(response.notification.request.content.data);
+      if (!target) return;
+
+      // `navigate` rather than `push`: two of the three destinations are tabs,
+      // and pushing a tab stacks a second copy of a screen the user can
+      // already reach from the bar.
+      router.navigate(target);
+    }
+
+    handle(lastResponse);
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => subscription.remove();
+  }, [lastResponse, router]);
 }
 
 /**

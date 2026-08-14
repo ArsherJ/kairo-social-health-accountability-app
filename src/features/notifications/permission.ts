@@ -36,6 +36,35 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 let lastWrittenToken: string | null = null;
 
 /**
+ * Subscribers to whether this device currently has a registration on file.
+ *
+ * `NotificationSettingsCard` reads this to report delivery state. It is a
+ * subscription rather than a getter it polls because of a race that would
+ * otherwise produce a lie: registration is asynchronous and starts when the
+ * tabs shell mounts, so a card that sampled the value on mount would say "not
+ * registered" for the first second of every launch — the one failure this
+ * whole diagnostic exists to report, shown when nothing is wrong.
+ */
+const registrationListeners = new Set<() => void>();
+
+/** `useSyncExternalStore` subscribe half. */
+export function subscribeToTokenRegistration(listener: () => void): () => void {
+  registrationListeners.add(listener);
+  return () => registrationListeners.delete(listener);
+}
+
+/** `useSyncExternalStore` snapshot half. Whether the server can address us. */
+export function isDeviceTokenRegistered(): boolean {
+  return lastWrittenToken !== null;
+}
+
+function setLastWrittenToken(token: string | null): void {
+  if (lastWrittenToken === token) return;
+  lastWrittenToken = token;
+  for (const listener of registrationListeners) listener();
+}
+
+/**
  * Hand a push token to the server.
  *
  * Through the `register_device_token` RPC rather than an upsert on
@@ -59,7 +88,7 @@ export async function upsertDeviceToken(token: string): Promise<boolean> {
     return false;
   }
 
-  lastWrittenToken = token;
+  setLastWrittenToken(token);
   return true;
 }
 
@@ -151,7 +180,7 @@ export async function unregisterDeviceToken(): Promise<void> {
   } catch {
     // Best effort. Signing out must not be blocked by a push registration.
   } finally {
-    lastWrittenToken = null;
+    setLastWrittenToken(null);
     lastSeenDeviceToken = null;
   }
 }
