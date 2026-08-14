@@ -699,6 +699,71 @@ scheduled push never arrives, the fault is candidate selection or the budget,
 not credentials — two failures that otherwise present identically as "no
 notification".
 
+### Invite redemption and Realtime, verified (2026-08-14)
+
+**Closed.** Driven with `supabase/scripts/rehearse-squad-join.mjs`, which puts a
+throwaway anonymous account into a squad from outside so a real device can be
+watched. That is the only way to check the one property the schema suite
+explicitly cannot: PGlite stubs the `realtime` schema, so it can prove the
+trigger fires and cannot prove a broadcast **arrives**.
+
+| Checked | Result |
+|---|---|
+| Redemption by six-character code | Joined on first attempt |
+| Live board reorder, no pull-to-refresh | The joining account's 5,350 displaced Jay's 500 on screen |
+| `SlotUnlockReveal` | Animates — see Phase 7 follow-up #5 |
+| `leave_squad()` + rejoin on **hosted** auth | Membership row gone, then back, same squad id |
+
+The last row closes one of the two gaps `docs/mvp-completion-plan.md` names as
+beyond the harness — that `leave_squad()`'s behaviour on the hosted `auth`
+schema matches the stub. Tested with an ordinary member, not the leader:
+succession is a different path, and exercising it on a live squad would hand
+someone's squad to a throwaway account. **Leader succession on hosted auth
+remains unverified.**
+
+Rehearsal accounts are erased with `--cleanup`, which deletes through
+`auth.users` and lets the cascade take the memberships — the same exit
+`smoke-sync.mjs` uses.
+
+### The app hung forever on a blocked network (2026-08-14)
+
+Found by accident mid-verification, and the most user-facing defect of the day.
+A WiFi network began blocking `*.supabase.co` at the TCP layer — DNS resolved,
+the connection never completed. `supabase-js` sets no timeout and neither does
+`fetch`, so the profile query never settled, `resolveRoute` kept reporting
+`'loading'`, and the app sat on the KAIRO hold overlay **through relaunches and
+a reinstall from TestFlight**. The `'profile-error'` cover with its "Try again"
+button was already built and was unreachable, because nothing ever errored.
+
+This matters more than a one-off: the target market is Philippine mobile data,
+and "connected but the host is unreachable" is a normal condition there, not an
+exotic one.
+
+Fixed by `src/lib/fetch-timeout.ts` on `createClient`'s `global.fetch`. It
+**races** a deadline against the request rather than only aborting it — aborting
+merely asks the transport to reject, and this exists for the case where the
+network layer is misbehaving, so a transport that swallowed the abort would hang
+one level down. The test that stubs a fetch ignoring its signal is what caught
+that.
+
+Two diagnostics worth reusing, because both cost minutes here:
+
+- `curl -w 'connect=%{time_connect}s'` showing DNS resolved but
+  `connect=0.000000s` is a **block, not an outage**. Check the Management API
+  separately — `api.supabase.com` is a different host and kept working while
+  the project's own subdomain was unreachable, which made the database look
+  healthy (it was) and the platform look fine (it was).
+- Open the REST or auth URL in **Safari on the phone**. A browser hanging on the
+  same host removes the app from the picture entirely, which is what finally
+  distinguished "my code" from "this network".
+
+The investigation also surfaced, and reverted, a deviation in
+`src/lib/query-client.ts`: `onlineManager` had been wired to NetInfo's
+`isInternetReachable` rather than TanStack's documented `isConnected`. It was
+**not** the cause — both read true on that network — but it is its own way to
+produce the same endless spinner, since that field is a probe against an
+unrelated third-party endpoint and paused queries never error.
+
 ## End-to-end QA findings (2026-08-11)
 
 Full report and root-cause addendum: `docs/qa/kairo-end-to-end-qa-report.md`. It
@@ -827,6 +892,6 @@ From building solo mode, the profile screen and dominant-stat evolution on
 | 2 | **Dominance is measured over a 14-day window, not lifetime.** §6 implies lifetime ("which stats they grinded"). | No lifetime per-stat rollup exists: `profiles.total_xp` rolls up `xp_awarded`, not per-stat points. Adding one is a table plus a trigger for a visual. `DOMINANCE_WINDOW_DAYS` in `src/features/character/queries.ts` is one edit to change. |
 | 3 | **`FREE_SQUAD_MAX_MEMBERS` is duplicated in SQL.** The number 6 lives in `squads.max_members`'s default and in `create_squad`, as well as in `packages/kairo-core/src/squad.ts`. | Migrations cannot import TypeScript. All three sites now carry cross-reference comments, so the duplication is deliberate; nothing enforces it. |
 | 4 | **`profiles.sex` is selected but never editable.** `useProfile` reads it (the column-level UPDATE grant covers it) but `BodyMetricsCard` edits only height, weight and birth year. | §5's soft prompt names height and weight; nothing in MVP scoring reads `sex`. Adding a picker for an unused column is UI for its own sake. |
-| 5 | **The unlock reveal is unverified on the simulator.** The count comparison is unit-tested (`slots.test.ts`), but nobody has watched the animation fire — it needs a second account joining a non-full squad. **Now testable** (workstream D4): Takbo Manila has spare seats, so the blocker below is gone. | ~~The live test squad is at 6 of 6, and emptying a seat to test it would mutate real squad data.~~ What to check, since membership changes do not broadcast: with the board open, add a member via `seed-health`/`remote-sql.sh`, foreground the app, and confirm the reveal animates **once** on the refetch riding `useSquadRealtime`'s `refetch()` and does not re-fire on subsequent refetches. |
+| 5 | ~~**The unlock reveal is unverified on the simulator.**~~ **Verified on hardware 2026-08-14.** | Done via `supabase/scripts/rehearse-squad-join.mjs --join-only`, which exists because the first attempt proved nothing: a scored join fires the reveal and re-ranks the board **on the same broadcast**, since membership has no broadcast of its own and `useSquadRealtime.refetch()` invalidates the member count alongside the board. The reveal was invisible inside the reorder. Joining with *no* score isolates it — nothing can change but the seat — and the foreground refetch is what moves the count. Confirmed animating on a 2→3 change. The "animates once and does not re-fire" half remains covered by `slots.test.ts` (`shouldRevealUnlock` requires `next > previous`) rather than separately observed. |
 | 7 | **Nothing stops a third `<Modal>` being added somewhere else.** The permission collision is fixed by convention plus one host, not by a mechanism — a future sheet mounted on a screen would reintroduce exactly the same failure, and the symptom (a silently suppressed sheet, or a wedged tab bar) does not point at its cause. | No cheap enforcement exists: RN has no "one modal" primitive and lint cannot see presentation semantics. The mitigation is that `PermissionAsks` is now the obvious place to add an ask, and both former sheets carry a comment saying why they no longer own a `<Modal>`. Worth a second look if V1 adds any full-screen interstitial. |
 | 6 | **`BodyMetricsCard` seeds its drafts once and never re-syncs.** If the profile row changes on another device while the screen is mounted, the fields keep the stale values until remount. | Deliberate: re-syncing on every refetch would yank characters out from under someone mid-edit. Single-device MVP, so the race is theoretical. |

@@ -18,9 +18,23 @@
  * one only shows up after a manual refresh, `useSquadRealtime` is not receiving
  * — which is exactly the failure the schema suite cannot see.
  *
+ * `--join-only` skips the score, which is what isolates the reveal. Both
+ * effects otherwise arrive on the *same* broadcast: membership has no
+ * broadcast of its own (Phase 4 follow-up #8), so `useSquadRealtime` rides the
+ * member-count refetch on the `daily_scores` one — meaning a scored join fires
+ * the unlock reveal and re-ranks the board in the same frame, and the reveal is
+ * easy to miss inside the reorder. With no score, the only thing that can
+ * change is the seat.
+ *
+ * The refetch then needs a trigger, and foregrounding the app is one
+ * (`dispatch({ kind: 'foreground' })`). So: run this, background the app,
+ * come back, and the reveal fires alone.
+ *
  * Usage:
  *
  *   node supabase/scripts/rehearse-squad-join.mjs UFVHWA
+ *   node supabase/scripts/rehearse-squad-join.mjs UFVHWA --join-only
+ *   node supabase/scripts/rehearse-squad-join.mjs UFVHWA --rejoin
  *   node supabase/scripts/rehearse-squad-join.mjs --cleanup
  *
  * The account is anonymous and disposable. `--cleanup` erases every account
@@ -83,12 +97,14 @@ if (arg === '--cleanup') {
 }
 
 if (!arg) {
-  console.error('Usage: node supabase/scripts/rehearse-squad-join.mjs <INVITE_CODE>');
+  console.error('Usage: node supabase/scripts/rehearse-squad-join.mjs <INVITE_CODE> [--join-only]');
   console.error('       node supabase/scripts/rehearse-squad-join.mjs --cleanup');
   process.exit(1);
 }
 
 const inviteCode = arg.trim().toUpperCase();
+const joinOnly = process.argv.includes('--join-only');
+const rejoin = process.argv.includes('--rejoin');
 
 const supabase = createClient(
   env.EXPO_PUBLIC_SUPABASE_URL,
@@ -123,6 +139,55 @@ if (joinError) fail('join_squad', `${joinError.code} ${joinError.message}`);
 
 // `join_squad` is `returns public.squads`, so this is the squad row itself.
 console.log(`joined "${joined.name}" (${joined.program}, ${joined.id})`);
+
+if (rejoin) {
+  // `leave_squad()` and rejoining, against the **hosted** auth schema.
+  // `supabase/tests` covers the logic, but docs/mvp-completion-plan.md names
+  // this as one of two things the PGlite harness cannot settle, because its
+  // `auth` schema is a stub. So it is checked here, for real.
+  //
+  // An ordinary member, deliberately — not the leader. Succession is a
+  // different path and testing it on a live squad would hand someone else's
+  // squad to a throwaway account.
+  const { error: leaveError } = await supabase.rpc('leave_squad', {
+    p_squad_id: joined.id,
+  });
+  if (leaveError) fail('leave_squad', `${leaveError.code} ${leaveError.message}`);
+
+  const afterLeave = sql(`
+    select count(*)::int as n from squad_members
+    where squad_id = '${joined.id}' and user_id = '${userId}'
+  `);
+  if (afterLeave[0]?.n !== 0) fail('leave_squad', 'membership row survived the leave');
+  console.log('left the squad — membership row is gone');
+
+  const { data: rejoined, error: rejoinError } = await supabase.rpc('join_squad', {
+    p_invite_code: inviteCode,
+  });
+  if (rejoinError) fail('rejoin', `${rejoinError.code} ${rejoinError.message}`);
+  if (rejoined.id !== joined.id) fail('rejoin', 'landed in a different squad');
+
+  const afterRejoin = sql(`
+    select count(*)::int as n from squad_members
+    where squad_id = '${joined.id}' and user_id = '${userId}'
+  `);
+  if (afterRejoin[0]?.n !== 1) fail('rejoin', 'membership row did not come back');
+
+  console.log('rejoined with the same code — PASS');
+  console.log('\nleave_squad() and rejoin both behave on the hosted auth schema.');
+  process.exit(0);
+}
+
+if (joinOnly) {
+  console.log(
+    '\n→ The seat is taken, and nothing has broadcast — membership has no\n' +
+      '  signal of its own. Background Kairo and come back: the foreground\n' +
+      '  refetch is what moves the count, and SlotUnlockReveal should fire\n' +
+      '  on its own, with no reordering to hide inside.',
+  );
+  process.exit(0);
+}
+
 console.log('\n→ WATCH THE PHONE: an empty seat should fill, with no refresh.');
 
 // Long enough to look up from the terminal, short enough not to be a wait.

@@ -119,7 +119,13 @@ Readiness is not a score out of ten; it is this list. Open items as of
       `src/features/notifications/routing.ts`; the APNs key is uploaded to
       Expo; re-runnable via `supabase/scripts/send-test-push.mjs`. Full account
       in `docs/roadmap.md`.
-- [ ] **Invite redemption with two real accounts**, including live reordering and rejoin.
+- [x] **Invite redemption with two real accounts** — done 2026-08-14: redemption
+      by code, live board reordering with no pull-to-refresh, `SlotUnlockReveal`
+      animating, and `leave_squad()` + rejoin verified against the **hosted**
+      auth schema. Re-runnable via
+      `supabase/scripts/rehearse-squad-join.mjs`. One gap left open
+      deliberately: **leader succession on hosted auth**, which cannot be
+      exercised on a live squad without handing it to a throwaway account.
 - [ ] **A physical-device pass**: offline, background overnight, reinstall, Dynamic Type, VoiceOver, battery.
 - [x] Health ingest reconciles, and says how fresh it is.
 - [x] Every requested HealthKit type disclosed, test-locked against the request list.
