@@ -218,10 +218,19 @@ Xcode → **Product → Xcode Cloud → Create Workflow**, with `ios/Kairo.xcwor
 open. Apple will ask to install its GitHub App on
 `ArsherJ/kairo-social-health-accountability-app`; grant it.
 
-- **Start condition:** branch changes on **`chore/xcode-cloud`** while testing,
-  or manual. Move to `main` once merged. (This plan originally named
-  `fix/health-sync-visibility`; that branch was merged in `46b747b` before any
-  of this ran, so the work landed on a new one.)
+- **Start condition:** branch changes on **`main`** since 2026-08-14, when
+  `chore/xcode-cloud` merged. It ran on `chore/xcode-cloud` while the path was
+  being proven. (This plan originally named `fix/health-sync-visibility`; that
+  branch was merged in `46b747b` before any of this ran, so the work landed on a
+  new one.)
+
+  **Repoint the existing workflow's start condition — do not create a second
+  workflow for `main`.** Xcode Cloud numbers builds **per workflow**, so a new
+  one restarts at 1, and `ci_pre_xcodebuild.sh` writes `CI_BUILD_NUMBER` straight
+  into `CFBundleVersion` — App Store Connect then rejects the upload as a
+  duplicate build number for the same marketing version. Editing the existing
+  workflow also keeps the environment variables and the TestFlight post-action,
+  both of which are easy to forget on a fresh one.
 - **Environment:** latest Xcode 26.x. Do not pin older — the project is RN 0.86 /
   Expo SDK 57.
 - **Action:** **Archive**. Its *Deployment Preparation* setting offers exactly
@@ -431,8 +440,9 @@ Two things to fold in while the build is on the device:
   this setup, but it takes sign-in down for every user at once and will look like
   a build problem. `npm run apple-secret` re-mints it.
 - **The *second* green archive also shipped an app that could not launch, for a
-  completely different reason: Meta's prebuilt `React.xcframework`.** Build 4
-  reached TestFlight and died on the first frame in
+  completely different reason: Meta's prebuilt `React.xcframework`.** The first
+  build to get past the ExpoModulesJSI failure above reached TestFlight, and died
+  on the first frame in
   `-[RCTComponentViewFactory createComponentViewWithComponentHandle:]`, which
   reads like a component that failed to register. It is not. Nothing is missing.
 
