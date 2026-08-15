@@ -43,10 +43,14 @@ export function programLabel(program: SquadProgram | undefined): string {
 /**
  * The boost, said out loud — e.g. `AGI ×1.5`. Null on an untilted board.
  *
- * This has to be visible on the user's own row. The character screen shows the
- * **unweighted** own-day total (stored scores are program-independent), so a
- * squadmate comparing the two numbers will find them different. Explaining the
- * gap costs one chip; hiding it costs trust in the score.
+ * This is **program information**: what game this squad is playing. It lives on
+ * the board header, next to the program name.
+ *
+ * It used to sit on the user's own row instead, to explain why that row's total
+ * differed from the character screen's unweighted one. Neither total is rendered
+ * any more (see
+ * `docs/superpowers/specs/2026-08-15-points-stop-being-spoken-design.md`), so
+ * there are no two numbers left to reconcile and the row's copy was removed.
  */
 export function boostChipLabel(program: SquadProgram | undefined): string | null {
   const stat = program ? boostedStatFor(program) : null;

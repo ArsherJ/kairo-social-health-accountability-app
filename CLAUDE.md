@@ -10,6 +10,16 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 
 **Bronze/Silver/Gold are internal to scoring as of 2026-08-10.** `tierFor()`, `TIER_POINTS` and `daily_scores.tiers` still decide every day exactly as §5/§6 specify — nothing about the engine changed. But no surface renders a tier name or colour any more: the character sheet and the leaderboard both show a numeric **ability rating** from `ratingForStatPoints()` over lifetime per-stat rollups on `profiles`. If you find UI naming a tier, it is stale. **`profiles.focus` was dropped the same day** — `squads.program` is the only focus concept, and the character screen's "lane" reads observed dominance instead.
 
+**Points are spoken only inside Goals, as of 2026-08-15.** `daily_scores.total`
+still ranks the board, scores every Goal, and feeds XP and ratings — nothing
+about the engine changed, exactly as with tiers in deviation #23. But no ambient
+surface prints it: the home hero is the day in real units, a leaderboard row is
+rank and the gap to the row above, and `src/features/squad/row-label.ts` speaks
+that gap rather than a total — deliberately, because a screen reader naming a
+figure the screen does not show describes a different product. A Goal keeps its
+points because the user typed that target. If you find a surface outside
+`src/features/goals/` rendering a score total, it is stale — fix it.
+
 **"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
 character has no noun — it is "your character", and the centre tab is `Character`;
 a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do

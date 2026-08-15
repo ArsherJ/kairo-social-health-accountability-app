@@ -3,6 +3,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
+import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
 import { resolveSquadStanding, type SquadStanding } from './standing.ts';
 import {
@@ -165,6 +166,9 @@ export function Leaderboard({
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
 
+  // One pass over the board, not a scan per row.
+  const gaps = leaderboardGaps(rows);
+
   const standing = resolveSquadStanding({ rows: board.data, memberCount: memberCount.data });
   const heroValue =
     standing.kind === 'ranked'
@@ -315,7 +319,12 @@ export function Leaderboard({
       )}
 
       {rows.map((row) => (
-        <LeaderboardRow key={row.user_id} row={row} mode={mode} />
+        <LeaderboardRow
+          key={row.user_id}
+          row={row}
+          mode={mode}
+          gap={gaps.get(row.user_id) ?? null}
+        />
       ))}
 
       {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}

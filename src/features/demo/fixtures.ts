@@ -144,9 +144,14 @@ export const DEMO_LEADERBOARD_COMPLETED: LeaderboardRow[] = DEMO_LEADERBOARD.map
   .map((row, index) => ({ ...row, rank: index + 1 }));
 
 /**
- * The components sum to 5,320, which is what `total` must be — the same number
- * the board ranks you on. A fixture whose parts did not add up would make the
- * "includes N for consistency" line on the home screen quietly wrong.
+ * The components sum to 5,320, which is what `total` must be.
+ *
+ * Nothing renders that arithmetic any more — the "includes N for consistency"
+ * line went with the hero total (deviation #30). It still has to hold, because
+ * the fixture stands in for a real `daily_scores` row and the server derives
+ * `total` from the parts: a demo row where they disagree is a row the app can
+ * never actually receive, so anything read off it in a screenshot or a review
+ * would be describing a state that does not exist.
  */
 export const DEMO_SCORE: TodayScore = {
   agi_points: 1850,

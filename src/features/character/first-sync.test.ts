@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { firstSyncHeadline } from './first-sync.ts';
 
+const statNames = {
+  AGI: 'Agility',
+  STR: 'Strength',
+  END: 'Endurance',
+  VIT: 'Vitality',
+};
+
 describe('firstSyncHeadline', () => {
-  it('leads with steps and the points they earned', () => {
+  it('leads with steps and names the stat they moved', () => {
     expect(
       firstSyncHeadline({
         steps: 4_300,
         points: { AGI: 500, STR: 0, END: 0, VIT: 200 },
+        statNames,
       }),
-    ).toBe('Today already counted: 4,300 steps → +500 AGI.');
+    ).toBe('Today already counted: 4,300 steps, and your Agility went up.');
   });
 
   it('names the strongest stat, not the first one', () => {
@@ -16,8 +24,23 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 900,
         points: { AGI: 200, STR: 900, END: 0, VIT: 0 },
+        statNames,
       }),
-    ).toBe('Today already counted: 900 steps → +900 STR.');
+    ).toBe('Today already counted: 900 steps, and your Strength went up.');
+  });
+
+  it('never speaks the point figure that decided the stat', () => {
+    // Points still pick the winner internally — deviation #30 removed the
+    // rendering, not the engine — and this is the one surface where a leak
+    // would reach a reader who has never seen the app before.
+    const headline = firstSyncHeadline({
+      steps: 8_412,
+      points: { AGI: 900, STR: 0, END: 0, VIT: 200 },
+      statNames,
+    });
+    expect(headline).not.toContain('900');
+    expect(headline).not.toContain('+');
+    expect(headline).not.toContain('AGI');
   });
 
   it('groups thousands, because 4300 does not read as a day’s walking', () => {
@@ -25,6 +48,7 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 12_500,
         points: { AGI: 900, STR: 0, END: 0, VIT: 0 },
+        statNames,
       }),
     ).toContain('12,500 steps');
   });
@@ -36,6 +60,7 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 120,
         points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        statNames,
       }),
     ).toBe('Today already counted: 120 steps. Keep moving to start scoring.');
   });
@@ -46,6 +71,7 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 0,
         points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        statNames,
       }),
     ).toBeNull();
   });
@@ -57,8 +83,9 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 0,
         points: { AGI: 0, STR: 900, END: 0, VIT: 0 },
+        statNames,
       }),
-    ).toBe('Today already counted: +900 STR.');
+    ).toBe('Today already counted: your Strength went up.');
   });
 
   it('never names a stat that scored nothing', () => {
@@ -69,6 +96,7 @@ describe('firstSyncHeadline', () => {
       firstSyncHeadline({
         steps: 500,
         points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        statNames,
       }),
     ).toBe('Today already counted: 500 steps. Keep moving to start scoring.');
   });

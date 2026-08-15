@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@/ui/index.ts';
+import { STAT_NAMES, Text } from '@/ui/index.ts';
 import type { CoreStat } from '@kairo/core';
 import { colors, font, radius, space } from '@/theme.ts';
 import { firstSyncHeadline } from './first-sync.ts';
@@ -39,7 +39,7 @@ export function FirstSyncCallout({
   const steps = useTodaySteps(userId, timeZone, eligible);
 
   const headline = eligible
-    ? firstSyncHeadline({ steps: steps.data ?? 0, points })
+    ? firstSyncHeadline({ steps: steps.data ?? 0, points, statNames: STAT_NAMES })
     : null;
 
   // Marked the moment it is actually on screen, not when it became eligible —

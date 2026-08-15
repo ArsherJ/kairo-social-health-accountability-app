@@ -27,7 +27,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
     term: 'Daily score',
     scope: 'Today only',
-    body: 'Steps, calories, active minutes and how many hours you moved each earn points. Together they are today’s score, and that is what ranks you on the squad board. It resets at midnight in your own timezone — not the squad’s.',
+    body: 'Steps, calories, active minutes and how many hours you moved each earn points behind the scenes. Together they are today’s score — you won’t see the number, but it is what ranks you on the squad board and what your goals are measured against. It resets at midnight in your own timezone — not the squad’s.',
   },
   {
     term: 'Ability ratings',

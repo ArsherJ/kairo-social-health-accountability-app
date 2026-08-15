@@ -103,7 +103,9 @@ export function SoloBoard({
         you see theirs. That is the entire mechanism.
       </Text>
 
-      <LeaderboardRow row={selfRow} mode="current" />
+      {/* Solo is one row and nobody is above it — the same "nothing above"
+          case `leaderboardGaps` returns null for on a real board. */}
+      <LeaderboardRow row={selfRow} mode="current" gap={null} />
 
       {Array.from({ length: locked }, (_, index) => (
         <LockedSlot key={index} rank={index + 2} />

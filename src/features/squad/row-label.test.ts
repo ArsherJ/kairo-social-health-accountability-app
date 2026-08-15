@@ -13,7 +13,11 @@ const base: RowLabelInput = {
   characterName: 'Jay',
   isSelf: false,
   level: 12,
-  total: 8400,
+  // A plausible distance between two adjacent rows on a day's board, not a
+  // whole day's score: the field was renamed from `total` when the board
+  // stopped printing totals, and a four-digit gap is the wrong shape for what
+  // it now means.
+  gap: 640,
   ratings: { AGI: 41, STR: 27, END: 18, VIT: 9 },
   statNames,
 };
@@ -24,9 +28,9 @@ describe('leaderboardRowLabel', () => {
     expect(leaderboardRowLabel(base)).toMatch(/^Rank 2, Jay/);
   });
 
-  it('says the total before the detail', () => {
+  it('says the gap before the detail', () => {
     const label = leaderboardRowLabel(base);
-    expect(label.indexOf('8,400 points')).toBeLessThan(label.indexOf('Agility'));
+    expect(label.indexOf('640 behind')).toBeLessThan(label.indexOf('Agility'));
   });
 
   it('marks your own row the way the YOU chip does', () => {
@@ -64,7 +68,7 @@ describe('leaderboardRowLabel', () => {
   it('drops the ratings clause completely when there are none', () => {
     const label = leaderboardRowLabel({ ...base, ratings: {} });
     expect(label).not.toMatch(/Agility|Strength|Endurance|Vitality/);
-    expect(label).toMatch(/Rank 2, Jay, 8,400 points, Level 12/);
+    expect(label).toMatch(/Rank 2, Jay, 640 behind, Level 12/);
   });
 
   it('keeps the stats in the fixed order the rail uses', () => {
@@ -72,5 +76,65 @@ describe('leaderboardRowLabel', () => {
     // AGI STR END VIT is the order every other surface shows.
     const label = leaderboardRowLabel(base);
     expect(label).toMatch(/Agility 41, Strength 27, Endurance 18, Vitality 9/);
+  });
+
+  it('never says points', () => {
+    const label = leaderboardRowLabel({
+      rank: 2,
+      characterName: 'Ana',
+      isSelf: false,
+      level: 4,
+      gap: 340,
+      ratings: {},
+      statNames,
+    });
+    expect(label).not.toContain('points');
+  });
+
+  it('says the gap for a row with someone above it', () => {
+    const label = leaderboardRowLabel({
+      rank: 2,
+      characterName: 'Ana',
+      isSelf: false,
+      level: 4,
+      gap: 340,
+      ratings: {},
+      statNames,
+    });
+    expect(label).toContain('340 behind');
+  });
+
+  it('says nothing about a gap for the leader', () => {
+    const label = leaderboardRowLabel({
+      rank: 1,
+      characterName: 'Ana',
+      isSelf: false,
+      level: 4,
+      gap: null,
+      ratings: {},
+      statNames,
+    });
+    expect(label).not.toContain('behind');
+  });
+
+  it('says nothing about a gap for a tied row', () => {
+    // Level 10 on purpose: the point is that no *gap clause* is emitted, and
+    // an earlier version asserted that by checking the label held no "0" at
+    // all — which passed only because the fixture's level happened to be 4.
+    // Asserting the whole string says what is meant and cannot pass by luck.
+    const label = leaderboardRowLabel({
+      rank: 1,
+      characterName: 'Ana',
+      isSelf: false,
+      level: 10,
+      gap: 0,
+      ratings: {},
+      statNames,
+    });
+    // "0 behind" is a sentence no person says, and the row draws nothing in
+    // the gap column for a tie — so the label must not invent something the
+    // screen does not show. The shared rank already conveys the tie.
+    expect(label).not.toContain('behind');
+    expect(label).toBe('Rank 1, Ana, Level 10');
   });
 });

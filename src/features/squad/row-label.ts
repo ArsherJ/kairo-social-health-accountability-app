@@ -4,10 +4,10 @@ import { CORE_STATS, type CoreStat } from '@kairo/core';
  * A squadmate's row, said out loud.
  *
  * The row draws twelve or more separate pieces — rank, avatar, name, a YOU
- * chip, level, streak, a flag, a boost chip, four glyph-and-number pairs, and
- * the total. Left as separate elements that is twelve stops per person, so
- * hearing a full six-person board takes seventy-odd swipes and the ranking —
- * the entire point of the screen — arrives in fragments.
+ * chip, level, streak, a flag, four glyph-and-number pairs, and the gap. Left
+ * as separate elements that is twelve stops per person, so hearing a full
+ * six-person board takes seventy-odd swipes and the ranking — the entire
+ * point of the screen — arrives in fragments.
  *
  * Collapsing the row into one element fixes that, and then the order of this
  * string *is* the reading order. It follows the eye rather than the DOM: rank,
@@ -25,14 +25,22 @@ export interface RowLabelInput {
   characterName: string;
   isSelf: boolean;
   level: number;
-  total: number;
+  /**
+   * How far behind the row above this one is, or null when nothing is above it.
+   *
+   * A distance between two score totals, which is exactly why it is never
+   * called one: the board stopped printing absolute totals, so this is what the
+   * label says instead, and it must match the row exactly. A screen reader that
+   * spoke a figure the screen does not show would be describing a different
+   * product. It goes out unitless — "340 behind" — because the unit is the one
+   * word the change removed, and the comparison survives without it.
+   */
+  gap: number | null;
   /** Already-derived ability ratings, per stat. */
   ratings: Partial<Record<CoreStat, number>>;
   /** Omitted on the completed board, where it would describe the wrong day. */
   streakDays?: number;
   flagged?: boolean;
-  /** The program boost chip, shown only on your own row. */
-  boost?: string | null;
   /** True when the day has not finalised and the board says so. */
   provisional?: boolean;
   /** Full stat names, injected so this module imports no UI. */
@@ -47,7 +55,16 @@ export function leaderboardRowLabel(input: RowLabelInput): string {
   // for the first second.
   parts.push(`Rank ${input.rank}`);
   parts.push(input.isSelf ? `${input.characterName}, you` : input.characterName);
-  parts.push(`${input.total.toLocaleString()} points`);
+
+  // Relative, never absolute — and only when there is a gap to speak of. The
+  // condition matches the row's render condition exactly rather than
+  // approximating it: the leader and a tied row both draw nothing in the gap
+  // column, so a label claiming otherwise would describe a different screen.
+  // The shared rank is what conveys a tie.
+  if (input.gap !== null && input.gap > 0) {
+    parts.push(`${input.gap.toLocaleString()} behind`);
+  }
+
   parts.push(`Level ${input.level}`);
 
   if (input.streakDays !== undefined && input.streakDays > 0) {
@@ -61,8 +78,6 @@ export function leaderboardRowLabel(input: RowLabelInput): string {
   // note the squad can already see, and a screen reader that omitted it would
   // be hiding something sighted members are looking at.
   if (input.flagged) parts.push('flagged');
-
-  if (input.boost) parts.push(input.boost);
 
   // Only stats the row actually has a number for. A missing rating is not zero
   // — the RPC can return a partial map — and "Vitality 0" would state

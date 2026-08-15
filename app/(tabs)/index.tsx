@@ -30,7 +30,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
-import { Avatar, Label, Meter, Numeral, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
+import { Avatar, Label, Meter, Numeral, STAT_NAMES, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
 
 /**
  * §6's evolution table, said out loud. The silhouette differences are real but
@@ -96,20 +96,23 @@ function detailCopy(detail: StatDetail): string | null {
     case 'maxed':
       return 'Every stat is maxed for today.';
     case 'gap': {
-      // Named in raw units and points, never in tier names. The bands still
-      // exist and still decide the number — `resolveStatDetail` reads
-      // `nextTierFor()` to find this threshold — but Bronze/Silver/Gold are
-      // internal to scoring now, so the sentence says what the user gets
-      // instead of what it is called.
+      // Named in raw units and in what the effort *achieves* — never in points
+      // and never in tier names. This line has carried three vocabularies:
+      // "for Gold" (retired by deviation #23, tiers went internal), "for +400
+      // AGI" (retired by the points spec), and this one. Each retirement had
+      // the same motive: name something the user can recognise.
       const gap = detail.gap.toLocaleString();
-      const worth = detail.points.toLocaleString();
+      const name = STAT_NAMES[detail.stat];
+      const outcome = detail.topsOut
+        ? `tops out your ${name} today`
+        : `lifts your ${name} today`;
       if (detail.lane) {
         // `·` matches standingCopy's separator above — one rhetorical pattern
         // (clause · clause), one glyph, across this screen's two copy lines.
         // No multiplier is claimed: the lane is marked, never scaled.
-        return `Your lane · ${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
+        return `Your lane · ${gap} more ${detail.unit} ${outcome}.`;
       }
-      return `${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
+      return `${gap} more ${detail.unit} ${outcome}.`;
     }
   }
 }
@@ -141,8 +144,6 @@ export default function Character() {
   const stage = evolutionStageForLevel(level);
   const xp = xpProgress(totalXp);
   const today = score.data;
-
-  const bonus = (today?.consistency_points ?? 0) + (today?.rec_points ?? 0);
 
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
@@ -339,19 +340,71 @@ export default function Character() {
             )}
           </View>
 
-          {/* A pending score query is not an answer, and the hero number is the
-              single most emphasised element on this screen — `today?.total ?? 0`
-              would confidently claim zero for the one moment it is not true,
-              then jump to the real total. Same discipline as the standing and
-              detail lines below: render nothing rather than something false. */}
-          {!score.isPending && (
-            <Numeral
-              value={today?.total ?? 0}
-              size="hero"
-              color={ramp.accent[700]}
-              animate
-              style={styles.hero}
-            />
+          {/* The day in the units it was lived in.
+
+              This slot held `daily_scores.total` until 2026-08-15: a four-digit
+              integer with no unit, no label and no target, in 64pt type. The
+              engine still computes it — it ranks the board and scores every
+              Goal — it is simply not something a first-time user can read.
+              Steps lead because they are the figure the most users earn.
+
+              Guarded on the buckets query, not the score query: this reads
+              totals now. A pending query renders nothing rather than a
+              confident zero that jumps to the real figure — the same
+              discipline as the standing and detail lines below.
+
+              One accessible element, not three. Ungrouped, VoiceOver would
+              stop on the bare numeral ("8,412"), then on "steps", then on the
+              hour line — the leaderboard's twelve-stop failure in miniature.
+              The parent carries both props *and* hides each child explicitly,
+              per the 2026-08-14 device pass. */}
+          {buckets.data?.totals != null && (
+            <View
+              accessible
+              accessibilityLabel={
+                `${buckets.data.totals.steps.toLocaleString()} steps, ` +
+                `${buckets.data.totals.activeHours} active ` +
+                `${buckets.data.totals.activeHours === 1 ? 'hour' : 'hours'}`
+              }
+              style={styles.heroGroup}
+            >
+              {/* `flexWrap`, because this row is the widest thing on the shelf:
+                  six display glyphs at 64pt plus the unit already overflow a
+                  320pt screen before Dynamic Type touches it. Wrapping puts
+                  the unit on its own line; without it the unit clips. */}
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.heroRow}
+              >
+                <Numeral
+                  value={buckets.data.totals.steps}
+                  size="hero"
+                  color={ramp.accent[700]}
+                  animate
+                />
+                {/* The unit is set in the display face, a step lighter on the
+                    same terracotta ramp — "8,412 steps" is one utterance, not
+                    a number with a grey caption pinned to it. `fixed` matches
+                    Numeral's own cap, so the word cannot outgrow the figure it
+                    belongs to. */}
+                <Text scale="fixed" style={styles.heroUnit}>
+                  steps
+                </Text>
+              </View>
+
+              {/* Active *hours*, the one figure TodayPanel below does not
+                  carry — it lists minutes. Volume, then spread: how much you
+                  moved, and whether it was one walk or a whole day. */}
+              <Text
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.heroMeta}
+              >
+                {buckets.data.totals.activeHours} active{' '}
+                {buckets.data.totals.activeHours === 1 ? 'hour' : 'hours'}
+              </Text>
+            </View>
           )}
 
           {/* A pending standing query is not an answer. Rendering nothing beats
@@ -361,18 +414,13 @@ export default function Character() {
 
           {detailLine != null && <Text style={styles.detail}>{detailLine}</Text>}
 
-          {bonus > 0 && (
-            // Without this the four coins visibly do not account for the hero
-            // total: the consistency bonus and REC are real points with no
-            // stat of their own (§5).
-            <Text style={styles.meta}>
-              Includes {bonus.toLocaleString()} for consistency
-              {(today?.rec_points ?? 0) > 0 ? ' and recovery' : ''}.
-            </Text>
-          )}
+          {/* The rest of the ledger, under the headline. The consistency and
+              REC bonuses still score exactly as §5 says; the line narrating
+              them as arithmetic ("Includes 300 for consistency") went with the
+              hero total on 2026-08-15, since it existed only to reconcile the
+              stat coins against a number no longer on screen.
 
-          {/* The day in the units it was lived in, under the points that
-              summarise it. Strain and Sleep appear only with a wearable (§5). */}
+              Strain and Sleep appear only with a wearable (§5). */}
           <TodayPanel
             totals={buckets.data?.totals}
             hourlyAvgHr={buckets.data?.hourlyAvgHr}
@@ -536,10 +584,18 @@ const styles = StyleSheet.create({
   shelf: { paddingHorizontal: space.lg, paddingTop: space.sm },
   todayHead: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   build: { ...font.body.strong, color: ramp.neutral[600], flexShrink: 1 },
-  hero: { marginTop: space.xs },
+  heroGroup: { marginTop: space.xs },
+  // `baseline` so the unit sits on the numeral's line rather than centred
+  // against a 64pt box; `wrap` so it moves to a line of its own instead of
+  // clipping when the figure or the type size grows.
+  heroRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: space.xs },
+  // Caprasimo, not Figtree: the display face carries every number and every
+  // name in this system, and the unit is part of the number's name. accent[600]
+  // rather than [500] keeps it above 3:1 on the cream ground at this size.
+  heroUnit: { ...font.display.minor, color: ramp.accent[600], flexShrink: 1 },
+  heroMeta: { ...font.body.strong, color: ramp.neutral[700], marginTop: space.xs },
   standing: { ...font.body.body, fontSize: 14.5, color: ramp.neutral[800], marginTop: space.sm },
   detail: { ...font.body.body, fontSize: 14.5, color: ramp.sage[700], marginTop: space.sm },
-  meta: { ...font.body.body, fontSize: 13, color: colors.muted, marginTop: space.xs },
   detailBlock: { marginTop: space.sm },
   helpLink: {
     ...font.body.strong,
