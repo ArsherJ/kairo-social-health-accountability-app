@@ -31,6 +31,13 @@ export type StatDetail =
        * rank.
        */
       points: number;
+      /**
+       * The next band is the top one — this is the last step available on this
+       * stat today. Carried as a boolean rather than a tier name because
+       * Bronze/Silver/Gold are internal to scoring (deviation #23); the copy
+       * needs to know *that* it is the last step, never what it is called.
+       */
+      topsOut: boolean;
       unit: string;
     };
 
@@ -74,6 +81,7 @@ export function resolveStatDetail({
     stat: CoreStat;
     points: number;
     gap: number;
+    topsOut: boolean;
     /** Share of the current band still to go, 0–1. Comparable across stats. */
     remaining: number;
   }
@@ -92,6 +100,7 @@ export function resolveStatDetail({
       stat,
       points: next.pointsGain,
       gap: next.gap,
+      topsOut: next.tier === 'gold',
       remaining: next.gap / bandWidth,
     });
   }
@@ -113,6 +122,7 @@ export function resolveStatDetail({
     lane: chosen.stat === lane,
     gap: chosen.gap,
     points: chosen.points,
+    topsOut: chosen.topsOut,
     unit: STAT_UNITS[chosen.stat],
   };
 }

@@ -31,6 +31,7 @@ describe('resolveStatDetail', () => {
       lane: true,
       points: 400,
       gap: 1_240,
+      topsOut: true,
       unit: 'steps',
     });
   });
@@ -47,6 +48,7 @@ describe('resolveStatDetail', () => {
       lane: false,
       points: 400,
       gap: 20,
+      topsOut: true,
       unit: 'kcal',
     });
   });
@@ -64,6 +66,7 @@ describe('resolveStatDetail', () => {
       lane: false,
       points: 200,
       gap: 1,
+      topsOut: false,
       unit: 'active minutes',
     });
   });
@@ -84,6 +87,7 @@ describe('resolveStatDetail', () => {
       lane: false,
       points: 200,
       gap: 1,
+      topsOut: false,
       unit: 'active hours',
     });
   });
@@ -101,6 +105,24 @@ describe('resolveStatDetail', () => {
         lane: null,
       }),
     ).toEqual({ kind: 'maxed' });
+  });
+
+  it('marks a gap into the top band as topping out', () => {
+    // AGI silver is 5,000 and gold is 10,000, so 8,000 steps is one band short.
+    const detail = resolveStatDetail({
+      totals: totals({ steps: 8_000 }),
+      lane: 'AGI',
+    });
+    expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', topsOut: true });
+  });
+
+  it('does not mark a gap into a middle band as topping out', () => {
+    // 2,000 steps is inside bronze, so the next band up is silver, not gold.
+    const detail = resolveStatDetail({
+      totals: totals({ steps: 2_000 }),
+      lane: 'AGI',
+    });
+    expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', topsOut: false });
   });
 
   it('breaks a tie in CORE_STATS order', () => {

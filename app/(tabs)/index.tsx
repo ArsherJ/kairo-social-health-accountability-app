@@ -30,7 +30,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
-import { Avatar, Label, Meter, Numeral, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
+import { Avatar, Label, Meter, Numeral, STAT_NAMES, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
 
 /**
  * §6's evolution table, said out loud. The silhouette differences are real but
@@ -96,20 +96,23 @@ function detailCopy(detail: StatDetail): string | null {
     case 'maxed':
       return 'Every stat is maxed for today.';
     case 'gap': {
-      // Named in raw units and points, never in tier names. The bands still
-      // exist and still decide the number — `resolveStatDetail` reads
-      // `nextTierFor()` to find this threshold — but Bronze/Silver/Gold are
-      // internal to scoring now, so the sentence says what the user gets
-      // instead of what it is called.
+      // Named in raw units and in what the effort *achieves* — never in points
+      // and never in tier names. This line has carried three vocabularies:
+      // "for Gold" (retired by deviation #23, tiers went internal), "for +400
+      // AGI" (retired by the points spec), and this one. Each retirement had
+      // the same motive: name something the user can recognise.
       const gap = detail.gap.toLocaleString();
-      const worth = detail.points.toLocaleString();
+      const name = STAT_NAMES[detail.stat];
+      const outcome = detail.topsOut
+        ? `tops out your ${name} today`
+        : `lifts your ${name} today`;
       if (detail.lane) {
         // `·` matches standingCopy's separator above — one rhetorical pattern
         // (clause · clause), one glyph, across this screen's two copy lines.
         // No multiplier is claimed: the lane is marked, never scaled.
-        return `Your lane · ${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
+        return `Your lane · ${gap} more ${detail.unit} ${outcome}.`;
       }
-      return `${gap} more ${detail.unit} for +${worth} ${detail.stat}.`;
+      return `${gap} more ${detail.unit} ${outcome}.`;
     }
   }
 }
