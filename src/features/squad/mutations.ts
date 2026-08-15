@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SquadProgram } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { normalizeInviteCode } from './invite-code.ts';
 import { squadKeys, type Squad } from './queries.ts';
 
@@ -47,8 +48,10 @@ export function useCreateSquad(userId: string | undefined) {
       }
       return data as Squad;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: squadKeys.mine(userId) }),
+    onSuccess: (squad) => {
+      void track(userId, 'squad_created', { program: squad.program });
+      return queryClient.invalidateQueries({ queryKey: squadKeys.mine(userId) });
+    },
   });
 }
 
@@ -102,7 +105,9 @@ export function useJoinSquad(userId: string | undefined) {
       }
       return data as Squad;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: squadKeys.mine(userId) }),
+    onSuccess: (squad) => {
+      void track(userId, 'squad_joined', { program: squad.program });
+      return queryClient.invalidateQueries({ queryKey: squadKeys.mine(userId) });
+    },
   });
 }

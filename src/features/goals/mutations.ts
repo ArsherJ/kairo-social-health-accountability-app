@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { goalKeys, type GoalRow } from './queries.ts';
 
 /**
@@ -63,7 +64,10 @@ export function useCreateGoal(userId: string | undefined) {
       }
       return data as GoalRow;
     },
-    onSuccess: () => {
+    onSuccess: (goal) => {
+      // Payload carries no target value — a goal target is the user's own
+      // number and the funnel only needs to know a goal exists.
+      void track(userId, 'goal_created', { kind: goal.kind, squad: goal.squad_id !== null });
       // Every goal key: a squad goal lands on the squad list and a personal one
       // on the home list, and the caller should not have to know which.
       void queryClient.invalidateQueries({ queryKey: goalKeys.all() });

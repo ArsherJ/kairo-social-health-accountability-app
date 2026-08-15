@@ -5,7 +5,7 @@ import { Button, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import { configureHealthBackgroundDelivery } from './background.ts';
 import { HEALTH_DISCLOSURE } from './disclosure.ts';
-import { requestHealthPermission } from './permission.ts';
+import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
 /**
@@ -54,6 +54,11 @@ export function HealthAsk({
       // Sync straight away rather than waiting for the next foreground. The
       // user just connected Health and is looking at a screen showing zero.
       notifyHealthPermissionGranted();
+      // No granted/denied: HealthKit does not report read-permission denial, so
+      // an event claiming either would be believed and wrong. The resulting
+      // state is what is actually knowable.
+      const state = await readHealthPermissionState();
+      void track(userId, 'health_ask_completed', { state });
       onAnswered();
     } catch (error) {
       track(userId, 'health_permission_failed', {

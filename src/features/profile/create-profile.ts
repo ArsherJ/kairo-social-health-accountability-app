@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { normalizeCharacterName } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
+import { track } from '@/features/telemetry/events.ts';
 import type { CharacterBody } from './character-body.ts';
 import { deviceTimeZone } from './device-timezone.ts';
 import { profileKey } from './queries.ts';
@@ -59,6 +60,9 @@ export function useCreateProfile(userId: string | undefined) {
         throw new Error(GENERIC_ERROR_COPY);
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
+    onSuccess: () => {
+      void track(userId, 'profile_created');
+      return queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+    },
   });
 }
