@@ -46,11 +46,30 @@ export interface IncomingRestingHeartRate {
   bpm: number;
 }
 
+/**
+ * One logged workout, as the client reports it.
+ *
+ * `activityType` is Apple's HKWorkoutActivityType **raw value**, stored
+ * untranslated — which numbers mean something is decided in
+ * `challenge.ts`, not here and not in the client's `read.ts`.
+ */
+export interface IncomingWorkoutSession {
+  hkUuid: string;
+  localDate: string;
+  startedAt: string;
+  endedAt: string;
+  activityType: number;
+  durationS: number;
+  distanceM: number;
+  activeKcal: number;
+}
+
 export interface SyncRequest {
   timezone: string;
   buckets: IncomingBucket[];
   sleep?: IncomingSleep[];
   restingHeartRate?: IncomingRestingHeartRate[];
+  sessions?: IncomingWorkoutSession[];
 }
 
 export type ValidationResult =
@@ -65,6 +84,15 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  * still bounding what one request can cost.
  */
 export const MAX_BUCKETS_PER_SYNC = 750;
+
+/**
+ * The same idea for workout sessions, sized to the same window.
+ *
+ * A fortnight of buckets is 336; a fortnight of *workouts* is a handful for
+ * anyone real. 200 is generous enough that a heavy backfill still lands while
+ * still bounding what one request can cost.
+ */
+export const MAX_SESSIONS_PER_SYNC = 200;
 
 /** Rejects anything a legitimate client would never send. */
 export function validateSyncRequest(body: unknown): ValidationResult {
@@ -125,10 +153,90 @@ export function validateSyncRequest(body: unknown): ValidationResult {
     }
   }
 
+  const sessions: IncomingWorkoutSession[] = [];
+  if (raw['sessions'] !== undefined) {
+    if (!Array.isArray(raw['sessions'])) {
+      return { ok: false, error: 'sessions must be an array' };
+    }
+    if (raw['sessions'].length > MAX_SESSIONS_PER_SYNC) {
+      return {
+        ok: false,
+        error: `too many sessions (max ${MAX_SESSIONS_PER_SYNC})`,
+      };
+    }
+    for (const entry of raw['sessions']) {
+      const parsed = parseSession(entry);
+      if (!parsed.ok) return parsed;
+      sessions.push(parsed.value);
+    }
+  }
+
   return {
     ok: true,
-    value: { timezone: raw['timezone'], buckets, sleep, restingHeartRate },
+    value: { timezone: raw['timezone'], buckets, sleep, restingHeartRate, sessions },
   };
+}
+
+function parseSession(
+  entry: unknown,
+): { ok: true; value: IncomingWorkoutSession } | { ok: false; error: string } {
+  if (typeof entry !== 'object' || entry === null) {
+    return { ok: false, error: 'each session must be an object' };
+  }
+  const s = entry as Record<string, unknown>;
+
+  // The primary key, so it is the one field with no salvageable failure mode.
+  if (typeof s['hkUuid'] !== 'string' || s['hkUuid'].length === 0) {
+    return { ok: false, error: 'session.hkUuid is required' };
+  }
+  if (typeof s['localDate'] !== 'string' || !DATE_PATTERN.test(s['localDate'])) {
+    return { ok: false, error: 'session.localDate must be YYYY-MM-DD' };
+  }
+
+  for (const field of ['startedAt', 'endedAt']) {
+    const value = s[field];
+    if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+      return { ok: false, error: `session.${field} must be an ISO timestamp` };
+    }
+  }
+
+  // A smallint column. Apple's raw values are small positive integers, and a
+  // value outside the column's range would fail the insert rather than this
+  // check — which would take the whole sync down, steps included.
+  if (
+    typeof s['activityType'] !== 'number' ||
+    !Number.isInteger(s['activityType']) ||
+    s['activityType'] < 0 ||
+    s['activityType'] > 32_767
+  ) {
+    return { ok: false, error: 'session.activityType must be a small non-negative integer' };
+  }
+
+  for (const field of ['durationS', 'distanceM', 'activeKcal']) {
+    if (!nonNegative(s[field])) {
+      return { ok: false, error: `session.${field} must be a non-negative number` };
+    }
+  }
+
+  return {
+    ok: true,
+    value: {
+      hkUuid: s['hkUuid'],
+      localDate: s['localDate'],
+      startedAt: s['startedAt'] as string,
+      endedAt: s['endedAt'] as string,
+      activityType: s['activityType'],
+      // `duration_s` is an integer column; the other two are numeric(10,2).
+      durationS: Math.round(s['durationS'] as number),
+      distanceM: round2(s['distanceM'] as number),
+      activeKcal: round2(s['activeKcal'] as number),
+    },
+  };
+}
+
+/** Matches `numeric(10, 2)`, so the stored value is the value that was sent. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function nonNegative(value: unknown): value is number {

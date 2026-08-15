@@ -192,6 +192,125 @@ describe('heart rate and strain inputs', () => {
   });
 });
 
+describe('workout_sessions', () => {
+  async function logSession(
+    user: string,
+    overrides: { hkUuid?: string; localDate?: string; activityType?: number; kcal?: number } = {},
+  ) {
+    await h.asService(
+      `insert into public.workout_sessions
+         (user_id, hk_uuid, local_date, started_at, ended_at, activity_type,
+          duration_s, distance_m, active_kcal)
+       values ($1, $2, $3, $4::timestamptz, $5::timestamptz, $6, 2700, 7400.5, $7)
+       on conflict (user_id, hk_uuid) do update
+         set active_kcal = excluded.active_kcal,
+             local_date  = excluded.local_date`,
+      [
+        user,
+        overrides.hkUuid ?? 'HK-1',
+        overrides.localDate ?? '2026-07-27',
+        '2026-07-27T09:00:00Z',
+        '2026-07-27T09:45:00Z',
+        overrides.activityType ?? 37,
+        overrides.kcal ?? 512.25,
+      ],
+    );
+  }
+
+  it('upserts on Apple’s own sample uuid rather than duplicating', async () => {
+    // The idempotency property the whole ingest rests on: a re-synced window
+    // re-sends the same workouts, and a workout Apple later revises has to
+    // flow through the way retroactive step revisions already do.
+    const user = await h.createUser();
+    await logSession(user);
+    await logSession(user, { kcal: 540 });
+
+    const rows = await h.asService<{ active_kcal: string }>(
+      'select active_kcal from public.workout_sessions where user_id = $1',
+      [user],
+    );
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]!.active_kcal)).toBe(540);
+  });
+
+  it('keeps sessions owner-readable and client-unwritable', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await logSession(owner);
+
+    const own = await h.asUser(owner, 'select hk_uuid from public.workout_sessions');
+    expect(own).toHaveLength(1);
+
+    // A pace is at least as identifying as the hourly movement §5 protects: it
+    // carries fitness, and with distance it carries routine.
+    const theirs = await h.asUser(stranger, 'select hk_uuid from public.workout_sessions');
+    expect(theirs).toHaveLength(0);
+
+    await rejects(
+      h.asUser(
+        owner,
+        `insert into public.workout_sessions
+           (user_id, hk_uuid, local_date, started_at, ended_at, activity_type, duration_s)
+         values ($1, 'FAKE', '2026-07-28', now(), now(), 37, 60)`,
+        [owner],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('grants authenticated nothing beyond SELECT', async () => {
+    // ALL includes TRUNCATE, which RLS does not restrict — so the migration
+    // revokes the table grant and re-grants only SELECT.
+    const rows = await h.asService<{ privs: string }>(
+      `select string_agg(distinct privilege_type, ',' order by privilege_type) as privs
+       from information_schema.table_privileges
+       where table_name = 'workout_sessions' and grantee = 'authenticated'`,
+    );
+    expect(rows[0]!.privs).toBe('SELECT');
+  });
+
+  it('rejects negative measurements', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asService(
+        `insert into public.workout_sessions
+           (user_id, hk_uuid, local_date, started_at, ended_at, activity_type,
+            duration_s, distance_m)
+         values ($1, 'NEG', '2026-07-27', now(), now(), 37, 60, -1)`,
+        [user],
+      ),
+      /check constraint/i,
+    );
+  });
+
+  it('appears in no squad projection', async () => {
+    // §3.2: this table is owner-only and must stay out of every RPC that
+    // projects one member's data to another. Asserted against the function
+    // bodies, because a leak would be added there and nowhere else.
+    const rows = await h.asService<{ name: string }>(
+      `select p.proname as name
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          -- Plain functions only. pg_get_functiondef raises on aggregates,
+          -- and an aggregate cannot project a table in any case.
+          and p.prokind = 'f'
+          and pg_get_functiondef(p.oid) ilike '%workout_sessions%'`,
+    );
+    expect(rows.map((r) => r.name)).toEqual([]);
+  });
+
+  it('cascades a deleted account', async () => {
+    const user = await h.createUser();
+    await logSession(user);
+    await h.asService('delete from public.profiles where id = $1', [user]);
+    const rows = await h.asService('select 1 from public.workout_sessions where user_id = $1', [
+      user,
+    ]);
+    expect(rows).toHaveLength(0);
+  });
+});
+
 describe('per-stat ability rollups', () => {
   async function ratings(userId: string) {
     const rows = await h.asService<{
@@ -654,7 +773,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(15);
+    expect(rows[0]!.count).toBe(16);
   });
 
   it('enable row level security on every public table', async () => {
