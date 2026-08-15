@@ -167,7 +167,7 @@ parts.push(`${input.total.toLocaleString()} points`);
 
 **This is not optional cleanup.** Leaving it means VoiceOver users hear a figure
 sighted users can no longer see — the label and the row would describe different
-products. `total` comes off `LeaderboardRowLabelInput`, the gap goes in, and
+products. `total` comes off `RowLabelInput`, the gap goes in, and
 `row-label.test.ts` moves with it.
 
 That module exists precisely because composing this label has real edges (a
