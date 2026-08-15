@@ -15,7 +15,7 @@ import {
 import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
 import { onSyncRequested, resetSyncStatus, setSyncStatus } from './status-store.ts';
 import { loadSyncState } from './storage.ts';
-import { isFirstDataSync } from './sync-state.ts';
+import { syncCarriedData } from './sync-state.ts';
 import {
   initialSyncPolicyState,
   reduceSyncPolicy,
@@ -31,15 +31,15 @@ import { runHealthSync } from './sync.ts';
  * task also calls and which is out of this task's scope to restructure.
  *
  * Claims before the write lands, mirroring `useAppOpenTelemetry`
- * (`src/features/notifications/useNotifications.ts`): `isFirstDataSync` goes
- * permanently false the instant this sync's `runHealthSync` call persists
- * `lastSyncedAt`, so there is no later sync that could retry a dropped event
- * the way a next-day `app_open` can. That makes losing the row on a failed
- * insert unrecoverable, while a write that actually landed but *reported*
- * false only risks a duplicate — and every reader of this event counts
- * `distinct user_id`, so a duplicate changes no answer. Releasing the claim
- * on a false resolve is therefore the side to err on, same as the
- * `app_open` precedent.
+ * (`src/features/notifications/useNotifications.ts`). This MMKV marker is now
+ * the *only* once-ever gate for `first_sync_seen` — `syncCarriedData` at the
+ * call site says nothing about whether this is the account's first sync, on
+ * purpose, so a release here genuinely gives the *next* sync a chance to
+ * retry rather than a gate that already shut for good. A write that actually
+ * landed but *reported* false risks firing twice instead — and every reader
+ * of this event counts `distinct user_id`, so a duplicate changes no answer.
+ * Releasing the claim on a false resolve is therefore the side to err on,
+ * same as the `app_open` precedent.
  */
 function markFirstSyncSeen(userId: string, days: number): void {
   try {
@@ -120,10 +120,6 @@ export function useHealthSync(
     async function sync() {
       setSyncStatus({ syncing: true });
 
-      // Read *before* runHealthSync, which persists lastSyncedAt on success —
-      // reading after would make isFirstDataSync unconditionally false, and the
-      // event would never fire at all.
-      const before = loadSyncState(userId as string);
       const outcome = await runHealthSync(
         userId as string,
         timeZone as string,
@@ -131,7 +127,12 @@ export function useHealthSync(
       );
       if (cancelled) return;
 
-      if (isFirstDataSync(before, outcome)) {
+      // The once-ever gate is the MMKV milestone marker inside
+      // markFirstSyncSeen, not anything read from sync state: runHealthSync
+      // persists lastSyncedAt on every success, so a gate built from it could
+      // only ever pass once per account, with no way to retry a sync whose
+      // first_sync_seen write failed.
+      if (syncCarriedData(outcome)) {
         markFirstSyncSeen(userId as string, outcome.syncedDates.length);
       }
 

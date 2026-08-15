@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_DIRTY_DATES,
   initialSyncState,
-  isFirstDataSync,
   markDirty,
   markFailed,
   markSynced,
+  syncCarriedData,
   type SyncState,
 } from './sync-state.ts';
 
@@ -132,25 +132,24 @@ describe('markFailed', () => {
   });
 });
 
-describe('isFirstDataSync', () => {
-  const fresh: SyncState = { ...initialSyncState };
-  const synced: SyncState = { ...initialSyncState, lastSyncedAt: 1_000 };
-
-  it('is true for the first successful sync that wrote a day', () => {
-    expect(isFirstDataSync(fresh, { ok: true, syncedDates: ['2026-08-16'] })).toBe(true);
+describe('syncCarriedData', () => {
+  it('is true for a successful sync that wrote a day', () => {
+    expect(syncCarriedData({ ok: true, syncedDates: ['2026-08-16'] })).toBe(true);
   });
 
   // A user who grants permission with no data on the device syncs successfully
   // and writes nothing. That is not activation — it is an empty phone.
   it('is false when the sync wrote no days', () => {
-    expect(isFirstDataSync(fresh, { ok: true, syncedDates: [] })).toBe(false);
+    expect(syncCarriedData({ ok: true, syncedDates: [] })).toBe(false);
   });
 
   it('is false for a failed sync', () => {
-    expect(isFirstDataSync(fresh, { ok: false, syncedDates: [] })).toBe(false);
+    expect(syncCarriedData({ ok: false, syncedDates: [] })).toBe(false);
   });
 
-  it('is false once a sync has already succeeded', () => {
-    expect(isFirstDataSync(synced, { ok: true, syncedDates: ['2026-08-16'] })).toBe(false);
-  });
+  // No "already succeeded" case here on purpose: this function no longer
+  // knows about SyncState at all. Once-ever-ness for first_sync_seen now
+  // lives entirely in the caller's MMKV milestone marker (useHealthSync.ts),
+  // because a gate built from sync state can only ever pass once per
+  // account — exactly the bug fix round 2 exists to undo.
 });

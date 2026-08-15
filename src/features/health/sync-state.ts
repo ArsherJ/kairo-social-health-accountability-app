@@ -80,20 +80,28 @@ export function markFailed(
 }
 
 /**
- * Whether this outcome is the account's first sync that actually carried data.
+ * Whether this sync outcome actually carried data.
  *
- * `lastSyncedAt === null` is the durable "never succeeded" marker, and a
- * non-empty `syncedDates` is what separates activation from a granted
+ * A non-empty `syncedDates` is what separates activation from a granted
  * permission over an empty phone — the second is a real state (a new device, a
  * user who has never carried it) and calling it activation would inflate the
  * one number the funnel exists to report.
  *
+ * Deliberately takes no `SyncState` and asks nothing about whether this is the
+ * *first* sync: `runHealthSync` persists `lastSyncedAt` on every success, so a
+ * once-per-account gate built from sync state can only ever pass once, ever —
+ * and if that one sync's `first_sync_seen` write fails, there is no later sync
+ * that can retry it. The once-ever-ness now lives entirely in the caller's
+ * MMKV milestone marker, which a failed write can release; this function only
+ * answers "did data move," on every sync, so a release has something to retry
+ * against.
+ *
  * Takes the outcome's shape structurally rather than importing `SyncOutcome`,
  * because this file has zero imports so root Vitest can load it.
  */
-export function isFirstDataSync(
-  state: SyncState,
-  outcome: { ok: boolean; syncedDates: string[] },
-): boolean {
-  return state.lastSyncedAt === null && outcome.ok && outcome.syncedDates.length > 0;
+export function syncCarriedData(outcome: {
+  ok: boolean;
+  syncedDates: string[];
+}): boolean {
+  return outcome.ok && outcome.syncedDates.length > 0;
 }
