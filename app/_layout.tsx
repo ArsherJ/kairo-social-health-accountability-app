@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
 import { startSessionListener, useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
+import { flushTelemetryBuffer } from '@/features/telemetry/events.ts';
 import { Panel, Button, Text } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, space } from '@/theme.ts';
@@ -106,7 +107,8 @@ function Gate() {
   const segments = useSegments();
   const session = useSessionStore((s) => s.session);
   const sessionLoading = useSessionStore((s) => s.loading);
-  const profile = useProfile(session?.user.id);
+  const userId = session?.user.id;
+  const profile = useProfile(userId);
 
   const route = resolveRoute({
     sessionLoading,
@@ -115,6 +117,13 @@ function Gate() {
     profileError: profile.isError,
     hasProfile: Boolean(profile.data),
   });
+
+  // Pre-auth events have no user to hang from until now. Fire-and-forget, and
+  // guarded on the id so it runs once per sign-in rather than once per render.
+  useEffect(() => {
+    if (!userId) return;
+    void flushTelemetryBuffer(userId);
+  }, [userId]);
 
   useEffect(() => {
     // The whole rule — including 'profile-error' and 'loading' having nowhere
