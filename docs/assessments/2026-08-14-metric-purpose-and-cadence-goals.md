@@ -1,9 +1,11 @@
 # Metric Purpose & Cadence Goals — Assessment and Plan
 
-**Status:** Part 1 (below) is the original brainstorm and stands as written.
-**Part 2 (end of file) records founder decisions on solo mode** — walking,
-strength, running, and the adaptive-challenge engine are settled. **Squad
-alignment is still open** and is the next pass. Nothing here overrides
+**Status:** Part 1 is the original brainstorm and stands as written. **Part 2
+records founder decisions on solo mode** — walking, strength, running, and
+the adaptive-challenge engine are settled. **Part 3 records founder decisions
+on squad alignment** — Routines, a third mechanic beside Goals and
+Challenges. A handful of detail questions remain open at the end of Part 3
+(§17); the shape itself is decided. Nothing here overrides
 `Kairo_Master_Summary.md` or `docs/roadmap.md`'s approved-deviations table on
 its own — this is the staging ground, on the precedent of
 `docs/assessments/2026-08-06-onboarding-and-program-selection.md`, which went
@@ -409,7 +411,7 @@ properly:
   calculation + step-up/step-down rule, table-driven and clock-free like
   everything else there), not an extension of `goal.ts`.
 
-## 12. What's still open
+## 12. What's still open (as of Part 2)
 
 Squad alignment. The one thought worth carrying into that pass, raised mid-
 conversation and not yet designed: if Strength/Run targets are personalized,
@@ -419,3 +421,92 @@ squad — which would resolve the fairness problem the original
 `docs/assessments/2026-08-06-onboarding-and-program-selection.md` raised
 against a literal "gym program" (mismatched squadmates competing on a target
 that isn't equally hard for both of them). Not decided — next pass.
+
+---
+
+# Part 3 — Squad alignment: founder decisions (2026-08-14)
+
+## 13. The shape: Routines, a third mechanic beside Goals and Challenges
+
+Not a `GoalKind` (same reasoning as Part 2 — a moving, personalized target
+breaks Goals' fixed-at-creation invariant) and not a Challenge itself
+(Challenges are the personal difficulty curve; this is the thing that turns a
+standing Challenge into a scheduled commitment). Working name: **Routine**.
+
+Split what's shared from what's personal, the resolution to §12's open
+question:
+
+- **Shared, frozen at creation:** the *area* (Strength or Run — Walk never
+  gets a Routine, per Part 2 §9/§10, since it has no rest days to schedule
+  around) and the **weekly frequency** — N days a week. This is the real
+  commitment: "we're doing Strength three times a week," together.
+- **Personal, per member:** the *bar* — each member's own current Challenge,
+  never a shared number (§12's fairness fix) — and now also, per decision
+  below, the *specific days*.
+
+A roster of one is not a special case requiring different code — it's a
+Routine with `rosterSize = 1`, the same idiom `squadRequirementLine()`
+already uses for goals (`rosterSize <= 1` → "You hit it" instead of N-of-M
+language). A personal accountability routine and a squad routine are the same
+mechanic at different roster sizes, not two features.
+
+## 14. Decisions recorded
+
+- **Schedule defaults identical, but each member can override their own
+  days.** The frequency (N/week) is the one truly shared, frozen number — the
+  actual promise being made. *Which* specific days satisfy it is proposed
+  identically for the whole squad at creation (so the default experience is
+  "we all lift Monday, Wednesday, Friday together"), but any member can swap
+  their own days to fit their real schedule without changing the commitment
+  itself — someone on a rotating shift isn't stuck failing every Wednesday
+  forever. This only matters for the specific-weekdays schedule shape; the
+  "any N days a week" shape was already fully personal by construction and
+  needs no override at all.
+- **End date is a real choice, defaulting to indefinite.** Reuses
+  `CreateGoalForm`'s existing pattern outright (presets, a date picker, an
+  explicit no-end-date option — deviation #21) rather than inventing a new
+  control, just with the highlighted default flipped: a Routine is a habit,
+  not a race, so "no end date" is what a squad lands on unless they choose
+  otherwise.
+- **Independent of the squad's `program`.** A squad can run a program with no
+  Routine, a Routine with no tilted program, or a Routine on a different area
+  than its program boosts. The one connection worth keeping: when creating a
+  Routine, suggest the squad's own program area as the prefill (a `gym`- or
+  `running`-program squad most likely wants a Routine on that same area) —
+  a UI convenience, not a coupling.
+
+## 15. A consequence of "indefinite by default," not yet asked but worth flagging
+
+Squad Goals freeze their roster at creation on purpose — "the denominator
+moving when somebody joins or leaves halfway through" would make "everyone
+must hit it" meaningless against a target with an end date (§8). An
+indefinite Routine doesn't have that problem: there's no window a late joiner
+would be unfairly entering partway through, because there's no finish line
+anyone is racing toward. So the natural rule is the opposite of Goals':
+**a Routine's roster is open** — a squad member can opt in whenever they're
+ready, and opt out individually without ending it for anyone else, the way
+leaving a Goal is squad-wide-visible but a Routine leave should just be
+personal. Flagging this as the sensible default given the indefinite choice
+above, not as something asked directly — worth a confirm or correct.
+
+## 16. Housekeeping carried forward, not yet confirmed
+
+The squad `program` value/label `gym` ("Strength and effort count for more")
+should probably become `strength` or `calisthenics` to match the solo-side
+rename in Part 2, so the app isn't carrying two words for one idea. Raised
+last round, not objected to, treated here as the likely direction rather than
+settled — small enough to fold into whichever pass touches `program-copy.ts`
+next.
+
+## 17. Still open
+
+- Exact weekly reward shape (a small XP trickle per week hit, mirroring how
+  streaks reward rather than how Goal completion pays a lump sum at the end)
+  and how the Routine-level "shield" and the Challenge-level "ease" (Part 2,
+  §11) coordinate on the same missed week rather than both firing at once.
+- UI: where a Routine surfaces relative to `SquadGoalPanel` and `GoalCard` —
+  a fourth slot, or folded into the existing goal shelf with a visual
+  distinction for "ongoing" vs. "has a finish line."
+- `required_members` for the squad-level "enough of us kept it up this
+  week" read — reuse the existing squad-goal default (the whole roster) or
+  pick a different default for something indefinite and habit-shaped.
