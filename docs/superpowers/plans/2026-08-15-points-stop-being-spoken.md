@@ -140,14 +140,20 @@ export function leaderboardGaps(
   const ordered = [...rows].sort((a, b) => a.rank - b.rank || b.total - a.total);
 
   const gaps = new Map<string, number | null>();
-  // The best total strictly above the current row. Tracked as a running maximum
-  // rather than read from `ordered[i - 1]`, so a tied pair both measure against
-  // whoever is genuinely ahead of them.
-  let bestAbove: number | null = null;
+
+  // The row immediately above, not the leader. "600 behind" when the person
+  // one place ahead is 600 up is actionable; the same row measured against a
+  // runaway leader would read as hopeless and say nothing about the place you
+  // are actually contesting. This is the same choice `resolveStanding` already
+  // made for the character screen's own standing line.
+  //
+  // Sorted descending by total within a rank, so `previous` is always >= the
+  // current row and the subtraction cannot go negative. A tie yields 0.
+  let previous: number | null = null;
 
   for (const row of ordered) {
-    gaps.set(row.user_id, bestAbove === null ? null : bestAbove - row.total);
-    if (bestAbove === null || row.total > bestAbove) bestAbove = row.total;
+    gaps.set(row.user_id, previous === null ? null : previous - row.total);
+    previous = row.total;
   }
 
   return gaps;
@@ -241,7 +247,7 @@ key, and update the expected strings. Then add these three cases:
     expect(label).not.toContain('behind');
   });
 
-  it('says level with a tied row rather than a zero gap', () => {
+  it('says nothing about a gap for a tied row', () => {
     const label = leaderboardRowLabel({
       rank: 1,
       characterName: 'Ana',
@@ -251,9 +257,11 @@ key, and update the expected strings. Then add these three cases:
       ratings: {},
       statNames: STAT_NAMES,
     });
-    // "0 behind" is a sentence no person says.
-    expect(label).not.toContain('0 behind');
-    expect(label).toContain('level with the leader');
+    // "0 behind" is a sentence no person says, and the row draws nothing in
+    // the gap column for a tie — so the label must not invent something the
+    // screen does not show. The shared rank already conveys the tie.
+    expect(label).not.toContain('behind');
+    expect(label).not.toContain('0');
   });
 ```
 
@@ -291,12 +299,13 @@ Delete these two lines entirely:
 Replace line 50 (`parts.push(\`${input.total.toLocaleString()} points\`);`) with:
 
 ```ts
-  // Relative, never absolute. Zero is said as "level with", because "0 behind"
-  // is not a sentence anybody says out loud.
-  if (input.gap !== null) {
-    parts.push(
-      input.gap === 0 ? 'level with the leader' : `${input.gap.toLocaleString()} behind`,
-    );
+  // Relative, never absolute — and only when there is a gap to speak of. The
+  // condition matches the row's render condition exactly rather than
+  // approximating it: the leader and a tied row both draw nothing in the gap
+  // column, so a label claiming otherwise would describe a different screen.
+  // The shared rank is what conveys a tie.
+  if (input.gap !== null && input.gap > 0) {
+    parts.push(`${input.gap.toLocaleString()} behind`);
   }
 ```
 
