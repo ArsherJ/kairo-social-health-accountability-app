@@ -78,3 +78,22 @@ export function markFailed(
 ): SyncState {
   return { ...state, lastError: message, lastErrorAt: at };
 }
+
+/**
+ * Whether this outcome is the account's first sync that actually carried data.
+ *
+ * `lastSyncedAt === null` is the durable "never succeeded" marker, and a
+ * non-empty `syncedDates` is what separates activation from a granted
+ * permission over an empty phone — the second is a real state (a new device, a
+ * user who has never carried it) and calling it activation would inflate the
+ * one number the funnel exists to report.
+ *
+ * Takes the outcome's shape structurally rather than importing `SyncOutcome`,
+ * because this file has zero imports so root Vitest can load it.
+ */
+export function isFirstDataSync(
+  state: SyncState,
+  outcome: { ok: boolean; syncedDates: string[] },
+): boolean {
+  return state.lastSyncedAt === null && outcome.ok && outcome.syncedDates.length > 0;
+}

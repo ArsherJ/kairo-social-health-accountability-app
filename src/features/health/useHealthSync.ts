@@ -6,9 +6,12 @@ import { todayBucketsKey, todayVitalsKey } from '@/features/character/buckets.ts
 import { todayScoreKey } from '@/features/character/queries.ts';
 import { profileKey } from '@/features/profile/queries.ts';
 import { squadKeys } from '@/features/squad/queries.ts';
+import { track } from '@/features/telemetry/events.ts';
+import { hasReached, markReached } from '@/features/telemetry/milestone-store.ts';
 import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
 import { onSyncRequested, resetSyncStatus, setSyncStatus } from './status-store.ts';
 import { loadSyncState } from './storage.ts';
+import { isFirstDataSync } from './sync-state.ts';
 import {
   initialSyncPolicyState,
   reduceSyncPolicy,
@@ -16,6 +19,23 @@ import {
   type SyncPolicyState,
 } from './sync-policy.ts';
 import { runHealthSync } from './sync.ts';
+
+/**
+ * Milestone bookkeeping has no error handling of its own (MMKV can throw), and
+ * telemetry must never break the sync it is observing — so both calls are
+ * guarded here rather than inside `milestone-store.ts`, which a later task
+ * also calls and which is out of this task's scope to restructure.
+ */
+function markFirstSyncSeen(userId: string, days: number): void {
+  try {
+    if (hasReached(userId, 'first_sync_seen')) return;
+    markReached(userId, 'first_sync_seen');
+  } catch (error) {
+    console.warn('[telemetry] first_sync_seen milestone', error);
+    return;
+  }
+  void track(userId, 'first_sync_seen', { days });
+}
 
 /**
  * Set by the mounted hook so the permission sheet can demand an immediate sync.
@@ -74,12 +94,20 @@ export function useHealthSync(
     async function sync() {
       setSyncStatus({ syncing: true });
 
+      // Read *before* runHealthSync, which persists lastSyncedAt on success —
+      // reading after would make isFirstDataSync unconditionally false, and the
+      // event would never fire at all.
+      const before = loadSyncState(userId as string);
       const outcome = await runHealthSync(
         userId as string,
         timeZone as string,
         new Date(),
       );
       if (cancelled) return;
+
+      if (isFirstDataSync(before, outcome)) {
+        markFirstSyncSeen(userId as string, outcome.syncedDates.length);
+      }
 
       // Published from the state `runHealthSync` just persisted rather than
       // from `outcome`, so the strip and the durable record can never disagree

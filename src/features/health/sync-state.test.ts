@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_DIRTY_DATES,
   initialSyncState,
+  isFirstDataSync,
   markDirty,
   markFailed,
   markSynced,
@@ -128,5 +129,28 @@ describe('markFailed', () => {
   it('does not touch the last successful sync time', () => {
     const synced = markSynced(initialSyncState, [], 1000);
     expect(markFailed(synced, 2000, 'boom').lastSyncedAt).toBe(1000);
+  });
+});
+
+describe('isFirstDataSync', () => {
+  const fresh: SyncState = { ...initialSyncState };
+  const synced: SyncState = { ...initialSyncState, lastSyncedAt: 1_000 };
+
+  it('is true for the first successful sync that wrote a day', () => {
+    expect(isFirstDataSync(fresh, { ok: true, syncedDates: ['2026-08-16'] })).toBe(true);
+  });
+
+  // A user who grants permission with no data on the device syncs successfully
+  // and writes nothing. That is not activation — it is an empty phone.
+  it('is false when the sync wrote no days', () => {
+    expect(isFirstDataSync(fresh, { ok: true, syncedDates: [] })).toBe(false);
+  });
+
+  it('is false for a failed sync', () => {
+    expect(isFirstDataSync(fresh, { ok: false, syncedDates: [] })).toBe(false);
+  });
+
+  it('is false once a sync has already succeeded', () => {
+    expect(isFirstDataSync(synced, { ok: true, syncedDates: ['2026-08-16'] })).toBe(false);
   });
 });
