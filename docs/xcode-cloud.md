@@ -244,6 +244,13 @@ open. Apple will ask to install its GitHub App on
   branch was merged in `46b747b` before any of this ran, so the work landed on a
   new one.)
 
+  **Every push to `main` therefore cuts a build**, including documentation-only
+  ones. Put `[ci skip]` anywhere in the commit message to suppress it — Apple
+  honours the token in the commit that triggers the run. Worth remembering
+  before pushing a docs commit, and worth *not* reaching for when the change
+  touches `ios/`, `app.config.ts` or a plugin, since those are exactly the
+  changes whose effect only appears in a real build.
+
   **Repoint the existing workflow's start condition — do not create a second
   workflow for `main`.** Xcode Cloud numbers builds **per workflow**, so a new
   one restarts at 1, and `ci_pre_xcodebuild.sh` writes `CI_BUILD_NUMBER` straight

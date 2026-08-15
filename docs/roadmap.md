@@ -812,6 +812,22 @@ findings reproduce on the simulator. Accessibility *structure* is verified in
 Xcode's Accessibility Inspector before a build is cut. This qualifies, and does
 not replace, "UI is verified by hand on device".
 
+**Verified in the inspector 2026-08-14, then confirmed on hardware 2026-08-15**
+from a TestFlight install. The inspector reported **one element per leaderboard
+row**, which is the gate the whole approach rested on: the other four groups use
+the identical mechanism, so one passing check covers all five. The new process
+did what it was adopted for — the grouping fix was proven before a build was
+cut, not after.
+
+One practical note for whoever runs this next: **the agent could not perform the
+simulator half.** Synthetic input does not work on this machine — `System
+Events` clicks are delivered 60–120s late under the same Endpoint Security
+posture that blocks USB pairing, and PyObjC, `idb` and `cliclick` are all
+absent. Dynamic Type needs no GUI at all
+(`xcrun simctl ui booted content_size …` plus `xcrun simctl io booted
+screenshot`, size set **before** relaunch), but taps and the Accessibility
+Inspector have to be driven by hand.
+
 ## End-to-end QA findings (2026-08-11)
 
 Full report and root-cause addendum: `docs/qa/kairo-end-to-end-qa-report.md`. It

@@ -2,6 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Executed 2026-08-14, confirmed on hardware 2026-08-15.** Commits
+> `e494026`…`6bcc49b`. Task 1 could not be run as written — synthetic input to
+> the simulator does not work on this machine (clicks land 60–120s late under
+> Endpoint Security), so the inspector checks in Tasks 3–6 were performed by the
+> author rather than the agent. Dynamic Type needed no GUI:
+> `xcrun simctl ui booted content_size` replaces Environment Overrides, and the
+> size must be set **before** relaunching. Task 3's gate passed — one element per
+> leaderboard row — which is what made Task 4 safe.
+
 **Goal:** Make the character tab usable at the largest Dynamic Type size, and make VoiceOver read grouped components as one element instead of many.
 
 **Architecture:** Two independent fixes plus a regression revert. The character HUD's four hardcoded absolute offsets become one flowing column with tightly capped text. Accessibility grouping stops relying on iOS's implicit collapse of an `accessible` parent and instead hides each direct child explicitly. Verification moves from TestFlight to the simulator's Accessibility Inspector.
@@ -34,7 +43,7 @@ Nothing else in this plan can be verified without it, and the whole point of the
 - Consumes: nothing.
 - Produces: a booted simulator running Kairo, and a recorded baseline that Tasks 2–6 are measured against.
 
-- [ ] **Step 1: Build and run on the simulator**
+- [x] **Step 1: Build and run on the simulator**
 
 ```bash
 npm run ios
@@ -42,11 +51,11 @@ npm run ios
 
 Expect this to take a long time on first run — React Native compiles from source (roadmap deviation #29, and it is not optional; re-enabling prebuilts brings back a launch crash). Later runs reuse the build and Metro reloads are seconds.
 
-- [ ] **Step 2: Sign in**
+- [x] **Step 2: Sign in**
 
 The simulator gets anonymous sign-in, which `availableProviders()` keeps behind `__DEV__` for exactly this. Complete onboarding if prompted.
 
-- [ ] **Step 3: Seed health data so the screens have content**
+- [x] **Step 3: Seed health data so the screens have content**
 
 An empty character screen will not show the HUD pills this plan is fixing. Use the dev seeder in `src/features/health/dev-seed.ts`, or run:
 
@@ -56,7 +65,7 @@ node supabase/scripts/rehearse-squad-join.mjs --cleanup
 
 then create a squad in-app so the leaderboard has rows.
 
-- [ ] **Step 4: Open Accessibility Inspector and record the VoiceOver baseline**
+- [x] **Step 4: Open Accessibility Inspector and record the VoiceOver baseline**
 
 ```bash
 open "/Applications/Xcode.app/Contents/Applications/Accessibility Inspector.app"
@@ -66,13 +75,13 @@ Point the target selector at the booted simulator, navigate Kairo to the Squad t
 
 Write down the count. **Expected baseline: many elements per row** (rank, name, level, each stat pair, total). This is the defect. If it already reports one element, stop and re-check that the simulator is running the current branch — the rest of Task 3 would be pointless.
 
-- [ ] **Step 5: Record the Dynamic Type baseline**
+- [x] **Step 5: Record the Dynamic Type baseline**
 
 In Xcode: **Debug → Environment Overrides → Text → enable, drag to the largest size.** Watch the character tab.
 
 **Expected baseline:** the level pill, the streak pill and the stat rail overlap each other. Screenshot it — this is the before image for Task 5.
 
-- [ ] **Step 6: Commit nothing, but record findings**
+- [x] **Step 6: Commit nothing, but record findings**
 
 No code changed. Note both baselines in the working notes for the tasks below; they are the pass/fail criteria.
 
@@ -89,7 +98,7 @@ No code changed. Note both baselines in the working notes for the tasks below; t
 - Consumes: `STAT_NAMES` from `src/ui/StatIcon.tsx` (import becomes unused — remove it).
 - Produces: `StatCoin` renders no accessibility element of its own.
 
-- [ ] **Step 1: Confirm the call site before changing anything**
+- [x] **Step 1: Confirm the call site before changing anything**
 
 ```bash
 grep -rn "StatCoin" app src | grep -v "src/ui/StatCoin.tsx" | grep -v "index.ts:"
@@ -97,7 +106,7 @@ grep -rn "StatCoin" app src | grep -v "src/ui/StatCoin.tsx" | grep -v "index.ts:
 
 Expected: exactly one usage, in `src/features/character/StatRail.tsx`. If a second call site exists, stop — this task's reasoning does not hold and the coin may need its label.
 
-- [ ] **Step 2: Remove the coin's accessibility element**
+- [x] **Step 2: Remove the coin's accessibility element**
 
 In `src/ui/StatCoin.tsx`, replace the `<View accessible accessibilityLabel={...}>` wrapper with:
 
@@ -115,7 +124,7 @@ In `src/ui/StatCoin.tsx`, replace the `<View accessible accessibilityLabel={...}
 
 Keep `<Text scale="fixed">` on the rating — that part was correct.
 
-- [ ] **Step 3: Remove the now-unused import**
+- [x] **Step 3: Remove the now-unused import**
 
 Change the import line to drop `STAT_NAMES`:
 
@@ -123,7 +132,7 @@ Change the import line to drop `STAT_NAMES`:
 import { StatIcon } from './StatIcon.tsx';
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 npm run typecheck
@@ -133,7 +142,7 @@ Expected: clean. An unused-import error here means Step 3 was missed.
 
 In the Accessibility Inspector, the stat rail should be **one** element announcing `Agility 41, Strength 27, Endurance 18, Vitality 9. Show per-stat detail`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/ui/StatCoin.tsx
@@ -157,7 +166,7 @@ The technique fix. Do this one first and verify it in the inspector before apply
 - Consumes: `leaderboardRowLabel` from `src/features/squad/row-label.ts` (unchanged).
 - Produces: one accessibility element per row.
 
-- [ ] **Step 1: Hide the four direct children**
+- [x] **Step 1: Hide the four direct children**
 
 The row's root `View` keeps `accessible` and `accessibilityLabel`. Add to each of its four direct children:
 
@@ -206,7 +215,7 @@ Add a comment above the root `View`'s `accessible` prop explaining why both halv
       // implicit behaviour. Do not remove one half thinking it is redundant.
 ```
 
-- [ ] **Step 2: Verify in the inspector — this is the gate**
+- [x] **Step 2: Verify in the inspector — this is the gate**
 
 Reload Metro (`r` in the Metro terminal), navigate to the Squad tab, and step through a row in the Accessibility Inspector.
 
@@ -215,7 +224,7 @@ Expected: **one element**, announcing e.g.
 
 If it is still many elements, **stop and do not proceed to Task 4.** The remaining option is to drop `accessible` from the parent and instead render a single visually-hidden `<Text>` carrying the label with every sibling hidden. Report back before implementing that.
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 ```bash
 npm run typecheck && npm test
@@ -223,7 +232,7 @@ npm run typecheck && npm test
 
 Expected: clean, 710 passing.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/features/squad/LeaderboardRow.tsx
@@ -251,7 +260,7 @@ Only after Task 3's inspector check passes. All four were built on the same assu
 - Consumes: nothing new.
 - Produces: one accessibility element each for a stat bar, a goal bar, each streak figure, and the character figure.
 
-- [ ] **Step 1: `StatBar` — hide the header and the label**
+- [x] **Step 1: `StatBar` — hide the header and the label**
 
 The root `View` keeps `accessible accessibilityLabel={spokenLabel}`. Add to its children:
 
@@ -291,7 +300,7 @@ and the lane copy at the bottom:
 
 The `Meter` inside already hides itself when given no `label` prop.
 
-- [ ] **Step 2: `GoalBar` — hide the title and the numbers row**
+- [x] **Step 2: `GoalBar` — hide the title and the numbers row**
 
 ```tsx
       {showTitle && (
@@ -313,11 +322,11 @@ The `Meter` inside already hides itself when given no `label` prop.
       >
 ```
 
-- [ ] **Step 3: `StreakCard` — hide each figure's two texts**
+- [x] **Step 3: `StreakCard` — hide each figure's two texts**
 
 Both figure wrappers keep their `accessible accessibilityLabel`. Add the two props to the four `Text` children inside them (the figure and its caption, twice).
 
-- [ ] **Step 4: `Diorama` — hide the figure's contents**
+- [x] **Step 4: `Diorama` — hide the figure's contents**
 
 The wrapper keeps `accessible accessibilityRole="image" accessibilityLabel={describeFigure(...)}`. Add to the `CharacterFigure` inside it:
 
@@ -335,11 +344,11 @@ The wrapper keeps `accessible accessibilityRole="image" accessibilityLabel={desc
 
 Do **not** touch `{children}` — the HUD lives there and must stay reachable.
 
-- [ ] **Step 5: Verify all four in the inspector**
+- [x] **Step 5: Verify all four in the inspector**
 
 Character tab: the figure is one element; each stat bar (tap the rail to expand) is one element. Profile: each streak figure is one element. A goal screen: each goal bar is one element.
 
-- [ ] **Step 6: Typecheck, test, commit**
+- [x] **Step 6: Typecheck, test, commit**
 
 ```bash
 npm run typecheck && npm test
@@ -362,7 +371,7 @@ Do this before the layout restructure so the two can be judged separately: cappi
 - Consumes: `Text` from `@/ui/index.ts` (already imported).
 - Produces: no HUD text scales past 1.2×.
 
-- [ ] **Step 1: Add `scale="fixed"` to all five HUD texts**
+- [x] **Step 1: Add `scale="fixed"` to all five HUD texts**
 
 `squadText`, `levelNumber`, `levelMeta`, `streakNumber`, `streakUnit`. For example:
 
@@ -383,7 +392,7 @@ Add one comment at the first of them explaining the whole group:
               becomes unreadable; it becomes readable lower down. */}
 ```
 
-- [ ] **Step 2: Unfix the one fixed width**
+- [x] **Step 2: Unfix the one fixed width**
 
 ```tsx
   levelBody: { minWidth: 96 },
@@ -391,11 +400,11 @@ Add one comment at the first of them explaining the whole group:
 
 Comment it the way `LeaderboardRow`'s `rank` is commented — the column still aligns at the default text size, but scaled content grows the box instead of being clipped by it.
 
-- [ ] **Step 3: Verify at maximum text size**
+- [x] **Step 3: Verify at maximum text size**
 
 Environment Overrides at the largest size. The pills should now grow only slightly. Some overlap may remain — Task 6 removes the cause.
 
-- [ ] **Step 4: Typecheck and commit**
+- [x] **Step 4: Typecheck and commit**
 
 ```bash
 npm run typecheck
@@ -420,7 +429,7 @@ The structural fix, and the part that stops this recurring.
 - Consumes: `insets` from `useSafeAreaInsets()` (already present).
 - Produces: a HUD whose vertical layout is computed by flexbox, not by constants.
 
-- [ ] **Step 1: Replace the four positioned siblings with one container**
+- [x] **Step 1: Replace the four positioned siblings with one container**
 
 Inside `<Diorama>`, replace the four `<View style={[styles.X, { top: ... }]}>` siblings with:
 
@@ -494,7 +503,7 @@ Inside `<Diorama>`, replace the four `<View style={[styles.X, { top: ... }]}>` s
           </View>
 ```
 
-- [ ] **Step 2: Rewrite the styles**
+- [x] **Step 2: Rewrite the styles**
 
 Replace the `squadPill` / `levelPill` / `hudRight` / `rail` entries. Each loses `position: 'absolute'` and its side pinning; the container owns placement now.
 
@@ -547,7 +556,7 @@ Replace the `squadPill` / `levelPill` / `hudRight` / `rail` entries. Each loses 
 
 Delete the `hudRight` and `rail` style entries entirely — `hudRow` and `railRow` replace them.
 
-- [ ] **Step 3: Give the two pills accessible names**
+- [x] **Step 3: Give the two pills accessible names**
 
 They were never grouped at all, so they read as loose numbers. Add to `levelPill`:
 
@@ -573,17 +582,17 @@ Same for the streak pill:
 
 Note the label says "3 day streak", not "3-day" — the hyphenated form is right on screen and wrong out loud, the same rule `row-label.ts` tests.
 
-- [ ] **Step 4: Verify at maximum text size — this is the gate**
+- [x] **Step 4: Verify at maximum text size — this is the gate**
 
 Environment Overrides at the largest size, character tab. Expected: the squad pill, the level/streak row and the rail are stacked with visible gaps and **no overlap**. Compare against the Task 1 Step 5 screenshot.
 
 Then return the override to the default size and confirm the layout is correct again (it will be — this is a fresh render, not the runtime re-layout limitation in §3 of the spec).
 
-- [ ] **Step 5: Verify the diorama is still tappable**
+- [x] **Step 5: Verify the diorama is still tappable**
 
 Tap the stat rail — it should expand. If nothing responds, `pointerEvents="box-none"` is missing or on the wrong node.
 
-- [ ] **Step 6: Typecheck, test, commit**
+- [x] **Step 6: Typecheck, test, commit**
 
 ```bash
 npm run typecheck && npm test
@@ -611,22 +620,22 @@ Documentation is part of the change, not a follow-up (`CLAUDE.md`).
 - Consumes: the findings from Tasks 1–6.
 - Produces: the record a future session reads instead of re-deriving.
 
-- [ ] **Step 1: Add the device-pass findings to `docs/roadmap.md`**
+- [x] **Step 1: Add the device-pass findings to `docs/roadmap.md`**
 
 Under the existing `Device-verification findings (2026-08-14)` heading, add a subsection covering all three findings, the two decisions (cap tight rather than reflow; do not fix the runtime re-layout), and the `StatCoin` regression. State plainly that finding 2 meant a technique shipped across six components did not work.
 
-- [ ] **Step 2: Record the runtime re-layout limitation explicitly**
+- [x] **Step 2: Record the runtime re-layout limitation explicitly**
 
 It must read as a decision, not an oversight: a relaunch clears it, no supported RN subscription exists for `UIContentSizeCategoryDidChangeNotification`, and a fix means a native module or a global remount hack — more risk than the bug.
 
-- [ ] **Step 3: Amend `CLAUDE.md`'s accessibility note**
+- [x] **Step 3: Amend `CLAUDE.md`'s accessibility note**
 
 Add three rules to the existing paragraph:
 - Grouping is made **explicit** — parent `accessible` plus each direct child hidden — because the implicit collapse did not hold on 2026-08-14.
 - The character HUD's layout stays **flow-based**. No hardcoded vertical offsets; that is what broke it.
 - **Structure is verified in Xcode's Accessibility Inspector on the simulator before a TestFlight build is cut.** This amends the "UI is verified by hand on device" posture.
 
-- [ ] **Step 4: Full verification before pushing**
+- [x] **Step 4: Full verification before pushing**
 
 ```bash
 npm run typecheck && npm test
@@ -634,7 +643,7 @@ npm run typecheck && npm test
 
 Expected: clean, 710 passing.
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 ```bash
 git add docs/roadmap.md CLAUDE.md
@@ -648,7 +657,7 @@ inspector, which would have caught the grouping failure without a build."
 git push origin main
 ```
 
-- [ ] **Step 6: Confirm on device once TestFlight lands**
+- [x] **Step 6: Confirm on device once TestFlight lands**
 
 Largest text size on the character tab: no overlap. VoiceOver on the squad board: one swipe per squadmate. Both were checked in the inspector already — this is confirmation, not discovery.
 
