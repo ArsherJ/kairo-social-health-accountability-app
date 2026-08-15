@@ -10,6 +10,7 @@ import {
   type CoreStat,
 } from '@kairo/core';
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
+import { TrainEntry } from '@/features/train/TrainEntry.tsx';
 import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
@@ -487,6 +488,20 @@ export default function Character() {
                 : undefined
             }
             todaySteps={buckets.data?.totals?.steps}
+          />
+
+          {/* The door to Challenges, between the floor everyone shares and the
+              commitment this user chose. It shows the live target as text so
+              the mechanic is legible without navigating — for a new user that
+              reads as "Log one run of 1 km", which is an invitation. */}
+          <TrainEntry
+            userId={session?.user.id}
+            timeZone={profile.data?.timezone}
+            today={
+              profile.data?.timezone
+                ? currentLocalDate(new Date(), profile.data.timezone)
+                : undefined
+            }
           />
 
           {/* The slot the sabotage callout left. A commitment belongs below the

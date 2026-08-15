@@ -18,6 +18,7 @@
  * Two senders exist today:
  *   dispatch-notifications → { trigger, localDate, screen: 'squad' | 'character' }
  *   finalize-days          → { trigger: 'goal_completed', screen: 'goals', goalId }
+ *                          → { trigger: 'challenge_cleared', screen: 'train', localDate }
  */
 
 /**
@@ -27,7 +28,7 @@
  * union is what lets the hook hand the result straight to the router without a
  * cast that would defeat the checking.
  */
-export type NotificationDestination = '/' | '/squad' | `/goal/${string}`;
+export type NotificationDestination = '/' | '/squad' | '/train' | `/goal/${string}`;
 
 /**
  * The character tab, and the fallback for anything addressable but underspecified.
@@ -63,6 +64,10 @@ export function notificationTarget(data: unknown): NotificationDestination | nul
       return '/squad';
     case 'character':
       return CHARACTER_TAB;
+    case 'train':
+      // The Challenges route. A stacked route rather than a tab, so this is a
+      // push onto the shell — which is exactly what a tap should do.
+      return '/train';
     case 'goals':
       // The most specific destination the product has — the goal that just
       // completed. Without a usable id there is still something worth showing,

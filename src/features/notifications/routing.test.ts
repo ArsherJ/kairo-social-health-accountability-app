@@ -76,3 +76,17 @@ describe('where a notification tap lands', () => {
     }
   });
 });
+
+describe('notificationTarget — challenges', () => {
+  it('routes a cleared challenge to the train route', () => {
+    expect(
+      notificationTarget({ trigger: 'challenge_cleared', screen: 'train', localDate: '2026-08-15' }),
+    ).toBe('/train');
+  });
+
+  it('needs no id, unlike a goal', () => {
+    // There is one live challenge per area, so the route itself is the whole
+    // address — nothing to interpolate and nothing to validate.
+    expect(notificationTarget({ screen: 'train' })).toBe('/train');
+  });
+});
