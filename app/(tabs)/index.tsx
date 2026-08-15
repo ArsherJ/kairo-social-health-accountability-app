@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,8 +31,55 @@ import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
+import { track } from '@/features/telemetry/events.ts';
+import {
+  hasReached,
+  markReached,
+  markUnreached,
+} from '@/features/telemetry/milestone-store.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
 import { Avatar, Label, Meter, Numeral, STAT_NAMES, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
+
+/**
+ * Distinct from `first_sync_seen` (`markFirstSyncSeen` in `useHealthSync.ts`,
+ * which this mirrors): data can land on the server overnight while nobody is
+ * looking, so that event marks the write, not the payoff. This one marks the
+ * moment the loop first visibly paid out — a non-zero day actually on screen.
+ *
+ * Milestone bookkeeping has no error handling of its own (MMKV can throw),
+ * and telemetry must never break the screen it is observed from — so, same
+ * as `markFirstSyncSeen`, every call into `milestone-store.ts` is guarded
+ * here rather than inside it.
+ *
+ * Claims before the write lands, then releases the claim if `track` resolves
+ * `false`, so a later non-zero day gets another chance. That trade errs
+ * deliberately toward a duplicate over a loss: a write that actually landed
+ * but *reported* false would fire the event twice, which is harmless, since
+ * every reader of this event counts `distinct user_id` — a duplicate changes
+ * no answer, a lost event is unrecoverable and this dataset cannot be
+ * backfilled.
+ */
+function markFirstScoreSeen(userId: string): void {
+  try {
+    if (hasReached(userId, 'first_score_seen')) return;
+    markReached(userId, 'first_score_seen');
+  } catch (error) {
+    console.warn('[telemetry] first_score_seen milestone', error);
+    return;
+  }
+
+  // Fire-and-forget — the render path must never await telemetry — but the
+  // resolved boolean still matters: `track` resolves `true` only when the
+  // row actually landed, and a failed write must not count as a send.
+  void track(userId, 'first_score_seen').then((landed) => {
+    if (landed) return;
+    try {
+      markUnreached(userId, 'first_score_seen');
+    } catch (error) {
+      console.warn('[telemetry] first_score_seen milestone release', error);
+    }
+  });
+}
 
 /**
  * §6's evolution table, said out loud. The silhouette differences are real but
@@ -146,6 +193,15 @@ export default function Character() {
   const stage = evolutionStageForLevel(level);
   const xp = xpProgress(totalXp);
   const today = score.data;
+  const userId = session?.user.id;
+
+  // Guarded on total > 0 so a day that synced as zeros — a rest day, a phone
+  // left at home — does not count as having seen progress.
+  useEffect(() => {
+    if (!userId) return;
+    if (!today || today.total <= 0) return;
+    markFirstScoreSeen(userId);
+  }, [userId, today]);
 
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
