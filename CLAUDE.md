@@ -153,6 +153,7 @@ deliberately **not** `profiles.sex`, which stays dead.
 - **Use graphify to navigate the codebase.** Prefer it over ad-hoc grep/find for architecture questions, call graphs, and cross-file relationships (`graphify-out/` holds the indexed graph) — it's faster and keeps answers grounded in the real dependency structure.
 - **Route UI/UX changes through the frontend-design skill.** Any new or modified screen/component under `app/` or `src/` gets a design pass through that skill before implementation, so it lands as intentional design rather than generic RN defaults — Kairo's character-first visual identity (§6) is easy to flatten otherwise.
 - **Documentation updates are part of the change, not a follow-up.** A change to product behavior, architecture, or setup steps updates `README.md`, this file, and `docs/user-journey.md` (or whichever `docs/` file governs it) in the same pass.
+- **A Notion mirror of this documentation exists** (design: `docs/superpowers/specs/2026-08-15-notion-documentation-design.md`), summarized and chunked, with mermaid diagrams and Tasks/Backlog + Decisions Log databases. It updates **on request, not automatically** — when asked to "update Notion" (or when a finished feature is doc-worthy and the user agrees), sync the relevant Notion pages and append a dated entry to the Changelog page. The repo docs stay authoritative; Notion links back to them rather than mirroring verbatim.
 
 ## Commands
 
