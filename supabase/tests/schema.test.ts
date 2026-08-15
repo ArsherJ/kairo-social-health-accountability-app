@@ -3786,6 +3786,35 @@ describe('kairo_retention', () => {
     expect(d7[0]?.retained).toBe(0);
   });
 
+  // Every player's day runs midnight-to-midnight in *their own* timezone
+  // (§2), and daily_scores.local_date is always per-user-local — so the
+  // cohort anchor has to be too. A profile created near midnight in the
+  // 'Asia/Manila' default (UTC+8) lands on the *next* calendar day locally
+  // even though its UTC instant is still the day before.
+  it('anchors the cohort day on the profile\'s own timezone, not UTC', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    // 2026-08-10T20:00:00Z is 2026-08-11 04:00 in Asia/Manila (UTC+8) — a UTC
+    // anchor would misdate this cohort a day early.
+    await h.asService('update public.profiles set created_at = $2 where id = $1', [
+      user,
+      '2026-08-10T20:00:00Z',
+    ]);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total)
+       values ($1, $2, $3)`,
+      [user, '2026-08-18', 3_000],
+    );
+
+    const d7 = await h.asService<{ cohort_date: Date; cohort_size: number; retained: number }>(
+      `select cohort_date, cohort_size, retained from public.kairo_retention(7)
+       where cohort_date = '2026-08-11'`,
+    );
+
+    expect(d7[0]?.cohort_date?.toISOString().slice(0, 10)).toBe('2026-08-11');
+    expect(d7[0]?.cohort_size).toBe(1);
+    expect(d7[0]?.retained).toBe(1);
+  });
+
   // The function reads every user's activity. A client session reaching it
   // would be a projection leak of exactly the kind squad_leaderboard() exists
   // to prevent.

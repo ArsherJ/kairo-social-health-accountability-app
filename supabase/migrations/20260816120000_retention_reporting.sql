@@ -24,9 +24,16 @@ language sql
 stable
 set search_path = ''
 as $$
+  -- Every player's day runs midnight-to-midnight in *their own* timezone
+  -- (§2), and daily_scores.local_date is always the per-user-local day, never
+  -- UTC — the same convention as finalizable_days(), squad "today" reads, and
+  -- every other timestamptz->date conversion in this schema. Anchoring the
+  -- cohort day on UTC instead would make it disagree with the local_date it
+  -- is compared against, silently misdating anyone who joined near midnight
+  -- Manila time (the 'Asia/Manila' default).
   with cohort as (
-    select id, (created_at at time zone 'UTC')::date as joined_on
-    from public.profiles
+    select p.id, (p.created_at at time zone p.timezone)::date as joined_on
+    from public.profiles p
   )
   select
     c.joined_on as cohort_date,
