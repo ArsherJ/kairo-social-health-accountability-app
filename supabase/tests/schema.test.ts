@@ -3739,3 +3739,61 @@ describe('telemetry and device tokens belong to the account, not the character',
     ]);
   });
 });
+
+describe('kairo_retention', () => {
+  // Fixed, per-test cohort dates: kairo_retention aggregates by cohort_date
+  // across every profile in the (shared, un-reset-between-tests) harness, so
+  // two cases sharing a date would double-count each other's cohort.
+  it('counts a user as retained when they scored exactly N days after joining', async () => {
+    const user = await h.createUser();
+    await h.asService('update public.profiles set created_at = $2 where id = $1', [
+      user,
+      '2026-08-01T00:00:00Z',
+    ]);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total)
+       values ($1, $2, $3)`,
+      [user, '2026-08-08', 3_000],
+    );
+
+    const d7 = await h.asService<{ cohort_size: number; retained: number }>(
+      `select cohort_size, retained from public.kairo_retention(7)
+       where cohort_date = '2026-08-01'`,
+    );
+
+    expect(d7[0]?.cohort_size).toBe(1);
+    expect(d7[0]?.retained).toBe(1);
+  });
+
+  it('does not count activity on a different day as day-N retention', async () => {
+    const user = await h.createUser();
+    await h.asService('update public.profiles set created_at = $2 where id = $1', [
+      user,
+      '2026-08-02T00:00:00Z',
+    ]);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total)
+       values ($1, $2, $3)`,
+      [user, '2026-08-06', 3_000],
+    );
+
+    const d7 = await h.asService<{ cohort_size: number; retained: number }>(
+      `select cohort_size, retained from public.kairo_retention(7)
+       where cohort_date = '2026-08-02'`,
+    );
+
+    expect(d7[0]?.cohort_size).toBe(1);
+    expect(d7[0]?.retained).toBe(0);
+  });
+
+  // The function reads every user's activity. A client session reaching it
+  // would be a projection leak of exactly the kind squad_leaderboard() exists
+  // to prevent.
+  it('is not executable by the authenticated role', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'select * from public.kairo_retention(7)'),
+      /permission denied/i,
+    );
+  });
+});
