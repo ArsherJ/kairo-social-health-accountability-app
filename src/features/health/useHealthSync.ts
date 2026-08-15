@@ -7,7 +7,11 @@ import { todayScoreKey } from '@/features/character/queries.ts';
 import { profileKey } from '@/features/profile/queries.ts';
 import { squadKeys } from '@/features/squad/queries.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { hasReached, markReached } from '@/features/telemetry/milestone-store.ts';
+import {
+  hasReached,
+  markReached,
+  markUnreached,
+} from '@/features/telemetry/milestone-store.ts';
 import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
 import { onSyncRequested, resetSyncStatus, setSyncStatus } from './status-store.ts';
 import { loadSyncState } from './storage.ts';
@@ -22,9 +26,20 @@ import { runHealthSync } from './sync.ts';
 
 /**
  * Milestone bookkeeping has no error handling of its own (MMKV can throw), and
- * telemetry must never break the sync it is observing — so both calls are
- * guarded here rather than inside `milestone-store.ts`, which a later task
- * also calls and which is out of this task's scope to restructure.
+ * telemetry must never break the sync it is observing — so every call into
+ * `milestone-store.ts` is guarded here rather than inside it, which a later
+ * task also calls and which is out of this task's scope to restructure.
+ *
+ * Claims before the write lands, mirroring `useAppOpenTelemetry`
+ * (`src/features/notifications/useNotifications.ts`): `isFirstDataSync` goes
+ * permanently false the instant this sync's `runHealthSync` call persists
+ * `lastSyncedAt`, so there is no later sync that could retry a dropped event
+ * the way a next-day `app_open` can. That makes losing the row on a failed
+ * insert unrecoverable, while a write that actually landed but *reported*
+ * false only risks a duplicate — and every reader of this event counts
+ * `distinct user_id`, so a duplicate changes no answer. Releasing the claim
+ * on a false resolve is therefore the side to err on, same as the
+ * `app_open` precedent.
  */
 function markFirstSyncSeen(userId: string, days: number): void {
   try {
@@ -34,7 +49,18 @@ function markFirstSyncSeen(userId: string, days: number): void {
     console.warn('[telemetry] first_sync_seen milestone', error);
     return;
   }
-  void track(userId, 'first_sync_seen', { days });
+
+  // Fire-and-forget — the sync must never await telemetry — but the resolved
+  // boolean still matters: `track` resolves `true` only when the row actually
+  // landed, and a failed write must not count as a send.
+  void track(userId, 'first_sync_seen', { days }).then((landed) => {
+    if (landed) return;
+    try {
+      markUnreached(userId, 'first_sync_seen');
+    } catch (error) {
+      console.warn('[telemetry] first_sync_seen milestone release', error);
+    }
+  });
 }
 
 /**

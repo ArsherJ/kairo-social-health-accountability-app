@@ -26,3 +26,16 @@ export function hasReached(userId: string, milestone: Milestone): boolean {
 export function markReached(userId: string, milestone: Milestone): void {
   storage.set(key(userId, milestone), true);
 }
+
+/**
+ * Release a claim made by `markReached`.
+ *
+ * Exists for a caller that claims a milestone *before* confirming the write
+ * that justifies it landed (the same race `useAppOpenTelemetry` guards
+ * against), and needs to undo the claim when it did not. Guard this at the
+ * call site, the same as every other call here — this file adds no error
+ * handling of its own.
+ */
+export function markUnreached(userId: string, milestone: Milestone): void {
+  storage.remove(key(userId, milestone));
+}
