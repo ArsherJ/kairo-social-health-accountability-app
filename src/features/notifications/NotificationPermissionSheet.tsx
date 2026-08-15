@@ -46,7 +46,7 @@ export function NotificationAsk({
       <Text style={styles.title}>Know before your day closes</Text>
       <Text style={styles.body}>
         Get told when a new day starts and when this one is about to close —
-        the hour when the points you are missing are still yours to earn.
+        the hour when there is still time to move the day.
       </Text>
       <Text style={styles.fine}>
         Three a day at most, and nothing between 10 PM and 7 AM — except the

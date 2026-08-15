@@ -8,9 +8,16 @@ import { colors, font, ramp, radius, space } from '@/theme.ts';
  *
  * The full ledger under the shelf's headline figure. Points are the game, and
  * the game is downstream of a day someone lived — 8,412 steps, 6.1 km, 412
- * kcal. This panel used to be the translation of a point total above it; since
- * 2026-08-15 the hero says steps too, so it is the breakdown rather than the
- * translation, and real units are now the whole shelf's vocabulary.
+ * kcal. This panel used to be the *translation* of a point total above it. Since
+ * 2026-08-15 the hero says steps too, so real units are the whole shelf's
+ * vocabulary and the panel is the rest of the day rather than a decoding of it.
+ *
+ * The Steps row therefore repeats the hero verbatim, on purpose. The hero is one
+ * headline figure and this is the ledger; a ledger missing its first line reads
+ * as an omission, and the row is also what gives Distance and Calories a scale
+ * to sit against. Dropping it was raised when the hero changed and deliberately
+ * left out of scope: it is a layout decision about the shelf as a whole, not a
+ * loose end from that change.
  *
  * Hand-testing asked for these outright, and they were already synced: steps,
  * distance, calories and active minutes have been in `health_buckets` since the

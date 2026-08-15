@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { ratingForStatPoints, statPointsForRating, type CoreStat } from '@kairo/core';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { colors, font, radius, space } from '@/theme.ts';
 import { Meter, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 export function StatBar({
@@ -13,7 +13,12 @@ export function StatBar({
 }: {
   stat: CoreStat;
   label: string;
-  /** What this stat scored today. The "+N" beside the rating. */
+  /**
+   * What this stat scored today. Never rendered and never spoken (deviation
+   * #30) — it survives as a *predicate*: zero is what tells an empty lane bar
+   * to explain itself, and nothing else on this row knows whether the day has
+   * touched this stat yet.
+   */
   todayPoints: number;
   /** Lifetime points in this stat, from the `profiles` rollup. */
   lifetimePoints: number | undefined;
@@ -45,10 +50,15 @@ export function StatBar({
 
   const showLaneCopy = lane && todayPoints === 0 && laneEmptyCopy !== null;
 
-  // Said out loud, the bar is otherwise four fragments — "AGI", "41", "+320",
-  // "Steps and distance" — with the abbreviation read as a word and the
-  // meter's fill, which is progress toward the next rating, carried only by
-  // its width and therefore not said at all.
+  // Said out loud, the bar is otherwise three fragments — "AGI", "41", "Steps
+  // and distance" — with the abbreviation read as a word and the meter's fill,
+  // which is progress toward the next rating, carried only by its width and
+  // therefore not said at all.
+  //
+  // It used to say "plus 320 today" as a fourth fragment. That figure went with
+  // the rest of the raw point totals (deviation #30) — and it had to go from
+  // here too, or a screen reader would be speaking the number one tap below the
+  // guidance line that stopped saying it.
   //
   // Composed here rather than in a module of its own: every number is derived
   // three lines up, and extracting would mean passing five arguments to avoid
@@ -57,7 +67,6 @@ export function StatBar({
     lane ? `${STAT_NAMES[stat]}, your lane` : STAT_NAMES[stat],
     `ability ${rating}`,
     `${Math.round(Math.max(0, Math.min(1, fill)) * 100)} percent to ${rating + 1}`,
-    todayPoints > 0 ? `plus ${todayPoints.toLocaleString()} today` : null,
     label,
     showLaneCopy ? laneEmptyCopy : null,
   ]
@@ -90,19 +99,14 @@ export function StatBar({
             {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
           </Text>
         </View>
-        <View style={styles.numbers}>
-          <Text scale="chrome" style={styles.rating}>
-            {rating}
-          </Text>
-          {/* Today's contribution, beside the ability it fed. The rating is
-              slow by design, so a good day would otherwise move nothing the
-              user can see. */}
-          {todayPoints > 0 && (
-            <Text scale="chrome" style={styles.today}>
-              +{todayPoints.toLocaleString()}
-            </Text>
-          )}
-        </View>
+        {/* The ability rating alone. A "+N today" sat beside it until
+            deviation #30 — a raw point figure one tap below a guidance line
+            that had just stopped speaking in points. What the day did is on
+            the shelf above in real units; this number is the lifetime stat,
+            and it is the only thing on this row that is *the character*. */}
+        <Text scale="chrome" style={styles.rating}>
+          {rating}
+        </Text>
       </View>
       <Text
         accessibilityElementsHidden
@@ -138,7 +142,7 @@ const styles = StyleSheet.create({
   // `center`, not the `baseline` this was before the icon arrived. The left
   // side is a wrapper View now, and Yoga resolves a View's baseline from its
   // *first child* — which is the 16pt icon, not the 20pt name beside it. That
-  // would silently align the row against the wrong glyph. Both groups resolve
+  // would silently align the row against the wrong glyph. Both sides resolve
   // to the same ~24pt height (a 20pt Caprasimo line either way), so centring
   // renders identically and does not depend on how the wrapper is nested.
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -150,9 +154,7 @@ const styles = StyleSheet.create({
   stat: { ...font.display.minor, color: colors.text },
   statLane: { color: colors.accent },
   laneTag: { ...font.body.label, color: colors.accent, fontSize: 10 },
-  numbers: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs },
   rating: { ...font.display.minor, color: colors.text },
-  today: { ...font.body.body, color: ramp.sage[800], fontFamily: 'Figtree-SemiBold', fontSize: 12 },
   label: { ...font.body.body, color: colors.muted, fontSize: 13, marginTop: 2 },
   meter: { marginTop: space.xs, borderRadius: radius.pill },
   // The lane ring sits on a wrapper rather than on `Meter` itself: the meter

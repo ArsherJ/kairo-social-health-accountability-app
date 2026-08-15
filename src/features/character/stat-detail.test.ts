@@ -67,7 +67,7 @@ describe('resolveStatDetail', () => {
       points: 200,
       gap: 1,
       topsOut: false,
-      unit: 'active minutes',
+      unit: 'active minute',
     });
   });
 
@@ -88,8 +88,27 @@ describe('resolveStatDetail', () => {
       points: 200,
       gap: 1,
       topsOut: false,
-      unit: 'active hours',
+      unit: 'active hour',
     });
+  });
+
+  // VIT's bands are 3/6/9 active hours, so a gap of exactly one is the common
+  // case here, not the edge — "1 more active hours" is the sentence a user is
+  // most likely to be shown.
+  it('says the unit in the singular when exactly one is left', () => {
+    const detail = resolveStatDetail({
+      totals: totals({ activeHours: 5 }),
+      lane: 'VIT',
+    });
+    expect(detail).toMatchObject({ kind: 'gap', stat: 'VIT', gap: 1, unit: 'active hour' });
+  });
+
+  it('keeps the plural for every other gap', () => {
+    const detail = resolveStatDetail({
+      totals: totals({ activeHours: 4 }),
+      lane: 'VIT',
+    });
+    expect(detail).toMatchObject({ kind: 'gap', stat: 'VIT', gap: 2, unit: 'active hours' });
   });
 
   // Gold is the ceiling. Nothing may imply a tier above it.

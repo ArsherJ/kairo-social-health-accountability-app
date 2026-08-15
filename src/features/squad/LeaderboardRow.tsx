@@ -195,9 +195,18 @@ const styles = StyleSheet.create({
   self: { backgroundColor: ramp.accent[200], borderWidth: 2, borderColor: ramp.accent[500] },
   // minWidth, not width: the column still aligns at the default text size,
   // but a scaled rank glyph grows the box instead of being clipped by it.
+  // `neutral[600]` is legitimate *here* and nowhere else on this row: at
+  // `display.minor` the rank qualifies as WCAG large text, where 3:1 applies.
   rank: { ...font.display.minor, minWidth: 18, color: ramp.neutral[600] },
   rankSelf: { color: ramp.accent[800] },
-  gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[600] },
+  // Identical to `meta` today, and deliberately not merged with it: this is the
+  // right-hand column and that is the meta line, so they answer to different
+  // layouts and only one of them may ever grow. `neutral[700]`, not the
+  // `neutral[600]` this shipped with — at 11.5pt this is body text, so 4.5:1
+  // applies, and 600 measured ~3.5:1 against the `self` and `leader` tints. The
+  // element this replaced used `colors.text`, so 600 was a regression on the
+  // very thing that took the total's place.
+  gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700] },
   middle: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   name: { ...font.display.small, fontSize: 17, color: colors.text, flexShrink: 1 },

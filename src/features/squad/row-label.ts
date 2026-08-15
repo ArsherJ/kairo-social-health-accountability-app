@@ -26,11 +26,14 @@ export interface RowLabelInput {
   isSelf: boolean;
   level: number;
   /**
-   * Points behind the row above, or null when nothing is above this row.
+   * How far behind the row above this one is, or null when nothing is above it.
    *
-   * The board stopped printing absolute totals, so this is what the label says
-   * instead — and it must match the row exactly. A screen reader that spoke a
-   * figure the screen does not show would be describing a different product.
+   * A distance between two score totals, which is exactly why it is never
+   * called one: the board stopped printing absolute totals, so this is what the
+   * label says instead, and it must match the row exactly. A screen reader that
+   * spoke a figure the screen does not show would be describing a different
+   * product. It goes out unitless — "340 behind" — because the unit is the one
+   * word the change removed, and the comparison survives without it.
    */
   gap: number | null;
   /** Already-derived ability ratings, per stat. */
