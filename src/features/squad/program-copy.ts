@@ -26,7 +26,7 @@ export type ProgramOption = {
  */
 export const PROGRAM_OPTIONS: readonly ProgramOption[] = [
   { value: 'running', label: 'Running', blurb: 'Distance and pace count for more' },
-  { value: 'gym', label: 'Gym', blurb: 'Strength and effort count for more' },
+  { value: 'strength', label: 'Strength', blurb: 'Strength and effort count for more' },
   { value: 'walking', label: 'Walking', blurb: 'Steps and active hours count for more' },
   {
     value: 'all_around',
@@ -60,14 +60,14 @@ export function boostChipLabel(program: SquadProgram | undefined): string | null
 /**
  * The honest-capability rule, applied where it bites hardest. STR comes from
  * estimated active energy, which a phone in a pocket measures poorly during a
- * lifting session — so a gym squad founded on phones alone may feel dead. Say
- * it at the moment the choice is made, not in a support article.
+ * lifting session — so a strength squad founded on phones alone may feel dead.
+ * Say it at the moment the choice is made, not in a support article.
  */
-export const GYM_ACCURACY_NOTE =
-  'Gym tracking is most accurate with a watch or band.';
+export const STRENGTH_ACCURACY_NOTE =
+  'Strength tracking is most accurate with a watch or band.';
 
 export function programNote(program: SquadProgram): string | null {
-  return program === 'gym' ? GYM_ACCURACY_NOTE : null;
+  return program === 'strength' ? STRENGTH_ACCURACY_NOTE : null;
 }
 
 /** Every program the core declares. Asserted by `program-copy.test.ts`. */

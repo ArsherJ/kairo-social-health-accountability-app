@@ -15,8 +15,8 @@
 --
 --   1. Does retention differ by program? A program nobody sticks with is a
 --      program that should not ship.
---   2. Is the gym program viable phone-only? Compare a wearable-heavy gym
---      squad against a phone-only one — STR is estimated active energy, which
+--   2. Is the strength program viable phone-only? Compare a wearable-heavy
+--      strength squad against a phone-only one — STR is estimated active energy, which
 --      a phone in a pocket measures poorly during a lifting session.
 --   3. Are people being scored as someone they do not train as? A Running squad
 --      whose members land VIT-dominant is boosting a stat nobody in it earns —

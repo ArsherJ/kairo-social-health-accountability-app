@@ -1601,7 +1601,7 @@ describe('squads.program', () => {
     const leader = await h.createUser();
     const squad = await h.asUser<{ id: string }>(
       leader,
-      `select id from public.create_squad('Locked In', 'gym')`,
+      `select id from public.create_squad('Locked In', 'strength')`,
     );
     await rejects(
       h.asUser(leader, `update public.squads set program = 'running' where id = $1`, [
@@ -1799,8 +1799,8 @@ describe('leaderboard program weighting', () => {
     expect((await boardWith('running', DAY)).total).toBe(3_650);
   });
 
-  it('boosts STR on a gym board', async () => {
-    expect((await boardWith('gym', DAY)).total).toBe(3_450);
+  it('boosts STR on a strength board', async () => {
+    expect((await boardWith('strength', DAY)).total).toBe(3_450);
   });
 
   it('boosts VIT on a walking board', async () => {
@@ -1815,7 +1815,7 @@ describe('leaderboard program weighting', () => {
   });
 
   it('reports the squad’s program on every row', async () => {
-    expect((await boardWith('gym', DAY)).program).toBe('gym');
+    expect((await boardWith('strength', DAY)).program).toBe('strength');
   });
 
   it('leaves tiers raw, so gold means the same on every board', async () => {
@@ -1839,12 +1839,12 @@ describe('leaderboard program weighting', () => {
   });
 
   it('re-ranks members when the program tilts the board', async () => {
-    // A runner and a lifter with identical raw totals. On a gym board the
+    // A runner and a lifter with identical raw totals. On a strength board the
     // lifter wins; the stored rows are untouched either way.
     const lifter = await h.createUser({ characterName: 'Lifter' });
     const squad = await h.asUser<{ id: string; invite_code: string }>(
       lifter,
-      `select id, invite_code from public.create_squad('Gym Rats', 'gym')`,
+      `select id, invite_code from public.create_squad('Gym Rats', 'strength')`,
     );
     const runner = await h.createUser({ characterName: 'Runner' });
     await h.asUser(runner, 'select public.join_squad($1)', [squad[0]!.invite_code]);
