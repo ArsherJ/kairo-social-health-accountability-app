@@ -26,7 +26,7 @@ export function useCreateProfile(userId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, body }: NewProfile): Promise<void> => {
+    mutationFn: async ({ name, body }: NewProfile): Promise<{ inserted: boolean }> => {
       if (!userId) throw new Error('Not signed in.');
 
       // level, total_xp and is_legendary are deliberately absent. The INSERT
@@ -48,7 +48,11 @@ export function useCreateProfile(userId: string | undefined) {
         // demonstrably exists, which is exactly the state a fresh success
         // would produce, so treat it as one: refresh the profile and let the
         // gate carry the user forward instead of surfacing a Postgres string.
-        if (error.code === UNIQUE_VIOLATION) return;
+        // `inserted: false` tells onSuccess this attempt did not land the row
+        // — that earlier attempt already did, and already recorded
+        // profile_created, so firing it again would double-count the funnel's
+        // narrowest step.
+        if (error.code === UNIQUE_VIOLATION) return { inserted: false };
 
         // Logged, never rendered — see the comment above on why raw
         // PostgrestError text can't reach the screen.
@@ -59,9 +63,16 @@ export function useCreateProfile(userId: string | undefined) {
         }
         throw new Error(GENERIC_ERROR_COPY);
       }
+
+      return { inserted: true };
     },
-    onSuccess: () => {
-      void track(userId, 'profile_created');
+    onSuccess: ({ inserted }) => {
+      // See the `inserted: false` comment above — the 23505 path resolves
+      // successfully (the row demonstrably exists) but must not double-fire
+      // the event an earlier attempt already recorded. The invalidation still
+      // runs on both paths: it's what lets the gate carry the user forward
+      // either way.
+      if (inserted) void track(userId, 'profile_created');
       return queryClient.invalidateQueries({ queryKey: profileKey(userId) });
     },
   });
