@@ -6,6 +6,9 @@ plus the interview decisions recorded in §2 below.
 
 Read with:
 
+- **`2026-08-15-points-stop-being-spoken-design.md`** — its sibling, approved the
+  same day. It removes the home hero point total and the leaderboard row total.
+  The two overlap at exactly one place, §4.3 below.
 - `docs/assessments/2026-08-14-metric-purpose-and-cadence-goals.md` — the
   staging ground this implements. Parts 2 and 3 are founder decisions; Part 1
   is the original brainstorm and is **superseded** where they disagree.
@@ -158,9 +161,15 @@ separately.
 
 ### 4.3 Saying the day
 
-Part 1 §2's third move folds into the Today shelf's existing detail line rather
-than becoming its own element. `resolveStatDetail` already has every input this
-needs; this is a composition change, not new data.
+**Superseded 2026-08-15 by
+`2026-08-15-points-stop-being-spoken-design.md` §3.** This section originally
+said Part 1 §2's third move "folds into the Today shelf's existing detail line
+rather than becoming its own element."
+
+It no longer folds in: that spec removes the home hero point total, so saying the
+day **is** the hero treatment rather than a footnote under it. `resolveStatDetail`
+still has every input, and it is still a composition change and not new data —
+what changed is how much of the screen it occupies.
 
 ---
 
