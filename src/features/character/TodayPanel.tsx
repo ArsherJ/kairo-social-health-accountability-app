@@ -6,10 +6,13 @@ import { colors, font, ramp, radius, space } from '@/theme.ts';
 /**
  * The day's real figures, in the units a person actually did them in.
  *
- * Everything above this on the character screen is points: the hero total, the
- * ability ratings, the guidance line. Points are the game, and the game is
- * downstream of a day someone lived — 8,412 steps, 6.1 km, 412 kcal. Hand-
- * testing asked for these outright, and they were already synced: steps,
+ * The full ledger under the shelf's headline figure. Points are the game, and
+ * the game is downstream of a day someone lived — 8,412 steps, 6.1 km, 412
+ * kcal. This panel used to be the translation of a point total above it; since
+ * 2026-08-15 the hero says steps too, so it is the breakdown rather than the
+ * translation, and real units are now the whole shelf's vocabulary.
+ *
+ * Hand-testing asked for these outright, and they were already synced: steps,
  * distance, calories and active minutes have been in `health_buckets` since the
  * first migration, with distance stored purely for the §5 anti-cheat stride
  * check and never once displayed.
