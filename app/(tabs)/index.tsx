@@ -9,6 +9,7 @@ import {
   levelForXp,
   type CoreStat,
 } from '@kairo/core';
+import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
@@ -469,6 +470,24 @@ export default function Character() {
               </Pressable>
             </View>
           )}
+
+          {/* The one number in Kairo that never moves, and the run of days
+              against it. Above the goal deliberately: the walk is the floor
+              everyone shares, and a goal is the thing this particular user
+              chose — baseline first, then commitment.
+
+              It does not restate today's steps. The hero already sets them at
+              64pt and `detailCopy` already names the gap; see the card. */}
+          <DailyWalkCard
+            userId={session?.user.id}
+            timeZone={profile.data?.timezone}
+            today={
+              profile.data?.timezone
+                ? currentLocalDate(new Date(), profile.data.timezone)
+                : undefined
+            }
+            todaySteps={buckets.data?.totals?.steps}
+          />
 
           {/* The slot the sabotage callout left. A commitment belongs below the
               day's numbers, not among them: today's score is a fact, and this is
