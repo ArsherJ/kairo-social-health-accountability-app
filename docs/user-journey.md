@@ -32,7 +32,8 @@ The portal-side configuration this depends on, and the client secret's ~182-day 
 ```
 12:00 AM local  →  Day resets for that player (per-user local day, not a shared server midnight — §2).
 Throughout day  →  HealthKit background delivery syncs automatically, free and paid users alike.
-Anytime         →  Open the app: Character tab, Squad tab, or a goal's progress.
+Anytime         →  Open the app: Character tab, Squad tab, /train, or a goal's progress.
+Any workout     →  Logged on the watch or phone, it syncs as a session and can clear a Challenge.
 11:00 PM local  →  Push: "1 hour left. You're in [rank] place."
 11:59 PM local  →  Day ends; provisional results shown.
 ~2:00 AM local  →  Day finalizes (grace window for late phone syncs) — coins + XP land.
@@ -44,7 +45,8 @@ Sunday 10 PM    →  AI weekly recap card pushed to all squads (V1+).
 Every notification carries a destination, and as of 2026-08-14 the app acts on
 it. `dispatch-notifications` sends `screen: 'squad'` or `'character'` with the
 three scheduled triggers; `finalize-days` sends `screen: 'goals'` with the
-`goalId` that just completed. A tap goes to the squad tab, the character tab, or
+`goalId` that just completed, and — as of 2026-08-15 — `screen: 'train'` when a
+Challenge clears. A tap goes to the squad tab, the character tab, `/train`, or
 **that goal's own screen** — the most specific destination the product has.
 
 Three details are load-bearing rather than incidental:
@@ -82,10 +84,11 @@ provenance; see the addendum in `docs/qa/kairo-end-to-end-qa-report.md`.
 
 Because each player's day runs midnight-to-midnight in *their own* timezone, a squad spans multiple calendar dates at any instant — this is what makes the OFW-in-Dubai-vs-family-in-Cebu use case work at all, and it's why every score, bucket, and goal window is keyed by local date, never server time (see `CLAUDE.md` → Per-user local days).
 
-### Three engagement hooks, one available with zero friends (§2)
+### Engagement hooks, and how many survive with zero friends (§2)
 1. **Morning FOMO** — who's ahead while you slept (solo: how long is the streak now).
-2. **The commitment** — a goal in flight with a visible days-remaining count. Works with no squad at all — the one hook every user has, solo or not.
+2. **The commitment** — a goal in flight with a visible days-remaining count. Works with no squad at all.
 3. **Night urgency** — real-time rank notification with a countdown.
+4. **The floor and the curve** (2026-08-15) — the Daily Walk is the same 10,000 steps for everyone, every day, forever; a Challenge is a target set from your own recent sessions that moves as you do. Both are entirely solo, which is the point: three of these four now work with no squad at all.
 
 ## 4. The three tabs
 
@@ -135,6 +138,50 @@ Sabotage was the original hook through v1.3; removed 2026-08-09. Goals are what 
 - **Personal or squad-shared.** A squad goal's roster is frozen at creation — "everyone must hit it" only means something against a denominator that can't move mid-window.
 - **Fixed at creation** apart from title/description. Abandoning is the escape hatch; it's a distinct, visible act from quietly lowering the bar.
 - **Completion is a one-way latch**, evaluated only once a day has gone `final`. A later downward revision from Apple's step count never revokes a goal already met (same principle as streak milestones). Reward is XP (scaled by window length, capped) plus a permanent completed-goal record on the profile — no separate badge table.
+
+## 5b. Train (§5, deviations #32/#33) — the floor and the curve
+
+Two mechanics, deliberately different in kind, reached from the home shelf.
+
+**The Daily Walk** sits on the shelf itself (`DailyWalkCard`): 10,000 steps,
+every day, forever, with a streak of days cleared. It is **flat and permanent** —
+it never scales up as the user improves — because it is a public-health number
+rather than a personal-progress one, and conflating the two is the specific
+error the design names. A missed day breaks the streak and costs nothing else.
+
+It does **not** restate today's step count. The hero above it already sets steps
+at 64pt, and the guidance line already names the steps still to go — the same
+figure, since AGI Gold and the 10,000 baseline are one threshold by
+construction. So the card says the two things nothing else on the screen says:
+that the target is fixed, and how many days in a row it has been cleared. The
+streak is the display figure for the same reason — the target cannot grow, so
+the run of days is the only thing that can.
+
+**Challenges** live behind `/train`, a stacked route rather than a fourth tab.
+Two areas, **both off by default**, each opted into on first visit:
+
+- **Run** — a pace over a minimum distance, e.g. *"5 km under 4:51/km"*.
+- **Strength** — active calories in one session, e.g. *"410 kcal in one session"*.
+
+The target is the **median of your own most recent qualifying sessions ±3%**,
+over a 90-day window, and it is **derived fresh every time rather than stored**.
+That has three consequences worth knowing as a user: it moves **both ways**, so
+a quiet stretch lowers it and there is no ratchet to escape; today's session
+cannot move the bar it is being judged against; and a workout Apple revises
+later flows through correctly with nothing to repair.
+
+The **first** challenge in each area only establishes a baseline — *"Log one run
+of 1 km or more"* — and cannot be failed on fitness. Where a user has logged
+nothing, the card stays visible and turns instructional (*"Start a strength
+workout on your watch or phone before your set — that's how Kairo sees it"*),
+because the gap is a habit that has not formed yet, not hardware nobody can
+conjure. The accepted cost is that this card reads as unclearable to some beta
+users until they change that habit.
+
+Clearing an area pays a flat **40 XP**, once per area per local day, latched in
+`finalize-days` alongside goals, and sends one push. **None of this touches
+scoring**: a run still earns AGI through its steps, and pace never enters
+`daily_scores` — the same posture strain takes.
 
 ## 6. Referral — "I'm doing this. Do it with me." (§9, spec'd, not yet built)
 

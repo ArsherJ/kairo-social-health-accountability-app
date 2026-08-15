@@ -51,6 +51,9 @@ Recorded here so they aren't re-litigated. Propose changes against this table.
 | 28 | `ios/` is generated from `app.config.ts` and gitignored (line 4 of `.gitignore`); a native change is `npm run prebuild` and nothing else | **`ios/` is committed.** Only its build output stays ignored — `ios/Pods/` (1.2 GB, reinstalled in CI from the committed `Podfile.lock`), `ios/build/`, `ios/DerivedData/`, `ios/.xcode.env.local` and `xcuserdata/`. `android/` is untouched and still generated | Founder decision 2026-08-12, forced by the machine. USB pairing is blocked at the kernel by CrowdStrike Falcon's Device Control policy (`IOUC AppleUSBHostInterfaceUserClient failed MACF … usbmuxd`), so `npx expo run:ios --device` cannot exist here and the last release blocker — verifying Sign in with Apple on real hardware — needs an over-the-air install. Xcode Cloud provides one and its 25 compute hours/month are already inside the Developer Program membership; EAS Build solves the same problem without a native commit and was declined for that reason. Xcode Cloud configures a workflow against a **scheme in a project that exists in the repo** — `ci_post_clone.sh` runs early enough to *build* a generated project but not early enough to *configure* one — so committing `ios/` is the price of the path, not an incidental tidy-up. **Three consequences, the third being the one that bites:** (a) an Expo SDK bump stops being free — `npm run prebuild` now also means reviewing a large native diff; (b) `.xcode.env.local` still cannot be committed, holding a machine-specific absolute path to node, so CI regenerates it in `ci_post_clone.sh`; (c) **`app.config.ts` is no longer the source of truth for native config.** The committed `Info.plist` and `Kairo.entitlements` are what ship, so changing `usesAppleSignIn`, `NSHealthShareUsageDescription`, the HealthKit plugin's `background: true` or any plugin requires prebuild **and a commit of the result**, or the change silently does not reach the build. The JS side is unaffected — `extra` and `EXPO_PUBLIC_*` are evaluated during the Xcode build's bundle phase, so workflow environment variables do land. Two follow-ons: `ios.buildNumber` and `ios.config.usesNonExemptEncryption: false` were added to `app.config.ts` (a unique `CFBundleVersion` per upload, and export compliance that otherwise stalls every build on a question); and because Apple looks for `ci_scripts` **beside the project**, not at the repo root, the scripts live at `ios/ci_scripts/` — which `expo prebuild --clean` deletes, so `scripts/ci/` is their source of truth and `postprebuild` reinstalls them, the same arrangement `write-xcode-env.mjs` already uses. Full plan and landmines in `docs/xcode-cloud.md`. |
 | 29 | React Native 0.86 links Meta's prebuilt `React.xcframework` (`React-Core-prebuilt`), which is the upstream default and exists to cut build times | **React Native core is built from source.** `plugins/withReactNativeFromSource.js` sets `ios.buildReactNativeFromSource`, which makes `ios/Podfile` export `RCT_USE_PREBUILT_RNCORE=0` and `RCT_USE_RN_DEP=0`; `ci_post_clone.sh` fails the build if the `React-Core-prebuilt` pod returns | Forced 2026-08-13 by a launch crash on the first TestFlight build to get past the ExpoModulesJSI embed failure. The prebuilt binaries are compiled by Meta against libc++ 19 (Xcode 16, ABI tag `ne190102`); every pod CocoaPods builds locally — `ExpoModulesCore` among them — compiles against the installed Xcode 26.6's libc++ 21 (`nqe210106`). The two disagree about `sizeof(facebook::react::ShadowNodeFamily)`: **400 bytes in `React.framework`, 336 in `ExpoModulesCore`.** Headers on disk are byte-identical, so nothing warns. `ExpoViewComponentDescriptor::createFamily` inlines `make_shared<ShadowNodeFamily>` and allocates the short 360-byte block, then calls React's out-of-line constructor, which initialises out to offset 400 — 64 bytes past the end, for every Expo view created. **The bug is ordinary; the debugging shape is the thing to remember.** The overflow corrupts whatever block sits next, so the process dies at a *later, unrelated* allocation: five launches of one binary gave three signatures, including the `-[RCTComponentViewFactory createComponentViewWithComponentHandle:]` crash Apple reported, which reads convincingly as an unregistered Fabric component and is not one. A signature that varies between runs of the same binary is heap corruption, not a bug where it crashed. It reproduces 100% in a Release **simulator** build, so no TestFlight round trip is needed, and Guard Malloc (`SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib`, with `MALLOC_PROTECT_BEFORE` left unset — it guards the front and hides overflows) traps the offending write directly. **The cost is the point of prebuilts:** CI now compiles React Native itself, so builds get substantially longer. Accepted — a green archive that cannot launch is worth no build time at all. Generalises: any prebuilt C++ binary in the graph is a silent ABI contract with the toolchain that built it, and an Xcode bump can break it without a warning. Full write-up in `docs/xcode-cloud.md` under Known landmines. |
 | 30 | The day's `daily_scores.total` is the home screen's hero number, and each leaderboard row shows its own total | **Points are spoken only inside Goals.** The home hero is the day in real units; a board row is rank and the gap to the row above; `row-label.ts` speaks the gap, never the total | Founder decision 2026-08-15: "I think we should remove the scoring. The first time I see it, I don't know what that is for." Directly downstream of #23 — the same argument that made Bronze/Silver/Gold internal to scoring, applied to the total itself. **The engine is untouched**: `total` still ranks `squad_leaderboard()`, still scores every Goal (#18), still feeds `xp_awarded`/`total_xp`/levels/ratings, and still carries `flagged`, which via the board is the only anti-cheat mechanism §5/§20 #3 leave standing. What changed is what is rendered. Points survive inside Goals because there the user typed the target themselves, and a number you chose explains itself in a way an ambient daily total never does. Three consequences worth not rediscovering: `row-label.ts` was speaking `"N points"` into the accessible name, so VoiceOver users would have heard a figure sighted users could not see; the "Includes N for consistency" line existed *only* to reconcile the stat coins against the hero total and deleted with no replacement; and the leaderboard row's boost chip was justified by explaining why that row's total differed from the character screen's unweighted one, so with neither total rendered its documented purpose evaporated — the board **header** already carried the same chip, which is where program information belongs. **One consequence is a real loss and is recorded rather than fixed:** a *consistency* goal's target is a daily points bar, rendered on `app/goal/[id].tsx` as e.g. "1,200 a day", and the home hero was the only place a user could read today's running total against it. With the hero in real units, that goal kind can no longer be self-checked mid-day from anywhere inside the app — the goal card shows days met, which only resolves after the day finalises. No UI was built for this deliberately: the honest options (put the total back on the goal screen, or restate a consistency target in real units) are a product decision about what a consistency goal *is*, not a rendering gap to patch. |
+| 31 | The squad program focused on lifting is `gym` (deviation #12) | **`strength`** everywhere — the `squads.program` CHECK value, `SquadProgram` in `@kairo/core`, `program_weighted_total()`'s SQL mapping, `create_squad`'s validation list, and the picker's label | Founder decision D3, 2026-08-15. Forced by the Strength challenge arriving beside it: two words for one idea, on two surfaces, where the program boosts STR and the challenge measures the calories STR is computed from. `calisthenics` was the alternative and was rejected on data grounds — STR rides active calories and cannot distinguish bodyweight work from weights, so the narrower word would promise a distinction the data cannot make. Part 2 §9's calisthenics framing survives as *copy* on the Strength challenge, where "push-ups, pull-ups, squats" is the point that actually mattered. Migration `20260815100000` updates existing rows before swapping the constraint — there is no ordering in which one constraint is true throughout, so it drops, updates, then re-adds. The `PROGRAM_WEIGHTS` ↔ SQL differential test is what proves both halves moved together. |
+| 32 | Workouts are read only for the anti-cheat cross-check and reduced to a per-hour `hadWorkout` boolean (§11) | **`workout_sessions`** — the whole sample kept: Apple's sample UUID, activity type, duration, distance, active calories, keyed `(user_id, hk_uuid)` | Needed by Challenges (#33), which cannot exist without it: workout sessions are the **only** reliable way to tell a run from a walk at the data layer, since both collapse into the same AGI steps-and-distance signal. Deliberately *storage, not acquisition* — `read.ts` already called `queryWorkoutSamples` and already received every field, so there is no new HealthKit read type, no `NSHealthShareUsageDescription` change and no `prebuild` (checked rather than assumed, because `ios/` is committed per #28). The per-hour `hadWorkout` path is untouched and anti-cheat keeps working exactly as before. **Privacy: owner-select only, zero client write grants, and present in no projection** — a pace carries fitness and, with distance, routine, which is at least as identifying as the hourly movement §5 protects; a schema test asserts no `public` function's body mentions the table. Apple's `HKWorkoutActivityType` **raw number** is stored untranslated: `read.ts` decides nothing, and a translation table would silently drop every activity it had not been taught, in a table whose whole purpose is telling activities apart. One thing the spec did not anticipate and the build found: `WorkoutQueryOptions` has **no unit parameter**, unlike every other read in `read.ts` which pins its unit — but each `Quantity` reports its own `unit`, so `workout-units.ts` converts from what was reported and returns null for an unrecognised unit, which becomes 0 and makes the session non-qualifying. Inert beats wrong: a 5-mile run stored as 5,000 metres would quietly corrupt the pace the Run challenge is built on. |
+| 33 | Cadence goals are a new `GoalKind` (assessment Part 1 §3.2) | **Challenges — a sibling mechanic.** `packages/kairo-core/src/challenge.ts`, `challenge_completions`, and a `/train` route. `goal.ts` is not modified | Founder decision D1/D7, 2026-08-15; Part 2 §10 overturns Part 1 §3.2. §8's Goal invariant — a target fixed at creation, because changing it mid-window would silently re-grade every day already counted — is deliberate and stays true for user-authored Goals. A Challenge's target moves **as the user moves**, which breaks that invariant on purpose, so it is a different concept rather than a variant. **Derived, never stored:** the challenge for day *D* is a pure function of qualifying sessions **strictly before** *D*, which is load-bearing twice — the session being judged cannot move its own bar, and nothing stateful exists for a retroactive Apple revision to invalidate (the read-time projection property from #18). It also delivers the *ease* requirement with no separate rule: a quiet stretch lowers the trailing median, which lowers the target, so there is no ratchet to guard against. Median over the most recent **up to** 5 qualifying sessions in a 90-day window, ±3%; median not mean, so one exceptional session cannot make the app permanently harder. **Scoring is untouched** — the same posture strain takes (#24): pace never enters `daily_scores`, and clearing a challenge adding points to that day was the rejected alternative, since it would make a stored score depend on a per-user moving target and break replay. XP is a flat 40 through a **third** source in `recalculate_user_xp`, never `daily_scores.xp_awarded`, which a rescore would replay and wipe (#19's trap). Both areas are **opt-in and default off**, so nobody meets a permanently unmet card for something they do not do. |
 
 **OS constraint that validates the design:** iOS caps HealthKit background delivery for cumulative types like step count at *hourly*. That is exactly the bucket granularity §11 chose.
 
@@ -552,7 +555,83 @@ code that no longer exists, which is the honest cost of the pivot.
 - ✅ **Spec reference:** `docs/superpowers/specs/2026-08-04-ui-redesign-design.md`
 - ⬜ **Device verification** — end-to-end UI rendering on the physical iPhone (outstanding, batched separately)
 
+### 🟨 Phase 11 — Solo mode: Walk, Strength, Run · ~30–40h (2026-08-15)
+
+Spec: `docs/superpowers/specs/2026-08-15-solo-mode-walk-strength-run-design.md`
+(deviations #31–#33). Solo mode becomes three areas that differ in what data
+backs them: **Walk** on steps already stored, **Strength** and **Run** on
+workout sessions, which are new.
+
+**Phase 9 is deliberately sequenced behind this** (founder decision D2). The
+assessment's own recommendation was the opposite — ship the copy changes now and
+defer the rest until the beta's first read, on the argument that the beta's four
+risk questions need none of it. D2 overrules that on the counter-argument that
+Parts 2 and 3 change what solo mode *is*, so betaing without them measures a
+product already being replaced. The cost is real and accepted: the beta slips by
+the length of this pass.
+
+- ✅ **`gym` → `strength`** (deviation #31) — migration `20260815100000`, plus
+  `program.ts` and `program-copy.ts`. Landed alone and first, because it is the
+  smallest piece and the one most likely to be left half-done.
+- ✅ **Metric purpose** — `STAT_WHY` beside `STAT_UNITS` in `stat-detail.ts`,
+  rendered as four lines on `app/progress.tsx`. §5's own medical reasoning,
+  which the spec has always carried and the app had never shipped. VIT's is the
+  one that matters: not "move a bit more", but that a single long workout does
+  not buy off a day spent sitting — a different claim, and the actual reason the
+  stat exists. It goes on the existing "How progress works" sheet rather than on
+  home, which is already the densest screen in the app.
+- ✅ **Daily Walk** — `DAILY_STEP_BASELINE` (derived from `THRESHOLDS.AGI.gold`,
+  never a literal), `src/features/train/daily-walk.ts`, and `DailyWalkCard` on
+  the home shelf. Flat, permanent, 10,000, **never scaled up even as the user
+  improves**: it is a public-health number, not a personal-progress one, and
+  conflating the two is the specific error to avoid. That is exactly why it is
+  not a Challenge, and it is not a `goals` row either — the Goal shape cannot
+  express "every day, forever, resets daily".
+  **Two things the build found.** The streak reads `tiers->>'AGI' = 'gold'`,
+  which *is* "≥ 10,000 steps" because that is the AGI Gold threshold — so it
+  needs no new column and no new sync; a test pins the coupling. And the card
+  deliberately **does not restate today's steps or the gap**: the hero already
+  sets steps at 64pt and `detailCopy` already names the remaining steps (the
+  same figure, since AGI Gold and the baseline are one threshold), so the card
+  says the two things nothing else says — that the target is fixed forever, and
+  the run of days. A test asserts the copy names no figure but the baseline and
+  the streak.
+- ✅ **Workout-session ingest** (deviation #32) — `workout_sessions`,
+  `read.ts` keeping the fields it already received, `sync-plan.ts` validation
+  with `MAX_SESSIONS_PER_SYNC`, and the upsert in `sync-health`. No user-facing
+  change. `workout-units.ts` exists because `queryWorkoutSamples` takes no unit
+  parameter — see #32.
+- ✅ **Challenges engine** (deviation #33) — `challenge.ts` (40 tests),
+  `challenge_completions` with the XP rollup's third source,
+  `challenge-plan.ts` (14 tests), the `settleChallenges` pass in
+  `finalize-days`, and the `challenge_cleared` push. That trigger is
+  **budget-counted and not quiet-hours exempt**: a challenge clears repeatedly
+  by design, which is precisely the recurring-nudge case `BUDGET_EXEMPT`'s own
+  comment excludes.
+- ✅ **`/train`** — a stacked route, not a fourth tab (the precedent Phase 10
+  set for goals). Opt-in happens here on first visit, so onboarding stays at two
+  screens and the profile row still commits exactly once. `TrainEntry` on the
+  home shelf shows the live target as text, so the mechanic is legible without
+  navigating — for a cold-start user that reads as "Log one run of 1 km", which
+  is an invitation.
+- ⬜ **Apply the three migrations to the live project, then redeploy
+  `sync-health` and `finalize-days`** — in that order, with
+  `supabase/scripts/smoke-sync.mjs` between them. A migration touching a table
+  an Edge Function writes ships with that function's redeploy.
+  **Do not compress the ingest and the engine into one deploy**: a derived
+  challenge needs a trailing window, and there is none until sessions have been
+  syncing for a few days.
+- ⬜ **Hand verification** — Accessibility Inspector on the two new cards and
+  the `/train` route (is a challenge card one element or six), and Dynamic Type
+  at `accessibility-extra-extra-extra-large`.
+- ⬜ **Routines** — designed in §9 of the spec, **not built**. A third mechanic
+  beside Goals and Challenges: shared frequency, personal bar. Recorded so the
+  next pass starts from a settled design rather than re-deriving one.
+
 ### 🟨 Phase 9 — TestFlight + beta · 20–30h
+
+**Sequenced behind Phase 11** as of 2026-08-15 (founder decision D2) — see that
+phase for the argument and its accepted cost.
 - 🟨 **Privacy policy, ToS and nutrition labels drafted** (workstream D6) in
   `docs/legal/`. Pulled forward from E7 deliberately: §15 puts them in V1, but
   external testers need them and they have a lead time measured in days, so
