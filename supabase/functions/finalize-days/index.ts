@@ -1,13 +1,24 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { fail, json } from '../_shared/http.ts';
-import { advanceStreak, type StreakState } from '../_shared/core.ts';
+import {
+  addDays,
+  advanceStreak,
+  CHALLENGE_WINDOW_DAYS,
+  type ChallengeArea,
+  type StreakState,
+  type WorkoutSession,
+} from '../_shared/core.ts';
 import { rescoreDay } from '../_shared/rescore.deno.ts';
 import {
   daysForUser,
   planGoalCompletions,
   type GoalRow,
 } from '../_shared/goal-plan.ts';
-import { goalCompletedCopy } from '../_shared/notification-copy.ts';
+import { planChallengeCompletions } from '../_shared/challenge-plan.ts';
+import {
+  challengeClearedCopy,
+  goalCompletedCopy,
+} from '../_shared/notification-copy.ts';
 import { sendToUser } from '../_shared/push.deno.ts';
 
 /**
@@ -200,6 +211,142 @@ async function settleGoals(
   }
 }
 
+/**
+ * Latch any Challenges this user's newly-final day cleared, and notify.
+ *
+ * `finalize-days` is the only place a day becomes final, so it is the only
+ * place a challenge can complete.
+ *
+ * The challenge itself is **derived, not stored**: resolved from this user's
+ * qualifying sessions strictly before the day being judged. Only the completion
+ * is written, which is what lets a retroactive Apple revision flow through for
+ * free.
+ */
+async function settleChallenges(
+  candidate: Candidate,
+  now: Date,
+  out: Array<{ userId: string; area: ChallengeArea; xp: number }>,
+): Promise<void> {
+  const { data: profileRow, error: profileError } = await admin
+    .from('profiles')
+    .select('trains_run, trains_strength')
+    .eq('id', candidate.user_id)
+    .maybeSingle();
+  if (profileError) throw new Error(`opt-in lookup failed: ${profileError.message}`);
+
+  const optIn = {
+    run: profileRow?.trains_run === true,
+    strength: profileRow?.trains_strength === true,
+  };
+  // Nothing opted into means nothing to read. Returning before the session
+  // query keeps this free for every user who does not train an area.
+  if (!optIn.run && !optIn.strength) return;
+
+  // The trailing window, inclusive of the day being judged — `resolveChallenge`
+  // applies the strictly-before rule itself, and `clearingSession` needs the
+  // day's own sessions.
+  const from = addDays(candidate.local_date, -CHALLENGE_WINDOW_DAYS);
+  const { data: sessionRows, error: sessionError } = await admin
+    .from('workout_sessions')
+    .select('local_date, activity_type, duration_s, distance_m, active_kcal')
+    .eq('user_id', candidate.user_id)
+    .gte('local_date', from)
+    .lte('local_date', candidate.local_date);
+  if (sessionError) throw new Error(`session lookup failed: ${sessionError.message}`);
+
+  const sessions: WorkoutSession[] = (sessionRows ?? []).map(
+    (row: Record<string, unknown>) => ({
+      localDate: row.local_date as string,
+      activityType: Number(row.activity_type),
+      // numeric columns arrive as strings over PostgREST.
+      durationS: Number(row.duration_s ?? 0),
+      distanceM: Number(row.distance_m ?? 0),
+      activeKcal: Number(row.active_kcal ?? 0),
+    }),
+  );
+  if (sessions.length === 0) return;
+
+  const { data: doneRows, error: doneError } = await admin
+    .from('challenge_completions')
+    .select('area')
+    .eq('user_id', candidate.user_id)
+    .eq('local_date', candidate.local_date);
+  if (doneError) throw new Error(`challenge completion lookup failed: ${doneError.message}`);
+
+  const completions = planChallengeCompletions({
+    userId: candidate.user_id,
+    localDate: candidate.local_date,
+    optIn,
+    sessions,
+    alreadyCleared: new Set(
+      (doneRows ?? []).map((r: { area: string }) => r.area as ChallengeArea),
+    ),
+  });
+
+  if (completions.length === 0) return;
+
+  // `ignoreDuplicates` is the one-way latch, exactly as for goals: two
+  // overlapping runs both plan the same completion and exactly one row
+  // survives. The XP rollup trigger recomputes rather than increments either
+  // way, so even a duplicated insert could not double-pay.
+  const { error: insertError } = await admin
+    .from('challenge_completions')
+    .upsert(
+      completions.map((c) => c.row),
+      { onConflict: 'user_id,area,local_date', ignoreDuplicates: true },
+    );
+  if (insertError) throw new Error(`challenge insert failed: ${insertError.message}`);
+
+  for (const completion of completions) {
+    out.push({
+      userId: candidate.user_id,
+      area: completion.row.area,
+      xp: completion.row.xp_awarded,
+    });
+
+    await admin.from('app_events').insert({
+      user_id: candidate.user_id,
+      type: 'challenge_cleared',
+      payload: {
+        area: completion.row.area,
+        localDate: candidate.local_date,
+        xpAwarded: completion.row.xp_awarded,
+      },
+    });
+
+    // Wrapped separately from the latch, for the goals reason: a failed push
+    // must never undo a completion that has already paid XP.
+    try {
+      const message = challengeClearedCopy(completion.challenge);
+      const result = await sendToUser(admin, candidate.user_id, message, {
+        trigger: 'challenge_cleared',
+        screen: 'train',
+        localDate: candidate.local_date,
+      });
+      // Logged only when a device was actually reached. Unlike
+      // `goal_completed`, this one **does** spend budget — a challenge clears
+      // repeatedly by design, which is the recurring-nudge case BUDGET_EXEMPT
+      // explicitly excludes.
+      if (result.delivered > 0) {
+        await admin.from('notification_log').insert({
+          user_id: candidate.user_id,
+          kind: 'challenge_cleared',
+          local_date: candidate.local_date,
+        });
+      }
+    } catch (pushError) {
+      await admin.from('app_events').insert({
+        user_id: candidate.user_id,
+        type: 'push_failed',
+        payload: {
+          trigger: 'challenge_cleared',
+          error: (pushError as Error).message,
+        },
+      });
+    }
+  }
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   // Scheduled invocation only. Without this, any caller could force days to
   // finalize early and freeze rankings mid-competition.
@@ -225,6 +372,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let shieldsUsed = 0;
   const milestones: Array<{ userId: string; milestone: number }> = [];
   const goalsCompleted: Array<{ userId: string; goalId: string; xp: number }> = [];
+  const challengesCleared: Array<{ userId: string; area: ChallengeArea; xp: number }> = [];
 
   for (const candidate of candidates) {
     const rescored = await rescoreDay(admin, {
@@ -333,6 +481,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     }
 
+    // ---- challenges ------------------------------------------------------
+    //
+    // Wrapped for the same reason as goals, and separately from them: a
+    // challenge that fails to latch must not stop the day closing, and must not
+    // take a goal completion down with it.
+    //
+    // Unlike goals, this does not read `daily_scores` at all — a challenge is
+    // resolved from `workout_sessions` and never touches the score. It sits
+    // after the goal pass only because it is the cheaper thing to lose.
+    try {
+      await settleChallenges(candidate, now, challengesCleared);
+    } catch (challengeError) {
+      await admin.from('app_events').insert({
+        user_id: candidate.user_id,
+        type: 'challenge_settle_failed',
+        payload: {
+          localDate: candidate.local_date,
+          error: (challengeError as Error).message,
+        },
+      });
+    }
+
     finalized.push(`${candidate.user_id}:${candidate.local_date}`);
 
     await admin.from('app_events').insert({
@@ -355,6 +525,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     shieldsUsed,
     milestones,
     goalsCompleted,
+    challengesCleared,
     failures,
     // A full batch means more days are waiting; the next hourly run picks them
     // up, but a persistently full batch is worth alerting on.

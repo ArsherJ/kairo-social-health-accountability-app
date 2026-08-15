@@ -311,6 +311,191 @@ describe('workout_sessions', () => {
   });
 });
 
+describe('challenge_completions', () => {
+  async function clearChallenge(
+    user: string,
+    overrides: { area?: string; localDate?: string; xp?: number } = {},
+  ) {
+    await h.asService(
+      `insert into public.challenge_completions (user_id, area, local_date, target, xp_awarded)
+       values ($1, $2, $3, $4::jsonb, $5)
+       on conflict (user_id, area, local_date) do nothing`,
+      [
+        user,
+        overrides.area ?? 'run',
+        overrides.localDate ?? '2026-07-27',
+        JSON.stringify({ area: 'run', kind: 'target', minDistanceM: 5000, paceSecPerKm: 291 }),
+        overrides.xp ?? 40,
+      ],
+    );
+  }
+
+  it('latches one clear per area per local day', async () => {
+    // Two qualifying sessions on the same day clear the same challenge once.
+    const user = await h.createUser();
+    await clearChallenge(user, { xp: 40 });
+    await clearChallenge(user, { xp: 999 });
+
+    const rows = await h.asService<{ xp_awarded: number }>(
+      'select xp_awarded from public.challenge_completions where user_id = $1',
+      [user],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.xp_awarded).toBe(40);
+  });
+
+  it('lets the two areas clear independently on one day', async () => {
+    const user = await h.createUser();
+    await clearChallenge(user, { area: 'run' });
+    await clearChallenge(user, { area: 'strength' });
+    const rows = await h.asService('select 1 from public.challenge_completions where user_id = $1', [
+      user,
+    ]);
+    expect(rows).toHaveLength(2);
+  });
+
+  it('rejects an area outside the two', async () => {
+    const user = await h.createUser();
+    await rejects(clearChallenge(user, { area: 'yoga' }), /check constraint/i);
+  });
+
+  it('keeps completions owner-readable and client-unwritable', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await clearChallenge(owner);
+
+    expect(await h.asUser(owner, 'select area from public.challenge_completions')).toHaveLength(1);
+    expect(await h.asUser(stranger, 'select area from public.challenge_completions')).toHaveLength(
+      0,
+    );
+
+    await rejects(
+      h.asUser(
+        owner,
+        `insert into public.challenge_completions (user_id, area, local_date, target, xp_awarded)
+         values ($1, 'run', '2026-07-28', '{}'::jsonb, 9999)`,
+        [owner],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('grants authenticated nothing beyond SELECT', async () => {
+    const rows = await h.asService<{ privs: string }>(
+      `select string_agg(distinct privilege_type, ',' order by privilege_type) as privs
+       from information_schema.table_privileges
+       where table_name = 'challenge_completions' and grantee = 'authenticated'`,
+    );
+    expect(rows[0]!.privs).toBe('SELECT');
+  });
+
+  it('rolls challenge XP into total_xp as a THIRD source', async () => {
+    // Not written to daily_scores.xp_awarded, which a rescore would replay and
+    // silently wipe — the trap deviation #19 records for goals.
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, xp_awarded)
+       values ($1, '2026-07-27', 900, 100)`,
+      [user],
+    );
+    await clearChallenge(user, { xp: 40 });
+
+    const rows = await h.asService<{ total_xp: number }>(
+      'select total_xp from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.total_xp).toBe(140);
+  });
+
+  it('recomputes rather than increments, so a re-run cannot double-pay', async () => {
+    const user = await h.createUser();
+    await clearChallenge(user, { xp: 40 });
+    // Touch the row again: the trigger fires on UPDATE too, and a full
+    // recompute must land on the same number an increment would inflate.
+    await h.asService(
+      `update public.challenge_completions set xp_awarded = 40 where user_id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ total_xp: number }>(
+      'select total_xp from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.total_xp).toBe(40);
+  });
+
+  it('does not fold challenge XP into any ability rating', async () => {
+    // A cleared challenge is not activity in a stat; folding it into one would
+    // inflate an ability the user never trained.
+    const user = await h.createUser();
+    await clearChallenge(user, { xp: 40 });
+    const rows = await h.asService<{ agi_total: number; str_total: number }>(
+      'select agi_total, str_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.agi_total).toBe(0);
+    expect(rows[0]!.str_total).toBe(0);
+  });
+
+  it('cascades a deleted account without aborting the delete', async () => {
+    // The AFTER trigger reaches profiles, which is already gone by the time the
+    // cascade arrives here — so recalculate_user_xp matches no row and the
+    // update is a harmless no-op. A BEFORE trigger here would abort the delete.
+    const user = await h.createUser();
+    await clearChallenge(user);
+    await h.asService('delete from public.profiles where id = $1', [user]);
+    const rows = await h.asService(
+      'select 1 from public.challenge_completions where user_id = $1',
+      [user],
+    );
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe('challenge opt-in columns', () => {
+  it('defaults both areas off', async () => {
+    // Nobody meets a permanently unmet card for something they do not do.
+    const user = await h.createUser();
+    const rows = await h.asService<{ trains_run: boolean; trains_strength: boolean }>(
+      'select trains_run, trains_strength from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.trains_run).toBe(false);
+    expect(rows[0]!.trains_strength).toBe(false);
+  });
+
+  it('lets a user opt themselves in', async () => {
+    const user = await h.createUser();
+    await h.asUser(user, 'update public.profiles set trains_run = true where id = $1', [user]);
+    const rows = await h.asService<{ trains_run: boolean }>(
+      'select trains_run from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.trains_run).toBe(true);
+  });
+
+  it('still refuses the derived columns after the revoke and re-grant', async () => {
+    // The trap: a column-level REVOKE against a table-level GRANT is silently a
+    // no-op, so the migration revokes the table grant and re-grants the list.
+    // Getting that wrong fails open, which is what this asserts against.
+    const user = await h.createUser();
+    // Values typed per column, so a type error cannot masquerade as the
+    // permission error this is actually asserting.
+    const derived: Array<[string, string]> = [
+      ['total_xp', '1'],
+      ['level', '1'],
+      ['agi_total', '1'],
+      ['has_wearable', 'true'],
+      ['is_legendary', 'true'],
+    ];
+    for (const [column, value] of derived) {
+      await rejects(
+        h.asUser(user, `update public.profiles set ${column} = ${value} where id = $1`, [user]),
+        /permission denied/i,
+      );
+    }
+  });
+});
+
 describe('per-stat ability rollups', () => {
   async function ratings(userId: string) {
     const rows = await h.asService<{
@@ -773,7 +958,7 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(16);
+    expect(rows[0]!.count).toBe(17);
   });
 
   it('enable row level security on every public table', async () => {
@@ -1619,6 +1804,8 @@ describe('profiles.focus is gone', () => {
       'height_cm',
       'sex',
       'timezone',
+      'trains_run',
+      'trains_strength',
       'weight_kg',
     ]);
   });

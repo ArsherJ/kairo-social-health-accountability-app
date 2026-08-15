@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { notificationCopy, ordinal } from './notification-copy.ts';
+import { challengeClearedCopy, notificationCopy, ordinal } from './notification-copy.ts';
 
 describe('ordinal', () => {
   it('uses the ordinary suffixes', () => {
@@ -57,5 +57,50 @@ describe('day-boundary copy', () => {
       title: 'A new day begins.',
       body: 'Your character is waiting. 👊',
     });
+  });
+});
+
+describe('challengeClearedCopy', () => {
+  it('names the pace and distance actually beaten', () => {
+    const message = challengeClearedCopy({
+      area: 'run',
+      kind: 'target',
+      minDistanceM: 5_000,
+      paceSecPerKm: 291,
+    });
+    expect(message.title).toContain('Run challenge cleared');
+    expect(message.body).toContain('5 km');
+    expect(message.body).toContain('4:51/km');
+  });
+
+  it('names the calories on a strength clear', () => {
+    const message = challengeClearedCopy({ area: 'strength', kind: 'target', activeKcal: 1_410 });
+    expect(message.body).toContain('1,410 kcal');
+  });
+
+  it('says a baseline was set, not a bar beaten, on the first clear', () => {
+    // The establish challenge cannot be failed on fitness, so congratulating
+    // someone for beating a target that did not exist would be a lie.
+    const run = challengeClearedCopy({ area: 'run', kind: 'establish', minDistanceM: 1_000 });
+    const lift = challengeClearedCopy({ area: 'strength', kind: 'establish' });
+    expect(run.title).toContain('Baseline set');
+    expect(lift.title).toContain('Baseline set');
+    for (const message of [run, lift]) {
+      expect(message.body).not.toContain('cleared');
+      expect(message.body).not.toContain('under');
+    }
+  });
+
+  it('never states a point total', () => {
+    // Points are spoken only inside Goals (deviation #30), and a challenge
+    // target is a pace or a calorie count in the first place.
+    const messages = [
+      challengeClearedCopy({ area: 'run', kind: 'target', minDistanceM: 5_000, paceSecPerKm: 291 }),
+      challengeClearedCopy({ area: 'strength', kind: 'target', activeKcal: 410 }),
+      challengeClearedCopy({ area: 'strength', kind: 'establish' }),
+    ];
+    for (const message of messages) {
+      expect(`${message.title} ${message.body}`).not.toMatch(/\bpoints?\b/i);
+    }
   });
 });
