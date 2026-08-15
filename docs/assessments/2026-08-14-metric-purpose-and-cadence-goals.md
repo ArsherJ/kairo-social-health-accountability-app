@@ -510,3 +510,35 @@ next.
 - `required_members` for the squad-level "enough of us kept it up this
   week" read — reuse the existing squad-goal default (the whole roster) or
   pick a different default for something indefinite and habit-shaped.
+
+---
+
+## Part 4 — where these decisions went (added 2026-08-15)
+
+**This document is no longer the live decision record.** Every open question in
+Parts 1 §6 and 3 §17 was closed in the 2026-08-15 founder interview and is
+recorded in
+`docs/superpowers/specs/2026-08-15-solo-mode-walk-strength-run-design.md` §2 as
+decisions D1–D20. Read that spec, not this, for what was built.
+
+What this document is still good for: the reasoning behind the decisions, which
+the spec compresses. Three notes on where the two disagree:
+
+- **Part 1 §5 recommended shipping §2 + §3.1 now and deferring the rest until
+  after the beta's first read.** Decision **D2 overruled it**: the beta waits,
+  because Parts 2 and 3 change what solo mode *is*, and betaing without them
+  measures a product already being replaced. The reasoning here is not wrong,
+  merely outvoted, which is why it is recorded rather than deleted. The cost —
+  the beta slipping by the length of that pass — was accepted.
+- **Part 1 §3.2 sketched cadence goals as a new `GoalKind`.** Part 2 §10
+  overturned it and the spec follows: a Challenge's target moves as the user
+  moves, which breaks §8's fixed-at-creation Goal invariant on purpose. It is a
+  sibling mechanic (`challenge.ts`), and `goal.ts` was not modified.
+- **§16's `gym` → `strength` question** was settled as **`strength`** (D3) and
+  shipped as roadmap deviation #31. `calisthenics` was rejected on data grounds:
+  STR rides active calories and cannot tell bodyweight work from weights, so the
+  narrower word would promise a distinction the data cannot make.
+
+**Routines (Part 3) are designed and not built.** The spec's §9 records their
+settled shape so the next pass starts from a design; §17's three open questions
+above are still open and are deliberately not answered there.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DAILY_STEP_BASELINE,
   FEATURED_STAT_MULTIPLIER,
   MAX_DAILY_SCORE_PHONE_ONLY,
   MAX_DAILY_SCORE_WITH_WEARABLE,
@@ -515,5 +516,25 @@ describe('nextTierFor — what the gap is worth', () => {
     const toSilver = nextTierFor('VIT', 3)!.pointsGain;
     const toGold = nextTierFor('VIT', 6)!.pointsGain;
     expect(toBronze + toSilver + toGold).toBe(STAT_POINTS_MAX);
+  });
+});
+
+describe('DAILY_STEP_BASELINE', () => {
+  it('is 10,000 — the public-health number, pinned', () => {
+    // Deliberately a literal on this side. The constant itself is *derived*
+    // from the AGI Gold threshold so the two can never describe different
+    // numbers, but the Daily Walk baseline must never scale with the user
+    // (solo-mode design §5), and a derivation alone would let a raised Gold
+    // drag it upward without anyone deciding to. This is where that decision
+    // gets forced: raise Gold and this fails.
+    expect(DAILY_STEP_BASELINE).toBe(10_000);
+  });
+
+  it('is exactly the AGI gold threshold', () => {
+    // The coupling the walk streak rests on. `daily_scores` stores tiers and
+    // never raw steps, so "cleared the walk" is read as `tiers.AGI === 'gold'`
+    // — which is only true while these two are the same number.
+    expect(tierFor('AGI', DAILY_STEP_BASELINE)).toBe('gold');
+    expect(tierFor('AGI', DAILY_STEP_BASELINE - 1)).not.toBe('gold');
   });
 });

@@ -6,8 +6,26 @@ import {
 import { currentLocalDate } from '@kairo/core';
 import { hourlySampleInstants } from './intervals.ts';
 import { sleepMinutesByDate, type SleepSegment } from './sleep-attribution.ts';
+import { kcalFrom, metresFrom, secondsFrom } from './workout-units.ts';
 import type { HealthMetric, HourlyReading } from './hourly-buckets.ts';
 import type { SyncWindow } from './sync-window.ts';
+
+/**
+ * One logged workout, flattened. Apple's own sample UUID is the idempotency
+ * key — a re-synced window upserts rather than duplicating, and a workout Apple
+ * later revises flows through the same way retroactive step revisions do.
+ */
+export interface WorkoutSessionReading {
+  hkUuid: string;
+  localDate: string;
+  startedAt: Date;
+  endedAt: Date;
+  /** HKWorkoutActivityType raw value, untranslated. */
+  activityType: number;
+  durationS: number;
+  distanceM: number;
+  activeKcal: number;
+}
 
 /**
  * The only new module that talks to HealthKit.
@@ -63,6 +81,12 @@ function finite(value: number | undefined): number {
 
 export interface HealthReadResult {
   readings: HourlyReading[];
+  /**
+   * Logged workouts, kept whole. Separate from `readings` because these are
+   * sessions rather than hourly samples — the per-hour `hadWorkout` reading
+   * anti-cheat uses is still in `readings` and is unaffected.
+   */
+  sessions: WorkoutSessionReading[];
   sleep: Array<{ localDate: string; minutes: number }>;
   /** One per local day that had a reading. Wearable users only. */
   restingHeartRate: Array<{ localDate: string; bpm: number }>;
@@ -164,10 +188,15 @@ export async function readHealthWindow(
   // `limit` is required, and a non-positive value means "all".
   const workouts = await queryWorkoutSamples({ filter, limit: 0 });
 
+  const sessions: WorkoutSessionReading[] = [];
+
   for (const workout of workouts) {
     // A workout spans hours. Marking one instant per hour it touches lets the
     // bucketer resolve the local hour, which matters in half-hour-offset zones
     // where UTC and local hour boundaries do not line up.
+    //
+    // Unchanged by the session ingest below: anti-cheat keeps reading exactly
+    // the per-hour boolean it always has.
     for (const at of hourlySampleInstants(
       workout.startDate.getTime(),
       workout.endDate.getTime(),
@@ -178,6 +207,31 @@ export async function readHealthWindow(
         value: 1,
       });
     }
+
+    // The rest of the sample, kept rather than discarded — the same waste
+    // deviation #24 found with heart rate. Every field is already in hand;
+    // this costs no extra HealthKit round trip.
+    //
+    // The activity type is stored as Apple's **raw number**, untranslated:
+    // this module decides nothing, and a translation table would silently drop
+    // every activity it had not been taught, in a table whose whole purpose is
+    // telling activities apart. Meaning is assigned in `@kairo/core`'s
+    // `challenge.ts`.
+    //
+    // Units are converted from what the sample reports rather than assumed —
+    // see `workout-units.ts`. An unconvertible unit becomes 0, which makes the
+    // session non-qualifying for a Challenge instead of feeding it a distance
+    // in the wrong unit.
+    sessions.push({
+      hkUuid: workout.uuid,
+      localDate: currentLocalDate(workout.startDate, timeZone),
+      startedAt: workout.startDate,
+      endedAt: workout.endDate,
+      activityType: workout.workoutActivityType as unknown as number,
+      durationS: Math.round(secondsFrom(workout.duration) ?? 0),
+      distanceM: metresFrom(workout.totalDistance) ?? 0,
+      activeKcal: kcalFrom(workout.totalEnergyBurned) ?? 0,
+    });
   }
 
   const sleepSamples = await queryCategorySamples(
@@ -222,6 +276,7 @@ export async function readHealthWindow(
 
   return {
     readings,
+    sessions,
     sleep: sleepMinutesByDate(segments, window.dates, timeZone),
     restingHeartRate: window.dates
       .filter((localDate) => restingByDate.has(localDate))

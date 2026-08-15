@@ -16,7 +16,8 @@ export type NotificationTrigger =
   | 'day_ending_soon'
   | 'day_ends'
   | 'day_starts'
-  | 'goal_completed';
+  | 'goal_completed'
+  | 'challenge_cleared';
 // V1 adds: 'podium_drop' | 'overtake_digest' | 'weekly_recap' | 'streak_at_risk'
 
 /** §14: "max 3/day (configurable)". Configurable means this constant at MVP. */
@@ -45,6 +46,12 @@ export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
  * per commitment, at most, and the user set that commitment themselves. A
  * recurring nudge would not qualify — the exemption is for events the user asked
  * for, not events we want them to see.
+ *
+ * **`challenge_cleared` is that disqualifying case, and is deliberately absent.**
+ * A challenge clears repeatedly by design — that is the mechanic — so exempting
+ * it would be exactly the recurring nudge the sentence above rules out. It is
+ * not quiet-hours exempt either, for `goal_completed`'s reason: finalization
+ * runs about two hours after local midnight.
  *
  * Kept as a separate list from QUIET_HOURS_EXEMPT on purpose: the two rules are
  * independent in §14, and collapsing them would make the day-boundary pair

@@ -14,6 +14,28 @@ export const STAT_UNITS: Record<CoreStat, string> = {
 };
 
 /**
+ * Why each stat is a stat at all — the medical reasoning §5 has always carried
+ * and the app has never shipped.
+ *
+ * One sentence each, and they live beside `STAT_UNITS` because copy belongs
+ * where the other copy is. Rendered in `app/progress.tsx`, the sheet the home
+ * shelf's "How progress works" link already opens: the alternative was four
+ * more lines on the densest screen in the app, to explain numbers that are
+ * already explained there.
+ *
+ * VIT's is the one that matters most and the one the app most conspicuously
+ * never said. It is not "move a bit more" — it is that a single long workout
+ * does not buy off a day spent sitting, which is a different claim and the
+ * actual reason the stat exists.
+ */
+export const STAT_WHY: Record<CoreStat, string> = {
+  AGI: 'Daily step count is one of the strongest single predictors of long-term health — more than almost anything else you can measure this easily.',
+  STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked.',
+  END: 'Sustained effort, rather than a burst of it. This one rides Apple’s exercise minutes, so a watch reads it far better than a phone in a pocket.',
+  VIT: 'How many hours you moved in at all. Moving every hour matters more than one long workout — sitting still the rest of the day carries its own risk, independent of how hard you trained.',
+};
+
+/**
  * The same units when there is exactly one left to do.
  *
  * Not a nicety: VIT's bands are 3/6/9 active hours, so a gap of 1 is the

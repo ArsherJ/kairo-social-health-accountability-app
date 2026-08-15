@@ -49,6 +49,25 @@ squad is a layer on top.
 - Squad goals are **per-member N-of-M**: each member must hit the target
   individually. Not a pooled total.
 
+### Train — the Daily Walk and Challenges
+- **Daily Walk** — 10,000 steps a day, on the home shelf, with a streak of days
+  cleared. **Flat and permanent**: it never scales up as the user improves,
+  because it is a public-health number rather than a personal-progress one. A
+  missed day breaks the streak and costs nothing else — there is no penalty.
+- **Challenges** — one live target per opted-in area, on `/train`
+  (deviation #33):
+  - **Run** — a pace over a minimum distance, both moving with the user.
+  - **Strength** — active calories in a single session.
+- The target is the **median of your own recent qualifying sessions ±3%**,
+  derived fresh from stored workouts and never stored as a level. It moves
+  **both ways**: a quiet stretch lowers it. The first challenge in each area
+  only establishes a baseline and cannot be failed.
+- **Both areas are off by default.** A non-runner never sees a Run target.
+- Clearing one pays a flat 40 XP, once per area per day, and sends one push.
+- **Pace and session calories never touch scoring.** They are display-and-
+  challenge signals only, the same posture strain takes (deviation #24) — a run
+  still earns AGI through its steps.
+
 ### Account
 - **Sign in with Apple** — the only provider a Release build offers. Moved in
   scope on 2026-08-12, when Developer Program enrolment came through; the app
@@ -77,6 +96,7 @@ a regression.
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Universal links / deep linking** | Needs a domain, a hosted `apple-app-site-association`, the associated-domains entitlement and route handling. Sharing works without it today. | QA finding Q8 |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
+| **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It is a third mechanic beside Goals and Challenges, and three questions are open on purpose: how a Routine-level shield and Challenge-level ease coordinate on one missed week, where it surfaces relative to `SquadGoalPanel` and `GoalCard`, and the squad-level `required_members` default. | Deviation #33, spec §9 |
 | **Android** | iOS first. | §15 |
 
 ---

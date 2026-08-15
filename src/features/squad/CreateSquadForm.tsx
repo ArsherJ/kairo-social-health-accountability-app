@@ -57,7 +57,7 @@ export function CreateSquadForm({
       <BackRow onPress={onCancel} disabled={busy} />
 
       {/* Scrollable, not a Panel: the name field plus four programs overflows a
-          small screen once the keyboard is up, and the gym note has to stay
+          small screen once the keyboard is up, and the strength note has to stay
           reachable — it is the one piece of copy on this screen written for the
           person who is about to commit their squad to a program. */}
       <ScrollView

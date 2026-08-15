@@ -17,13 +17,21 @@
 
 import { CORE_STATS, type CoreStat } from './types.ts';
 
-/** The shared game a squad is playing. Fixed at creation for MVP. */
-export type SquadProgram = 'all_around' | 'running' | 'gym' | 'walking';
+/**
+ * The shared game a squad is playing. Fixed at creation for MVP.
+ *
+ * `strength` was `gym` until 2026-08-15 (deviation #31). One word for one idea:
+ * the Strength challenge measures workout-session calories, and `calisthenics`
+ * was rejected because STR rides active calories and cannot tell bodyweight
+ * work from weights — a narrower word would promise a distinction the data
+ * cannot make.
+ */
+export type SquadProgram = 'all_around' | 'running' | 'strength' | 'walking';
 
 export const SQUAD_PROGRAMS: readonly SquadProgram[] = [
   'all_around',
   'running',
-  'gym',
+  'strength',
   'walking',
 ];
 
@@ -45,7 +53,7 @@ export const PROGRAM_BOOST_MULTIPLIER = 1.5;
 const BOOSTED_STAT: Record<SquadProgram, CoreStat | null> = {
   all_around: null,
   running: 'AGI',
-  gym: 'STR',
+  strength: 'STR',
   walking: 'VIT',
 };
 
@@ -66,7 +74,7 @@ function weightRow(program: SquadProgram): Record<CoreStat, number> {
 export const PROGRAM_WEIGHTS: Record<SquadProgram, Record<CoreStat, number>> = {
   all_around: weightRow('all_around'),
   running: weightRow('running'),
-  gym: weightRow('gym'),
+  strength: weightRow('strength'),
   walking: weightRow('walking'),
 };
 

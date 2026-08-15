@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { SQUAD_PROGRAMS } from '@kairo/core';
 import {
-  GYM_ACCURACY_NOTE,
   PROGRAM_OPTIONS,
   PROGRAM_OPTION_VALUES,
+  STRENGTH_ACCURACY_NOTE,
   boostChipLabel,
   programLabel,
   programNote,
@@ -35,6 +35,7 @@ describe('PROGRAM_OPTIONS', () => {
 describe('programLabel', () => {
   it('labels each program', () => {
     expect(programLabel('running')).toBe('Running');
+    expect(programLabel('strength')).toBe('Strength');
     expect(programLabel('all_around')).toBe('All-around');
   });
 
@@ -46,7 +47,7 @@ describe('programLabel', () => {
 describe('boostChipLabel', () => {
   it('names the boosted stat and the multiplier', () => {
     expect(boostChipLabel('running')).toBe('AGI ×1.5');
-    expect(boostChipLabel('gym')).toBe('STR ×1.5');
+    expect(boostChipLabel('strength')).toBe('STR ×1.5');
     expect(boostChipLabel('walking')).toBe('VIT ×1.5');
   });
 
@@ -65,8 +66,8 @@ describe('boostChipLabel', () => {
 });
 
 describe('programNote', () => {
-  it('warns about phone-only gym tracking, where it actually bites', () => {
-    expect(programNote('gym')).toBe(GYM_ACCURACY_NOTE);
+  it('warns about phone-only strength tracking, where it actually bites', () => {
+    expect(programNote('strength')).toBe(STRENGTH_ACCURACY_NOTE);
   });
 
   it('says nothing on programs a phone measures well', () => {

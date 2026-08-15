@@ -143,6 +143,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (error) return fail(`resting heart rate upsert failed: ${error.message}`, 500);
   }
 
+  // Workout sessions. Keyed on Apple's own sample UUID, so a re-synced window
+  // upserts rather than duplicating and a workout Apple later revises flows
+  // through exactly the way retroactive step revisions already do.
+  //
+  // Nothing below reads this, and no score depends on it — the same posture
+  // strain takes. A run still earns AGI through its steps; pace never enters
+  // `daily_scores`, which is what keeps score replay safe.
+  if (request.sessions && request.sessions.length > 0) {
+    const { error } = await admin.from('workout_sessions').upsert(
+      request.sessions.map((s) => ({
+        user_id: userId,
+        hk_uuid: s.hkUuid,
+        local_date: s.localDate,
+        started_at: s.startedAt,
+        ended_at: s.endedAt,
+        activity_type: s.activityType,
+        duration_s: s.durationS,
+        distance_m: s.distanceM,
+        active_kcal: s.activeKcal,
+        updated_at: now.toISOString(),
+      })),
+      { onConflict: 'user_id,hk_uuid' },
+    );
+    if (error) return fail(`workout session upsert failed: ${error.message}`, 500);
+  }
+
   // Read the FULL day back rather than scoring the payload alone. A sync
   // carrying only hour 14 must still be scored against every other hour
   // already stored, or the day's total would collapse to that one hour.

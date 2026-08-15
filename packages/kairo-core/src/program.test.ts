@@ -15,7 +15,7 @@ const NO_POINTS: Record<CoreStat, number> = { AGI: 0, STR: 0, END: 0, VIT: 0 };
 describe('PROGRAM_WEIGHTS', () => {
   it('boosts exactly one stat per focused program', () => {
     expect(boostedStatFor('running')).toBe('AGI');
-    expect(boostedStatFor('gym')).toBe('STR');
+    expect(boostedStatFor('strength')).toBe('STR');
     expect(boostedStatFor('walking')).toBe('VIT');
   });
 
@@ -36,7 +36,7 @@ describe('PROGRAM_WEIGHTS', () => {
 
   it('weights the boosted stat by exactly the boost multiplier', () => {
     expect(programWeight('running', 'AGI')).toBe(PROGRAM_BOOST_MULTIPLIER);
-    expect(programWeight('gym', 'STR')).toBe(PROGRAM_BOOST_MULTIPLIER);
+    expect(programWeight('strength', 'STR')).toBe(PROGRAM_BOOST_MULTIPLIER);
     expect(programWeight('walking', 'VIT')).toBe(PROGRAM_BOOST_MULTIPLIER);
   });
 
@@ -109,7 +109,7 @@ describe('weightedBoardTotal', () => {
 
   it('weights only the boosted stat when it is the only one scored', () => {
     const total = weightedBoardTotal({
-      program: 'gym',
+      program: 'strength',
       statPoints: { AGI: 0, STR: 900, END: 0, VIT: 0 },
       consistencyBonus: 0,
       recBonus: 0,
@@ -132,7 +132,7 @@ describe('weightedBoardTotal', () => {
   it('is zero for a day with nothing on it', () => {
     expect(
       weightedBoardTotal({
-        program: 'gym',
+        program: 'strength',
         statPoints: NO_POINTS,
         consistencyBonus: 0,
         recBonus: 0,

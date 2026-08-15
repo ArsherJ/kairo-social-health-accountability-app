@@ -49,11 +49,19 @@ export async function runHealthSync(
   let buckets;
   let sleep;
   let restingHeartRate;
+  let sessions;
   try {
     const read = await readHealthWindow(window, timeZone);
     buckets = toBuckets(read.readings, window.dates, timeZone);
     sleep = read.sleep;
     restingHeartRate = read.restingHeartRate;
+    // Dates over the wire, not `Date` objects: this body is JSON-serialised and
+    // the planner validates both ends as ISO strings.
+    sessions = read.sessions.map((session) => ({
+      ...session,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt.toISOString(),
+    }));
   } catch (cause) {
     // A HealthKit read can fail transiently while the device is locked
     // (protected data unavailable). Nothing was sent, so nothing to reconcile.
@@ -68,7 +76,7 @@ export async function runHealthSync(
     // The device timezone, not a pinned one: `sync-health` writes it through to
     // `profiles.timezone`, which is what `finalize-days` and the notification
     // budget read. The payload doubles as the travel signal.
-    body: { timezone: timeZone, buckets, sleep, restingHeartRate },
+    body: { timezone: timeZone, buckets, sleep, restingHeartRate, sessions },
   });
 
   if (error) {

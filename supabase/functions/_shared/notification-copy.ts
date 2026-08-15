@@ -10,6 +10,7 @@
  * buys hierarchy without rewriting a word of the spec.
  */
 
+import { distanceLabel, paceLabel, type Challenge } from './core.ts';
 import type { ScheduledTrigger } from './notification-plan.ts';
 
 export interface PushMessage {
@@ -53,6 +54,47 @@ export function goalCompletedCopy(input: {
   return {
     title: 'You hit it. 🎯',
     body: `${input.title} — done. +${points(input.xpAwarded)} XP.`,
+  };
+}
+
+/**
+ * A cleared Challenge.
+ *
+ * Named in the units the user just produced — a pace, a distance, calories —
+ * never in points. That is not only the points rule (deviation #30): a
+ * challenge target *is* a pace or a calorie count, so points would be a
+ * translation away from the thing that was actually achieved.
+ *
+ * The establish variants say a baseline was set rather than a bar was beaten,
+ * because that is what happened: the first challenge cannot be failed on
+ * fitness, and congratulating someone for beating a target that did not exist
+ * would be the app's first lie.
+ */
+export function challengeClearedCopy(challenge: Challenge): PushMessage {
+  if (challenge.area === 'run') {
+    if (challenge.kind === 'establish') {
+      return {
+        title: 'Baseline set. 🏃',
+        body: 'Your first run is in. From here, Kairo paces you against yourself.',
+      };
+    }
+    return {
+      title: 'Run challenge cleared. 🏃',
+      body: `${distanceLabel(challenge.minDistanceM)} under ${paceLabel(
+        challenge.paceSecPerKm,
+      )}/km. The next one moves with you.`,
+    };
+  }
+
+  if (challenge.kind === 'establish') {
+    return {
+      title: 'Baseline set. 💪',
+      body: 'Your first strength session is in. From here, Kairo paces you against yourself.',
+    };
+  }
+  return {
+    title: 'Strength challenge cleared. 💪',
+    body: `${points(challenge.activeKcal)} kcal in one session. The next one moves with you.`,
   };
 }
 

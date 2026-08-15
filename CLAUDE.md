@@ -20,6 +20,43 @@ figure the screen does not show describes a different product. A Goal keeps its
 points because the user typed that target. If you find a surface outside
 `src/features/goals/` rendering a score total, it is stale — fix it.
 
+**Solo mode gained a floor and a curve on 2026-08-15** (deviations #31–#33).
+Three things that are easy to break by accident:
+
+- **`DAILY_STEP_BASELINE` is derived from `THRESHOLDS.AGI.gold`, never written
+  as a literal** — and `scoring.test.ts` *also* pins it at 10,000. Both halves
+  matter and they guard opposite failures. The derivation stops a raised Gold
+  leaving a second number describing the old one; it is what lets the walk
+  streak read `tiers->>'AGI' = 'gold'` out of `daily_scores`, which stores tiers
+  and never raw steps. The literal in the test stops the derivation being *too*
+  obedient: the Daily Walk baseline is a public-health number that must never
+  scale with the user, so a raised Gold silently dragging it upward would be
+  exactly as wrong as it going stale. Raise Gold and the test fails, and a human
+  decides.
+- **A Challenge is derived, never stored.** `resolveChallenge()` is a pure
+  function of qualifying sessions **strictly before** the day being judged, and
+  "strictly before" is load-bearing twice: the session being judged cannot move
+  its own bar, and nothing stateful exists for a retroactive Apple revision to
+  invalidate — the read-time projection property goal progress already has.
+  Only the *completion* is stored, with the target snapshotted, because the
+  trailing median can no longer answer "what did I clear in March". Do not add
+  a stored level counter; clearing already makes the next one harder, because
+  the median moved.
+- **`workout_sessions` is owner-readable only and appears in no projection.** A
+  pace carries fitness, and with distance it carries routine — at least as
+  identifying as the hourly movement §5 protects. A schema test asserts no
+  `public` function's body mentions the table; keep it that way. Apple's
+  `HKWorkoutActivityType` **raw number** is stored untranslated, and which
+  numbers mean something is decided in `challenge.ts`. `kairo-core` cannot
+  import the HealthKit library and neither can a test (Flow syntax root Vitest
+  cannot parse), so the guard is a **compile-time** assertion in
+  `src/features/health/activity-types.ts` — proposing a runtime one is the
+  obvious mistake. Related: `queryWorkoutSamples` takes **no unit parameter**,
+  unlike every other read in `read.ts`, so `workout-units.ts` converts from the
+  unit each `Quantity` reports and yields null for an unrecognised one, which
+  becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
+  run stored as 5,000 metres would quietly corrupt every pace after it.
+
 **"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
 character has no noun — it is "your character", and the centre tab is `Character`;
 a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do

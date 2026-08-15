@@ -108,8 +108,27 @@ const buckets = Array.from({ length: 24 }, (_, hour) => {
   };
 });
 
+// One workout session, so the deployed function's newest write path is
+// exercised too. This is the same class of drift the outage was: a migration
+// adds a table, the deployed function does not know about it (or knows about a
+// column that has gone), and every test still passes because tests check the
+// source rather than the artifact.
+const sessions = [
+  {
+    hkUuid: `smoke-${userId}`,
+    localDate,
+    startedAt: new Date(Date.now() - 45 * 60_000).toISOString(),
+    endedAt: new Date().toISOString(),
+    // HKWorkoutActivityType.running — see challenge.ts.
+    activityType: 37,
+    durationS: 2_700,
+    distanceM: 7_400.5,
+    activeKcal: 512.25,
+  },
+];
+
 const { error: syncError } = await supabase.functions.invoke('sync-health', {
-  body: { timezone: TZ, buckets, sleep: [{ localDate, minutes: 420 }] },
+  body: { timezone: TZ, buckets, sleep: [{ localDate, minutes: 420 }], sessions },
 });
 if (syncError) {
   let body = '';
@@ -142,7 +161,24 @@ if (!profile || profile.agi_total <= 0) {
   fail('profiles', `rollups did not move: ${JSON.stringify(profile)}`);
 }
 
+const { data: workout, error: workoutError } = await supabase
+  .from('workout_sessions')
+  .select('activity_type, distance_m, active_kcal')
+  .eq('user_id', userId)
+  .eq('hk_uuid', `smoke-${userId}`)
+  .maybeSingle();
+if (workoutError) fail('workout_sessions', workoutError.message);
+if (!workout) {
+  fail(
+    'workout_sessions',
+    'sync accepted the payload but NO session row was written — the deployed ' +
+      'sync-health predates the workout_sessions migration, or the migration ' +
+      'has not been applied',
+  );
+}
+
 console.log(`score  ${JSON.stringify(score)}`);
 console.log(`rollup ${JSON.stringify(profile)}`);
-console.log('\nPASS — buckets, score and rollups agree.');
+console.log(`workout ${JSON.stringify(workout)}`);
+console.log('\nPASS — buckets, score, rollups and workout sessions agree.');
 cleanup();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_BUCKETS_PER_SYNC,
+  MAX_SESSIONS_PER_SYNC,
   affectedDates,
   isDayFlagged,
   observesWearable,
@@ -435,5 +436,138 @@ describe('validateSyncRequest — restingHeartRate', () => {
       .toBe(false);
     expect(validateSyncRequest(bodyWith([{ localDate: '2026-08-01' }])).ok).toBe(false);
     expect(validateSyncRequest(bodyWith('58')).ok).toBe(false);
+  });
+});
+
+describe('validateSyncRequest — workout sessions', () => {
+  function session(overrides: Record<string, unknown> = {}) {
+    return {
+      hkUuid: 'A1B2-C3D4',
+      localDate: DAY,
+      startedAt: '2026-07-27T09:00:00.000Z',
+      endedAt: '2026-07-27T09:45:00.000Z',
+      activityType: 37,
+      durationS: 2_700,
+      distanceM: 7_400.5,
+      activeKcal: 512.25,
+      ...overrides,
+    };
+  }
+
+  it('accepts a payload with no sessions at all', () => {
+    // The field is optional: a client that has not been updated, or a user who
+    // logs no workouts, must keep syncing steps exactly as before.
+    const result = validateSyncRequest(body());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.sessions).toEqual([]);
+  });
+
+  it('accepts a well-formed session', () => {
+    const result = validateSyncRequest(body({ sessions: [session()] }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sessions).toEqual([
+        {
+          hkUuid: 'A1B2-C3D4',
+          localDate: DAY,
+          startedAt: '2026-07-27T09:00:00.000Z',
+          endedAt: '2026-07-27T09:45:00.000Z',
+          activityType: 37,
+          durationS: 2_700,
+          distanceM: 7_400.5,
+          activeKcal: 512.25,
+        },
+      ]);
+    }
+  });
+
+  it('rejects a non-array sessions field', () => {
+    expect(validateSyncRequest(body({ sessions: 'nope' })).ok).toBe(false);
+  });
+
+  it('bounds how many sessions one request may carry', () => {
+    const many = Array.from({ length: MAX_SESSIONS_PER_SYNC + 1 }, () => session());
+    const result = validateSyncRequest(body({ sessions: many }));
+    expect(result).toEqual({
+      ok: false,
+      error: `too many sessions (max ${MAX_SESSIONS_PER_SYNC})`,
+    });
+  });
+
+  it('accepts exactly the limit', () => {
+    const many = Array.from({ length: MAX_SESSIONS_PER_SYNC }, (_, i) =>
+      session({ hkUuid: `uuid-${i}` }),
+    );
+    expect(validateSyncRequest(body({ sessions: many })).ok).toBe(true);
+  });
+
+  it('requires the HealthKit uuid, which is the primary key', () => {
+    expect(validateSyncRequest(body({ sessions: [session({ hkUuid: '' })] }))).toEqual({
+      ok: false,
+      error: 'session.hkUuid is required',
+    });
+    expect(validateSyncRequest(body({ sessions: [session({ hkUuid: 7 })] })).ok).toBe(false);
+  });
+
+  it('requires a YYYY-MM-DD local date', () => {
+    expect(
+      validateSyncRequest(body({ sessions: [session({ localDate: '27/07/2026' })] })),
+    ).toEqual({ ok: false, error: 'session.localDate must be YYYY-MM-DD' });
+  });
+
+  it('requires parseable timestamps on both ends', () => {
+    expect(validateSyncRequest(body({ sessions: [session({ startedAt: 'soon' })] }))).toEqual({
+      ok: false,
+      error: 'session.startedAt must be an ISO timestamp',
+    });
+    expect(validateSyncRequest(body({ sessions: [session({ endedAt: 42 })] }))).toEqual({
+      ok: false,
+      error: 'session.endedAt must be an ISO timestamp',
+    });
+  });
+
+  it('rejects an activity type the smallint column could not hold', () => {
+    // Caught here rather than at the insert: a failed insert would take down
+    // the whole sync, and this request also carries the day's steps.
+    for (const activityType of [-1, 40_000, 3.5, '37']) {
+      expect(validateSyncRequest(body({ sessions: [session({ activityType })] })).ok).toBe(
+        false,
+      );
+    }
+  });
+
+  it('rejects negative measurements', () => {
+    for (const field of ['durationS', 'distanceM', 'activeKcal']) {
+      const result = validateSyncRequest(body({ sessions: [session({ [field]: -1 })] }));
+      expect(result).toEqual({
+        ok: false,
+        error: `session.${field} must be a non-negative number`,
+      });
+    }
+  });
+
+  it('accepts a strength session with no distance', () => {
+    // `totalDistance` is absent on a lifting session, and `read.ts` sends 0.
+    const result = validateSyncRequest(body({ sessions: [session({ distanceM: 0 })] }));
+    expect(result.ok).toBe(true);
+  });
+
+  it('rounds to what the columns can store', () => {
+    // duration_s is an integer; the other two are numeric(10, 2). Rounding here
+    // means the stored value is the value that was sent, rather than one
+    // Postgres silently rounded on the way in.
+    const result = validateSyncRequest(
+      body({
+        sessions: [session({ durationS: 2_700.6, distanceM: 7_400.567, activeKcal: 512.254 })],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sessions![0]).toMatchObject({
+        durationS: 2_701,
+        distanceM: 7_400.57,
+        activeKcal: 512.25,
+      });
+    }
   });
 });

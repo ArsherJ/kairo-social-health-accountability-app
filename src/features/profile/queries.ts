@@ -47,6 +47,13 @@ export type Profile = {
   weight_kg: number | null;
   birth_year: number | null;
   sex: 'male' | 'female' | 'other' | null;
+  /**
+   * Opted into each Challenge area, both off by default (§7.9 of the
+   * solo-mode design). Off means the area is not shown as a live challenge at
+   * all — a non-runner never meets a permanently unmet Run card.
+   */
+  trains_run: boolean;
+  trains_strength: boolean;
 };
 
 export function profileKey(userId: string | undefined) {
@@ -63,7 +70,8 @@ export function useProfile(userId: string | undefined) {
         .select(
           'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
             'agi_total, str_total, end_total, vit_total, ' +
-            'is_legendary, height_cm, weight_kg, birth_year, sex',
+            'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
+            'trains_run, trains_strength',
         )
         .eq('id', userId as string)
         .maybeSingle();

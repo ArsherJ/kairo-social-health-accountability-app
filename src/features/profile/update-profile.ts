@@ -15,6 +15,9 @@ export type ProfileEdit = {
   weight_kg?: number | null;
   birth_year?: number | null;
   sex?: 'male' | 'female' | 'other' | null;
+  /** Challenge opt-ins (§7.9). Granted by 20260815120000. */
+  trains_run?: boolean;
+  trains_strength?: boolean;
 };
 
 const INSUFFICIENT_PRIVILEGE = '42501';

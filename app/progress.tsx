@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { CORE_STATS } from '@kairo/core';
+import { STAT_WHY } from '@/features/character/stat-detail.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, Screen, Text } from '@/ui/index.ts';
+import { BackRow, Screen, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 /**
  * How progress works — one place, four ideas.
@@ -79,6 +81,41 @@ export default function ProgressHelp() {
         </View>
       ))}
 
+      {/* The four stats, and why each one is worth measuring. Kairo has always
+          had this reasoning in its spec and has never said it out loud — the
+          stats read as arbitrary game currencies without it. This is the sheet
+          for it: the reader is already here asking what the numbers mean. */}
+      <Text style={styles.sectionTitle}>What each stat is for</Text>
+
+      {CORE_STATS.map((stat) => (
+        // One element per stat, not three stops. The glyph hides itself and the
+        // name is repeated in the label, so the composed sentence is the whole
+        // announcement. Children are hidden explicitly as well as the parent
+        // being marked accessible — neither half is redundant (CLAUDE.md).
+        <View
+          key={stat}
+          style={styles.stat}
+          accessible
+          accessibilityLabel={`${STAT_NAMES[stat]}. ${STAT_WHY[stat]}`}
+        >
+          <View
+            style={styles.statHead}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <StatIcon stat={stat} size={16} color={colors.accent} />
+            <Text style={styles.statName}>{STAT_NAMES[stat]}</Text>
+          </View>
+          <Text
+            style={styles.body}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            {STAT_WHY[stat]}
+          </Text>
+        </View>
+      ))}
+
       <Text style={styles.footnote}>
         Bonuses sit on top of the daily score: a little extra for moving in all
         four stats on one day, and for sleeping well if Kairo can see it.
@@ -114,6 +151,17 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     lineHeight: 21,
   },
+  sectionTitle: {
+    color: colors.text,
+    ...font.body.title,
+    marginTop: space.xl,
+  },
+  // Tighter than `entry`: these are four short lines under one heading, not
+  // four independent definitions, so they read as a list rather than as four
+  // more sections. No border — the heading above already divides them off.
+  stat: { marginTop: space.md },
+  statHead: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  statName: { color: colors.text, ...font.body.label, textTransform: 'uppercase' },
   footnote: {
     color: ramp.neutral[600],
     ...font.body.body,

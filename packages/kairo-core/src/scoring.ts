@@ -72,6 +72,26 @@ const THRESHOLDS: Record<CoreStat, Record<Exclude<Tier, 'none'>, number>> = {
   VIT: { bronze: 3, silver: 6, gold: 9 },
 };
 
+/**
+ * The public-health daily step baseline — the number the Daily Walk is drawn
+ * against.
+ *
+ * **Derived, never written as a literal.** It is exactly the AGI Gold
+ * threshold, and that identity is what lets the walk streak read
+ * `tiers->>'AGI' = 'gold'` out of `daily_scores` instead of needing a raw step
+ * count nothing stores. Writing `10_000` here twice is how the streak would
+ * silently start meaning something else the day a band moved — the same
+ * arrangement `STAT_POINTS_MAX` already has with `TIER_POINTS`.
+ *
+ * The derivation is only half the guard, because it is *too* obedient: this
+ * baseline is a public-health number that must never scale with the user
+ * (spec §5 of the solo-mode design), so a raised Gold silently dragging it
+ * upward would be exactly as wrong as it going stale. `scoring.test.ts` pins
+ * it at 10,000 for that reason — raise Gold and the test fails, and a human
+ * decides whether the baseline moves with it. It almost certainly should not.
+ */
+export const DAILY_STEP_BASELINE = THRESHOLDS.AGI.gold;
+
 /** Indexed by how many core stats contributed. Rewards breadth over specialisation. */
 const CONSISTENCY_BONUS: readonly number[] = [0, 0, 150, 400, 800];
 
