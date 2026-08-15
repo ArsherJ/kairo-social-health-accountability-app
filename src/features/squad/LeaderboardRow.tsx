@@ -1,10 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
-import { boostChipLabel } from './program-copy.ts';
 import { leaderboardRowLabel } from './row-label.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Avatar, Numeral, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
+import { Avatar, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 /**
  * One squadmate.
@@ -25,17 +24,13 @@ import { Avatar, Numeral, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 export function LeaderboardRow({
   row,
   mode,
+  gap,
 }: {
   row: Row;
   mode: LeaderboardMode;
+  gap: number | null;
 }) {
   const isLeader = row.rank === 1;
-
-  // Only on your own row. The character screen shows the *unweighted* total
-  // for the same day — stored scores are program-independent (deviation #11) —
-  // so anyone who compares the two numbers will find them different. The chip
-  // is the explanation; hiding the gap would cost trust in the score.
-  const boost = row.is_self ? boostChipLabel(row.program) : null;
 
   return (
     <View
@@ -56,7 +51,7 @@ export function LeaderboardRow({
         characterName: row.character_name,
         isSelf: row.is_self,
         level: row.level,
-        total: row.total,
+        gap,
         ratings: Object.fromEntries(
           CORE_STATS.filter((stat) => row.ratings?.[stat] !== undefined).map((stat) => [
             stat,
@@ -69,7 +64,6 @@ export function LeaderboardRow({
         ...(mode === 'current' ? { streakDays: row.current_streak } : {}),
         provisional: mode === 'completed' && row.status === 'provisional',
         flagged: row.flagged,
-        boost,
         statNames: STAT_NAMES,
       })}
       style={[
@@ -146,14 +140,6 @@ export function LeaderboardRow({
             </View>
           )}
 
-          {boost && (
-            <View style={styles.boostChip}>
-              <Text scale="fixed" style={styles.boostLabel}>
-                {boost}
-              </Text>
-            </View>
-          )}
-
           <View style={styles.ratings}>
             {CORE_STATS.map((stat) => {
               // The RPC returns lifetime POINTS; the curve lives in
@@ -178,12 +164,14 @@ export function LeaderboardRow({
         </View>
       </View>
 
+      {/* Relative, not absolute. The leader has nothing above them, so the
+          column is empty rather than showing a zero that reads as a score. */}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Numeral
-          value={row.total}
-          size="minor"
-          color={row.is_self ? ramp.accent[800] : colors.text}
-        />
+        {gap !== null && gap > 0 && (
+          <Text scale="fixed" style={styles.gap}>
+            −{gap.toLocaleString()}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -209,6 +197,7 @@ const styles = StyleSheet.create({
   // but a scaled rank glyph grows the box instead of being clipped by it.
   rank: { ...font.display.minor, minWidth: 18, color: ramp.neutral[600] },
   rankSelf: { color: ramp.accent[800] },
+  gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[600] },
   middle: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   name: { ...font.display.small, fontSize: 17, color: colors.text, flexShrink: 1 },
@@ -229,14 +218,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   flagged: { ...font.body.label, fontSize: 9, color: ramp.accent[900] },
-  boostChip: {
-    backgroundColor: ramp.sage[300],
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: radius.pill,
-  },
-  boostLabel: { ...font.body.label, fontSize: 9, color: ramp.sage[900] },
-  // Wraps rather than truncating: four ratings plus a streak plus a boost chip
+  // Wraps rather than truncating: four ratings plus a streak plus a flagged chip
   // can outrun a phone's width, and a clipped ability number is worse than a
   // second line. The glyphs bought this line real room back — a footprint is
   // narrower than "AGI" — so it wraps in fewer cases than it used to, but the
