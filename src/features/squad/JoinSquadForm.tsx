@@ -10,12 +10,30 @@ import { BackRow, Button, Label, Panel, Text } from '@/ui/index.ts';
 export function JoinSquadForm({
   userId,
   onCancel,
+  initialCode,
+  notice,
 }: {
   userId: string | undefined;
   onCancel: () => void;
+  /**
+   * Prefilled from a `/join/<code>` universal link. Seeded rather than
+   * submitted automatically: a link can be stale, wrong, or tapped by someone
+   * who did not mean to join, and a form the user confirms is the difference
+   * between an accelerator and a trap.
+   */
+  initialCode?: string;
+  /**
+   * Why the field is empty when the user expected it filled. Set only by the
+   * link route, and only when the link carried nothing usable — a blank form
+   * after tapping an invite reads as the app losing the code.
+   */
+  notice?: string;
 }) {
   const joinSquad = useJoinSquad(userId);
-  const [code, setCode] = useState('');
+  // A lazy initialiser, not a `useEffect`: seeding from an effect would run
+  // again on any re-render that changed the prop, wiping whatever the user had
+  // typed over it.
+  const [code, setCode] = useState(() => initialCode ?? '');
 
   // isValidInviteCode normalises first, so `AB1-2CD` and `ab1 2cd` are both
   // accepted — people retype codes from screenshots and group chats.
@@ -59,13 +77,20 @@ export function JoinSquadForm({
         <Label>JOIN A SQUAD</Label>
         <Text style={styles.title}>Enter the code.</Text>
         <Text style={styles.help}>
-          Six characters, from whoever runs the squad. Dashes and spaces are fine.
+          {initialCode
+            ? 'From the link you tapped. Check it against what you were sent, then join.'
+            : 'Six characters, from whoever runs the squad. Dashes and spaces are fine.'}
         </Text>
+
+        {notice && <Text style={styles.notice}>{notice}</Text>}
 
         <TextInput
           value={code}
           onChangeText={setCode}
-          autoFocus
+          // Not when the code arrived from a link: the keyboard would cover
+          // the squad preview, which is the whole reason to confirm rather
+          // than auto-submit.
+          autoFocus={!initialCode}
           autoCapitalize="characters"
           autoCorrect={false}
           autoComplete="off"
@@ -174,6 +199,9 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   error: { color: colors.damage, ...font.body.body, marginTop: space.md },
+  // Muted, not `damage`: nothing has failed, the link just carried nothing to
+  // fill in. Red here would read as an error the user caused.
+  notice: { color: colors.muted, ...font.body.body, marginTop: space.md, lineHeight: 20 },
   previewCard: {
     marginTop: space.lg,
     padding: space.md,

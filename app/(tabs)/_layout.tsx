@@ -5,6 +5,7 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
+import { usePendingInvite } from '@/features/squad/usePendingInvite.ts';
 import { useMyGoals } from '@/features/goals/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
@@ -33,6 +34,12 @@ export default function TabsLayout() {
   // and a tap that launched the app cold is still waiting in
   // `useLastNotificationResponse()` by the time we get here.
   useNotificationRouting();
+
+  // Here for exactly the same reason, and it is the reason: a universal link
+  // tapped by somebody with no account stashes its code and gets bounced to
+  // sign-in. This layout mounting is the proof that they came back with a
+  // profile, which is the only moment the code can be spent.
+  usePendingInvite();
 
   // Mounted at the shell rather than on one screen: the ask is keyed to what
   // has happened to the user, not to where they happen to be standing. The
