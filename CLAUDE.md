@@ -99,6 +99,42 @@ Three things that are easy to break by accident:
   `invite-message.ts` read, and changing it breaks every link already shared.
   Runbook: `web/README.md`.
 
+**A new account does not see the whole app, as of 2026-08-17** (deviations
+#37–#39). `disclosureStage()` in `@kairo/core` returns `core` below
+`DISCLOSURE_THRESHOLD_DAYS` and `full` at or above it; `TrainEntry`, `GoalCard`,
+`StatRail` and the Strain/Sleep rows are hidden in `core`. Nothing is deleted —
+every gated surface stays built and reachable, which is what makes this cheap to
+reverse. Four things break easily:
+
+- **The threshold is pinned by a test and gates on *lifetime* scored days**,
+  never a recent window — a recent-activity gate would demote someone returning
+  from a quiet week back into the reduced app, and that user is exactly who the
+  retention measurement is about. `useScoredDayCount` filters `total > 0` for a
+  related reason: `sync-health` writes a `daily_scores` row per date in the
+  payload whether or not it scored and `resolveSyncWindow` always sends today
+  *and* yesterday, so a bare row count reads 2 on install and would open the
+  gate on day 1 for someone who has done nothing.
+- **Hiding an entry point is not closing a door.** `/train`, `/goal/new` and
+  `SquadGoalPanel` check the stage themselves, because push routing and deep
+  links reach all three regardless of the home screen. **The two routes gate on
+  `resolved && stage === 'core'`, not on the stage alone** — the stage reads
+  `core` while the count is in flight, which is correct for hiding a card and
+  wrong for a redirect: a Challenge push that cold-launches into `/train` has no
+  cached count, and bouncing a `full` user home on that frame reads exactly like
+  the feature being removed. Hide on `stage`, navigate on `resolved && stage`.
+- **Onboarding is `/connect` → `/character` → `/name`**, and the profile row
+  still commits exactly once, on the last screen. Add steps *before* the name,
+  never after — that is still deviation #22's deleted flag. `/connect` reads
+  HealthKit **locally** via `readStepsToday` against the *device* zone, because
+  no profile row and therefore no `profiles.timezone` exists yet; that is the
+  whole reason the reveal can work that early.
+- **`syncStatus`'s `'no-data'` never shadows `'failed'`** (the 9–11 Aug outage
+  class) or `'stale'`, and it waits `QUIET_GRACE_MS` from `SyncState.firstSyncedAt`
+  — stamped once, never overwritten. Without the window it accuses someone who
+  connected at 8am with 200 steps, which is the same false accusation the state
+  exists to remove. HealthKit does not report read-permission denial, so the app
+  can only ever say nothing has arrived, never that the user declined.
+
 **"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
 character has no noun — it is "your character", and the centre tab is `Character`;
 a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do
