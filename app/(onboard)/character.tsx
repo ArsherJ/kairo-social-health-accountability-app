@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSessionStore } from '@/features/auth/session.ts';
 import type { CharacterBody } from '@/features/profile/character-body.ts';
-import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Text } from '@/ui/index.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 
 /**
- * The first thing anyone sees after signing in.
+ * The second onboarding screen: `/connect` → here → `/name`.
  *
  * §5's onboarding philosophy is "Character First" — name and character on
  * screen inside 60 seconds, for the emotional investment. Until now the first
  * screen was a text field; meeting the two characters and picking one is closer
  * to what that section describes.
+ *
+ * It was the first screen until 2026-08-17, when the Health ask moved ahead of
+ * it so the name screen could land on a home tab with real numbers rather than
+ * zeroes. `onboarding_started` went with it — the event names the start of
+ * onboarding, not this particular screen.
  *
  * **This screen writes nothing.** The choice rides to the name screen as a
  * route param and lands in the single INSERT there. That ordering is
@@ -32,16 +35,7 @@ const CHOICES: { body: CharacterBody; art: number }[] = [
 export default function ChooseCharacter() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const session = useSessionStore((s) => s.session);
-  const userId = session?.user.id;
   const [chosen, setChosen] = useState<CharacterBody | null>(null);
-
-  // The first onboarding screen today. Plan 2 inserts /connect ahead of it and
-  // moves this call there — the event names the start of onboarding, not this
-  // particular screen.
-  useEffect(() => {
-    void track(userId, 'onboarding_started');
-  }, [userId]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + space.xl }]}>

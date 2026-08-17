@@ -3,7 +3,7 @@ import {
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
 } from '@kingstinct/react-native-healthkit';
-import { currentLocalDate } from '@kairo/core';
+import { currentLocalDate, dayEndUtc, dayStartUtc } from '@kairo/core';
 import { hourlySampleInstants } from './intervals.ts';
 import { sleepMinutesByDate, type SleepSegment } from './sleep-attribution.ts';
 import { kcalFrom, metresFrom, secondsFrom } from './workout-units.ts';
@@ -90,6 +90,57 @@ export interface HealthReadResult {
   sleep: Array<{ localDate: string; minutes: number }>;
   /** One per local day that had a reading. Wearable users only. */
   restingHeartRate: Array<{ localDate: string; bpm: number }>;
+}
+
+/**
+ * Today's steps, straight from HealthKit, for the onboarding connect screen.
+ *
+ * **The one read in this file that answers a question the server cannot.** Every
+ * other path here feeds `sync-health`, and the app reads the result back out of
+ * `health_buckets`. `/connect` runs before a profile row exists — so there is
+ * nothing for a bucket to hang from, no `profiles.timezone` to key a local day
+ * by, and no server answer to wait for. It reads the phone directly and shows
+ * the number, which is the entire reason the Health ask moved to the front.
+ *
+ * Deliberately not `readHealthWindow`. That reads distance, calories, exercise
+ * minutes, heart rate, workouts and sleep across two days to produce a bucket
+ * payload; this needs one figure, immediately, on a screen the user is standing
+ * on with the permission sheet just dismissed.
+ *
+ * `unit: 'count'` for the same reason every read here is explicit: omitting it
+ * returns the user's *preferred* unit. Steps have no plausible alternative unit,
+ * but the rule holds without exceptions or it is not a rule.
+ *
+ * **A zero is a real answer** — a new phone, or one left on a desk — so this
+ * returns a number and never null. Whether the call *threw* is the caller's
+ * only failure signal, and the connect screen treats a throw and a zero
+ * identically: both mean "nothing to show yet", and neither is an error the
+ * user did anything about.
+ */
+export async function readStepsToday(timeZone: string): Promise<number> {
+  const today = currentLocalDate(new Date(), timeZone);
+  const from = dayStartUtc(today, timeZone);
+  const to = dayEndUtc(today, timeZone);
+
+  // A single bucket spanning the whole local day, rather than the hourly
+  // collection the sync path builds: nothing here needs the shape of the day,
+  // only its total.
+  const collection = await queryStatisticsCollectionForQuantity(
+    'HKQuantityTypeIdentifierStepCount',
+    ['cumulativeSum'],
+    from,
+    { day: 1 },
+    { filter: { date: { startDate: from, endDate: to } }, unit: 'count' },
+  );
+
+  // Summed rather than indexed at [0]. An interval anchored at local midnight
+  // lands on one bucket in every zone Kairo serves, but a half-hour-offset zone
+  // is exactly where that assumption has bitten this codebase before, and
+  // summing is correct whether the answer arrives in one bucket or two.
+  return collection.reduce(
+    (total, interval) => total + finite(interval.sumQuantity?.quantity),
+    0,
+  );
 }
 
 export async function readHealthWindow(

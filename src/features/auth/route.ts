@@ -53,7 +53,7 @@ export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
 export function redirectTarget(input: {
   route: AppRoute;
   group: string | undefined;
-}): '/sign-in' | '/character' | '/name' | '/' | null {
+}): '/sign-in' | '/connect' | '/character' | '/name' | '/' | null {
   switch (input.route) {
     case 'loading':
     case 'profile-error':
@@ -63,10 +63,17 @@ export function redirectTarget(input: {
     case 'signed-out':
       return input.group === '(auth)' ? null : '/sign-in';
     case 'needs-profile':
-      // The *first* onboarding screen. The name screen is the second and is
-      // reached by pushing from it with the choice as a param — never by this
-      // gate, which only ever knows "has no profile row yet".
-      return input.group === '(onboard)' ? null : '/character';
+      // The *first* onboarding screen: `/connect` → `/character` → `/name`.
+      // Health is asked before the character is chosen so the name screen can
+      // land on a home tab with real numbers rather than zeros. The later
+      // screens are reached by pushing, never by this gate, which only knows
+      // "has no profile row yet".
+      //
+      // Every step stays *before* the name screen on purpose. The profile row
+      // commits exactly once, there; anything asked after that INSERT flips
+      // resolveRoute to 'ready' under an unfinished screen and needs deviation
+      // #22's deleted `finishingOnboarding` flag back.
+      return input.group === '(onboard)' ? null : '/connect';
     case 'ready':
       // Anywhere except the two shells a ready user has finished with. Written
       // as a denylist rather than `group === '(tabs)'` on purpose: stacked

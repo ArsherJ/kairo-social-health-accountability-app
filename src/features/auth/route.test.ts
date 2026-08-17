@@ -88,19 +88,27 @@ describe('redirectTarget', () => {
     expect(at('signed-out', '(auth)')).toBeNull();
   });
 
-  it('sends a user with no profile to the character choice, and leaves them there', () => {
-    // The choice screen is the *first* onboarding step and the name screen is
-    // the second, but the gate only ever knows "has no profile row yet" — so
-    // it targets the first, and the (onboard) branch covers both.
+  it('sends a user with no profile to the connect screen, the first onboarding step', () => {
+    // Onboarding is /connect -> /character -> /name. The gate only ever knows
+    // "has no profile row yet", so it targets the first, and the (onboard)
+    // branch covers all three.
     //
-    // Onboarding is two screens again, and the profile still commits exactly
-    // once, on the second. The order is what makes that safe: deviation #22
-    // deleted the `finishingOnboarding` flag because a row committing on step
-    // 1 flipped resolveRoute to 'ready' underneath step 2. Asking anything
-    // after the INSERT needs that flag back.
-    expect(at('needs-profile', '(auth)')).toBe('/character');
-    expect(at('needs-profile', '(tabs)')).toBe('/character');
-    expect(at('needs-profile', undefined)).toBe('/character');
+    // Health moved to the front on 2026-08-17 so the name screen lands on a
+    // home tab with real numbers rather than a dashboard of zeroes.
+    expect(at('needs-profile', '(auth)')).toBe('/connect');
+    expect(at('needs-profile', '(tabs)')).toBe('/connect');
+    expect(at('needs-profile', undefined)).toBe('/connect');
+  });
+
+  it('leaves a user already inside the onboarding group alone', () => {
+    // /connect pushes to /character which pushes to /name. The gate must not
+    // bounce anyone back to step one mid-flow.
+    //
+    // Every step stays *before* the name screen, where the profile row commits
+    // exactly once. Deviation #22 deleted the `finishingOnboarding` flag
+    // because a row committing on step 1 flipped resolveRoute to 'ready'
+    // underneath a later screen; asking anything after the INSERT needs that
+    // flag back.
     expect(at('needs-profile', '(onboard)')).toBeNull();
   });
 
