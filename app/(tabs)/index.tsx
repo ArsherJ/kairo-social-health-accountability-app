@@ -25,6 +25,7 @@ import {
   useTodayScore,
 } from '@/features/character/queries.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { resolveStanding, type Standing } from '@/features/character/standing.ts';
 import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
@@ -118,6 +119,20 @@ function ordinal(n: number): string {
   }
 }
 
+/**
+ * Small counts, spelled. "Two more active days" is a sentence; "2 more active
+ * days" is a readout, and this line sits directly under a card whose whole job
+ * is a figure — the numeral would compete with the one number that matters.
+ *
+ * Only ever called with 1..DISCLOSURE_THRESHOLD_DAYS, so the fallback is for a
+ * raised threshold rather than for real input.
+ */
+const COUNT_WORDS = ['zero', 'one', 'Two', 'Three', 'Four', 'Five', 'Six'] as const;
+
+function countWord(n: number): string {
+  return COUNT_WORDS[n] ?? String(n);
+}
+
 function standingCopy(standing: Standing): string | null {
   switch (standing.kind) {
     case 'unknown':
@@ -182,6 +197,14 @@ export default function Character() {
   // a user who just connected a watch would otherwise wait a render for it.
   const vitals = useTodayVitals(session?.user.id, profile.data?.timezone);
   const streak = useStreak(session?.user.id);
+
+  // What this account is allowed to see yet (§5). Everything gated below stays
+  // built and reachable — this decides whether it is on screen, nothing more.
+  //
+  // Not destructured to a bare `stage`: this screen already has one, and it is
+  // `evolutionStageForLevel`'s. Two unrelated "stages" one line apart is the
+  // kind of collision that gets resolved by whichever import was written last.
+  const disclosure = useDisclosure(session?.user.id);
 
   // TanStack shares this cache with the Squad tab, so composing these two
   // queries here costs no extra request.
@@ -373,7 +396,10 @@ export default function Character() {
               )}
             </View>
 
-            {!score.isPending && (
+            {/* Four ability ratings are four numbers with no scale beside
+                them until there are days behind them, so the rail — and the
+                per-stat block it expands — waits for `full` (§5). */}
+            {disclosure.stage === 'full' && !score.isPending && (
               <View style={styles.railRow}>
                 <StatRail
                   ratings={lifetime}
@@ -478,14 +504,19 @@ export default function Character() {
               hero total on 2026-08-15, since it existed only to reconcile the
               stat coins against a number no longer on screen.
 
-              Strain and Sleep appear only with a wearable (§5). */}
+              Strain and Sleep appear only with a wearable (§5) — and, since
+              2026-08-17, only at the `full` disclosure stage. That is one
+              condition on `hasWearable` below rather than a second wrapper:
+              two gates in two places is how a surface ends up half-hidden. */}
           <TodayPanel
             totals={buckets.data?.totals}
             hourlyAvgHr={buckets.data?.hourlyAvgHr}
             restingHr={vitals.data?.restingHr}
             birthYear={profile.data?.birth_year}
             sleepMinutes={vitals.data?.sleepMinutes}
-            hasWearable={profile.data?.has_wearable ?? false}
+            hasWearable={
+              disclosure.stage === 'full' && (profile.data?.has_wearable ?? false)
+            }
             today={
               profile.data?.timezone
                 ? currentLocalDate(new Date(), profile.data.timezone)
@@ -498,7 +529,10 @@ export default function Character() {
               sync" is the most useful thing on the screen. */}
           <SyncStatus />
 
-          {expanded && (
+          {/* Unreachable in `core` anyway — `expanded` is only ever set by
+              StatRail, which is gated above — but stated rather than implied,
+              so removing that gate later cannot silently bring this back. */}
+          {disclosure.stage === 'full' && expanded && (
             <View style={styles.detailBlock}>
               {CORE_STATS.map((stat) => (
                 <StatBar
@@ -546,32 +580,72 @@ export default function Character() {
             todaySteps={buckets.data?.totals?.steps}
           />
 
+          {/* What the walk above is building toward. An empty space where two
+              cards used to be reads as a missing feature, so `core` says what
+              is coming — named against the Daily Walk directly above it rather
+              than as a bare countdown, because "active day" is the thing the
+              gate actually counts and the card is where you earn one.
+
+              No accessibilityLabel: it is already text, and a label would
+              duplicate it. */}
+          {disclosure.stage === 'core' && (
+            <Text style={styles.disclosureNote}>
+              {disclosure.daysToGo === 1
+                ? 'One more active day and goals, challenges and your full stat breakdown open up.'
+                : `${countWord(disclosure.daysToGo)} more active days and goals, ` +
+                  'challenges and your full stat breakdown open up.'}
+            </Text>
+          )}
+
           {/* The door to Challenges, between the floor everyone shares and the
               commitment this user chose. It shows the live target as text so
               the mechanic is legible without navigating — for a new user that
               reads as "Log one run of 1 km", which is an invitation. */}
-          <TrainEntry
-            userId={session?.user.id}
-            timeZone={profile.data?.timezone}
-            today={
-              profile.data?.timezone
-                ? currentLocalDate(new Date(), profile.data.timezone)
-                : undefined
-            }
-          />
+          {disclosure.stage === 'full' && (
+            <TrainEntry
+              userId={session?.user.id}
+              timeZone={profile.data?.timezone}
+              today={
+                profile.data?.timezone
+                  ? currentLocalDate(new Date(), profile.data.timezone)
+                  : undefined
+              }
+            />
+          )}
 
           {/* The slot the sabotage callout left. A commitment belongs below the
               day's numbers, not among them: today's score is a fact, and this is
               a promise measured against it. */}
-          <GoalCard
-            userId={session?.user.id}
-            today={
-              profile.data?.timezone
-                ? currentLocalDate(new Date(), profile.data.timezone)
-                : undefined
-            }
-            onSetGoal={() => router.push('/goal/new')}
-          />
+          {disclosure.stage === 'full' && (
+            <GoalCard
+              userId={session?.user.id}
+              today={
+                profile.data?.timezone
+                  ? currentLocalDate(new Date(), profile.data.timezone)
+                  : undefined
+              }
+              onSetGoal={() => router.push('/goal/new')}
+            />
+          )}
+
+          {/* `/progress` is reached through the expanded stat block in `full`,
+              which `core` does not have — leaving a first-time user with no
+              explanation of anything on the screen they understand least. So
+              the link renders here instead, at the one stage that needs it
+              most. It is the same destination, not a second help surface. */}
+          {disclosure.stage === 'core' && (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="How progress works"
+              hitSlop={space.sm}
+              onPress={() => router.push('/progress')}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <Text style={[styles.helpLink, styles.helpLinkCentred]}>
+                How progress works
+              </Text>
+            </Pressable>
+          )}
 
           <FirstSyncCallout
             userId={session?.user.id}
@@ -692,5 +766,19 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: space.md,
     alignSelf: 'flex-start',
+  },
+  // Centred in `core` because it is the last thing on a short page rather than
+  // a footnote to an expanded block — a left-aligned link under nothing reads
+  // as an orphan.
+  helpLinkCentred: { alignSelf: 'center', textAlign: 'center' },
+  // `prose` scale by default and no fixed height, so this may grow freely — it
+  // sits in a ScrollView with nothing drawn around it.
+  disclosureNote: {
+    ...font.body.body,
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: space.md,
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });
