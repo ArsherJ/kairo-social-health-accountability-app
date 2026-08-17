@@ -128,6 +128,48 @@ export function useDominantStat(
   });
 }
 
+/** Cache key for the account's lifetime scored-day count. */
+export function scoredDayCountKey(userId: string | undefined) {
+  return ['scored-day-count', userId] as const;
+}
+
+/**
+ * How many days this account has ever scored **above zero**.
+ *
+ * The `total > 0` filter is load-bearing, not tidiness. `sync-health` writes a
+ * `daily_scores` row for every date in the payload whether or not it scored,
+ * and `resolveSyncWindow` always sends today *and* yesterday
+ * (`ROUTINE_WINDOW_DAYS = 2`). So a bare row count reads 2 the moment a user
+ * installs and syncs once, and 3 the next day — meaning the disclosure gate
+ * would open on day 1 for someone who has done nothing, which is the whole
+ * design defeated. Counting real days makes the threshold mean what it says.
+ *
+ * A `head: true` count rather than a select: the rows themselves are never
+ * needed, only how many there are, and a user a year in has 365 of them.
+ * Clients hold SELECT on their own `daily_scores` rows, so this needs no RPC.
+ *
+ * Feeds `disclosureStage`, so it is deliberately a **lifetime** count and not a
+ * windowed one — see the note in `packages/kairo-core/src/disclosure.ts`. Its
+ * second reader is `SyncStatus`, which asks the same question for a different
+ * reason: "has anything ever arrived from Apple Health".
+ */
+export function useScoredDayCount(userId: string | undefined) {
+  return useQuery({
+    queryKey: scoredDayCountKey(userId),
+    enabled: userId !== undefined,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('daily_scores')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId as string)
+        .gt('total', 0);
+
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    },
+  });
+}
+
 /**
  * Today's step count, summed from the caller's own hourly buckets.
  *

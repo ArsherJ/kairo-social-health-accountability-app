@@ -5,7 +5,11 @@ import type { Milestone } from './milestones.ts';
  * needs, since MMKV has no prefix-delete. Kept beside `Milestone` itself
  * rather than derived, because there is no runtime list to derive it from —
  * `Milestone` is a type, not a value. */
-const ALL_MILESTONES: readonly Milestone[] = ['first_sync_seen', 'first_score_seen'];
+const ALL_MILESTONES: readonly Milestone[] = [
+  'first_sync_seen',
+  'first_score_seen',
+  'disclosure_unlocked',
+];
 
 /**
  * Which once-ever events this account has already recorded.

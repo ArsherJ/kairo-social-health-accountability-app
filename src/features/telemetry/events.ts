@@ -40,10 +40,11 @@ export type AppEventType =
   | 'squad_created'
   | 'squad_joined'
   | 'goal_created'
-  // Declared, fired nowhere, on purpose: the gate this belongs to (§7.1's
-  // `/connect`) is a later plan's work, not this one's. The vocabulary entry
-  // lands now so that plan only has to wire a call site — do not read the
-  // absence of a call site here as a bug.
+  // Fired by `useDisclosure` the first time an account crosses
+  // `DISCLOSURE_THRESHOLD_DAYS` scored days. Once-ever, marked in MMKV: the
+  // stage is *derived* from a day count rather than stored, so without the
+  // marker this would re-fire on every launch afterwards and become a launch
+  // counter. It is the first honest read on whether the core loop holds.
   | 'disclosure_unlocked';
 
 /**
