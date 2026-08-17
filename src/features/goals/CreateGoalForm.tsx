@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { addDays, goalWindowDays } from '@kairo/core';
+import { addDays, goalWindowDays, type GoalMetric } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { BackRow, Button, Label, Text } from '@/ui/index.ts';
 import { useCreateGoal } from './mutations.ts';
@@ -56,6 +56,18 @@ function dateOfIso(localDate: string): Date {
  * (`target` / `required_days`), and this screen is where the difference is made
  * legible.
  *
+ * **The metric is asked first, and choosing the Daily Walk makes the form
+ * shorter.** That is the argument of the whole change, made structural: the
+ * old first question was a points target the user had no way to evaluate
+ * before typing it, so the number was arbitrary and missing it read as the
+ * algorithm's fault. A walk goal asks for one number — how many days — and it
+ * is answerable by looking at the streak already on the home shelf.
+ *
+ * The metric also comes first because it changes what the *kind* means: under
+ * points, "A total" is a sum of scores; under walks it is a count of days. So
+ * the question that reconfigures the form is the one at the top, and the kind
+ * chips' notes are written per metric rather than once.
+ *
  * The submit button is **pinned**, not the last thing in the scroll. Picking
  * "Most days" adds two fields, which pushed it off the bottom of the screen —
  * hand-testing read that as the form having no submit at all. A footer also
@@ -81,7 +93,14 @@ export function CreateGoalForm({
   const createGoal = useCreateGoal(userId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [kind, setKind] = useState<Kind>('cumulative');
+  // The Daily Walk is the default because it is the one a user can evaluate
+  // before committing to it. Points remain reachable, and stay the metric of
+  // every goal set before this screen offered a choice.
+  const [metric, setMetric] = useState<GoalMetric>('daily_walk');
+  // Consistency to match, since "clear the walk most days" is the commitment
+  // people actually mean by a walk goal. A points goal still opens on "A
+  // total", which is the one people mean by that.
+  const [kind, setKind] = useState<Kind>('consistency');
   const [span, setSpan] = useState<Span>('preset');
   const [presetDays, setPresetDays] = useState<number>(30);
   const [customEnd, setCustomEnd] = useState<string>(() => addDays(today, 29));
@@ -120,8 +139,40 @@ export function CreateGoalForm({
   const targetNumber = Number.parseInt(target, 10);
   const daysNumber = Number.parseInt(requiredDays, 10);
 
+  /**
+   * Whether the user has a number to type at all.
+   *
+   * False for exactly one combination — a walk goal counted over most days —
+   * because its bar is "cleared the Daily Walk", which is a boolean and not
+   * something to fill in. That row stores `target: 1` as a sentinel, since the
+   * column requires a positive value.
+   */
+  const needsTarget = metric === 'daily_score' || kind === 'cumulative';
+
+  /**
+   * What the one number is, said in the unit the user chose.
+   *
+   * One string used as both the heading and the field's accessible name, so
+   * they cannot drift — a screen reader announcing "Points to reach" over a
+   * walk goal would be describing a different product.
+   */
+  const targetLabel =
+    metric === 'daily_walk'
+      ? 'Daily Walks to reach'
+      : kind === 'cumulative'
+        ? 'Points to reach'
+        : 'Points to clear each day';
+
+  // A month of walking, roughly, against a month of scoring. Both are plausible
+  // rather than aspirational: a placeholder is read as a suggestion.
+  const targetPlaceholder =
+    metric === 'daily_walk' ? '20' : kind === 'cumulative' ? '60000' : '2500';
+
   const titleOk = title.trim().length >= 1 && title.trim().length <= TITLE_MAX;
-  const targetOk = Number.isFinite(targetNumber) && targetNumber > 0;
+  // Skipped rather than defaulted when there is no field: validating a number
+  // the form never asked for is how the button stays disabled forever.
+  const targetOk =
+    !needsTarget || (Number.isFinite(targetNumber) && targetNumber > 0);
   const windowOk = endsOn === null || endsOn >= today;
   // Mirrors the goals_validate trigger. Checking it here means the common
   // mistake is caught before a round trip, not that the server stops checking.
@@ -147,9 +198,11 @@ export function CreateGoalForm({
     : !titleOk
       ? 'Name it first.'
       : !targetOk
-        ? kind === 'cumulative'
-          ? 'Add a points target.'
-          : 'Add the points to clear each day.'
+        ? metric === 'daily_walk'
+          ? 'Say how many Daily Walks.'
+          : kind === 'cumulative'
+            ? 'Add a points target.'
+            : 'Add the points to clear each day.'
         : !windowOk
           ? 'Pick an end date that is not in the past.'
           : windowDays !== null && requiredDays.length > 0
@@ -170,10 +223,11 @@ export function CreateGoalForm({
         title,
         description,
         kind,
-        // Replaced by the form's own choice in the next commit. Until then the
-        // form can only produce the metric it could always produce.
-        metric: 'daily_score',
-        target: targetNumber,
+        metric,
+        // A walk goal counted over most days has no target to send: the bar is
+        // a boolean. 1 is the sentinel the column's `target > 0` requires, and
+        // `evaluateGoal` never reads it for this metric.
+        target: needsTarget ? targetNumber : 1,
         startsOn: today,
         endsOn,
         requiredDays: kind === 'consistency' ? daysNumber : null,
@@ -236,35 +290,67 @@ export function CreateGoalForm({
           accessibilityLabel="Goal description"
         />
 
+        <Text style={styles.section}>What counts</Text>
+        <View style={styles.row}>
+          <Choice
+            label="Daily Walks"
+            note="Days you clear 10,000 steps"
+            selected={metric === 'daily_walk'}
+            onPress={() => {
+              setMetric('daily_walk');
+              // Moved with the metric, not left where it was: "clear the walk
+              // most days" is the commitment a walk goal usually means, and
+              // landing on "A total" would ask for a number before the more
+              // useful shape had been offered. Choosing Points does not move
+              // it back — by then the user has picked a shape deliberately.
+              setKind('consistency');
+            }}
+          />
+          <Choice
+            label="Points"
+            note="Advanced"
+            selected={metric === 'daily_score'}
+            onPress={() => setMetric('daily_score')}
+          />
+        </View>
+
         <Text style={styles.section}>How it counts</Text>
         <View style={styles.row}>
           <Choice
             label="A total"
-            note="Add up to a number"
+            note={metric === 'daily_walk' ? 'Add up the walks' : 'Add up to a number'}
             selected={kind === 'cumulative'}
             onPress={() => setKind('cumulative')}
           />
           <Choice
             label="Most days"
-            note="Clear a daily bar"
+            note={metric === 'daily_walk' ? 'Clear it often enough' : 'Clear a daily bar'}
             selected={kind === 'consistency'}
             onPress={() => setKind('consistency')}
           />
         </View>
 
-        <Text style={styles.section}>
-          {kind === 'cumulative' ? 'Points to reach' : 'Points to clear each day'}
-        </Text>
-        <TextInput
-          maxFontSizeMultiplier={1.4}
-          style={styles.input}
-          value={target}
-          onChangeText={setTarget}
-          placeholder={kind === 'cumulative' ? '60000' : '2500'}
-          placeholderTextColor={ramp.neutral[500]}
-          keyboardType="number-pad"
-          accessibilityLabel={kind === 'cumulative' ? 'Points to reach' : 'Daily points'}
-        />
+        {/* Absent, not disabled, for a walk goal counted over most days: there
+            is no number to type, and an empty field would invite one. This is
+            the form getting shorter on the path it recommends. */}
+        {needsTarget && (
+          <>
+            <Text style={styles.section}>{targetLabel}</Text>
+            <TextInput
+              maxFontSizeMultiplier={1.4}
+              style={styles.input}
+              value={target}
+              onChangeText={setTarget}
+              placeholder={targetPlaceholder}
+              placeholderTextColor={ramp.neutral[500]}
+              keyboardType="number-pad"
+              // The section heading above is a separate element to a screen
+              // reader, so the field carries its own name — and it has to be
+              // this name, or a walk goal announces itself in points.
+              accessibilityLabel={targetLabel}
+            />
+          </>
+        )}
 
         {kind === 'consistency' && (
           <>
