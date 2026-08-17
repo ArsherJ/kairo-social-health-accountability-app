@@ -170,6 +170,9 @@ export function CreateGoalForm({
         title,
         description,
         kind,
+        // Replaced by the form's own choice in the next commit. Until then the
+        // form can only produce the metric it could always produce.
+        metric: 'daily_score',
         target: targetNumber,
         startsOn: today,
         endsOn,

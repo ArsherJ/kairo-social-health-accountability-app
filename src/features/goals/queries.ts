@@ -32,7 +32,7 @@ export const goalKeys = {
 };
 
 const GOAL_COLUMNS =
-  'id, squad_id, created_by, title, description, kind, target, required_days, required_members, starts_on, ends_on';
+  'id, squad_id, created_by, title, description, kind, metric, target, required_days, required_members, starts_on, ends_on';
 
 /**
  * The caller's own personal goals, newest window first.

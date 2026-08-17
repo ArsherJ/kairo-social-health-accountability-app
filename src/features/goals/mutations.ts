@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { GoalMetric } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { goalKeys, type GoalRow } from './queries.ts';
@@ -29,6 +30,11 @@ export interface NewGoal {
   /** Optional, up to 280 characters. The "why", where the title is the "what". */
   description?: string | null;
   kind: 'cumulative' | 'consistency';
+  /**
+   * What the target counts. `daily_walk` targets are days that cleared the
+   * Daily Walk; `daily_score` targets are points, the advanced path.
+   */
+  metric: GoalMetric;
   target: number;
   startsOn: string;
   /** Null for an open-ended goal. Rejected by the server for `consistency`. */
@@ -50,6 +56,7 @@ export function useCreateGoal(userId: string | undefined) {
         // arrive as null, not as ''.
         p_description: goal.description?.trim() || null,
         p_kind: goal.kind,
+        p_metric: goal.metric,
         p_target: goal.target,
         p_starts_on: goal.startsOn,
         p_ends_on: goal.endsOn,

@@ -16,6 +16,7 @@ function goal(overrides: Partial<GoalRow> = {}): GoalRow {
     title: 'Together',
     description: null,
     kind: 'cumulative',
+    metric: 'daily_score',
     target: 10_000,
     required_days: null,
     required_members: 2,
@@ -32,6 +33,7 @@ function score(overrides: Partial<WindowScore> = {}): WindowScore {
     local_date: '2026-01-02',
     total: 1_000,
     status: 'final',
+    walk_cleared: false,
     ...overrides,
   };
 }
@@ -199,5 +201,50 @@ describe('pickLiveGoal', () => {
     const done = goal({ id: 'done', ...started, ends_on: '2026-01-10' });
     const live = goal({ id: 'live', ...started, ends_on: '2026-01-20' });
     expect(pickLiveGoal([done, live], TODAY, { fallbackToPast: true })?.id).toBe('live');
+  });
+});
+
+describe('standingsFor — the daily_walk metric', () => {
+  const walkGoal = goal({
+    metric: 'daily_walk',
+    kind: 'consistency',
+    // The sentinel: the column requires a positive target and the bar is a
+    // boolean. If it were ever read as a points bar, every scoring day counts.
+    target: 1,
+    required_days: 2,
+  });
+
+  it('scores off walk_cleared, not off totals', () => {
+    const standings = build(
+      [
+        score({ local_date: '2026-01-02', total: 50, walk_cleared: true }),
+        score({ local_date: '2026-01-03', total: 9_999, walk_cleared: false }),
+      ],
+      [],
+      walkGoal,
+    );
+    // One cleared walk, despite the second day scoring two hundred times more.
+    expect(standings[0]?.progress.progress).toBe(1);
+  });
+
+  it('keeps a scoreless participant on the roster as not cleared', () => {
+    const standings = build(
+      [
+        score({ user_id: THEM, character_name: 'Them', local_date: null, total: null, status: null }),
+        score({ local_date: '2026-01-02', walk_cleared: true }),
+      ],
+      [],
+      walkGoal,
+    );
+    expect(standings).toHaveLength(2);
+    expect(standings.find((s) => s.userId === THEM)?.progress.progress).toBe(0);
+  });
+
+  it('leaves a daily_score goal counting points exactly as before', () => {
+    const standings = build([
+      score({ local_date: '2026-01-02', total: 4_000, walk_cleared: true }),
+      score({ local_date: '2026-01-03', total: 3_000, walk_cleared: true }),
+    ]);
+    expect(standings[0]?.progress.progress).toBe(7_000);
   });
 });

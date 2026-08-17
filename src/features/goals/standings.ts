@@ -5,6 +5,7 @@ import {
   evaluateGoal,
   type Goal,
   type GoalDay,
+  type GoalMetric,
   type GoalProgress,
 } from '../../../packages/kairo-core/src/goal.ts';
 
@@ -30,6 +31,11 @@ export type GoalRow = {
   title: string;
   description: string | null;
   kind: 'cumulative' | 'consistency';
+  /**
+   * What the target is counted in. Every goal created before 2026-08-18 is
+   * `daily_score`, which is the column default, so this is additive.
+   */
+  metric: GoalMetric;
   target: number;
   required_days: number | null;
   required_members: number | null;
@@ -49,6 +55,12 @@ export type WindowScore = {
   local_date: string | null;
   total: number | null;
   status: 'provisional' | 'final' | null;
+  /**
+   * Whether the day cleared the Daily Walk. Never null: the RPC coalesces it,
+   * because a null-extended roster row must read as "did not clear" rather than
+   * arrive at kairo-core as a missing boolean.
+   */
+  walk_cleared: boolean;
 };
 
 export type Completion = { goal_id: string; user_id: string; xp_awarded: number };
@@ -110,7 +122,7 @@ export function pickLiveGoal(
 export function toGoal(row: GoalRow): Goal {
   return {
     id: row.id,
-    metric: 'daily_score',
+    metric: row.metric,
     kind: row.kind,
     target: row.target,
     requiredDays: row.required_days,
@@ -145,7 +157,9 @@ export function standingsFor(input: {
       entry.days.push({
         localDate: score.local_date,
         total: Number(score.total ?? 0),
-        walkCleared: false,
+        // `=== true` rather than a cast: the column is NOT NULL by way of the
+        // RPC's coalesce, and anything else must read as "did not clear".
+        walkCleared: score.walk_cleared === true,
         status: score.status,
       });
     }
