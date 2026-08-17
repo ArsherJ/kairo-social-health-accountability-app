@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { evaluateSquadGoal, goalWindowDays } from '@kairo/core';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { CtaPill, Label, Text } from '@/ui/index.ts';
 import { GoalBar } from './GoalBar.tsx';
@@ -32,11 +33,20 @@ export function SquadGoalPanel({
 }) {
   const router = useRouter();
   const goals = useSquadGoals(squadId);
+  const disclosure = useDisclosure(userId);
 
   const live = goals.isSuccess && today ? pickLiveGoal(goals.data, today) : null;
   const detail = useGoalDetail(live?.id, userId, today);
 
   if (!userId || !today || !goals.isSuccess) return null;
+
+  // Rendered nothing rather than gated by the caller: the decision belongs with
+  // the component that owns the surface, so a second caller cannot forget it.
+  //
+  // No `resolved` check here, unlike the two routes — this renders nothing
+  // rather than navigating, so the worst a loading frame costs is one frame
+  // without a panel, which is what the guards above already do.
+  if (disclosure.stage === 'core') return null;
 
   if (!live) {
     return (
