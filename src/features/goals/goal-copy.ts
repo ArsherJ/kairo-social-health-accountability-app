@@ -1,7 +1,10 @@
 // Relative imports, not `@/`: this module is exercised by vitest, whose config
 // does not carry Metro's path alias. Every other pure module under test does the
 // same.
-import type { GoalProgress } from '../../../packages/kairo-core/src/goal.ts';
+import type {
+  GoalMetric,
+  GoalProgress,
+} from '../../../packages/kairo-core/src/goal.ts';
 
 /**
  * What a goal says about itself.
@@ -26,11 +29,25 @@ function num(value: number): string {
  * A consistency goal counts days and a cumulative goal counts points, and the
  * unit has to be said — "18 of 25" alone is ambiguous between the two, and this
  * is the only place either number appears.
+ *
+ * The metric moves exactly one of the four combinations. A consistency goal
+ * counts days whichever metric it uses, and a cumulative points goal is left
+ * unitless because points are what a bare number means here. That leaves a
+ * cumulative *walk* goal, which needs its noun or "12 of 20" reads as a score.
  */
-export function progressLine(kind: GoalKind, progress: GoalProgress): string {
-  return kind === 'consistency'
-    ? `${num(progress.progress)} of ${num(progress.target)} days`
-    : `${num(progress.progress)} of ${num(progress.target)}`;
+export function progressLine(
+  kind: GoalKind,
+  metric: GoalMetric,
+  progress: GoalProgress,
+): string {
+  const done = num(progress.progress);
+  const target = num(progress.target);
+
+  if (kind === 'consistency') return `${done} of ${target} days`;
+  if (metric !== 'daily_walk') return `${done} of ${target}`;
+  // Singular on a target of one. "1 of 1 walks" is the kind of small wrongness
+  // that makes a screen feel machine-written.
+  return `${done} of ${target} ${progress.target === 1 ? 'walk' : 'walks'}`;
 }
 
 /**
@@ -154,11 +171,18 @@ export function windowLine(input: {
   startsOn: string;
   endsOn: string | null;
   today: string;
+  metric: GoalMetric;
   windowDays: number | null;
   dailyTarget: number | null;
 }): string {
+  // A walk goal has no daily bar to state: its `target` is the sentinel 1 that
+  // the column's `target > 0` requires, and printing it would read as "· 1 a
+  // day". The rule lives here rather than at the call site so it is tested —
+  // the sentinel is exactly the kind of value that leaks onto a screen.
   const daily =
-    input.dailyTarget === null ? '' : ` · ${num(input.dailyTarget)} a day`;
+    input.dailyTarget === null || input.metric === 'daily_walk'
+      ? ''
+      : ` · ${num(input.dailyTarget)} a day`;
 
   if (input.endsOn === null || input.windowDays === null) {
     return `From ${shortDate(input.startsOn, input.today)} · no end date${daily}`;

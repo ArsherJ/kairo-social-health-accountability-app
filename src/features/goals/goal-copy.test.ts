@@ -55,17 +55,17 @@ function days(from: string, count: number, total: number): GoalDay[] {
 describe('progressLine', () => {
   it('names days for a consistency goal', () => {
     const p = evaluateGoal(consistency(), days('2026-01-01', 18, 3_000), '2026-01-18');
-    expect(progressLine('consistency', p)).toBe('18 of 25 days');
+    expect(progressLine('consistency', 'daily_score', p)).toBe('18 of 25 days');
   });
 
   it('leaves a cumulative goal unitless, because the unit is points', () => {
     const p = evaluateGoal(cumulative(), days('2026-01-01', 21, 2_014), '2026-01-21');
-    expect(progressLine('cumulative', p)).toBe('42,294 of 60,000');
+    expect(progressLine('cumulative', 'daily_score', p)).toBe('42,294 of 60,000');
   });
 
   it('states the real number when the target was overshot', () => {
     const p = evaluateGoal(cumulative(), days('2026-01-01', 30, 5_000), '2026-01-30');
-    expect(progressLine('cumulative', p)).toBe('150,000 of 60,000');
+    expect(progressLine('cumulative', 'daily_score', p)).toBe('150,000 of 60,000');
   });
 });
 
@@ -247,19 +247,19 @@ describe('windowLine', () => {
 
   it('states the span and its length', () => {
     expect(
-      windowLine({ ...base, endsOn: '2026-01-30', windowDays: 30, dailyTarget: null }),
+      windowLine({ ...base, metric: 'daily_score', endsOn: '2026-01-30', windowDays: 30, dailyTarget: null }),
     ).toBe('1 Jan – 30 Jan · 30 days');
   });
 
   it('adds the daily bar for a consistency goal', () => {
     expect(
-      windowLine({ ...base, endsOn: '2026-01-30', windowDays: 30, dailyTarget: 2_500 }),
+      windowLine({ ...base, metric: 'daily_score', endsOn: '2026-01-30', windowDays: 30, dailyTarget: 2_500 }),
     ).toBe('1 Jan – 30 Jan · 30 days · 2,500 a day');
   });
 
   it('states the start and no end date when open-ended', () => {
     expect(
-      windowLine({ ...base, endsOn: null, windowDays: null, dailyTarget: null }),
+      windowLine({ ...base, metric: 'daily_score', endsOn: null, windowDays: null, dailyTarget: null }),
     ).toBe('From 1 Jan · no end date');
   });
 });
@@ -291,5 +291,87 @@ describe('paceFraction — open-ended', () => {
   it('marks nothing, because there is nowhere the fill ought to be', () => {
     const progress = evaluateGoal(openEnded(), days('2026-01-01', 5, 1_000), '2026-01-05');
     expect(paceFraction(progress, null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The Daily Walk metric
+// ---------------------------------------------------------------------------
+//
+// Only two strings move. A consistency goal already counted days and says so
+// whichever metric it uses; a cumulative walk goal is the one that needs a
+// noun, because "12 of 20" alone reads as points. The window line drops its
+// daily bar, which for a walk goal is the sentinel `target: 1` and would
+// otherwise render as "· 1 a day".
+
+function walkGoal(overrides: Partial<Goal> = {}): Goal {
+  return {
+    id: 'g',
+    metric: 'daily_walk',
+    kind: 'consistency',
+    target: 1,
+    requiredDays: 25,
+    startsOn: '2026-01-01',
+    endsOn: '2026-01-30',
+    ...overrides,
+  };
+}
+
+function walkDays(from: string, count: number, cleared: boolean): GoalDay[] {
+  return days(from, count, 0).map((day) => ({ ...day, walkCleared: cleared }));
+}
+
+describe('progressLine — daily_walk', () => {
+  it('counts days for a consistency walk goal, as it always did', () => {
+    const p = evaluateGoal(walkGoal(), walkDays('2026-01-01', 8, true), '2026-01-08');
+    expect(progressLine('consistency', 'daily_walk', p)).toBe('8 of 25 days');
+  });
+
+  it('names walks for a cumulative walk goal, which would otherwise read as points', () => {
+    const goal = walkGoal({ kind: 'cumulative', target: 20, requiredDays: null });
+    const p = evaluateGoal(goal, walkDays('2026-01-01', 12, true), '2026-01-12');
+    expect(progressLine('cumulative', 'daily_walk', p)).toBe('12 of 20 walks');
+  });
+
+  it('says walk, singular, for a target of one', () => {
+    const goal = walkGoal({ kind: 'cumulative', target: 1, requiredDays: null });
+    const p = evaluateGoal(goal, walkDays('2026-01-01', 1, true), '2026-01-01');
+    expect(progressLine('cumulative', 'daily_walk', p)).toBe('1 of 1 walk');
+  });
+
+  it('never says points for a walk goal', () => {
+    const goal = walkGoal({ kind: 'cumulative', target: 20, requiredDays: null });
+    const p = evaluateGoal(goal, walkDays('2026-01-01', 3, true), '2026-01-03');
+    for (const kind of ['cumulative', 'consistency'] as const) {
+      expect(progressLine(kind, 'daily_walk', p)).not.toMatch(/point/i);
+    }
+  });
+});
+
+describe('windowLine — daily_walk', () => {
+  const base = { startsOn: '2026-01-01', today: '2026-01-15' };
+
+  it('drops the daily bar, which is a sentinel and not a number', () => {
+    expect(
+      windowLine({
+        ...base,
+        metric: 'daily_walk',
+        endsOn: '2026-01-30',
+        windowDays: 30,
+        dailyTarget: 1,
+      }),
+    ).toBe('1 Jan – 30 Jan · 30 days');
+  });
+
+  it('still states the span for an open-ended walk goal', () => {
+    expect(
+      windowLine({
+        ...base,
+        metric: 'daily_walk',
+        endsOn: null,
+        windowDays: null,
+        dailyTarget: 1,
+      }),
+    ).toBe('From 1 Jan · no end date');
   });
 });

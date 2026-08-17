@@ -119,6 +119,7 @@ export default function GoalDetail() {
           startsOn: row.starts_on,
           endsOn: row.ends_on,
           today: today ?? row.starts_on,
+          metric: row.metric,
           windowDays,
           dailyTarget: row.kind === 'consistency' ? row.target : null,
         })}
@@ -157,7 +158,7 @@ export default function GoalDetail() {
                   {standing.characterName || 'Someone'}
                 </Text>
                 <Text style={styles.memberMeta}>
-                  {progressLine(row.kind, standing.progress)} · {statusLine(standing.progress)}
+                  {progressLine(row.kind, row.metric, standing.progress)} · {statusLine(standing.progress)}
                 </Text>
               </View>
               {/* The latched fact, not the computed one. A member whose day has

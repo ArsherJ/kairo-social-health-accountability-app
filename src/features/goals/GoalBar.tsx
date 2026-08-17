@@ -45,7 +45,7 @@ export function GoalBar({
   // would say the same thing again in percentages.
   const spokenLabel = [
     showTitle ? row.title : null,
-    progressLine(row.kind, progress),
+    progressLine(row.kind, row.metric, progress),
     statusLine(progress),
   ]
     .filter(Boolean)
@@ -75,7 +75,7 @@ export function GoalBar({
         style={styles.numbers}
       >
         <Text scale="chrome" style={styles.progress}>
-          {progressLine(row.kind, progress)}
+          {progressLine(row.kind, row.metric, progress)}
         </Text>
         <Text scale="chrome" style={[styles.status, styles[tone]]}>
           {statusLine(progress)}
