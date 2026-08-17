@@ -97,7 +97,11 @@ export function JoinSquadForm({
           // Room for the dashes and spaces normalizeInviteCode strips, so a
           // code typed as `AB1-2CD` is not cut off mid-entry.
           maxLength={INVITE_CODE_LENGTH + 4}
-          placeholder="AB12CD"
+          // Instruction, not example — and the one field where the example was
+          // actively misleading: "AB12CD" is a well-formed code, so it read as
+          // a code already pasted in, next to a disabled Join button. This says
+          // what to type instead of showing something that looks typed.
+          placeholder={`${INVITE_CODE_LENGTH}-character code`}
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}
           style={styles.input}
