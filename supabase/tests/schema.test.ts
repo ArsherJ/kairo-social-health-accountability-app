@@ -3826,3 +3826,178 @@ describe('kairo_retention', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// The Daily Walk as a goal metric (20260818100000)
+// ---------------------------------------------------------------------------
+//
+// The harness shares one PGlite instance with no per-test reset, so these use
+// September dates and their own users to stay clear of the January fixtures the
+// goal suites above are built on.
+
+describe('goals.metric — the Daily Walk', () => {
+  /** A walk goal with the caller on it, seeded past the service-role path. */
+  async function walkGoal(userId: string, metric = 'daily_walk') {
+    const rows = await h.asService<{ id: string }>(
+      `insert into public.goals
+         (created_by, title, kind, metric, target, required_days, starts_on, ends_on)
+       values ($1, 'walk it', 'consistency', $2, 1, 2, '2026-09-01', '2026-09-30')
+       returning id`,
+      [userId, metric],
+    );
+    const goalId = rows[0]!.id;
+    await h.asService(
+      `insert into public.goal_participants (goal_id, user_id) values ($1, $2)`,
+      [goalId, userId],
+    );
+    return goalId;
+  }
+
+  describe('the check constraint', () => {
+    it('accepts daily_walk', async () => {
+      const user = await h.createUser();
+      await expect(walkGoal(user)).resolves.toBeDefined();
+    });
+
+    it('still rejects an unknown metric', async () => {
+      const user = await h.createUser();
+      await rejects(walkGoal(user, 'distance'), /goals_metric_check/i);
+    });
+  });
+
+  describe('create_goal', () => {
+    // Without p_metric the widened check is unreachable: `authenticated` holds
+    // only SELECT and UPDATE(title, description) on goals, so this function is
+    // the only way a row is ever written.
+    it('writes the metric a client asks for', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ metric: string }>(
+        user,
+        `select metric from public.create_goal(
+           'Walk it', null, 'consistency', 1, '2026-09-01'::date, '2026-09-30'::date,
+           20::smallint, null, null, 'daily_walk')`,
+      );
+      expect(rows[0]?.metric).toBe('daily_walk');
+    });
+
+    it('still defaults to daily_score when the argument is omitted', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ metric: string }>(
+        user,
+        `select metric from public.create_goal(
+           'Points', null, 'cumulative', 60000, '2026-09-01'::date, '2026-09-30'::date)`,
+      );
+      expect(rows[0]?.metric).toBe('daily_score');
+    });
+
+    it('falls back rather than failing NOT NULL on an explicit null', async () => {
+      const user = await h.createUser();
+      const rows = await h.asUser<{ metric: string }>(
+        user,
+        `select metric from public.create_goal(
+           'Null metric', null, 'cumulative', 60000, '2026-09-01'::date,
+           '2026-09-30'::date, null, null, null, null)`,
+      );
+      expect(rows[0]?.metric).toBe('daily_score');
+    });
+
+    it('refuses a metric the constraint does not know', async () => {
+      const user = await h.createUser();
+      await rejects(
+        h.asUser(
+          user,
+          `select metric from public.create_goal(
+             'Distance', null, 'cumulative', 1000, '2026-09-01'::date,
+             '2026-09-30'::date, null, null, null, 'distance')`,
+        ),
+        /goals_metric_check/i,
+      );
+    });
+  });
+
+  describe('goal_window_scores.walk_cleared', () => {
+    async function seedTier(userId: string, date: string, total: number, agi: string | null) {
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, agi_points, total, status, finalized_at, tiers)
+         values ($1, $2, $3, $3, 'final', now(), $4::jsonb)`,
+        [userId, date, total, agi === null ? '{}' : JSON.stringify({ AGI: agi })],
+      );
+    }
+
+    it('is true for a day that reached gold AGI', async () => {
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedTier(user, '2026-09-02', 3000, 'gold');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-02'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(true);
+    });
+
+    it('is false for a day that only reached silver', async () => {
+      // The point of the metric: the score is irrelevant, the tier is not.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedTier(user, '2026-09-03', 8000, 'silver');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-03'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(false);
+    });
+
+    it('is false, not null, for a day whose tiers name no AGI at all', async () => {
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedTier(user, '2026-09-04', 500, null);
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-04'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(false);
+    });
+
+    it('is false, not null, for a participant with no scored day', async () => {
+      // The LEFT JOIN keeps a scoreless participant on the roster. Their row
+      // must say false — kairo-core's GoalDay.walkCleared is a boolean, and a
+      // null would arrive as a missing field rather than as "did not clear".
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+
+      const rows = await h.asUser<{ walk_cleared: boolean; local_date: string | null }>(
+        user,
+        `select walk_cleared, local_date from public.goal_window_scores($1)`,
+        [goalId],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.local_date).toBeNull();
+      expect(rows[0]?.walk_cleared).toBe(false);
+    });
+
+    it('reaches no raw steps — the projection gained the tier and nothing else', async () => {
+      // The privacy surface, asserted as the literal row shape. A future column
+      // carrying steps or hourly movement would breach §5 while producing an
+      // identical screen, so the guard is the shape rather than a convention.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      const rows = await h.asUser<Record<string, unknown>>(
+        user,
+        `select * from public.goal_window_scores($1)`,
+        [goalId],
+      );
+      expect(Object.keys(rows[0]!)).toEqual([
+        'user_id', 'character_name', 'local_date', 'total', 'status', 'walk_cleared',
+      ]);
+    });
+  });
+});
