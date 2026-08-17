@@ -17,7 +17,21 @@ describe('inviteMessage', () => {
   it('says what Kairo is to someone who has never heard of it', () => {
     // The recipient is not a user yet. A bare code and a squad name would mean
     // nothing to them.
-    expect(inviteMessage(base)).toMatch(/activity|leaderboard/i);
+    //
+    // Matched on "walk" rather than the old /activity|leaderboard/: the body
+    // was rewritten on 2026-08-17 to name what the recipient is being asked
+    // into — a group holding each other to a daily walk — instead of describing
+    // the scoring mechanism to somebody with no reason to care about it yet.
+    // "Leaderboard" also invited the public-fitness-feed reading this product
+    // is positioned against.
+    expect(inviteMessage(base)).toMatch(/walk/i);
+  });
+
+  it('carries the privacy promise, the one claim a non-user can act on', () => {
+    // The invite is the only Kairo copy someone who has never installed it
+    // reads. Pinned because it is the first clause that gets cut when the
+    // message next runs up against the length budget below.
+    expect(inviteMessage(base)).toMatch(/never your Health data/i);
   });
 
   it('trims a name padded by the create form', () => {

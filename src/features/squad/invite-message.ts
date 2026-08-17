@@ -31,9 +31,23 @@ export function inviteMessage(input: {
   // this arrives from a friend, and the friend is the pitch. The link and the
   // code are last because they are what the reader has to act on, and either
   // one buried mid-sentence is one they have to hunt for.
+  //
+  // "We keep each other to a daily walk" rather than "your real activity scores
+  // you on our daily leaderboard": the old line described the mechanism to
+  // somebody with no reason to care about it yet, and "leaderboard" invites the
+  // public-fitness-feed reading this product is not. The walk is the one thing
+  // everyone in a squad actually shares, and the privacy clause is the strongest
+  // claim Kairo has — the invite is the only Kairo copy a non-user ever reads,
+  // so it is the only place that claim reaches them.
+  //
+  // Every word is spent against a hard budget: the link and the code line are
+  // 84 characters between them, and `invite-message.test.ts` holds the whole
+  // message under 200 so a chat client's preview does not cut it mid-thought.
+  // That leaves ~114 here. Adding a clause means removing one.
   return (
-    `Join ${input.squadName.trim()} on Kairo — your real activity scores you ` +
-    `on our daily leaderboard.\n\n${inviteUrl(input.inviteCode)}` +
+    `Join ${input.squadName.trim()} on Kairo — we keep each other to a ` +
+    `daily walk. It counts steps, never your Health data.` +
+    `\n\n${inviteUrl(input.inviteCode)}` +
     `\n\nOr enter this code in the app: ${input.inviteCode}`
   );
 }

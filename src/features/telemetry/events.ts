@@ -30,6 +30,13 @@ export type AppEventType =
   // The activation funnel. Added 2026-08-16; before it, the beta could measure
   // retention (SQL over daily_scores) but not activation, so the six-week test
   // the outside review asked for could not be run at all.
+  //
+  // Step 0, and the only one that fires with **no session at all** — it is the
+  // sign-in screen's own render, before anything has been asked for. Buffered
+  // by `track` and attributed by `flushTelemetryBuffer` with this timestamp,
+  // not the flush time, so the interval it measures (pitch read → decision) is
+  // the real one. It is the denominator every later step is a fraction of.
+  | 'pitch_seen'
   | 'onboarding_started'
   // Payload carries the resulting HealthPermissionState and **never** a
   // granted/denied verdict: HealthKit does not report read-permission denial,
