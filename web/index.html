@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>You've been invited to a Kairo squad</title>
+    <meta
+      name="description"
+      content="Kairo turns your real activity into a character that levels up, and puts your day on a squad leaderboard. Currently an invite-only TestFlight beta."
+    />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5ead8" />
+
+    <!-- Open Graph, because this page's whole job is to arrive in a chat. A
+         link with no preview in Messenger reads as spam from a stranger, which
+         is the opposite of what an invite from a friend should feel like. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="You've been invited to a Kairo squad" />
+    <meta
+      property="og:description"
+      content="Your real activity levels a character. Your day lands on a squad leaderboard."
+    />
+
+    <style>
+      /* Kairo's own palette, from src/theme.ts. Cream ground, terracotta for
+         you, sage for the squad. Committed to light: the app is a warm light
+         app, and a page that flips to dark would be a different product's
+         page. `color-scheme: light` stops browsers inverting it for us. */
+      :root {
+        color-scheme: light;
+        --bg: #f5ead8;
+        --surface: #ebddc5;
+        --text: #201e1d;
+        --subtle: #5d564e;
+        --muted: #7c736a;
+        --accent: #c67139;
+        --sage: #7a8a5e;
+        --rule: rgba(32, 30, 29, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        /* No webfonts: a strict no-external-requests page, and a FOUT on the
+           one screen that has three seconds of attention is worse than a
+           system face. The stack leads with the platform's own display cut. */
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.5;
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      main {
+        width: 100%;
+        max-width: 34rem;
+        margin: 0 auto;
+        padding: clamp(2rem, 8vh, 5rem) 1.5rem 2rem;
+        flex: 1;
+      }
+
+      .mark {
+        font-size: 0.8125rem;
+        font-weight: 800;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 1.5rem 0 0;
+        font-size: clamp(2rem, 8vw, 2.875rem);
+        line-height: 1.08;
+        letter-spacing: -0.022em;
+        font-weight: 800;
+        text-wrap: balance;
+      }
+
+      .lede {
+        margin: 1.125rem 0 0;
+        font-size: 1.0625rem;
+        color: var(--subtle);
+        max-width: 30rem;
+      }
+
+      /* The signature: the Daily Walk, which is the object the whole app is
+         built around and the thing a goal is now counted in. Drawn rather than
+         described, because the fastest way to say what Kairo is, is to show
+         the one number it asks you for. Pure CSS — no image, no request. */
+      .walk {
+        margin: 2.75rem 0 0;
+        padding: 1.25rem 1.25rem 1.375rem;
+        background: var(--surface);
+        border-radius: 1rem;
+      }
+
+      .walk-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      /* The card sets its own rhythm; the browser's paragraph margins would
+         open a gap between the label and the track that reads as a mistake. */
+      .walk-head p {
+        margin: 0;
+      }
+
+      .walk-name {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .walk-count {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .walk-count span {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .track {
+        margin-top: 0.875rem;
+        height: 0.625rem;
+        border-radius: 999px;
+        background: rgba(32, 30, 29, 0.1);
+        overflow: hidden;
+      }
+
+      .fill {
+        height: 100%;
+        width: 100%;
+        border-radius: 999px;
+        background: var(--accent);
+        transform-origin: left;
+        animation: fill 1.4s cubic-bezier(0.22, 0.8, 0.3, 1) 0.25s both;
+      }
+
+      /* One animation, once, on load. The bar filling is the product's daily
+         event; anything more would be decoration. */
+      @keyframes fill {
+        from {
+          transform: scaleX(0.04);
+        }
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      .walk-note {
+        margin: 0.75rem 0 0;
+        font-size: 0.875rem;
+        color: var(--muted);
+      }
+
+      .points {
+        margin: 2.5rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 1.125rem;
+      }
+
+      .points li {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.875rem;
+        align-items: start;
+        font-size: 0.9688rem;
+        color: var(--subtle);
+      }
+
+      /* A sage dot, the app's colour for your lane and your squad. It marks a
+         list item and means nothing else, so it is hidden from screen readers
+         by being a background rather than a character. */
+      .points li::before {
+        content: "";
+        width: 0.5rem;
+        height: 0.5rem;
+        margin-top: 0.5rem;
+        border-radius: 999px;
+        background: var(--sage);
+      }
+
+      .points strong {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .status {
+        margin: 2.75rem 0 0;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--rule);
+      }
+
+      .status h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .status p {
+        margin: 0.5rem 0 0;
+        font-size: 0.9375rem;
+        color: var(--subtle);
+      }
+
+      footer {
+        max-width: 34rem;
+        width: 100%;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 2.5rem;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .fill {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <p class="mark">Kairo</p>
+
+      <h1>You've been invited to a Kairo squad.</h1>
+
+      <p class="lede">
+        Kairo reads the activity your phone already records and turns it into a
+        character that levels up. Your day lands on a leaderboard your squad can
+        see — nobody sees your steps.
+      </p>
+
+      <!-- One element with a composed label, matching the app's own rule: the
+           bar and its numbers mean one thing together, and read as three
+           separate stops otherwise. -->
+      <section class="walk" aria-label="The Daily Walk: 10,000 steps a day.">
+        <div class="walk-head" aria-hidden="true">
+          <p class="walk-name">The Daily Walk</p>
+          <p class="walk-count">10,000<span> steps</span></p>
+        </div>
+        <div class="track" aria-hidden="true"><div class="fill"></div></div>
+        <p class="walk-note" aria-hidden="true">
+          Every day. It never gets harder.
+        </p>
+      </section>
+
+      <ul class="points">
+        <li>
+          <span
+            ><strong>Your character levels from real activity.</strong> Steps,
+            workouts and heart rate, read from Apple Health. Nothing to log by
+            hand.</span
+          >
+        </li>
+        <li>
+          <span
+            ><strong>A squad is a daily leaderboard.</strong> Up to six people,
+            ranked on the day. Set shared goals over a month or a year.</span
+          >
+        </li>
+        <li>
+          <span
+            ><strong>Your health data stays yours.</strong> Squadmates see a
+            rank and a rating. They never see your steps, your heart rate or
+            when you moved.</span
+          >
+        </li>
+      </ul>
+
+      <section class="status">
+        <h2>Kairo is in a closed beta</h2>
+        <p>
+          It runs on iPhone and is not on the App Store yet. Ask whoever sent
+          you this link to add you to the TestFlight — you'll get an email from
+          Apple with the invite, and your squad code will still be waiting when
+          you open the app.
+        </p>
+      </section>
+    </main>
+
+    <!-- 16.4 is IPHONEOS_DEPLOYMENT_TARGET in the committed ios/ project, not a
+         round number chosen to look tidy. If that moves, this moves. -->
+    <footer>Kairo · Philippines · iPhone, iOS 16.4 and later</footer>
+  </body>
+</html>

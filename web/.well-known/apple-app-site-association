@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appID": "8C53KVSFWK.com.arsherj.kairo",
+        "paths": ["/join/*"]
+      }
+    ]
+  }
+}
