@@ -40,7 +40,18 @@ export type AppEventType =
   | 'squad_created'
   | 'squad_joined'
   | 'goal_created'
+  // Declared, fired nowhere, on purpose: the gate this belongs to (§7.1's
+  // `/connect`) is a later plan's work, not this one's. The vocabulary entry
+  // lands now so that plan only has to wire a call site — do not read the
+  // absence of a call site here as a bug.
   | 'disclosure_unlocked';
+
+/**
+ * Events recorded before a session exists. Module state rather than MMKV: this
+ * spans one launch of the app, and an event that did not survive a cold start
+ * belongs to a session that never signed in.
+ */
+let pending: BufferedEvent[] = [];
 
 /**
  * Fire-and-forget by design — telemetry must never block or fail a user
@@ -53,13 +64,6 @@ export type AppEventType =
  * nothing to dedupe can keep ignoring the return, exactly as before — it never
  * rejects, so an ignored promise cannot become an unhandled rejection.
  */
-/**
- * Events recorded before a session exists. Module state rather than MMKV: this
- * spans one launch of the app, and an event that did not survive a cold start
- * belongs to a session that never signed in.
- */
-let pending: BufferedEvent[] = [];
-
 export async function track(
   userId: string | undefined,
   type: AppEventType,
@@ -114,4 +118,19 @@ export async function flushTelemetryBuffer(userId: string): Promise<void> {
   );
 
   if (error) console.warn('[telemetry] flush', error.code, error.message);
+}
+
+/**
+ * Drop everything buffered pre-sign-in, without flushing it.
+ *
+ * Called from `signOut()`. Without this, a shared device produces a real
+ * misattribution once a pre-auth screen exists to buffer from: user A signs
+ * out with events still pending, user B signs in on the same device, and the
+ * next flush attributes A's buffered rows — with A's timestamps — to B's
+ * account. No call site can hit this today (every current `track()` call
+ * site has a real `userId`), but sign-out is exactly the wrong place to
+ * discover that the guard was missing once one does.
+ */
+export function clearTelemetryBuffer(): void {
+  pending = [];
 }

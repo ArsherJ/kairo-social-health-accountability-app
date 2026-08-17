@@ -2,6 +2,8 @@ import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { clearSyncState } from '@/features/health/storage.ts';
 import { unregisterDeviceToken } from '@/features/notifications/permission.ts';
+import { clearTelemetryBuffer } from '@/features/telemetry/events.ts';
+import { clearMilestones } from '@/features/telemetry/milestone-store.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { supabase } from '@/lib/supabase.ts';
 
@@ -46,6 +48,17 @@ export function startSessionListener(): () => void {
  * ran after a successful await, that rethrow would skip it and leave the
  * previous user's rows — including profile height, weight and birth year —
  * resident in the cache for the next sign-in on the same device.
+ *
+ * The telemetry buffer and milestone markers clear here too, for the same
+ * shared-device reason as the sync state below. No call site can hit the
+ * buffer half today — every current `track()` call has a real `userId` in
+ * scope, so nothing is ever pending at sign-out — but once §6's pre-auth
+ * screen lands, a user who signs out with events still buffered would
+ * otherwise hand them, with their original timestamps, to whoever signs in
+ * next on the same device. The milestone markers are a live path already:
+ * without this, a second account on a shared phone would inherit the first
+ * account's `first_sync_seen`/`first_score_seen` state and never fire either
+ * event for itself.
  */
 export async function signOut(): Promise<void> {
   // Captured before the sign-out clears it. The health sync state is keyed per
@@ -62,7 +75,11 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut();
   } finally {
     queryClient.clear();
-    if (userId) clearSyncState(userId);
+    clearTelemetryBuffer();
+    if (userId) {
+      clearSyncState(userId);
+      clearMilestones(userId);
+    }
   }
 }
 

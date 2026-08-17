@@ -1,6 +1,12 @@
 import { createMMKV } from 'react-native-mmkv';
 import type { Milestone } from './milestones.ts';
 
+/** Every milestone this store knows about — the enumeration `clearMilestones`
+ * needs, since MMKV has no prefix-delete. Kept beside `Milestone` itself
+ * rather than derived, because there is no runtime list to derive it from —
+ * `Milestone` is a type, not a value. */
+const ALL_MILESTONES: readonly Milestone[] = ['first_sync_seen', 'first_score_seen'];
+
 /**
  * Which once-ever events this account has already recorded.
  *
@@ -38,4 +44,19 @@ export function markReached(userId: string, milestone: Milestone): void {
  */
 export function markUnreached(userId: string, milestone: Milestone): void {
   storage.remove(key(userId, milestone));
+}
+
+/**
+ * Clear every milestone marker for one account, so the next account to sign
+ * in on this device starts its funnel fresh rather than inheriting whichever
+ * once-ever events the previous account already reached.
+ *
+ * MMKV has no prefix-delete, so this removes the known `Milestone` keys by
+ * name rather than enumerating storage — the same shape `clearSyncState`
+ * already uses for `kairo.health`. Called from `signOut()`.
+ */
+export function clearMilestones(userId: string): void {
+  for (const milestone of ALL_MILESTONES) {
+    storage.remove(key(userId, milestone));
+  }
 }

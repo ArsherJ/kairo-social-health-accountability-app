@@ -11,6 +11,18 @@
 -- Cohort day is profiles.created_at, not auth.users.created_at: a user who
 -- signs in and never names a character has not started the loop, so counting
 -- them as a cohort member would report the onboarding drop-off as churn.
+--
+-- Design §4.3 specifies `security definer`; this is deliberately
+-- `security invoker` (the default — no clause below) instead, because the
+-- only caller today is the project owner via remote-sql.sh, who already has
+-- full table access and needs no elevation. Recorded as a deviation rather
+-- than left silent: if EXECUTE is ever granted to a non-superuser analytics
+-- role, an invoker-rights function is filtered by that role's own RLS
+-- policies, not the definer's — `profiles_select_own` and
+-- `daily_scores_select_own` would each apply, and the function would return
+-- rows only for whatever the calling role's `auth.uid()` owns, effectively
+-- nothing for a role with no rows of its own. Revisit as `security definer`
+-- if that grant is ever made.
 
 begin;
 

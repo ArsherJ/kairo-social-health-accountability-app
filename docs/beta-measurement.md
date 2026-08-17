@@ -16,14 +16,16 @@ there is a reason to build one.
 ## The activation funnel
 
 One row per step, so each step's drop-off is visible rather than folded into
-a single conversion percentage:
+a single conversion percentage — **with one exception, at the health-ask
+step; see "What is not measurable, and why" below before reading a flat
+step 3 as a clean number.**
 
 ```sql
 with steps(step, type) as (
   values
     (1, 'onboarding_started'),
-    (2, 'health_ask_completed'),
-    (3, 'profile_created'),
+    (2, 'profile_created'),
+    (3, 'health_ask_completed'),
     (4, 'first_sync_seen'),
     (5, 'first_score_seen')
 )
@@ -37,14 +39,42 @@ group by s.step, s.type
 order by s.step;
 ```
 
+**Step order here is `profile_created` before `health_ask_completed`, not the
+order the names might suggest.** `PermissionAsks` — the only place `HealthAsk`
+mounts — lives in `app/(tabs)/_layout.tsx`, which only exists for a `'ready'`
+user (`resolveRoute`'s post-profile state), so on this branch
+`health_ask_completed` cannot fire before `profile_created` fires. Numbering
+it step 2 anyway would print a funnel with a huge, fake drop-off between
+"onboarding started" and "health asked" — every user who created a profile
+and never got that far would appear to have vanished at step 2 when they are
+in fact sitting at step 3. This reordering is temporary: design §7.1 moves
+the health ask to a new `/connect` screen ahead of `/character` and `/name`,
+at which point `health_ask_completed` genuinely does precede
+`profile_created` again and the steps revert to name order.
+
 The five steps are exactly the five `AppEventType` members
 `src/features/telemetry/events.ts` added for this release. `first_sync_seen`
 and `first_score_seen` are the two that matter most to read correctly: both
-are **once-ever per account**, gated on an MMKV marker
-(`src/features/telemetry/milestone-store.ts`), not on session count — so a
-count here is a count of *accounts that ever cleared the step*, never
+are **once-ever per account for the life of one install**, gated on an MMKV
+marker (`src/features/telemetry/milestone-store.ts`), not on session count —
+so a count here is a count of *accounts that ever cleared the step*, never
 inflated by relaunches. See "Reading the once-ever events" below before
 treating a flat step 4→5 as a finding.
+
+"Once-ever" is qualified to one install on purpose: MMKV lives in the app
+container, so a reinstall or a second device wipes the marker and can re-fire
+both events for an account that already cleared them once — the same fact
+CLAUDE.md records for why sync state and telemetry milestones are always
+wiped together. `count(distinct user_id)` is unaffected either way — a
+repeat row changes no funnel answer in this document — but a query written
+to count raw rows instead would see it as inflation. The same reinstall path
+is also why `first_score_seen` can occasionally precede `first_sync_seen`:
+`first_score_seen` is gated on the server already holding a positive score
+for today, `first_sync_seen` on *this device's* own sync completing, and a
+reinstalled device can see the account's existing server-side score before
+it has run a sync of its own. First-run ordering for a genuinely new account
+is unaffected — there is no way to have a positive score before a sync has
+ever happened for it.
 
 Squad activation is separate, because it is optional rather than a funnel
 step — a user who never joins or forms a squad has not dropped out of
@@ -107,6 +137,41 @@ Two decisions worth not re-deriving if the numbers look surprising:
   count a user who signed in and abandoned onboarding as a cohort member,
   reporting the onboarding drop-off as churn.
 
+**What "a scored day exists" includes, precisely — read this before treating
+`retained` as "the user engaged with the app that day":**
+
+- **A day can be scored without the app being opened that day.** Every sync
+  re-reads and re-upserts *yesterday* alongside today
+  (`ROUTINE_WINDOW_DAYS = 2` in `src/features/health/sync-window.ts`), and
+  HealthKit records steps whether or not Kairo is open to see them. So a
+  single app open on day 22 can produce a `daily_scores` row for day 21 too,
+  from the phone's background-collected activity — and that row satisfies
+  `kairo_retention`'s D21 check exactly as if the user had separately opened
+  the app on day 21. `retained` is closer to "a day this account's health
+  data reached the server for" than "a day this account used the app."
+- **A zero-activity day still counts.** `kairo_retention` checks that a
+  `daily_scores` row exists for the target date, not that its `total` is
+  positive — a day that scored zero (phone off, HealthKit empty, a rest day
+  with no synced steps) is retained. This is the opposite standard from
+  `first_score_seen`, which explicitly guards `today.total > 0`
+  (`app/(tabs)/index.tsx`) so a zero day cannot claim the activation funnel's
+  final step. The two are deliberately unaligned rather than inconsistently
+  aligned: activation asks "did this account ever do anything," retention
+  asks "did this account's day get scored at all," and a stricter retention
+  filter is a recorded decision to make, not a bug to fix by matching the
+  other.
+- **An immature cohort reads as `retained = 0`, not as absent.** A cohort
+  whose day-N has not happened yet (a user who signed up 5 days ago, queried
+  at `p_day = 21`) still gets a row from `kairo_retention`, with `retained =
+  0` because no future `daily_scores` row can exist. Nothing in the function
+  distinguishes "checked and found nobody retained" from "too new to have
+  reached day N yet." Summing `retained` and `cohort_size` across all
+  `cohort_date` rows to get one ratio — the obvious first thing to try —
+  silently drags that ratio down by every cohort too young to have a day N.
+  Filter to cohorts where `cohort_date + p_day <= current_date` (in the
+  cohort's own timezone) before summing, or read the per-`cohort_date` rows
+  individually for cohorts old enough to matter.
+
 ---
 
 ## Recovery after a missed day
@@ -153,7 +218,7 @@ order by members desc;
 
 ## What is not measurable, and why
 
-Two things, stated so they are not re-filed as gaps in a later review:
+Three things, stated so they are not re-filed as gaps in a later review:
 
 - **Whether a user declined HealthKit.** Apple does not report
   read-permission denial, so `health_ask_completed` records the resulting
@@ -162,6 +227,19 @@ Two things, stated so they are not re-filed as gaps in a later review:
   granted with an empty phone are indistinguishable from the app's side;
   whether `first_sync_seen` ever fires for that account is the closest
   available proxy, not a direct answer.
+- **The health-ask step's drop-off itself.** `health_ask_completed` fires
+  only when `HealthAsk`'s request *resolves* (`HealthPermissionSheet.tsx`) —
+  never on the "Not now" dismissal (`PermissionAsks.tsx`'s `onDismiss` sets
+  local state only, no `track` call), and never for a user `nextPermissionAsk`
+  never offers the sheet to at all. All three of "dismissed", "never
+  offered", and "hasn't gotten there yet this session" read identically in
+  `app_events`: no row. A flat step-3 count in the funnel above is therefore
+  not evidence anyone declined — reading it as one is the mistake this note
+  exists to head off. `health_permission_failed` (the native-rejection path)
+  is recorded but, deliberately, appears in none of this document's queries;
+  it is diagnostic evidence for a support conversation, not a funnel step —
+  a query counting it needs to decide first whether a failed attempt should
+  count as reaching step 3, which is a product question, not a SQL one.
 - **Anything before the app's first launch.** Install-to-open is App Store
   Connect's number, not ours — nothing in `app_events` can see a device that
   never opened the app.

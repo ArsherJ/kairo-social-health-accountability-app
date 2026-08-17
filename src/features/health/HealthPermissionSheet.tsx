@@ -57,7 +57,14 @@ export function HealthAsk({
       // No granted/denied: HealthKit does not report read-permission denial, so
       // an event claiming either would be believed and wrong. The resulting
       // state is what is actually knowable.
-      const state = await readHealthPermissionState();
+      //
+      // `.catch(() => null)` rather than letting a rejection here fall into
+      // the `catch` below: everything above this line already succeeded —
+      // the permission request, background-delivery config, and the sync
+      // kickoff — so a transient failure *reading back* the state must not
+      // report the connect as failed, re-present the sheet, or write a false
+      // `health_permission_failed`. The payload tolerates `null`.
+      const state = await readHealthPermissionState().catch(() => null);
       void track(userId, 'health_ask_completed', { state });
       onAnswered();
     } catch (error) {

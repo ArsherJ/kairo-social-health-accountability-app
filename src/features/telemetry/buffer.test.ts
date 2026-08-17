@@ -51,11 +51,11 @@ describe('drainBuffer', () => {
     expect(drainBuffer([])).toEqual({ drained: [], next: [] });
   });
 
-  // The whole point of buffering: the row must record when the user was on the
-  // screen, not when the flush happened after sign-in.
-  it('preserves original timestamps', () => {
-    const { drained } = drainBuffer([event('a', 1_000)]);
-
-    expect(drained[0]?.occurredAt).toBe(1_000);
-  });
+  // `drainBuffer` itself only moves objects around — it cannot drop or alter
+  // an `occurredAt` it never inspects, so a test asserting that here cannot
+  // fail no matter what the function does wrong. The behaviour this exists to
+  // protect — writing `occurred_at` explicitly from the buffered timestamp
+  // rather than letting the insert take the column default — lives in
+  // `flushTelemetryBuffer` (`events.ts`), which is I/O (imports the Supabase
+  // client) and out of reach of root Vitest; verified by hand instead.
 });
