@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { GoalBar } from '@/features/goals/GoalBar.tsx';
 import {
@@ -40,6 +41,7 @@ export default function GoalDetail() {
 
   const detail = useGoalDetail(id, userId, today);
   const abandon = useAbandonGoal(userId);
+  const disclosure = useDisclosure(userId);
 
   // A card over the tab shell: the orbit nav is covered, not absent, so its
   // clearance must stand down with it. Same shape as `goal/new`.
@@ -71,6 +73,25 @@ export default function GoalDetail() {
       ],
     );
   }, [abandon, detail.data?.row.squad_id, id, router]);
+
+  // The last Goals surface reachable without an entry point. `notificationTarget`
+  // routes a `goal_completed` push straight here, and a `core` user really can
+  // receive one: a squad goal freezes its roster from squad membership at
+  // creation, so somebody who joined a squad on day one is on a goal a
+  // squadmate created, without ever having seen a goal screen.
+  //
+  // Gated anyway, and the consequence is deliberate: at `core` a goal is a
+  // thing that does not exist yet, and showing one goal detail screen to
+  // somebody with no goal card, no `/goal/new` and no squad goal panel would
+  // explain nothing. The goal keeps running and their days keep counting toward
+  // it — nothing here is scored on screen — and it appears with everything else
+  // at three scored days.
+  //
+  // `resolved` for the same reason `/train` and `/goal/new` need it: 'core' is
+  // the reading while the count is in flight, and this route's most likely
+  // arrival is a push tap on a cold launch, which is exactly when no count is
+  // cached.
+  if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
 
   if (detail.isPending) {
     return (

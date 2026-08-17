@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Panel } from '@/ui/index.ts';
 import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
@@ -84,7 +84,28 @@ export function PermissionAsks({
   return (
     <Modal visible={ask !== null} transparent animationType="slide">
       <View style={styles.backdrop}>
+        {/* The sheet is bounded and its contents scroll.
+
+            Neither was true until 2026-08-17, and the failure was invisible in
+            every screenshot taken at a normal text size: `Panel` sets
+            `overflow: 'hidden'`, so at the largest accessibility sizes the
+            content did not spill past the card — it was silently cut off
+            inside it. On an XXXL simulator the Health sheet lost its "Not now"
+            entirely, which is the one control that lets someone decline. A
+            permission sheet whose dismissal is unreachable is a trap, not a
+            layout bug.
+
+            It lives here rather than in either sheet because this component
+            owns the geometry — both asks are plain content, and putting the
+            bound in one of them would leave the other to rediscover this. */}
         <Panel variant="plain" style={styles.sheet}>
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            // The sheet is only as tall as it needs to be at normal sizes, so
+            // at those sizes this never scrolls and shows no indicator.
+            showsVerticalScrollIndicator
+            bounces={false}
+          >
           {ask === 'health' && (
             <HealthAsk
               userId={userId}
@@ -111,6 +132,7 @@ export function PermissionAsks({
               onDismiss={() => setNotificationDismissed(true)}
             />
           )}
+          </ScrollView>
         </Panel>
       </View>
     </Modal>
@@ -123,5 +145,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: `${colors.bg}CC`,
   },
-  sheet: { marginTop: 0, marginBottom: space.lg, marginHorizontal: space.lg },
+  // `maxHeight` rather than a height: at normal text sizes the sheet still
+  // hugs its content and sits at the bottom of the screen, exactly as before.
+  // The bound only engages when the content would otherwise exceed the screen,
+  // which is the only case that was broken. 85% leaves the backdrop visible so
+  // the sheet still reads as a sheet rather than as a full-screen takeover.
+  sheet: {
+    marginTop: 0,
+    marginBottom: space.lg,
+    marginHorizontal: space.lg,
+    maxHeight: '85%',
+  },
+  // `flexGrow: 0` so a short sheet is not stretched to the bound. Without it
+  // the notification ask — which is half the height of the health one — would
+  // be padded out to 85% of the screen at every text size.
+  sheetContent: { flexGrow: 0 },
 });
