@@ -63,6 +63,25 @@ deletes it afterwards. It fails loudly on exactly that signature: buckets
 accepted, no score written. `docs/qa/kairo-end-to-end-qa-report.md` has the
 full post-mortem.
 
+### The invite-link site (`web/`)
+
+Universal links need one JSON file served over HTTPS from a domain's root.
+`web/` is that site — an `apple-app-site-association` file, a `vercel.json` that
+forces its content type, and a landing page for anyone who taps an invite
+without the app installed. Deploy it to any free static host.
+
+**The deployed domain must match `ios.associatedDomains` in `app.config.ts`, or
+every invite link falls back to Safari with nothing reporting an error.** Both
+sides read a single `INVITE_HOST` constant so they cannot drift, and changing
+that constant breaks every link already shared — it is baked into messages
+already sent. `web/README.md` has the full runbook, including the four
+manual steps in the entitlement chain and why GitHub Pages cannot host this.
+
+```bash
+curl -I https://<domain>/.well-known/apple-app-site-association
+# expect 200, content-type: application/json, and no redirect
+```
+
 ### Building onto a physical device
 
 ```bash

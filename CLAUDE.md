@@ -57,6 +57,48 @@ Three things that are easy to break by accident:
   becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
   run stored as 5,000 metres would quietly corrupt every pace after it.
 
+**Goals gained a second metric on 2026-08-17, and invites gained a link**
+(deviations #35–#36). Six things that are easy to get wrong:
+
+- **`goals.metric` was widened, not added.** It already existed as
+  `check (metric = 'daily_score')`, documented as widenable — and the existing
+  value is `'daily_score'`, the *value* name, not `'points'`. Match the
+  database.
+- **`create_goal` had to learn `p_metric`, or the widened check is
+  unreachable.** `authenticated` holds only SELECT and UPDATE(title,
+  description) on `goals`, so that function is the only way a row is ever
+  written. Adding a defaulted parameter to a function that already has defaults
+  is an *ambiguous overload* PostgREST cannot resolve — drop and recreate, as
+  `p_description` already did. The same trap waits for the next parameter.
+- **`walk_cleared` comes from `daily_scores.tiers`, never `health_buckets`.**
+  The tier is already projected to squadmates by `squad_leaderboard()`; the
+  buckets are not, and both produce an identical screen. A schema test pins the
+  RPC's exact row shape for that reason.
+- **A `daily_walk` consistency goal stores `target: 1` as a sentinel**, because
+  the column requires a positive value and the bar is a boolean. Two places
+  keep it off screens: `contribution()` checks `metric` **before** `kind` (the
+  other order reads the sentinel as a points bar and counts every scoring day),
+  and `windowLine()` drops its "· N a day" clause for the metric. And
+  `finalize-days` **must select `metric`** — it has its own `GoalRow` and
+  `toGoal`, so a walk goal graded without it latches off any day that scored,
+  pays XP and pushes a notification saying so. A wrong card re-renders; a latch
+  is permanent.
+- **`stillPossible` keys off whether a day's contribution is capped, not off
+  `kind`.** A points day has no ceiling, so a cumulative points goal lives while
+  any day is unresolved. A *walk* day is worth at most 1 whichever kind it is,
+  so a cumulative walk goal can die before its window closes. A test pins that
+  points goals are unaffected — do not collapse the two branches back.
+- **The universal-links chain is four manual steps and every one fails
+  silently:** `ios.associatedDomains` in config, `npm run prebuild` **and a
+  commit of the regenerated `ios/`**, the extensionless AASA file's
+  `Content-Type` (`web/vercel.json`), and the **Associated Domains capability on
+  the App ID** in Apple's portal. Expo's docs say EAS Build handles this; Kairo
+  does not use EAS, and Xcode Cloud ships the committed `ios/` as it finds it
+  (#28). Same failure class as `aps-environment`. The domain is a one-way door —
+  `INVITE_HOST` is one constant that both `app.config.ts` and
+  `invite-message.ts` read, and changing it breaks every link already shared.
+  Runbook: `web/README.md`.
+
 **"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
 character has no noun — it is "your character", and the centre tab is `Character`;
 a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do

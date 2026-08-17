@@ -41,9 +41,16 @@ squad is a layer on top.
 - **Daily leaderboard**, Today and Yesterday, weighted at read time by the
   squad's fixed **program** (deviation #11/#12).
 - Share the invite via the system share sheet; empty seats are the affordance.
+- **Invite links** — `https://<domain>/join/<code>` opens the app with the code
+  filled in (deviation #36). The code is seeded, never auto-submitted, and
+  manual entry stays for anyone whose chat client mangles the link.
 - Leave, with succession — the squad outlives its leader.
 
 ### Goals — what replaced sabotage
+- Measured in **Daily Walks by default**, with points as the advanced path
+  (deviation #35). A walk goal counts days that cleared 10,000 steps and
+  ignores the score, so its target is answerable from the streak already on
+  the home shelf.
 - Cumulative or consistency, personal or squad-wide, over a fixed window,
   a date you pick, or open-ended (deviation #21).
 - Squad goals are **per-member N-of-M**: each member must hit the target
@@ -94,9 +101,9 @@ a regression.
 | **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it. | Deviation #17 |
 | **Character morphing, gear slots, Rive animation** | V1. The art is not commissioned; §15 scopes the MVP to *static* placeholder art, and pulling in an animation runtime for a placeholder is the wrong trade. The three responses listed above are what exists. | §15, `CharacterFigure.tsx` |
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
-| **Universal links / deep linking** | Needs a domain, a hosted `apple-app-site-association`, the associated-domains entitlement and route handling. Sharing works without it today. | QA finding Q8 |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
 | **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It is a third mechanic beside Goals and Challenges, and three questions are open on purpose: how a Routine-level shield and Challenge-level ease coordinate on one missed week, where it surfaces relative to `SquadGoalPanel` and `GoalCard`, and the squad-level `required_members` default. | Deviation #33, spec §9 |
+| **Android App Links** | iOS first. An `assetlinks.json` would sit beside the association file in `web/` when Android arrives. | Deviation #36 |
 | **Android** | iOS first. | §15 |
 
 ---
