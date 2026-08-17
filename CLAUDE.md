@@ -139,6 +139,24 @@ reverse. Four things break easily:
   lets the accusation through the back door), and `everReceivedData` is **not**
   the scored-day count alone — Bronze AGI is 1,000 steps, so a 400-step day is
   real data that scored nothing, and today's buckets are OR'd in.
+- **The permission sheet is bounded, scrolls, and wraps its content in a View
+  with an explicit point width.** All three are load-bearing and were found the
+  hard way on 2026-08-17. `Panel` sets `overflow: 'hidden'`, so an oversized
+  sheet never visibly spilled — it was silently clipped *inside* the card, and
+  at XXXL the Health ask lost its "Not now", the one control that lets someone
+  decline. Three separate faults: no height bound (fixed with `maxHeight` plus
+  a `ScrollView` that is `flexGrow: 0, flexShrink: 1`, so the card still hugs
+  short content instead of always taking the cap); no width bound on **direct
+  `Text` children of a scroll container**, which laid out wider than the card
+  and clipped mid-word — a `View` with a computed point width fixes it and
+  `width: '100%'` does not, because the percentage resolves against a
+  ScrollView whose own size depends on measuring that content; and a two-column
+  row that cannot fit past ~1.3x, which now stacks.
+  **Two testing notes.** This class of bug is invisible at every normal text
+  size — `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large`
+  is how it was found. And **relaunch the app after changing content size**:
+  RN caches text measurements, so a size change on a running app renders correct
+  text inside stale boxes and looks exactly like a layout regression.
 - **Connecting Apple Health is `connect-health.ts`, never inlined.** It is five
   steps — request, `configureHealthBackgroundDelivery`,
   `notifyHealthPermissionGranted`, read the state back, track — and `/connect`
