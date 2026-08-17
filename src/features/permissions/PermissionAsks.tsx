@@ -4,6 +4,7 @@ import { Panel } from '@/ui/index.ts';
 import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
 import { readHealthPermissionState } from '@/features/health/permission.ts';
+import { track } from '@/features/telemetry/events.ts';
 import type { HealthPermissionState } from '@/features/health/permission-state.ts';
 import { NotificationAsk } from '@/features/notifications/NotificationPermissionSheet.tsx';
 import type { NotificationPermission } from '@/features/notifications/ask-policy.ts';
@@ -94,7 +95,10 @@ export function PermissionAsks({
                 setHealth('asked');
                 setAnswered(true);
               }}
-              onDismiss={() => setHealthDismissed(true)}
+              onDismiss={() => {
+                setHealthDismissed(true);
+                void track(userId, 'health_ask_dismissed');
+              }}
             />
           )}
 

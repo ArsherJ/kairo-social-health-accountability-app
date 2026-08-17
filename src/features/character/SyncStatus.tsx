@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/index.ts';
 import Feather from '@expo/vector-icons/Feather';
+import { useScoredDayCount } from '@/features/character/queries.ts';
 import { requestSync, useSyncStatusStore } from '@/features/health/status-store.ts';
 import { syncStatus } from '@/features/health/sync-status.ts';
 import { colors, font, space } from '@/theme.ts';
@@ -22,8 +23,21 @@ import { colors, font, space } from '@/theme.ts';
  * and a terracotta action, terracotta being what the system already means by
  * "the thing to press". Healthy stays a grey half-line most people never read.
  */
-export function SyncStatus() {
-  const { syncing, lastSyncedAt, lastError } = useSyncStatusStore();
+export function SyncStatus({ userId }: { userId: string | undefined }) {
+  const { syncing, lastSyncedAt, firstSyncedAt, lastError } = useSyncStatusStore();
+
+  // Reused rather than re-queried: this already means "days this account scored
+  // above zero", which is exactly the question 'no-data' asks — has anything
+  // ever arrived from Apple Health. Same TanStack key as `useDisclosure`, so
+  // the two readers share one request.
+  const scoredDays = useScoredDayCount(userId);
+  // Parenthesised deliberately: `a ?? 0 > 0` parses as `a ?? (0 > 0)`, which is
+  // `a ?? false` and truthy for any real count.
+  //
+  // Defaults to `false` while loading, which cannot mislead: the grace window
+  // in `syncStatus` outlives any query, so a pending count never reaches the
+  // 'no-data' branch on its own.
+  const everReceivedData = (scoredDays.data ?? 0) > 0;
 
   // Re-render on a slow tick so "3 minutes ago" ages honestly while the screen
   // is open. A minute is the finest granularity `describeAge` reports, so
@@ -34,7 +48,14 @@ export function SyncStatus() {
     return () => clearInterval(id);
   }, []);
 
-  const status = syncStatus({ syncing, lastSyncedAt, lastError, now: Date.now() });
+  const status = syncStatus({
+    syncing,
+    lastSyncedAt,
+    firstSyncedAt,
+    lastError,
+    everReceivedData,
+    now: Date.now(),
+  });
 
   const icon = ICONS[status.kind];
   const tone = status.attention ? colors.text : colors.muted;
@@ -50,7 +71,12 @@ export function SyncStatus() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${status.action}. ${status.message}`}
-          onPress={requestSync}
+          // 'no-data' is the one state whose action is not a retry — every
+          // sync in its window already succeeded, so there is nothing to run
+          // again. The fix, if there is one, is in iOS Settings.
+          onPress={
+            status.kind === 'no-data' ? () => void Linking.openSettings() : requestSync
+          }
           // The line is 12pt type; the tappable area is not.
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
@@ -69,6 +95,10 @@ const ICONS = {
   fresh: 'check',
   stale: 'clock',
   failed: 'alert-circle',
+  // Not `alert-circle`. This state is the app saying it has nothing, not the
+  // app saying something broke — and reusing the failure glyph would put back
+  // the technical-error reading the state exists to remove.
+  'no-data': 'inbox',
 } as const satisfies Record<string, React.ComponentProps<typeof Feather>['name']>;
 
 const styles = StyleSheet.create({

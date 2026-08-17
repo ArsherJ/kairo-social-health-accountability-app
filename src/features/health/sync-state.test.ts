@@ -24,6 +24,7 @@ describe('initialSyncState', () => {
     expect(initialSyncState).toEqual({
       dirtyDates: [],
       lastSyncedAt: null,
+      firstSyncedAt: null,
       lastError: null,
       lastErrorAt: null,
     });
@@ -97,6 +98,18 @@ describe('markSynced', () => {
 
   it('records when the sync happened', () => {
     expect(markSynced(initialSyncState, [], 1000).lastSyncedAt).toBe(1000);
+  });
+
+  it('stamps firstSyncedAt on the first success and never again', () => {
+    // The anchor `syncStatus`'s 'no-data' grace window measures from. If a
+    // later sync moved it, the window would restart on every successful sync
+    // and the state could never be reached at all.
+    const first = markSynced(initialSyncState, [], 1000);
+    expect(first.firstSyncedAt).toBe(1000);
+
+    const second = markSynced(first, [], 9000);
+    expect(second.firstSyncedAt).toBe(1000);
+    expect(second.lastSyncedAt).toBe(9000);
   });
 
   it('clears a previous error', () => {

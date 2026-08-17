@@ -42,6 +42,12 @@ export type AppEventType =
   // granted/denied verdict: HealthKit does not report read-permission denial,
   // and an event asserting otherwise would be believed.
   | 'health_ask_completed'
+  // The other half of the health step, and the reason it has a denominator at
+  // all. `health_ask_completed` fires only on success, so until this existed a
+  // user who dismissed the sheet and a user who was never offered it produced
+  // identical event sequences — leaving the step the design calls the
+  // activation bottleneck with no measurable drop-off.
+  | 'health_ask_dismissed'
   | 'profile_created'
   | 'first_score_seen'
   | 'squad_created'

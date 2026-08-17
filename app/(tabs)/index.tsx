@@ -527,7 +527,7 @@ export default function Character() {
           {/* Deliberately outside the panel's own null guard: an empty TODAY
               panel is exactly when "waiting for your first sync" or "couldn't
               sync" is the most useful thing on the screen. */}
-          <SyncStatus />
+          <SyncStatus userId={session?.user.id} />
 
           {/* Unreachable in `core` anyway — `expanded` is only ever set by
               StatRail, which is gated above — but stated rather than implied,

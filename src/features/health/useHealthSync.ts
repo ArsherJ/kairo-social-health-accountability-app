@@ -107,6 +107,7 @@ export function useHealthSync(
     setSyncStatus({
       syncing: false,
       lastSyncedAt: stored.lastSyncedAt,
+      firstSyncedAt: stored.firstSyncedAt,
       lastError: stored.lastError,
     });
 
@@ -143,6 +144,7 @@ export function useHealthSync(
       setSyncStatus({
         syncing: false,
         lastSyncedAt: persisted.lastSyncedAt,
+        firstSyncedAt: persisted.firstSyncedAt,
         lastError: persisted.lastError,
       });
 
