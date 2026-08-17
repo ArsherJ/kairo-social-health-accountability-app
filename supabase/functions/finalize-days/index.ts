@@ -81,7 +81,10 @@ async function settleGoals(
   // that never counted toward the goal.
   const { data: goalRows, error: goalError } = await admin
     .from('goals')
-    .select('id, squad_id, title, kind, target, required_days, starts_on, ends_on')
+    // `metric` is not optional here despite being optional on GoalRow: without
+    // it a daily_walk goal is graded against its sentinel `target: 1` as if it
+    // were a points goal, and latches off any day that scored at all.
+    .select('id, squad_id, title, kind, metric, target, required_days, starts_on, ends_on')
     .in('id', goalIds)
     .lte('starts_on', candidate.local_date)
     .gte('ends_on', candidate.local_date);
@@ -109,6 +112,7 @@ async function settleGoals(
     local_date: string;
     total: number;
     status: string;
+    walk_cleared: boolean;
   }> = [];
 
   for (const goal of goals) {
@@ -133,6 +137,10 @@ async function settleGoals(
         local_date: row.local_date as string,
         total: Number(row.total ?? 0),
         status: row.status as string,
+        // The RPC coalesces its own null, so this is belt-and-braces against
+        // the column being absent entirely — which is what this function sees
+        // if it is deployed before its migration is applied.
+        walk_cleared: row.walk_cleared === true,
       });
     }
   }

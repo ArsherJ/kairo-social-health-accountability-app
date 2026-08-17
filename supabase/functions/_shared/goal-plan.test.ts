@@ -303,3 +303,90 @@ describe('planGoalCompletions — open-ended goals', () => {
     expect(completions).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The Daily Walk metric, server-side
+// ---------------------------------------------------------------------------
+//
+// This is the half that latches a completion and pays XP, so getting the metric
+// here wrong is worse than getting it wrong on a card: a card shows a bad
+// number until the next render, a latch is permanent and pushes a notification
+// saying so.
+
+describe('planGoalCompletions — daily_walk', () => {
+  function walkRow(overrides: Partial<GoalRow> = {}): GoalRow {
+    return goalRow({
+      metric: 'daily_walk',
+      kind: 'consistency',
+      // The sentinel. The bar is a boolean; the column requires target > 0.
+      target: 1,
+      required_days: 2,
+      ...overrides,
+    });
+  }
+
+  function walkDays(from: string, count: number, cleared: boolean, total = 0): GoalDay[] {
+    return finalDays(from, count, total).map((day) => ({ ...day, walkCleared: cleared }));
+  }
+
+  it('carries the metric onto the core shape', () => {
+    expect(toGoal(walkRow()).metric).toBe('daily_walk');
+  });
+
+  it('defaults an unknown metric to daily_score rather than trusting the string', () => {
+    // The row arrives from PostgREST as `string`. An unrecognised value must
+    // fall back to the metric every existing goal already uses, not widen the
+    // union by assertion.
+    expect(toGoal(goalRow({ metric: 'distance' })).metric).toBe('daily_score');
+  });
+
+  it('never latches a walk goal off points', () => {
+    // The failure this whole task exists to prevent: read as a daily_score
+    // consistency goal, `target: 1` counts every day scoring at least a point,
+    // so two ordinary days would complete the goal and pay XP.
+    const scoring = walkDays('2026-01-01', 5, false, 5_000);
+    expect(plan({ goals: [walkRow()], days: scoring, localDate: '2026-01-05' })).toEqual([]);
+  });
+
+  it('latches once enough days actually cleared the walk', () => {
+    const cleared = walkDays('2026-01-01', 2, true);
+    const completions = plan({
+      goals: [walkRow()],
+      days: cleared,
+      localDate: '2026-01-02',
+    });
+    expect(completions).toHaveLength(1);
+    expect(completions[0]?.row.goal_id).toBe('g1');
+    expect(completions[0]?.row.xp_awarded).toBeGreaterThan(0);
+  });
+
+  it('leaves a daily_score goal completing exactly as it did', () => {
+    const scoring = finalDays('2026-01-01', 30, 2_000);
+    expect(
+      plan({ goals: [goalRow()], days: scoring, localDate: '2026-01-30' }),
+    ).toHaveLength(1);
+  });
+});
+
+describe('daysForUser — walk_cleared', () => {
+  it('carries the flag through', () => {
+    const byGoal = daysForUser(
+      [
+        { goal_id: 'g1', user_id: USER, local_date: '2026-01-01', total: 0, status: 'final', walk_cleared: true },
+        { goal_id: 'g1', user_id: USER, local_date: '2026-01-02', total: 9_999, status: 'final', walk_cleared: false },
+      ],
+      USER,
+    );
+    expect(byGoal.get('g1')?.map((d) => d.walkCleared)).toEqual([true, false]);
+  });
+
+  it('reads a missing flag as not cleared', () => {
+    // Defensive against a deployed function running ahead of the migration:
+    // absent must mean "did not clear", never "cleared".
+    const byGoal = daysForUser(
+      [{ goal_id: 'g1', user_id: USER, local_date: '2026-01-01', total: 500, status: 'final' }],
+      USER,
+    );
+    expect(byGoal.get('g1')?.[0]?.walkCleared).toBe(false);
+  });
+});

@@ -1,4 +1,10 @@
-import { evaluateGoal, goalCompletionXp, type Goal, type GoalDay } from './core.ts';
+import {
+  evaluateGoal,
+  goalCompletionXp,
+  type Goal,
+  type GoalDay,
+  type GoalMetric,
+} from './core.ts';
 
 /**
  * The decision half of the goal pass in `finalize-days`, kept free of I/O so it
@@ -16,6 +22,14 @@ export interface GoalRow {
   squad_id: string | null;
   title: string;
   kind: string;
+  /**
+   * `goals.metric`, as PostgREST hands it over: a bare string, widened by the
+   * CHECK rather than by a type. **`finalize-days` must select this column.**
+   * Without it a walk goal is graded as a points goal against the sentinel
+   * `target: 1`, so any day scoring at least one point counts as a cleared
+   * walk — and the goal latches, pays XP and pushes a notification saying so.
+   */
+  metric?: string;
   target: number;
   description: string | null;
   required_days: number | null;
@@ -38,10 +52,23 @@ export interface GoalCompletion {
   title: string;
 }
 
+/**
+ * A metric string from the database, narrowed.
+ *
+ * Anything unrecognised — including the column being absent, which is what a
+ * function deployed ahead of its migration would see — falls back to
+ * `daily_score`, the metric every goal already had. Same defensive posture as
+ * the `kind` fallback below: degrade to the established behaviour rather than
+ * throw and stop a whole finalization run.
+ */
+function toMetric(metric: string | undefined): GoalMetric {
+  return metric === 'daily_walk' ? 'daily_walk' : 'daily_score';
+}
+
 export function toGoal(row: GoalRow): Goal {
   return {
     id: row.id,
-    metric: 'daily_score',
+    metric: toMetric(row.metric),
     kind: row.kind === 'consistency' ? 'consistency' : 'cumulative',
     target: row.target,
     requiredDays: row.required_days,
@@ -116,7 +143,15 @@ export function planGoalCompletions(input: {
  * user whose day just finalized.
  */
 export function daysForUser(
-  rows: readonly { goal_id: string; user_id: string; local_date: string; total: number; status: string }[],
+  rows: readonly {
+    goal_id: string;
+    user_id: string;
+    local_date: string;
+    total: number;
+    status: string;
+    /** Optional for the same reason as `GoalRow.metric` — a deploy can lead. */
+    walk_cleared?: boolean;
+  }[],
   userId: string,
 ): Map<string, GoalDay[]> {
   const byGoal = new Map<string, GoalDay[]>();
@@ -127,7 +162,10 @@ export function daysForUser(
     list.push({
       localDate: row.local_date,
       total: Number(row.total),
-      walkCleared: false,
+      // `=== true`, not a truthiness check: absent must read as "did not
+      // clear". The RPC already coalesces its null, so this guards only the
+      // window where a deployed function runs ahead of its migration.
+      walkCleared: row.walk_cleared === true,
       status: row.status === 'final' ? 'final' : 'provisional',
     });
     byGoal.set(row.goal_id, list);
