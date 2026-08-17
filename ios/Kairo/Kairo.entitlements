@@ -8,6 +8,10 @@
     <array>
       <string>Default</string>
     </array>
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+      <string>applinks:kairo-teal-nine.vercel.app</string>
+    </array>
     <key>com.apple.developer.healthkit</key>
     <true/>
     <key>com.apple.developer.healthkit.background-delivery</key>

@@ -1,4 +1,5 @@
 import { Share } from 'react-native';
+import { inviteUrl } from './invite-link.ts';
 import { inviteMessage, inviteTitle } from './invite-message.ts';
 
 /**
@@ -10,10 +11,9 @@ import { inviteMessage, inviteTitle } from './invite-message.ts';
  * sheet gives away. It also puts Messenger and Viber one tap from the code,
  * which matters more in this market than a toast saying "copied".
  *
- * Universal links are the obvious next step and deliberately not this one:
- * they need a domain, a hosted `apple-app-site-association`, the associated-
- * domains entitlement and deep-link routing. This works today and does not
- * block that later — the message gains a URL and nothing else changes.
+ * Universal links landed 2026-08-17 (deviation #36), and the prediction held —
+ * the message gained a URL and nothing else here changed except `url`, which
+ * had been left empty with a note saying there was nothing to put in it.
  */
 export async function shareInvite(input: {
   squadName: string;
@@ -24,9 +24,13 @@ export async function shareInvite(input: {
       {
         message: inviteMessage(input),
         title: inviteTitle(input.squadName),
+        // Set as well as being inside `message`, not instead of it. Targets
+        // split on this: Messages and Mail attach the URL as a rich preview and
+        // send the message alongside, while others (Notes, some chat apps)
+        // take only `message` — so the link has to be in both or it is missing
+        // from whichever the user actually picked.
+        url: inviteUrl(input.inviteCode),
       },
-      // Nothing useful to offer here yet — with no URL there is no link to
-      // print or mail as its own item.
       { subject: inviteTitle(input.squadName) },
     );
   } catch {

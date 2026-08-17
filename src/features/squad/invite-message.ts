@@ -1,3 +1,5 @@
+import { inviteUrl } from './invite-link.ts';
+
 /**
  * What gets sent when someone invites their squad.
  *
@@ -10,18 +12,29 @@
  * — it is the only thing a person who has never heard of Kairo will see.
  */
 
-/** Kept short enough to survive a Messenger preview without being cut. */
+/**
+ * Kept short enough to survive a Messenger preview without being cut.
+ *
+ * **The link and the code, not one or the other.** The link is the fast path —
+ * it opens the app with the field already filled, and for somebody who has
+ * never installed Kairo it opens a page explaining what they were invited to.
+ * The bare code stays underneath because a link is the part a chat client can
+ * mangle: some strip them, some wrap them across lines, and an SMS to a feature
+ * phone has nothing to tap. Six characters always survive, and the manual field
+ * in the app is still there for exactly that person.
+ */
 export function inviteMessage(input: {
   squadName: string;
   inviteCode: string;
 }): string {
   // Names the squad, then the one thing they have to do. No app-store pitch:
-  // this arrives from a friend, and the friend is the pitch. The code is last
-  // because it is what the reader has to act on, and a code buried mid-sentence
-  // is a code they have to hunt for.
+  // this arrives from a friend, and the friend is the pitch. The link and the
+  // code are last because they are what the reader has to act on, and either
+  // one buried mid-sentence is one they have to hunt for.
   return (
     `Join ${input.squadName.trim()} on Kairo — your real activity scores you ` +
-    `on our daily leaderboard.\n\nEnter this code in the app: ${input.inviteCode}`
+    `on our daily leaderboard.\n\n${inviteUrl(input.inviteCode)}` +
+    `\n\nOr enter this code in the app: ${input.inviteCode}`
   );
 }
 

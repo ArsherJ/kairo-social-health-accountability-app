@@ -1,4 +1,9 @@
 import type { ExpoConfig } from 'expo/config';
+// The one place the invite domain is written. Imported rather than repeated:
+// the entitlement generated from `associatedDomains` below and the URL in the
+// share message must name the same host, and if they drift the link opens
+// Safari with nothing reporting an error.
+import { INVITE_HOST } from './src/features/squad/invite-link.ts';
 
 /**
  * Kairo — Expo app config.
@@ -55,6 +60,17 @@ const config: ExpoConfig = {
     // device that is not signed into an Apple ID. Changing this needs a native
     // rebuild (`npm run prebuild && npm run ios`), not a JS reload.
     usesAppleSignIn: true,
+    // Universal links (design §11, deviation #36). No `https://` prefix —
+    // Apple's format is `applinks:<host>`, and including the scheme is the
+    // documented mistake that makes links silently fall back to Safari.
+    //
+    // Declaring it here is not sufficient. Because `ios/` is committed
+    // (deviation #28) Xcode Cloud ships the entitlements file as it finds it,
+    // so this needs `npm run prebuild` AND a commit of the regenerated `ios/`.
+    // And the Associated Domains capability must be enabled on the App ID in
+    // the Developer portal — without it the entitlement is present, the link
+    // resolves to Safari, and nothing reports an error.
+    associatedDomains: [`applinks:${INVITE_HOST}`],
     // CFBundleVersion. Every TestFlight upload needs a unique one, and because
     // `ios/` is committed (roadmap deviation #28) prebuild does not run in CI —
     // so this value cannot be derived from `CI_BUILD_NUMBER` through the config.

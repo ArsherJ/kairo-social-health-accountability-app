@@ -41,7 +41,7 @@ squad is a layer on top.
 - **Daily leaderboard**, Today and Yesterday, weighted at read time by the
   squad's fixed **program** (deviation #11/#12).
 - Share the invite via the system share sheet; empty seats are the affordance.
-- **Invite links** — `https://<domain>/join/<code>` opens the app with the code
+- **Invite links** — `https://kairo-teal-nine.vercel.app/join/<code>` opens the app with the code
   filled in (deviation #36). The code is seeded, never auto-submitted, and
   manual entry stays for anyone whose chat client mangles the link.
 - Leave, with succession — the squad outlives its leader.

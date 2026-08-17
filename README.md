@@ -78,7 +78,7 @@ already sent. `web/README.md` has the full runbook, including the four
 manual steps in the entitlement chain and why GitHub Pages cannot host this.
 
 ```bash
-curl -I https://<domain>/.well-known/apple-app-site-association
+curl -I https://kairo-teal-nine.vercel.app/.well-known/apple-app-site-association
 # expect 200, content-type: application/json, and no redirect
 ```
 

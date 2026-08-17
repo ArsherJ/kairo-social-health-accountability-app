@@ -7,5 +7,5 @@
       "headers": [{ "key": "Content-Type", "value": "application/json" }]
     }
   ],
-  "rewrites": [{ "source": "/join/:code", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/join/:code", "destination": "/" }]
 }

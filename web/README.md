@@ -1,13 +1,19 @@
 # `web/` — the universal-links site
 
-Three files on a free static host. They exist so that tapping
-`https://<domain>/join/AB12CD` opens Kairo with the invite code already filled
-in, instead of dropping the reader into Safari.
+Three served files on a free static host. They exist so that tapping
+`https://kairo-teal-nine.vercel.app/join/AB12CD` opens Kairo with the invite
+code already filled in, instead of dropping the reader into Safari.
+
+**Live at `kairo-teal-nine.vercel.app` since 2026-08-17.** The host is not
+written here as the source of truth — `INVITE_HOST` in
+`src/features/squad/invite-link.ts` is, and both `app.config.ts` (which
+generates the entitlement) and `invite-message.ts` (which builds the shared
+URL) import it, so the two cannot drift.
 
 | File | Job |
 | --- | --- |
 | `.well-known/apple-app-site-association` | The file Apple's CDN fetches to learn which app owns which paths. **No extension**, valid JSON. |
-| `vercel.json` | Forces its `Content-Type`, and rewrites `/join/:code` to the landing page. |
+| `vercel.json` | Forces its `Content-Type`, and rewrites `/join/:code` to the landing page. The rewrite destination is `/`, **not** `/index.html` — with `cleanUrls: true` the latter 308s, and Apple follows no redirects. |
 | `index.html` | What somebody without the app sees. Self-contained: no fonts, no scripts, no external requests. |
 
 ## The four things that break this silently
@@ -23,7 +29,7 @@ error — the same failure class as `aps-environment`, recorded in `CLAUDE.md`.
    as `application/octet-stream` by default and Apple ignores it. That is what
    `vercel.json` is for.
 3. **A redirect.** Apple follows none. The file must be a `200` at exactly
-   `https://<domain>/.well-known/apple-app-site-association`, which is why the
+   `https://kairo-teal-nine.vercel.app/.well-known/apple-app-site-association`, which is why the
    site has to own the domain **root** — a project path like
    `user.github.io/kairo/` cannot satisfy it.
 4. **The Associated Domains capability on the App ID**, in the Apple Developer
@@ -36,7 +42,7 @@ project-path repository cannot serve the domain root.
 ## Verifying a deploy
 
 ```bash
-curl -I https://<domain>/.well-known/apple-app-site-association
+curl -I https://kairo-teal-nine.vercel.app/.well-known/apple-app-site-association
 ```
 
 Expect `200`, `content-type: application/json`, and **no** `location` header.
