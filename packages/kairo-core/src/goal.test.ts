@@ -18,6 +18,7 @@ const END = '2026-01-30';
 function cumulative(overrides: Partial<Goal> = {}): Goal {
   return {
     id: 'g1',
+    metric: 'daily_score',
     kind: 'cumulative',
     target: 60_000,
     requiredDays: null,
@@ -30,6 +31,7 @@ function cumulative(overrides: Partial<Goal> = {}): Goal {
 function consistency(overrides: Partial<Goal> = {}): Goal {
   return {
     id: 'g2',
+    metric: 'daily_score',
     kind: 'consistency',
     target: 2_500,
     requiredDays: 25,
@@ -48,6 +50,9 @@ function days(from: string, count: number, total: number): GoalDay[] {
     out.push({
       localDate: date.toISOString().slice(0, 10),
       total,
+      // The score-metric fixtures all describe days that did *not* clear the
+      // walk, so every existing assertion below stays a statement about points.
+      walkCleared: false,
       status: 'final',
     });
   }
@@ -174,14 +179,14 @@ describe('evaluateGoal — provisional days', () => {
   it('counts a provisional day toward displayed progress', () => {
     // The card must show today's contribution as it happens; a user who walked
     // this morning should not see a number that ignores it.
-    const today: GoalDay[] = [{ localDate: START, total: 2_000, status: 'provisional' }];
+    const today: GoalDay[] = [{ localDate: START, total: 2_000, walkCleared: false, status: 'provisional' }];
     expect(evaluateGoal(cumulative(), today, START).progress).toBe(2_000);
   });
 
   it('never lets a provisional day complete a goal', () => {
     // Completion pays XP and latches. A day that can still be revised downward
     // must not be able to trigger it.
-    const today: GoalDay[] = [{ localDate: START, total: 99_000, status: 'provisional' }];
+    const today: GoalDay[] = [{ localDate: START, total: 99_000, walkCleared: false, status: 'provisional' }];
     const result = evaluateGoal(cumulative(), today, START);
     expect(result.progress).toBe(99_000);
     expect(result.met).toBe(false);
@@ -189,8 +194,8 @@ describe('evaluateGoal — provisional days', () => {
 
   it('reports final-only progress separately, which is what completion reads', () => {
     const mixed: GoalDay[] = [
-      { localDate: START, total: 30_000, status: 'final' },
-      { localDate: '2026-01-02', total: 40_000, status: 'provisional' },
+      { localDate: START, total: 30_000, walkCleared: false, status: 'final' },
+      { localDate: '2026-01-02', total: 40_000, walkCleared: false, status: 'provisional' },
     ];
     const result = evaluateGoal(cumulative(), mixed, '2026-01-02');
     expect(result.progress).toBe(70_000);
@@ -203,7 +208,7 @@ describe('evaluateGoal — provisional days', () => {
     // say 25 and the goal should not complete until tomorrow's finalization.
     const mixed: GoalDay[] = [
       ...days(START, 24, 3_000),
-      { localDate: '2026-01-25', total: 3_000, status: 'provisional' },
+      { localDate: '2026-01-25', total: 3_000, walkCleared: false, status: 'provisional' },
     ];
     const result = evaluateGoal(consistency(), mixed, '2026-01-25');
     expect(result.progress).toBe(25);
@@ -450,8 +455,8 @@ describe('evaluateGoal — open-ended', () => {
     // Five days elapsed, three of them final: two are still unresolved.
     const scored = days(START, 3, 1_000);
     const provisional: GoalDay[] = [
-      { localDate: '2026-01-04', total: 500, status: 'provisional' },
-      { localDate: '2026-01-05', total: 500, status: 'provisional' },
+      { localDate: '2026-01-04', total: 500, walkCleared: false, status: 'provisional' },
+      { localDate: '2026-01-05', total: 500, walkCleared: false, status: 'provisional' },
     ];
     const result = evaluateGoal(openEnded(), [...scored, ...provisional], '2026-01-05');
     expect(result.daysUnresolved).toBe(2);
@@ -460,7 +465,7 @@ describe('evaluateGoal — open-ended', () => {
   it('completes off final days only, same as a finite goal', () => {
     const goal = openEnded({ target: 3_000 });
     const provisional: GoalDay[] = [
-      { localDate: START, total: 4_000, status: 'provisional' },
+      { localDate: START, total: 4_000, walkCleared: false, status: 'provisional' },
     ];
     expect(evaluateGoal(goal, provisional, START).met).toBe(false);
     expect(evaluateGoal(goal, days(START, 1, 4_000), START).met).toBe(true);
@@ -490,5 +495,163 @@ describe('goalCompletionXp — open-ended', () => {
   it('never pays less than the base, even if the date arrives early', () => {
     // Defensive: a completion date before the start would give a negative span.
     expect(goalCompletionXp(openEnded(), '2025-12-01')).toBe(BASE_GOAL_COMPLETION_XP);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The Daily Walk as a metric — `metric: 'daily_walk'`
+// ---------------------------------------------------------------------------
+//
+// The bar is a boolean already stored in `daily_scores.tiers`, so these goals
+// are scored off `walkCleared` and never off `total`. `target` is a sentinel 1
+// for the consistency kind, because the column requires a positive value and
+// the bar is not a number.
+
+function walkConsistency(overrides: Partial<Goal> = {}): Goal {
+  return {
+    id: 'g3',
+    metric: 'daily_walk',
+    kind: 'consistency',
+    // Ignored for a daily_walk consistency goal — the bar is "cleared the
+    // walk", not a number. It is 1 because the database requires target > 0.
+    target: 1,
+    requiredDays: 25,
+    startsOn: START,
+    endsOn: END,
+    ...overrides,
+  };
+}
+
+/** `count` consecutive final days, each clearing the walk or not. */
+function walkDays(from: string, count: number, cleared: boolean, total = 0): GoalDay[] {
+  return days(from, count, total).map((day) => ({ ...day, walkCleared: cleared }));
+}
+
+describe('evaluateGoal — daily_walk, consistency', () => {
+  it('counts a day that cleared the walk', () => {
+    const result = evaluateGoal(walkConsistency(), walkDays(START, 1, true), '2026-01-03');
+    expect(result.progress).toBe(1);
+    expect(result.target).toBe(25);
+  });
+
+  it('ignores the score entirely', () => {
+    // The whole point of the metric: a huge step count that fell short of the
+    // baseline is not a cleared walk, and a modest day that reached it is.
+    const result = evaluateGoal(
+      walkConsistency(),
+      [...walkDays(START, 1, false, 99_999), ...walkDays('2026-01-02', 1, true, 1)],
+      '2026-01-03',
+    );
+    expect(result.progress).toBe(1);
+  });
+
+  it('never reads the sentinel target as a points bar', () => {
+    // `target: 1` with the score metric would count every day scoring at least
+    // one point. This is the assertion that catches a lost `metric` field.
+    const result = evaluateGoal(walkConsistency(), walkDays(START, 10, false, 5_000), END);
+    expect(result.progress).toBe(0);
+    expect(result.met).toBe(false);
+  });
+
+  it('is met once enough days cleared it', () => {
+    const result = evaluateGoal(walkConsistency(), walkDays(START, 25, true), '2026-01-25');
+    expect(result.met).toBe(true);
+    expect(result.daysMet).toBe(25);
+  });
+
+  it('treats a scoreless day as not cleared', () => {
+    // A scoreless participant arrives as a null-extended row from the LEFT JOIN
+    // in goal_window_scores. It must read as "did not clear", never as cleared.
+    expect(evaluateGoal(walkConsistency(), walkDays(START, 1, false), '2026-01-03').progress)
+      .toBe(0);
+  });
+
+  it('excludes a provisional cleared walk from completion', () => {
+    const banked = walkDays(START, 24, true);
+    const today: GoalDay[] = [
+      { localDate: '2026-01-25', total: 0, walkCleared: true, status: 'provisional' },
+    ];
+    const result = evaluateGoal(walkConsistency(), [...banked, ...today], '2026-01-25');
+    expect(result.progress).toBe(25);
+    expect(result.met).toBe(false);
+  });
+});
+
+describe('evaluateGoal — daily_walk, cumulative', () => {
+  const walkTotal = walkConsistency({ kind: 'cumulative', target: 20, requiredDays: null });
+
+  it('counts cleared walks toward the total', () => {
+    const result = evaluateGoal(
+      walkTotal,
+      [
+        ...walkDays(START, 1, true),
+        ...walkDays('2026-01-02', 1, false),
+        ...walkDays('2026-01-03', 1, true),
+      ],
+      '2026-01-04',
+    );
+    expect(result.progress).toBe(2);
+    expect(result.target).toBe(20);
+    expect(result.met).toBe(false);
+  });
+
+  it('dies once too few days remain to reach the total', () => {
+    // A walk day contributes at most 1, unlike a points day which has no
+    // ceiling — so a cumulative walk goal can go arithmetically dead before its
+    // window closes, exactly as a consistency goal can. 5 banked, 25 days
+    // final, 5 unresolved, 20 needed.
+    const result = evaluateGoal(
+      walkTotal,
+      [...walkDays(START, 5, true), ...walkDays('2026-01-06', 20, false)],
+      '2026-01-25',
+    );
+    expect(result.progress).toBe(5);
+    expect(result.stillPossible).toBe(false);
+  });
+
+  it('is still possible when exactly enough days remain', () => {
+    // 5 banked, 10 days final, 20 unresolved: 5 + 20 is exactly 25 ≥ 20.
+    const result = evaluateGoal(
+      walkTotal,
+      [...walkDays(START, 5, true), ...walkDays('2026-01-06', 5, false)],
+      '2026-01-10',
+    );
+    expect(result.stillPossible).toBe(true);
+  });
+
+  it('is always still possible when open-ended — there is always tomorrow', () => {
+    const result = evaluateGoal(
+      { ...walkTotal, endsOn: null },
+      walkDays(START, 25, false),
+      '2026-01-25',
+    );
+    expect(result.stillPossible).toBe(true);
+  });
+});
+
+describe('evaluateGoal — daily_score is unchanged', () => {
+  it('still sums totals for a cumulative goal', () => {
+    const scored: GoalDay[] = [
+      { localDate: START, total: 400, walkCleared: true, status: 'final' },
+      { localDate: '2026-01-02', total: 300, walkCleared: false, status: 'final' },
+    ];
+    expect(evaluateGoal(cumulative({ target: 1_000 }), scored, '2026-01-03').progress)
+      .toBe(700);
+  });
+
+  it('still ignores walkCleared for a consistency goal', () => {
+    // A cleared walk that scored under the points bar contributes nothing.
+    const scored: GoalDay[] = [
+      { localDate: START, total: 100, walkCleared: true, status: 'final' },
+    ];
+    expect(evaluateGoal(consistency(), scored, '2026-01-02').progress).toBe(0);
+  });
+
+  it('still stays possible on a cumulative points goal with one day left', () => {
+    // No per-day ceiling on points, so a single unresolved day keeps a points
+    // goal alive however far behind it is. The walk cap must not leak here.
+    const result = evaluateGoal(cumulative(), days(START, 29, 0), END);
+    expect(result.daysUnresolved).toBe(1);
+    expect(result.stillPossible).toBe(true);
   });
 });

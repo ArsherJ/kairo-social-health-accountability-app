@@ -31,6 +31,7 @@ function finalDays(from: string, count: number, total: number): GoalDay[] {
     out.push({
       localDate: new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10),
       total,
+      walkCleared: false,
       status: 'final',
     });
   }
@@ -58,6 +59,7 @@ describe('toGoal', () => {
   it('maps a row onto the core shape', () => {
     expect(toGoal(goalRow())).toEqual({
       id: 'g1',
+      metric: 'daily_score',
       kind: 'cumulative',
       target: 60_000,
       requiredDays: null,
@@ -155,7 +157,7 @@ describe('planGoalCompletions', () => {
     // The one rule that matters most here: completion pays XP and latches
     // one-way, so a day Apple can still revise downward must not trigger it.
     const provisional: GoalDay[] = [
-      { localDate: '2026-01-01', total: 99_000, status: 'provisional' },
+      { localDate: '2026-01-01', total: 99_000, walkCleared: false, status: 'provisional' },
     ];
     expect(
       plan({ goals: [goalRow()], days: provisional, localDate: '2026-01-01' }),
@@ -289,7 +291,7 @@ describe('planGoalCompletions — open-ended goals', () => {
 
   it('does not complete on provisional days', () => {
     const provisional: GoalDay[] = [
-      { localDate: '2026-01-01', total: 99_000, status: 'provisional' },
+      { localDate: '2026-01-01', total: 99_000, walkCleared: false, status: 'provisional' },
     ];
     const completions = planGoalCompletions({
       userId: USER,

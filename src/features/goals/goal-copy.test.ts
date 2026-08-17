@@ -17,6 +17,7 @@ const WINDOW_DAYS = 30;
 function cumulative(): Goal {
   return {
     id: 'g',
+    metric: 'daily_score',
     kind: 'cumulative',
     target: 60_000,
     requiredDays: null,
@@ -28,6 +29,7 @@ function cumulative(): Goal {
 function consistency(): Goal {
   return {
     id: 'g',
+    metric: 'daily_score',
     kind: 'consistency',
     target: 2_500,
     requiredDays: 25,
@@ -43,6 +45,7 @@ function days(from: string, count: number, total: number): GoalDay[] {
     out.push({
       localDate: new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10),
       total,
+      walkCleared: false,
       status: 'final',
     });
   }

@@ -4,10 +4,15 @@ import type { DayStatus } from './compute.ts';
  * Goals — the long-horizon commitment (spec §8, v1.4).
  *
  * A goal is a target over a window of days: either a running total to reach
- * (`cumulative`) or a per-day bar to clear on N of M days (`consistency`). It is
- * scored off `daily_scores.total`, the same canonical number the leaderboard
- * ranks on, which is what keeps it inside §5's privacy projection — there is
- * deliberately no goal metric that would reach raw steps.
+ * (`cumulative`) or a per-day bar to clear on N of M days (`consistency`),
+ * measured in one of two metrics (`GoalMetric` below).
+ *
+ * Both metrics stay inside §5's privacy projection, and that is a constraint
+ * rather than a coincidence: `daily_score` reads `daily_scores.total`, the same
+ * canonical number the leaderboard ranks on, and `daily_walk` reads the stored
+ * AGI tier, which `squad_leaderboard()` already returns to squadmates. **There
+ * is deliberately no goal metric that would reach raw steps or hourly
+ * movement** — a distance goal would need one, which is why it is not here.
  *
  * **This is the only implementation of goal arithmetic.** The SQL side returns
  * rows — each participant's per-day score series for the window — and both the
@@ -23,8 +28,35 @@ import type { DayStatus } from './compute.ts';
 
 export type GoalKind = 'cumulative' | 'consistency';
 
+/**
+ * What a goal is measured in.
+ *
+ * `daily_score` is the original: a goal's target is a number of points, which
+ * the user typed. That was defensible while points were the app's vocabulary
+ * and stopped being defensible when they left every other surface — a target
+ * you cannot translate into behaviour makes the goal arbitrary and its failure
+ * feel like the algorithm's fault.
+ *
+ * `daily_walk` measures the same days against the Daily Walk instead: 10,000
+ * steps, the number already on the home shelf with a streak beside it. A user
+ * can answer "is 25 out of 30 realistic for me" by looking at their own streak,
+ * which is the question the score metric had no answer to.
+ *
+ * **It reaches no raw data.** The boolean comes from `daily_scores.tiers`,
+ * which `squad_leaderboard()` already projects to squadmates. This file's
+ * original note — "there is deliberately no goal metric that would reach raw
+ * steps" — still holds; only the mechanism widened. Reading `health_buckets`
+ * here would breach spec §5 while producing an identical screen.
+ */
+export type GoalMetric = 'daily_score' | 'daily_walk';
+
 export interface Goal {
   id: string;
+  /**
+   * Mirrors `goals.metric`. Existing rows default to `'daily_score'`, so this
+   * is additive for every goal already set.
+   */
+  metric: GoalMetric;
   kind: GoalKind;
   /**
    * Cumulative: the total to reach across the window.
@@ -53,6 +85,15 @@ export interface Goal {
 export interface GoalDay {
   localDate: string;
   total: number;
+  /**
+   * Whether this day cleared the Daily Walk — `tiers->>'AGI' = 'gold'`, which
+   * is exactly `DAILY_STEP_BASELINE` steps.
+   *
+   * False for a day with no score at all: `goal_window_scores` LEFT JOINs so a
+   * participant with nothing yet still appears, and a null there must read as
+   * "did not clear", never as cleared.
+   */
+  walkCleared: boolean;
   status: DayStatus;
 }
 
@@ -139,8 +180,25 @@ function withinWindow(goal: Goal, localDate: string): boolean {
 
 /** Cumulative sums points; consistency counts days that cleared the bar. */
 function contribution(goal: Goal, day: GoalDay): number {
+  // Checked before `kind`: for a walk goal both kinds count cleared days, and
+  // only `requirement()` below distinguishes them. Checking `kind` first would
+  // read the sentinel `target: 1` as a points bar and count every scoring day.
+  if (goal.metric === 'daily_walk') return day.walkCleared ? 1 : 0;
   if (goal.kind === 'cumulative') return day.total;
   return day.total >= goal.target ? 1 : 0;
+}
+
+/**
+ * Whether a day's contribution is capped at 1.
+ *
+ * True for every walk goal and for any consistency goal, which is what makes
+ * `stillPossible` decidable before the window closes: with a ceiling, the best
+ * case is one per unresolved day. A *points* cumulative goal has no ceiling — a
+ * single day can carry any total — so it stays reachable while any day is
+ * unresolved, and must not be measured by this rule.
+ */
+function contributionIsCapped(goal: Goal): boolean {
+  return goal.metric === 'daily_walk' || goal.kind === 'consistency';
 }
 
 /** What `progress` is measured against. */
@@ -198,15 +256,17 @@ export function evaluateGoal(
     (today < goal.startsOn ? 0 : daysBetween(goal.startsOn, today) + 1);
   const daysUnresolved = Math.max(0, elapsedDays - finalDays);
 
-  // Consistency is the only kind that can become arithmetically dead before the
-  // window closes: a missed day is gone. A cumulative goal stays theoretically
-  // reachable as long as an unresolved day remains, since there is no per-day
-  // ceiling — and an open-ended one always has tomorrow, so it can never die.
+  // A goal can become arithmetically dead before its window closes only when a
+  // day's contribution has a ceiling: a missed day is then gone for good. That
+  // is every consistency goal *and* every walk goal, since a walk day is worth
+  // at most one whichever kind it is. A points cumulative goal has no ceiling,
+  // so it stays theoretically reachable while any day is unresolved — and an
+  // open-ended one always has tomorrow, so it can never die.
   const stillPossible = met
     ? true
     : goal.endsOn === null
       ? true
-      : goal.kind === 'consistency'
+      : contributionIsCapped(goal)
         ? finalProgress + daysUnresolved >= target
         : daysUnresolved > 0;
 

@@ -110,6 +110,7 @@ export function pickLiveGoal(
 export function toGoal(row: GoalRow): Goal {
   return {
     id: row.id,
+    metric: 'daily_score',
     kind: row.kind,
     target: row.target,
     requiredDays: row.required_days,
@@ -144,6 +145,7 @@ export function standingsFor(input: {
       entry.days.push({
         localDate: score.local_date,
         total: Number(score.total ?? 0),
+        walkCleared: false,
         status: score.status,
       });
     }

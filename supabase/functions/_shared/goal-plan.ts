@@ -41,6 +41,7 @@ export interface GoalCompletion {
 export function toGoal(row: GoalRow): Goal {
   return {
     id: row.id,
+    metric: 'daily_score',
     kind: row.kind === 'consistency' ? 'consistency' : 'cumulative',
     target: row.target,
     requiredDays: row.required_days,
@@ -126,6 +127,7 @@ export function daysForUser(
     list.push({
       localDate: row.local_date,
       total: Number(row.total),
+      walkCleared: false,
       status: row.status === 'final' ? 'final' : 'provisional',
     });
     byGoal.set(row.goal_id, list);

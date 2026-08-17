@@ -107,6 +107,9 @@ export function CreateGoalForm({
   // the same one the server's trigger measures.
   const windowDays = goalWindowDays({
     id: 'draft',
+    // `goalWindowDays` reads only the two dates, so the metric here is inert —
+    // it is present because `Goal` requires it, not because it is consulted.
+    metric: 'daily_score',
     kind,
     target: 0,
     requiredDays: null,
