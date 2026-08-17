@@ -3,10 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionStore } from '@/features/auth/session.ts';
-import {
-  readHealthPermissionState,
-  requestHealthPermission,
-} from '@/features/health/permission.ts';
+import { connectHealth } from '@/features/health/connect-health.ts';
 import { readStepsToday } from '@/features/health/read.ts';
 import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
 import { track } from '@/features/telemetry/events.ts';
@@ -39,6 +36,7 @@ export default function Connect() {
   const userId = useSessionStore((s) => s.session)?.user.id;
   const [phase, setPhase] = useState<Phase>('asking');
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [steps, setSteps] = useState<number | null>(null);
 
   // Names the start of onboarding, not this particular screen — it moved here
@@ -49,25 +47,32 @@ export default function Connect() {
 
   async function connect() {
     setBusy(true);
+    setFailed(false);
     try {
-      await requestHealthPermission();
-      // Guarded: a failed status read is telemetry's problem, never the
-      // user's. Same reason the permission sheet's read is guarded.
-      const state = await readHealthPermissionState().catch(() => null);
-      void track(userId, 'health_ask_completed', { state });
+      // The whole sequence — request, background delivery, sync kickoff, state
+      // read, telemetry — lives in one module shared with `HealthAsk`. It was
+      // paraphrased here once and lost three of those five steps silently; see
+      // `connect-health.ts`. It never throws.
+      const result = await connectHealth(userId);
 
-      // A read that throws and a phone with no steps are the same thing here —
-      // both mean "nothing to show yet", and neither is a failure. HealthKit
-      // will not report a read denial either way, so a throw carries no more
-      // information than a zero does.
+      if (!result.ok) {
+        // Does **not** advance. A failed connect that reached the reveal would
+        // be indistinguishable from a quiet phone — the user would read "we'll
+        // pick up your activity as it comes in" about a connection that never
+        // happened, and go on with a character powered by nothing.
+        setFailed(true);
+        return;
+      }
+
+      // A read that throws and a phone with no steps are the same thing *here*,
+      // below a successful connect — both mean "nothing to show yet", and
+      // neither is a failure. That is only true because the failure case
+      // returned above.
       const today = await readStepsToday(deviceTimeZone()).catch(() => null);
       setSteps(today);
-    } finally {
-      // In `finally` so a throw anywhere above still advances the screen. The
-      // one thing this must never do is strand someone on a button they have
-      // already pressed and iOS has already answered.
-      setBusy(false);
       setPhase('revealed');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -116,6 +121,16 @@ export default function Connect() {
               today, already counted
             </Text>
           </View>
+        )}
+
+        {failed && (
+          // Names what happened and what to do, in the interface's voice — it
+          // does not apologise and does not blame. "Try again" because the
+          // button below is still there and pressing it again is the fix.
+          <Text style={styles.failed}>
+            Apple Health didn't connect. Try again, or skip and connect later
+            from Settings.
+          </Text>
         )}
 
         {phase === 'revealed' && (steps === null || steps === 0) && (
@@ -179,4 +194,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   quiet: { ...font.body.body, fontSize: 14, color: colors.muted, marginTop: space.xl },
+  // `colors.text`, not `damage` — that is reserved for a goal slipping away and
+  // nothing else, and a permission that did not connect is not that. The system
+  // builds emphasis from presence and legibility, the same call `sign-in.tsx`'s
+  // notice makes.
+  failed: {
+    ...font.body.strong,
+    fontSize: 13,
+    color: colors.text,
+    marginTop: space.lg,
+    lineHeight: 19,
+  },
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/index.ts';
 import Feather from '@expo/vector-icons/Feather';
+import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useScoredDayCount } from '@/features/character/queries.ts';
 import { requestSync, useSyncStatusStore } from '@/features/health/status-store.ts';
 import { syncStatus } from '@/features/health/sync-status.ts';
@@ -23,21 +24,43 @@ import { colors, font, space } from '@/theme.ts';
  * and a terracotta action, terracotta being what the system already means by
  * "the thing to press". Healthy stays a grey half-line most people never read.
  */
-export function SyncStatus({ userId }: { userId: string | undefined }) {
+export function SyncStatus({
+  userId,
+  timeZone,
+}: {
+  userId: string | undefined;
+  timeZone: string | undefined;
+}) {
   const { syncing, lastSyncedAt, firstSyncedAt, lastError } = useSyncStatusStore();
 
-  // Reused rather than re-queried: this already means "days this account scored
-  // above zero", which is exactly the question 'no-data' asks — has anything
-  // ever arrived from Apple Health. Same TanStack key as `useDisclosure`, so
-  // the two readers share one request.
+  // **Two signals, because one of them answers a different question.**
+  //
+  // `useScoredDayCount` counts days that scored *above zero*, and Bronze AGI is
+  // 1,000 steps — so an account whose phone is demonstrably sending data, from
+  // somebody who walked 400 steps, has a count of 0. On its own it would let
+  // 'no-data' tell that user Apple Health is sending nothing and point them at
+  // Settings, which is the accusation the whole state exists to avoid. The
+  // message makes a claim about *HealthKit*; that query answers a question
+  // about *scoring*.
+  //
+  // Today's buckets close the gap: any non-zero figure in them is data that
+  // arrived, scored or not. Both hooks are already fetched on this screen with
+  // the same keys, so neither costs a request.
   const scoredDays = useScoredDayCount(userId);
+  const buckets = useTodayBuckets(userId, timeZone);
+
+  const totals = buckets.data?.totals;
   // Parenthesised deliberately: `a ?? 0 > 0` parses as `a ?? (0 > 0)`, which is
   // `a ?? false` and truthy for any real count.
   //
   // Defaults to `false` while loading, which cannot mislead: the grace window
-  // in `syncStatus` outlives any query, so a pending count never reaches the
+  // in `syncStatus` outlives any query, so a pending read never reaches the
   // 'no-data' branch on its own.
-  const everReceivedData = (scoredDays.data ?? 0) > 0;
+  const everReceivedData =
+    (scoredDays.data ?? 0) > 0 ||
+    (totals?.steps ?? 0) > 0 ||
+    (totals?.activeKcal ?? 0) > 0 ||
+    (totals?.activeMinutes ?? 0) > 0;
 
   // Re-render on a slow tick so "3 minutes ago" ages honestly while the screen
   // is open. A minute is the finest granularity `describeAge` reports, so

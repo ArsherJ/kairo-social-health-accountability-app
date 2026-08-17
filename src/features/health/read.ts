@@ -129,7 +129,7 @@ export async function readStepsToday(timeZone: string): Promise<number> {
     'HKQuantityTypeIdentifierStepCount',
     ['cumulativeSum'],
     from,
-    { day: 1 },
+    DAILY,
     { filter: { date: { startDate: from, endDate: to } }, unit: 'count' },
   );
 

@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { track } from '@/features/telemetry/events.ts';
 import { Button, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
-import { configureHealthBackgroundDelivery } from './background.ts';
+import { connectHealth } from './connect-health.ts';
 import { HEALTH_DISCLOSURE } from './disclosure.ts';
-import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
-import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
 /**
  * The in-context ask (§5), as sheet *content* rather than a sheet.
@@ -35,43 +32,21 @@ export function HealthAsk({
   const [failed, setFailed] = useState(false);
 
   /**
-   * This used to be `try { … } finally { … }` with no `catch`, which was worse
-   * than swallowing the error: it left an unhandled rejection from an onPress
-   * handler, and the `finally` closed the sheet either way — so a failed
-   * connect looked exactly like a successful one, and the user was left with a
-   * character powered by nothing and no reason to suspect it.
+   * The sequence itself moved to `connect-health.ts` when `/connect` became a
+   * second caller — it had been paraphrased there and three quarters of it went
+   * missing. What stays here is this sheet's own reaction to the outcome.
    *
-   * The ask is now only reported answered on the success path. `track()` is
-   * fire-and-forget and never throws, so nothing here can make the failure
-   * worse.
+   * The ask is only reported answered on the success path. A failure used to
+   * advance regardless, which made a failed connect look exactly like a
+   * successful one.
    */
   async function ask() {
     setBusy(true);
     setFailed(false);
     try {
-      await requestHealthPermission();
-      await configureHealthBackgroundDelivery();
-      // Sync straight away rather than waiting for the next foreground. The
-      // user just connected Health and is looking at a screen showing zero.
-      notifyHealthPermissionGranted();
-      // No granted/denied: HealthKit does not report read-permission denial, so
-      // an event claiming either would be believed and wrong. The resulting
-      // state is what is actually knowable.
-      //
-      // `.catch(() => null)` rather than letting a rejection here fall into
-      // the `catch` below: everything above this line already succeeded —
-      // the permission request, background-delivery config, and the sync
-      // kickoff — so a transient failure *reading back* the state must not
-      // report the connect as failed, re-present the sheet, or write a false
-      // `health_permission_failed`. The payload tolerates `null`.
-      const state = await readHealthPermissionState().catch(() => null);
-      void track(userId, 'health_ask_completed', { state });
-      onAnswered();
-    } catch (error) {
-      track(userId, 'health_permission_failed', {
-        message: error instanceof Error ? error.message : String(error),
-      });
-      setFailed(true);
+      const result = await connectHealth(userId);
+      if (result.ok) onAnswered();
+      else setFailed(true);
     } finally {
       setBusy(false);
     }

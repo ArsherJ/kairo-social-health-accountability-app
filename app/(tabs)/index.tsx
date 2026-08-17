@@ -527,7 +527,7 @@ export default function Character() {
           {/* Deliberately outside the panel's own null guard: an empty TODAY
               panel is exactly when "waiting for your first sync" or "couldn't
               sync" is the most useful thing on the screen. */}
-          <SyncStatus userId={session?.user.id} />
+          <SyncStatus userId={session?.user.id} timeZone={profile.data?.timezone} />
 
           {/* Unreachable in `core` anyway — `expanded` is only ever set by
               StatRail, which is gated above — but stated rather than implied,
@@ -588,7 +588,13 @@ export default function Character() {
 
               No accessibilityLabel: it is already text, and a label would
               duplicate it. */}
-          {disclosure.stage === 'core' && (
+          {/* `resolved` here and nowhere else on this screen. The gated cards
+              above act on the stage alone, which is right — hiding early then
+              revealing is a reveal. This line makes an affirmative claim with a
+              number in it, so an unresolved count would print "Three more
+              active days…" to an established user for a frame, or permanently
+              if the count query errors while the profile query succeeded. */}
+          {disclosure.resolved && disclosure.stage === 'core' && (
             <Text style={styles.disclosureNote}>
               {disclosure.daysToGo === 1
                 ? 'One more active day and goals, challenges and your full stat breakdown open up.'

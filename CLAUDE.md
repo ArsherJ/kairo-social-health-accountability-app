@@ -133,7 +133,20 @@ reverse. Four things break easily:
   — stamped once, never overwritten. Without the window it accuses someone who
   connected at 8am with 200 steps, which is the same false accusation the state
   exists to remove. HealthKit does not report read-permission denial, so the app
-  can only ever say nothing has arrived, never that the user declined.
+  can only ever say nothing has arrived, never that the user declined. Two
+  things keep it honest and both were found in review: `useHealthSync` **must
+  invalidate `scoredDayCountKey`** (nothing else refetches it, and a stale count
+  lets the accusation through the back door), and `everReceivedData` is **not**
+  the scored-day count alone — Bronze AGI is 1,000 steps, so a 400-step day is
+  real data that scored nothing, and today's buckets are OR'd in.
+- **Connecting Apple Health is `connect-health.ts`, never inlined.** It is five
+  steps — request, `configureHealthBackgroundDelivery`,
+  `notifyHealthPermissionGranted`, read the state back, track — and `/connect`
+  and `HealthAsk` both call it. It exists because the sequence was paraphrased
+  into `/connect` and three steps vanished with no error and no log: the worst
+  was background delivery, since after a grant `readHealthPermissionState()`
+  returns `'asked'` and `nextPermissionAsk` never offers the sheet again, so
+  nothing would ever have registered it for the whole new-user cohort.
 
 **"Hunter" and "barkada" were retired on 2026-08-11** (roadmap deviation #26). The
 character has no noun — it is "your character", and the centre tab is `Character`;

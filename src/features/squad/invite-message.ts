@@ -43,10 +43,13 @@ export function inviteMessage(input: {
   // Every word is spent against a hard budget: the link and the code line are
   // 84 characters between them, and `invite-message.test.ts` holds the whole
   // message under 200 so a chat client's preview does not cut it mid-thought.
-  // That leaves ~114 here. Adding a clause means removing one.
+  // The name is the variable, so the budget is measured at `SQUAD_NAME_MAX`
+  // (30) and not at a comfortable fixture — the first version of this copy fit
+  // a 16-character test name at 196 and ran to 210 on a real long one. Adding
+  // a clause means removing one, and the test now pins the worst case.
   return (
     `Join ${input.squadName.trim()} on Kairo — we keep each other to a ` +
-    `daily walk. It counts steps, never your Health data.` +
+    `daily walk. Steps, never Health data.` +
     `\n\n${inviteUrl(input.inviteCode)}` +
     `\n\nOr enter this code in the app: ${input.inviteCode}`
   );

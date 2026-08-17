@@ -21,7 +21,7 @@ deliberately diverges, and this file for what that adds up to today.
 ### In scope, and not on screen yet: progressive disclosure
 
 **Read this before filing anything as missing.** Since 2026-08-17 (deviations
-#29/#30), a new account does not see the whole app. `disclosureStage()` in
+#37/#38), a new account does not see the whole app. `disclosureStage()` in
 `@kairo/core` gates on how many days the account has ever scored above zero:
 below `DISCLOSURE_THRESHOLD_DAYS` (**3**) the stage is `core`, at or above it
 `full`.
