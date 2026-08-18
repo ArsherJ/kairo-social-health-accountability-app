@@ -4,6 +4,13 @@ import { colors, font, radius, shadow, space } from '@/theme.ts';
 import { SPECIES, SPECIES_IDS, type SpeciesId } from './species.ts';
 import { SPECIES_FIGURES } from './species-art.ts';
 
+// Shared by the card's `borderWidth` and the `textWidth` derivation below, so
+// the two can never drift apart the way the hand-maintained sum already has
+// twice. RN/Yoga lays out border-box: `borderWidth` is subtracted from the
+// content box exactly like padding, so it has to appear in this arithmetic
+// too, not just in the stylesheet.
+const CARD_BORDER = 2;
+
 /**
  * Choose an animal. Mounted by both routes — see `app/species.tsx` for why
  * there are two — with the commit behaviour supplied by the caller.
@@ -38,12 +45,14 @@ export function SpeciesPicker({
   // depends on measuring this content, so direct Text children lay out wider
   // than the card and clip mid-word.
   //
-  // Three terms subtracted from the screen width: the container's own
-  // horizontal padding (`space.lg * 2`), the card's padding on both sides
-  // plus the row `gap` between the art and this text View — three `space.md`
-  // widths, not two — and the art's fixed width (72).
+  // Four terms subtracted from the screen width: the container's own
+  // horizontal padding (`space.lg * 2`), the card's `borderWidth` on both
+  // sides (`CARD_BORDER * 2` — Yoga lays out border-box, so this is real
+  // content-box width, not a cosmetic outline), the card's padding on both
+  // sides plus the row `gap` between the art and this text View — three
+  // `space.md` widths, not two — and the art's fixed width (72).
   const { width } = useWindowDimensions();
-  const textWidth = width - space.lg * 2 - space.md * 3 - 72;
+  const textWidth = width - space.lg * 2 - space.md * 3 - CARD_BORDER * 2 - 72;
 
   return (
     <View style={styles.container}>
@@ -117,7 +126,7 @@ const styles = StyleSheet.create({
     // character screen's cards use. Depth is shadow, not a border — an
     // unchosen card carries no ring, so the border below is transparent.
     borderRadius: radius.xl,
-    borderWidth: 2,
+    borderWidth: CARD_BORDER,
     borderColor: 'transparent',
     backgroundColor: colors.surfaceLift,
     ...shadow.sm,
