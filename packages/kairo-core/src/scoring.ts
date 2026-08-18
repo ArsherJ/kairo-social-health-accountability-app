@@ -1,3 +1,4 @@
+import { mindTierFor, MIND_THRESHOLD_HOURS } from './mind.ts';
 import {
   CORE_STATS,
   type CoreStat,
@@ -70,6 +71,15 @@ const THRESHOLDS: Record<CoreStat, Record<Exclude<Tier, 'none'>, number>> = {
   STR: { bronze: 50, silver: 200, gold: 400 },
   END: { bronze: 10, silver: 30, gold: 60 },
   VIT: { bronze: 3, silver: 6, gold: 9 },
+  // In minutes, to match the raw unit. Derived from mind.ts so the bands
+  // cannot drift apart, exactly as DAILY_STEP_BASELINE derives from AGI gold.
+  // Used by nextTierFor's gap arithmetic only — MND's own tier comes from
+  // mindTierFor, because the oversleep flattening is not a threshold table.
+  MND: {
+    bronze: MIND_THRESHOLD_HOURS.bronze * 60,
+    silver: MIND_THRESHOLD_HOURS.silver * 60,
+    gold: MIND_THRESHOLD_HOURS.gold * 60,
+  },
 };
 
 /**
@@ -199,7 +209,7 @@ export function aggregateBuckets(buckets: readonly HourBucket[]): DayTotals {
   return totals;
 }
 
-function rawFor(stat: CoreStat, totals: DayTotals): number {
+function rawFor(stat: CoreStat, totals: DayTotals, sleepMinutes: number | null): number {
   switch (stat) {
     case 'AGI':
       return totals.steps;
@@ -209,6 +219,8 @@ function rawFor(stat: CoreStat, totals: DayTotals): number {
       return totals.activeMinutes;
     case 'VIT':
       return totals.activeHours;
+    case 'MND':
+      return sleepMinutes ?? 0;
   }
 }
 
@@ -232,8 +244,8 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
   let xp = 0;
 
   for (const stat of CORE_STATS) {
-    const raw = rawFor(stat, totals);
-    const tier = tierFor(stat, raw);
+    const raw = rawFor(stat, totals, sleepMinutes);
+    const tier = stat === 'MND' ? mindTierFor(raw) : tierFor(stat, raw);
     const base = TIER_POINTS[tier];
     const points =
       stat === featuredStat ? Math.round(base * FEATURED_STAT_MULTIPLIER) : base;

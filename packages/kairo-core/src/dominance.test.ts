@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { BALANCED_TOLERANCE, dominantStat } from './dominance.ts';
 import type { CoreStat } from './types.ts';
 
-function points(agi: number, str: number, end: number, vit: number): Record<CoreStat, number> {
-  return { AGI: agi, STR: str, END: end, VIT: vit };
+function points(
+  agi: number,
+  str: number,
+  end: number,
+  vit: number,
+  mnd = 0,
+): Record<CoreStat, number> {
+  return { AGI: agi, STR: str, END: end, VIT: vit, MND: mnd };
 }
 
 describe('dominantStat', () => {
@@ -18,14 +24,17 @@ describe('dominantStat', () => {
     expect(dominantStat(points(0, 0, 0, 0))).toBeNull();
   });
 
-  it('calls four identical stats balanced', () => {
-    expect(dominantStat(points(400, 400, 400, 400))).toBe('balanced');
+  it('calls five identical stats balanced', () => {
+    // MND is a fifth CORE_STATS member now (roadmap deviation #41), and
+    // dominantStat loops over all of them — an unmentioned MND would default
+    // to 0 here and break the "identical" premise, so it is passed explicitly.
+    expect(dominantStat(points(400, 400, 400, 400, 400))).toBe('balanced');
   });
 
   it('calls a spread of exactly the tolerance balanced', () => {
     // 800 is 20% below 1000 — the edge is inclusive.
     expect(BALANCED_TOLERANCE).toBe(0.2);
-    expect(dominantStat(points(1000, 900, 850, 800))).toBe('balanced');
+    expect(dominantStat(points(1000, 900, 850, 800, 800))).toBe('balanced');
   });
 
   it('names a winner one point past the tolerance', () => {

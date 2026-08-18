@@ -55,6 +55,11 @@ const BUILDS: Record<Exclude<Dominance, null>, Build> = {
   END: { shoulders: 1.0, torso: 0.98, height: 1.12, shade: ramp.sage[800], weight: 0.04, stance: 58 },
   // "Recovery glow, healthier skin tone."
   VIT: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
+  // MND has no §6 table entry of its own yet (it joined as a fifth stat in
+  // roadmap deviation #41, after §6 was written) — the neutral, unstretched
+  // frame is the least-surprising placeholder until a build is designed for
+  // it, the same reasoning `UNSTARTED` below already uses for "no dominance".
+  MND: { shoulders: 1.0, torso: 1.0, height: 1.0, shade: ramp.sage[700], weight: 0, stance: 0 },
   // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, evenly
   // proportioned, and the only build that earns the ring.
   balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: earnedColor, weight: 0.03, stance: 34 },

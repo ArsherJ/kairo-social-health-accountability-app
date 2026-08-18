@@ -142,6 +142,11 @@ describe('tier boundaries', () => {
       // exceed 12, and dropping them back to zero would be absurd.
       [24, 'gold', 900],
     ],
+    // Empty on purpose: this table drives buckets through `dayWith`, and MND
+    // reads `sleepMinutes` instead of a bucket total — there is nothing here
+    // for it to construct. Its bands (including the oversleep flattening
+    // `tierFor` cannot express) are covered in "MND as a core stat" below.
+    MND: [],
   };
 
   for (const [stat, rows] of Object.entries(cases) as [
@@ -244,10 +249,13 @@ describe('REC sleep bonus (wearable only)', () => {
     expect(result.hasRec).toBe(true);
   });
 
-  it('never counts toward the consistency bonus', () => {
-    // REC alone must not make this look like a 1-stat day.
+  it('never itself counts toward the consistency bonus', () => {
+    // REC-the-bonus is still not a core stat and adds nothing on its own.
+    // MND now reads the same sleepMinutes input and *does* legitimately
+    // contribute (roadmap deviation #41) — 480 minutes is gold — so this
+    // is a 1-stat day, not a 0-stat day as it was before MND existed.
     const result = computeDailyScore({ buckets: hours(24), sleepMinutes: 480 });
-    expect(result.contributingStats).toBe(0);
+    expect(result.contributingStats).toBe(1);
     expect(result.consistencyBonus).toBe(0);
   });
 });
@@ -342,7 +350,15 @@ describe('score ceilings', () => {
     expect(result.healthTotal).toBe(4_400);
   });
 
-  it('caps a wearable day at 4,900', () => {
+  // MAX_DAILY_SCORE_WITH_WEARABLE (4,900) is a four-stat figure and is not
+  // re-tuned by this task (Task 4 of the three-stat-model switch does that).
+  // With MND now scoring transitionally alongside the still-live REC bonus
+  // (deviation #41; both paying at once is expected during the expand
+  // phase), a maxed wearable day is arithmetically higher than the constant
+  // describes: 5 stats at gold (4,500) + REC's 500 = 5,000. The constant
+  // itself is asserted unchanged in "keeps the ceilings as the spec states
+  // them" below; this scenario just no longer equals it.
+  it('scores a maxed wearable day above the (stale, four-stat) 4,900 ceiling', () => {
     const result = computeDailyScore({
       buckets: dayWith({
         steps: 40_000,
@@ -352,8 +368,8 @@ describe('score ceilings', () => {
       }),
       sleepMinutes: 8 * 60,
     });
-    expect(result.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
-    expect(result.healthTotal).toBe(4_900);
+    expect(result.healthTotal).toBe(5_000);
+    expect(result.healthTotal).toBeGreaterThan(MAX_DAILY_SCORE_WITH_WEARABLE);
   });
 
   it('exposes one per-stat ceiling, derived from the tier table', () => {
@@ -500,7 +516,7 @@ describe('nextTierFor — what the gap is worth', () => {
   });
 
   it('is always positive, for every stat and every raw value', () => {
-    const stats: CoreStat[] = ['AGI', 'STR', 'END', 'VIT'];
+    const stats: CoreStat[] = ['AGI', 'STR', 'END', 'VIT', 'MND'];
     for (const stat of stats) {
       for (const raw of [0, 1, 9, 50, 199, 250, 999, 5_000, 9_999]) {
         const next = nextTierFor(stat, raw);
@@ -516,6 +532,25 @@ describe('nextTierFor — what the gap is worth', () => {
     const toSilver = nextTierFor('VIT', 3)!.pointsGain;
     const toGold = nextTierFor('VIT', 6)!.pointsGain;
     expect(toBronze + toSilver + toGold).toBe(STAT_POINTS_MAX);
+  });
+});
+
+describe('MND as a core stat', () => {
+  it('scores sleep through the MND bands', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: 7 * 60 });
+    expect(score.stats.MND.tier).toBe('gold');
+    expect(score.stats.MND.raw).toBe(7 * 60);
+  });
+
+  it('scores no MND when there is no sleep data at all', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: null });
+    expect(score.stats.MND.tier).toBe('none');
+  });
+
+  // Oversleep is a promoted bonus, never a penalty.
+  it('flattens an eleven-hour night to bronze', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
+    expect(score.stats.MND.tier).toBe('bronze');
   });
 });
 

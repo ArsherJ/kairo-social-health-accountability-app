@@ -164,6 +164,10 @@ export const DEMO_SCORE: TodayScore = {
   str_points: 1240,
   end_points: 980,
   vit_points: 700,
+  // Zero, not invented: the demo predates MND (roadmap deviation #41) and
+  // `total` below is the real sum of every other part, which this must not
+  // disturb.
+  mind_points: 0,
   rec_points: 300,
   consistency_points: 250,
   total: 5320,

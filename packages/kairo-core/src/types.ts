@@ -1,10 +1,10 @@
 /** Contribution tier for a single stat on a single day. */
 export type Tier = 'none' | 'bronze' | 'silver' | 'gold';
 
-/** The four phone-only competitive stats. REC is a wearable bonus, not a core stat. */
-export type CoreStat = 'AGI' | 'STR' | 'END' | 'VIT';
+/** The five competitive stats. REC is a wearable bonus, not a core stat. */
+export type CoreStat = 'AGI' | 'STR' | 'END' | 'VIT' | 'MND';
 
-export const CORE_STATS: readonly CoreStat[] = ['AGI', 'STR', 'END', 'VIT'];
+export const CORE_STATS: readonly CoreStat[] = ['AGI', 'STR', 'END', 'VIT', 'MND'];
 
 /**
  * One hour of health data in the user's local timezone — the canonical

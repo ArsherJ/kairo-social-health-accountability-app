@@ -242,6 +242,8 @@ describe('planDay', () => {
       STR: 'gold',
       END: 'silver',
       VIT: 'silver',
+      // input() carries no sleepMinutes — MND is 'none' rather than absent.
+      MND: 'none',
     });
     expect(row.total).toBeGreaterThan(0);
   });
@@ -287,6 +289,15 @@ describe('planDay', () => {
     expect(planDay(input()).row.has_rec).toBe(false);
     const withSleep = planDay(input({ sleepMinutes: 8 * 60 }));
     expect(withSleep.row.has_rec).toBe(true);
+    expect(withSleep.row.rec_points).toBe(500);
+  });
+
+  it('writes mind_points from MND, dual-written alongside rec_points (deviation #41)', () => {
+    // Expand phase: MND and REC both read sleepMinutes and both pay. Task 4
+    // retires rec_points once every consumer reads mind_points instead.
+    expect(planDay(input()).row.mind_points).toBe(0);
+    const withSleep = planDay(input({ sleepMinutes: 8 * 60 }));
+    expect(withSleep.row.mind_points).toBe(900); // 8h clears MND gold.
     expect(withSleep.row.rec_points).toBe(500);
   });
 

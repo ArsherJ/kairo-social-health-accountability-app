@@ -7,8 +7,8 @@ function at(rating: number) {
   return statPointsForRating(rating);
 }
 
-function points(agi: number, str = 0, end = 0, vit = 0) {
-  return { AGI: agi, STR: str, END: end, VIT: vit };
+function points(agi: number, str = 0, end = 0, vit = 0, mnd = 0) {
+  return { AGI: agi, STR: str, END: end, VIT: vit, MND: mnd };
 }
 
 describe('auraStrength', () => {

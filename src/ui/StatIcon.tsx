@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { CoreStat } from '@kairo/core';
 
 /**
- * The four stats as glyphs.
+ * The stats as glyphs.
  *
  * Three surfaces render stat identity — the rail coins (`StatCoin`), the
  * expanded bars (`StatBar`) and a squadmate's row (`LeaderboardRow`). They read
@@ -43,6 +43,11 @@ const ICONS = {
   // Hourly movement, and it rhymes with the strain and heart-rate surfaces on
   // the TODAY panel, which read the same underlying signal.
   VIT: 'heart-pulse',
+  // Sleep, promoted from the REC bonus (roadmap deviation #41). A brain
+  // rather than a moon or a bed: the other four glyphs are all body parts or
+  // the activity itself, and "the organ this stat trains" keeps the same
+  // register.
+  MND: 'brain',
 } as const satisfies Record<CoreStat, React.ComponentProps<typeof MaterialCommunityIcons>['name']>;
 
 /**
@@ -57,6 +62,7 @@ export const STAT_NAMES: Record<CoreStat, string> = {
   STR: 'Strength',
   END: 'Endurance',
   VIT: 'Vitality',
+  MND: 'Mind',
 };
 
 /**

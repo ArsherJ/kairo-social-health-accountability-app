@@ -2228,7 +2228,12 @@ describe('program weights agree with kairo-core', () => {
           ...f,
           total: weightedBoardTotal({
             program,
-            statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit },
+            // MND: 0 — this fixture set and the SQL side of the differential
+            // test (program_weighted_total()) both predate MND joining
+            // CORE_STATS (deviation #41); neither weights it yet, so 0 keeps
+            // the two sides in agreement rather than exercising a stat this
+            // particular differential test does not cover.
+            statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit, MND: 0 },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
           }),

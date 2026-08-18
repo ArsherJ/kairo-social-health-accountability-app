@@ -6,6 +6,7 @@ const statNames = {
   STR: 'Strength',
   END: 'Endurance',
   VIT: 'Vitality',
+  MND: 'Mind',
 };
 
 describe('firstSyncHeadline', () => {
@@ -13,7 +14,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 4_300,
-        points: { AGI: 500, STR: 0, END: 0, VIT: 200 },
+        points: { AGI: 500, STR: 0, END: 0, VIT: 200, MND: 0 },
         statNames,
       }),
     ).toBe('Today already counted: 4,300 steps, and your Agility went up.');
@@ -23,7 +24,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 900,
-        points: { AGI: 200, STR: 900, END: 0, VIT: 0 },
+        points: { AGI: 200, STR: 900, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toBe('Today already counted: 900 steps, and your Strength went up.');
@@ -35,7 +36,7 @@ describe('firstSyncHeadline', () => {
     // would reach a reader who has never seen the app before.
     const headline = firstSyncHeadline({
       steps: 8_412,
-      points: { AGI: 900, STR: 0, END: 0, VIT: 200 },
+      points: { AGI: 900, STR: 0, END: 0, VIT: 200, MND: 0 },
       statNames,
     });
     expect(headline).not.toContain('900');
@@ -47,7 +48,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 12_500,
-        points: { AGI: 900, STR: 0, END: 0, VIT: 0 },
+        points: { AGI: 900, STR: 0, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toContain('12,500 steps');
@@ -59,7 +60,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 120,
-        points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        points: { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toBe('Today already counted: 120 steps. Keep moving to start scoring.');
@@ -70,7 +71,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 0,
-        points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        points: { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toBeNull();
@@ -82,7 +83,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 0,
-        points: { AGI: 0, STR: 900, END: 0, VIT: 0 },
+        points: { AGI: 0, STR: 900, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toBe('Today already counted: your Strength went up.');
@@ -95,7 +96,7 @@ describe('firstSyncHeadline', () => {
     expect(
       firstSyncHeadline({
         steps: 500,
-        points: { AGI: 0, STR: 0, END: 0, VIT: 0 },
+        points: { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 },
         statNames,
       }),
     ).toBe('Today already counted: 500 steps. Keep moving to start scoring.');

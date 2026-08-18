@@ -419,6 +419,7 @@ export interface DayScoreRow {
   str_points: number;
   end_points: number;
   vit_points: number;
+  mind_points: number;
   rec_points: number;
   consistency_points: number;
   total: number;
@@ -481,6 +482,9 @@ export function planDay(input: DayPlanInput): DayPlan {
       str_points: score.stats.STR.points,
       end_points: score.stats.END.points,
       vit_points: score.stats.VIT.points,
+      // Dual-write, transitional (deviation #41 expand phase): rec_points
+      // keeps paying below exactly as it always has, and Task 4 retires it.
+      mind_points: score.stats.MND.points,
       rec_points: score.recBonus,
       consistency_points: score.consistencyBonus,
       total: result.total,
@@ -489,6 +493,7 @@ export function planDay(input: DayPlanInput): DayPlan {
         STR: score.stats.STR.tier,
         END: score.stats.END.tier,
         VIT: score.stats.VIT.tier,
+        MND: score.stats.MND.tier,
       },
       contributing_stats: score.contributingStats,
       has_rec: score.hasRec,

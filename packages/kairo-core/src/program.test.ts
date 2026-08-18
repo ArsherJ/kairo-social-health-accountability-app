@@ -10,7 +10,7 @@ import {
 } from './program.ts';
 import { CORE_STATS, type CoreStat } from './types.ts';
 
-const NO_POINTS: Record<CoreStat, number> = { AGI: 0, STR: 0, END: 0, VIT: 0 };
+const NO_POINTS: Record<CoreStat, number> = { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 };
 
 describe('PROGRAM_WEIGHTS', () => {
   it('boosts exactly one stat per focused program', () => {
@@ -77,7 +77,7 @@ describe('weightedBoardTotal', () => {
   it('equals the raw total on an all_around board', () => {
     const total = weightedBoardTotal({
       program: 'all_around',
-      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900 },
+      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900, MND: 0 },
       consistencyBonus: 400,
       recBonus: 500,
     });
@@ -88,7 +88,7 @@ describe('weightedBoardTotal', () => {
     // Same day as above, scored on a running board: AGI 900 -> 1350.
     const total = weightedBoardTotal({
       program: 'running',
-      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900 },
+      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900, MND: 0 },
       consistencyBonus: 400,
       recBonus: 500,
     });
@@ -110,7 +110,7 @@ describe('weightedBoardTotal', () => {
   it('weights only the boosted stat when it is the only one scored', () => {
     const total = weightedBoardTotal({
       program: 'strength',
-      statPoints: { AGI: 0, STR: 900, END: 0, VIT: 0 },
+      statPoints: { AGI: 0, STR: 900, END: 0, VIT: 0, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
     });
@@ -122,7 +122,7 @@ describe('weightedBoardTotal', () => {
     // resolve here and identically in SQL — round-half-up, away from zero.
     const total = weightedBoardTotal({
       program: 'running',
-      statPoints: { AGI: 125, STR: 0, END: 0, VIT: 0 },
+      statPoints: { AGI: 125, STR: 0, END: 0, VIT: 0, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
     });

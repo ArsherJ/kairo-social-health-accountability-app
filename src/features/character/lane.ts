@@ -43,6 +43,7 @@ const LANE_EMPTY_COPY: Record<CoreStat, string> = {
   STR: 'Your next session fills this bar.',
   END: 'Your next workout fills this bar.',
   VIT: 'Moving on the hour fills this bar.',
+  MND: 'Rest is training too. Sleep tonight and Mind starts moving.',
 };
 
 export function laneEmptyCopy(dominance: Dominance | undefined): string | null {

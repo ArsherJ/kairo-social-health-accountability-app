@@ -11,6 +11,7 @@ export const STAT_UNITS: Record<CoreStat, string> = {
   STR: 'kcal',
   END: 'active minutes',
   VIT: 'active hours',
+  MND: 'hours slept',
 };
 
 /**
@@ -33,6 +34,7 @@ export const STAT_WHY: Record<CoreStat, string> = {
   STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked.',
   END: 'Sustained effort, rather than a burst of it. This one rides Apple’s exercise minutes, so a watch reads it far better than a phone in a pocket.',
   VIT: 'How many hours you moved in at all. Moving every hour matters more than one long workout — sitting still the rest of the day carries its own risk, independent of how hard you trained.',
+  MND: 'Sleep is when training becomes strength. Seven hours reaches Gold.',
 };
 
 /**
@@ -49,6 +51,7 @@ const STAT_UNITS_SINGULAR: Record<CoreStat, string> = {
   STR: 'kcal',
   END: 'active minute',
   VIT: 'active hour',
+  MND: 'hour slept',
 };
 
 /**
@@ -100,6 +103,17 @@ function rawFor(stat: CoreStat, totals: DayTotals): number {
       return totals.activeMinutes;
     case 'VIT':
       return totals.activeHours;
+    case 'MND':
+      // Unreachable in practice: `resolveStatDetail` below skips MND before
+      // ever calling this, because `DayTotals` carries no sleep field — it is
+      // built by `aggregateBuckets` over `health_buckets`, and sleep is a
+      // separate query this screen does not currently make. The case exists
+      // only so this switch stays exhaustive over `CoreStat`; a fabricated
+      // "0 hours slept" raw value would otherwise make MND look permanently
+      // unstarted and be eligible to win the "closest gap" pick over stats
+      // with real progress. Threading real sleep data through is out of
+      // scope for this task.
+      return 0;
   }
 }
 
@@ -137,6 +151,12 @@ export function resolveStatDetail({
 
   const open: Open[] = [];
   for (const stat of CORE_STATS) {
+    // DayTotals has no sleep field, so there is no real MND progress to show
+    // here — see rawFor's MND case. Skipping it (rather than reading a
+    // fabricated 0) keeps a maxed-everything-else day reporting `maxed`
+    // instead of surfacing a permanently-unstarted "gap" for a stat this
+    // screen cannot actually measure.
+    if (stat === 'MND') continue;
     const raw = rawFor(stat, totals);
     const next = nextTierFor(stat, raw);
     // null means this stat is already at Gold, which has nothing to ask for.

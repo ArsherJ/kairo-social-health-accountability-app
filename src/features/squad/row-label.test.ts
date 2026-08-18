@@ -6,6 +6,7 @@ const statNames = {
   STR: 'Strength',
   END: 'Endurance',
   VIT: 'Vitality',
+  MND: 'Mind',
 };
 
 const base: RowLabelInput = {

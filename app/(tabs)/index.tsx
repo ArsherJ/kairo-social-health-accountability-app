@@ -92,6 +92,7 @@ const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
   STR: 'Strength build',
   END: 'Endurance build',
   VIT: 'Vitality build',
+  MND: 'Mind build',
   balanced: 'All-Rounder',
 };
 
@@ -101,6 +102,7 @@ const STAT_LABELS: Record<CoreStat, string> = {
   STR: 'Active calories',
   END: 'Active minutes',
   VIT: 'Hourly movement',
+  MND: 'Sleep duration',
 };
 
 /** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
@@ -260,16 +262,24 @@ export default function Character() {
     STR: today?.str_points ?? 0,
     END: today?.end_points ?? 0,
     VIT: today?.vit_points ?? 0,
+    MND: today?.mind_points ?? 0,
   };
 
   // Lifetime totals, which is what the coins and bars read. Undefined while the
   // profile loads — `ratingForStatPoints` floors at 1, so an unloaded rail says
   // the same thing a brand-new character's does rather than flashing a dash.
+  //
+  // MND reads 0 rather than a lifetime rollup: `profiles` has no `mind_total`
+  // column yet (only `daily_scores.mind_points` exists so far — the stat rollup
+  // trigger and column are follow-up work, not part of this expand phase), so
+  // there is nothing real to read. 0 is the same "unearned" reading the coin
+  // already gives a stat with no lifetime points.
   const lifetime: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,
     END: profile.data.end_total,
     VIT: profile.data.vit_total,
+    MND: 0,
   };
 
   // No featured stat any more. The redesign branch still had §6's weekly ×1.5

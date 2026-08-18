@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { SPECIES_NAMES } from './species.ts';
 import { speciesFigureLabel } from './species-label.ts';
 
-const statNames = { AGI: 'Agility', STR: 'Strength', END: 'Endurance', VIT: 'Vitality' } as const;
+const statNames = {
+  AGI: 'Agility',
+  STR: 'Strength',
+  END: 'Endurance',
+  VIT: 'Vitality',
+  MND: 'Mind',
+} as const;
 const base = { speciesNames: SPECIES_NAMES, statNames };
 
 describe('speciesFigureLabel', () => {
