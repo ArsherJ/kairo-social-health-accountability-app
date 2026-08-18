@@ -213,6 +213,39 @@ a normalization bump, which returns far less. It is derived at read time from
 `has_wearable` stays exactly as it is for the leaderboard icon. It simply stops
 being load-bearing for scoring.
 
+### Two open decisions this section leaves for Phase 2
+
+Both were found by the Phase 1 final review (2026-08-18), which checked the
+shipped code against this document rather than against the plan derived from
+it. Neither is a defect in Phase 1's code — the code is faithful to what is
+written above. They are places where **this spec** decided two things that do
+not compose.
+
+**1. Does flagged sleep count toward capability?** Layer 3 says an unknown
+source **scores**. The capability window says MND is earnable when **trusted**
+sleep arrived. Compose them literally and a user whose only sleep source is
+unknown scores MND *and* is normalized as a two-stat user:
+
+    (1,200 + 1,200 + 1,200) x 1.5 + 800 = 6,200
+
+against a stated ceiling of 4,400 — a 41% breach, verified by arithmetic. The
+three candidate resolutions: flagged sleep counts toward capability (closes the
+hole, weakens the allowlist's meaning); flagged sleep scores but is excluded
+from normalization's denominator (needs a third eligibility state); or flagged
+sleep does not score after all (contradicts §20's social-only posture, and is
+the option this spec argued against). **Phase 2 must pick one before wiring
+`normalizationFactor`.**
+
+**2. "Verified" is undefined, and it is §2's one unpinned rule.** §2 says an
+unverified session shifts nothing, but nothing here says what verified *means*.
+§4 lists three signals on `workout_sessions` — source bundle id, user-entered
+flag, and **HR evidence** — while `SampleOrigin` in `trust.ts` models only the
+first two, so Phase 1 cannot express it even in principle. If Phase 2 reaches
+for `scoresAtAll` as the verification test, an unknown-source workout app
+reporting inflated minutes buys a full 25% STR band shift. **Workout
+verification needs its own predicate, taking the HR-evidence flag, distinct
+from `sampleTrust`.**
+
 ---
 
 ## 4. Schema migration and deploy ordering
