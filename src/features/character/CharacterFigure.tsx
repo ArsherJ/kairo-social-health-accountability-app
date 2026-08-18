@@ -1,6 +1,7 @@
-import { Animated, Image, type ImageSourcePropType, StyleSheet, View } from 'react-native';
+import { Animated, Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import type { CharacterBody } from '@/features/profile/character-body.ts';
+import type { SpeciesId } from './species.ts';
+import { SPECIES_FIGURES } from './species-art.ts';
 import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
@@ -24,50 +25,6 @@ import { auraStrength } from './aura.ts';
  * The proportions below are the honest reading of that table within the
  * primitives available. Commissioned art and Rive replace all of it in V1.
  */
-
-/** `${stage}-${dominance}`, with `none` for an unstarted or in-flight one. */
-type ArtKey = `${1 | 2 | 3 | 4}-${Exclude<Dominance, null> | 'none'}`;
-
-function artKey(stage: 1 | 2 | 3 | 4, dominance: Dominance | undefined): ArtKey {
-  return `${stage}-${dominance ?? 'none'}`;
-}
-
-/**
- * Placeholder art, keyed by the same two inputs the primitives switch on.
- *
- * **Deliberately incomplete, and safe that way.** A missing key renders the
- * primitives below, so art can land one file at a time and nothing has to be
- * generated in one sitting. That is also why the map is written out rather than
- * built from the key: Metro resolves `require` statically, so a path with no
- * file behind it is a bundling error, not a runtime miss.
- *
- * To add one, drop the PNG in `assets/character/` and add its line here:
- *
- *     '3-STR': require('../../../assets/character/3-STR.png'),
- *
- * `assets/character/README.md` lists every key and what each is meant to look
- * like. Up to 2:1 portrait, transparent background — the ground shadow is
- * drawn by this component, not baked into the art, so the same asset reads
- * correctly at every stage.
- */
-const CHARACTER_ART: Partial<Record<ArtKey, ImageSourcePropType>> = {};
-
-/**
- * The baseline figure per body, used for any key `CHARACTER_ART` does not
- * cover yet — which is currently every key.
- *
- * Written out rather than built from the body, for the same reason
- * `CHARACTER_ART` is: Metro resolves `require` statically, so a computed path
- * is not a path it can follow.
- *
- * Built from the generated renders by `scripts/prep_character_art.py` — the
- * renders ship on white with no alpha, which would show as a card on
- * `colors.bg`.
- */
-const ANCHORS: Record<CharacterBody, ImageSourcePropType> = {
-  male: require('../../../assets/character/anchor-male.png'),
-  female: require('../../../assets/character/anchor-female.png'),
-};
 
 interface Build {
   /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
@@ -120,7 +77,7 @@ const BASE_TORSO_HEIGHT = 96;
 export function CharacterFigure({
   stage,
   dominance,
-  body,
+  species,
   height = 220,
   lifetimePoints,
 }: {
@@ -128,11 +85,11 @@ export function CharacterFigure({
   /** Undefined while the query is in flight; null for an unstarted character. */
   dominance?: Dominance;
   /**
-   * Which character. Null or undefined means the profile predates the choice
-   * (or has not loaded) — both render the male anchor, which is what those
-   * users already saw.
+   * Which animal. Null or undefined means the profile predates the choice, or
+   * has not loaded — both render the primitives below, which is the neutral
+   * figure the one-time picker exists to replace.
    */
-  body?: CharacterBody | null;
+  species?: SpeciesId | null;
   /** The figure's box. The diorama stands them taller than a card does. */
   height?: number;
   /**
@@ -142,7 +99,7 @@ export function CharacterFigure({
   lifetimePoints?: Record<CoreStat, number>;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
-  const art = CHARACTER_ART[artKey(stage, dominance)] ?? ANCHORS[body ?? 'male'];
+  const art = species ? SPECIES_FIGURES[species] : undefined;
 
   const scale = height / 220;
   const shadowWidth = (128 + stage * 18) * scale;

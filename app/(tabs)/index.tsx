@@ -282,7 +282,7 @@ export default function Character() {
           height={skyHeight}
           stage={stage}
           dominance={dominance.data}
-          body={profile.data?.character_body}
+          species={profile.data?.species}
           lifetimePoints={lifetime}
         >
           {/* The HUD. Everything here floats over the world rather than

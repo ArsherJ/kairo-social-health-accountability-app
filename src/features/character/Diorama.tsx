@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import type { CharacterBody } from '@/features/profile/character-body.ts';
+import type { SpeciesId } from './species.ts';
+import { SPECIES_HABITATS } from './species-art.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
@@ -16,11 +17,12 @@ import { CharacterFigure } from './CharacterFigure.tsx';
  * that place. Everything else on the screen is deliberately quiet so this can
  * be the thing you remember.
  *
- * The sky is sage rather than a literal outdoors — Kairo is played in Manila
- * traffic and at 6am, and a photographic landscape would date instantly and
- * fight the flat character art. Sage also already means "your lane" in this
- * palette, so the ground the character stands on is the same colour as the
- * progress they are making.
+ * The sky was sage rather than a literal outdoors until 2026-08-18, on the
+ * reasoning that "a photographic landscape would date instantly and fight the
+ * flat character art". Deviation #40 overrides that deliberately: the habitats
+ * are flat vector in the same bold-outline language as the figure, so they are
+ * neither photographic nor fighting it. The sage gradient stays underneath as
+ * the ground for a character with no species yet.
  */
 
 /** Sage, deepening toward the horizon. */
@@ -63,14 +65,14 @@ export function Diorama({
   height,
   stage,
   dominance,
-  body,
+  species,
   lifetimePoints,
   children,
 }: {
   height: number;
   stage: 1 | 2 | 3 | 4;
   dominance?: Dominance;
-  body?: CharacterBody | null;
+  species?: SpeciesId | null;
   /** Lifetime per-stat points, for the presence ring. See `aura.ts`. */
   lifetimePoints?: Record<CoreStat, number>;
   /** The floating HUD. Absolutely positioned by the caller. */
@@ -79,6 +81,19 @@ export function Diorama({
   return (
     <View style={[styles.sky, { height }]}>
       <Gradient stops={SKY} />
+
+      {species && (
+        <Image
+          source={SPECIES_HABITATS[species]}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          // Decorative. The figure's own label already says where the character
+          // is by naming the species, and a backdrop that announced itself
+          // would be a second stop describing scenery.
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
 
       {/* Two soft bodies behind the figure. They give the sky somewhere to be
           — a flat ramp reads as a swatch — and they are placed off both edges
@@ -128,7 +143,7 @@ export function Diorama({
           <CharacterFigure
             stage={stage}
             dominance={dominance}
-            body={body}
+            species={species}
             height={height * 0.6}
             lifetimePoints={lifetimePoints}
           />
