@@ -37,6 +37,14 @@ describe('hasSleepCapability', () => {
   it('ignores dates in the future', () => {
     expect(hasSleepCapability(['2026-09-01'], '2026-08-18')).toBe(false);
   });
+
+  // Resolved 2026-08-18: if it scores, it counts. Layer 3 says an unknown
+  // source scores, so it must also make MND earnable — otherwise a user
+  // scores MND *and* is normalized as a two-stat user, which spec §3 shows
+  // reaching 6,200 against a 4,400 ceiling.
+  it('counts a flagged night, because a flagged night still scores', () => {
+    expect(hasSleepCapability(['2026-08-17'], '2026-08-18')).toBe(true);
+  });
 });
 
 describe('earnableStats', () => {

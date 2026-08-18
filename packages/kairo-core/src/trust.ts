@@ -38,3 +38,33 @@ export function sampleTrust(
 export function scoresAtAll(trust: SampleTrust): boolean {
   return trust !== 'rejected';
 }
+
+export interface WorkoutOrigin extends SampleOrigin {
+  /**
+   * Whether the session carried heart-rate samples, from a per-workout
+   * `getStatistic('HKQuantityTypeIdentifierHeartRate')` call. Manual entry
+   * never does.
+   */
+  hasHeartRateEvidence: boolean;
+}
+
+/**
+ * Whether a workout may shift STR's thresholds.
+ *
+ * **Deliberately stricter than `scoresAtAll`, and deliberately a separate
+ * function.** Sleep's rule lets a flagged night score, because a legitimate
+ * obscure sleep app scoring zero is indistinguishable from Kairo being broken.
+ * A workout's shift is worth up to 25% of a band, which is too much to hand to
+ * an unverified claim — so a workout needs its source allowlisted *and*
+ * heart-rate evidence present. Reusing `scoresAtAll` here is the specific
+ * defect the Phase 1 final review identified.
+ *
+ * Known consequence: a real workout from an app that records no heart rate
+ * shifts nothing.
+ */
+export function workoutVerified(
+  origin: WorkoutOrigin,
+  allowlist: readonly string[],
+): boolean {
+  return origin.hasHeartRateEvidence && sampleTrust(origin, allowlist) === 'trusted';
+}
