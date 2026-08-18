@@ -969,9 +969,9 @@ export function SpeciesPicker({
                 style={{ width: textWidth }}
               >
                 <Text style={styles.name}>{s.name}</Text>
-                <Text style={styles.blurb} scale="prose">
-                  {s.blurb}
-                </Text>
+                {/* `prose` is Text's default scale and is right here — the
+                    card grows with the type. Stated by omission, not repeated. */}
+                <Text style={styles.blurb}>{s.blurb}</Text>
               </View>
             </Pressable>
           );
@@ -980,7 +980,8 @@ export function SpeciesPicker({
 
       <Button
         label={cta}
-        disabled={!selected || busy}
+        disabled={!selected}
+        busy={busy}
         onPress={() => selected && onConfirm(selected)}
       />
     </View>
