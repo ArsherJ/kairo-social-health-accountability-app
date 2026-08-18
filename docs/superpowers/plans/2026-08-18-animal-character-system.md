@@ -894,7 +894,7 @@ Create `src/features/character/SpeciesPicker.tsx`:
 ```tsx
 import { Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, Label, Text } from '@/ui/index.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { colors, font, radius, shadow, space } from '@/theme.ts';
 import { SPECIES, SPECIES_IDS, type SpeciesId } from './species.ts';
 import { SPECIES_FIGURES } from './species-art.ts';
 
@@ -989,27 +989,34 @@ export function SpeciesPicker({
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: space.lg, gap: space.sm },
-  title: { ...font.display.md, color: ramp.neutral[900] },
-  help: { ...font.body.body, color: ramp.neutral[700], marginBottom: space.sm },
-  scroll: { flexGrow: 0, flexShrink: 1 },
+  // Tokens verified against theme.ts. There is no `font.display.md`; the
+  // onboarding screen this replaces uses `font.body.title` for its title and
+  // `colors.text` / `colors.subtle` for the pair, so this matches it.
+  title: { color: colors.text, ...font.body.title, marginTop: space.sm },
+  help: { color: colors.subtle, ...font.body.body, marginTop: space.sm },
+  scroll: { flexGrow: 0, flexShrink: 1, marginTop: space.md },
   scrollInner: { gap: space.sm, paddingBottom: space.md },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
     padding: space.md,
-    borderRadius: radius.lg,
+    // radius.xl is the system's "rounded frame" step, which is what the
+    // character screen's cards use. Depth is shadow, not a border — an
+    // unchosen card carries no ring, so the border below is transparent.
+    borderRadius: radius.xl,
     borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLift,
+    ...shadow.sm,
   },
   art: { width: 72, height: 72 },
-  name: { ...font.body.strong, color: ramp.neutral[900] },
-  blurb: { ...font.body.body, fontSize: 14.5, color: ramp.neutral[700], marginTop: 2 },
+  name: { color: colors.text, ...font.display.small },
+  blurb: { color: colors.subtle, ...font.body.body, marginTop: 2 },
 });
 ```
 
-**Adjust `font.*`, `space.*` and `radius.*` to the exact keys `theme.ts` exports** — the shapes above follow `app/(onboard)/character.tsx` and `app/(tabs)/profile.tsx`, but do not invent a token. The four properties that are not stylistic and must survive any adjustment:
+**The tokens above are verified against `theme.ts`** — `space` is `xs|sm|md|lg|xl`, `radius` is `sm|md|lg|xl|pill`, and `font.display` has no `md` (it is `hero|major|minor|small|action|label|brand`). Do not invent a token; if you need one that is not there, report it rather than adding it to `theme.ts`. The four properties that are not stylistic and must survive any styling adjustment:
 
 - **Vertical and scrolling**, never a two-column row.
 - **`flexGrow: 0, flexShrink: 1` on the `ScrollView`.**
