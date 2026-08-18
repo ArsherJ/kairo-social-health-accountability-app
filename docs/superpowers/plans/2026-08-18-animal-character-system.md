@@ -1102,14 +1102,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SpeciesPicker } from '@/features/character/SpeciesPicker.tsx';
 import type { SpeciesId } from '@/features/character/species.ts';
 import { profileKey, useProfile } from '@/features/profile/queries.ts';
-import { useSession } from '@/features/auth/useSession.ts';
+import { useSessionStore } from '@/features/auth/session.ts';
 import { supabase } from '@/lib/supabase.ts';
 import { BackRow, Screen } from '@/ui/index.ts';
 
 export default function ChooseSpecies() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const userId = useSession().user?.id;
+  const session = useSessionStore((s) => s.session);
+  const userId = session?.user.id;
   const profile = useProfile(userId);
   const [selected, setSelected] = useState<SpeciesId | null>(
     profile.data?.species ?? null,
@@ -1159,7 +1160,7 @@ export default function ChooseSpecies() {
 }
 ```
 
-**Match `useSession` and `useProfile` to their real names and signatures** in `src/features/auth/` and `src/features/profile/queries.ts` — the shapes above follow how `app/delete-account.tsx` reaches the session and profile. Do not add a new hook.
+**These are verified against the codebase:** the session comes from `useSessionStore((s) => s.session)` in `@/features/auth/session.ts` — there is no `useSession` hook — and `useProfile(userId)` / `profileKey(userId)` are both exported from `src/features/profile/queries.ts`. `app/(tabs)/index.tsx:190-191` is the pattern being followed. Do not add a new hook.
 
 Head the file with:
 
