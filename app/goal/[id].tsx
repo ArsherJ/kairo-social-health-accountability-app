@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, View } from 'react-native';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, evaluateSquadGoal, goalWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
+import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { GoalBar } from '@/features/goals/GoalBar.tsx';
 import {
@@ -173,7 +174,25 @@ export default function GoalDetail() {
               key={standing.userId}
               style={[styles.member, standing.isSelf && styles.memberSelf]}
             >
-              <Avatar name={standing.characterName} self={standing.isSelf} />
+              {standing.species ? (
+                // Replaces the disc rather than joining it, the same rule the
+                // leaderboard row follows: `Avatar`'s tints are the palette's
+                // only two hues and both already mean something here, so four
+                // species hues beside them would be two colour systems in one
+                // row. Nothing is added to what this row *says* — the name is
+                // right there in text, so the art repeating it aloud would be
+                // the noise `StatCoin` inside `StatRail` was reverted for.
+                <Image
+                  source={SPECIES_FIGURES[standing.species]}
+                  style={styles.species}
+                  resizeMode="contain"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                />
+              ) : (
+                /* Anyone predating the choice. `Avatar` already hides itself. */
+                <Avatar name={standing.characterName} self={standing.isSelf} />
+              )}
               <View style={styles.memberBody}>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {standing.characterName || 'Someone'}
@@ -245,6 +264,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: ramp.accent[500],
   },
+  // `Avatar`'s default size, so a roster where some members chose an animal and
+  // some have not keeps one column edge rather than two.
+  species: { width: 44, height: 44 },
   memberBody: { flex: 1, minWidth: 0 },
   memberName: { ...font.display.small, fontSize: 16, color: colors.text },
   memberMeta: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700], marginTop: 2 },

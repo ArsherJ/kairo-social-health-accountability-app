@@ -8,6 +8,9 @@ import {
   type GoalMetric,
   type GoalProgress,
 } from '../../../packages/kairo-core/src/goal.ts';
+// Relative for the same reason as the import above, and type-only: the species
+// registry is zero-import by design, so this costs this module nothing.
+import type { SpeciesId } from '../character/species.ts';
 
 /**
  * Turning a flat `goal_window_scores` read into per-participant standings.
@@ -61,6 +64,13 @@ export type WindowScore = {
    * arrive at kairo-core as a missing boolean.
    */
   walk_cleared: boolean;
+  /**
+   * The participant's cosmetic character choice, or null for anyone predating
+   * it. Deliberately not coalesced by the RPC, unlike `walk_cleared` above:
+   * null means "never chose one", and the roster draws the initial disc for it
+   * rather than an animal nobody picked.
+   */
+  species: SpeciesId | null;
 };
 
 export type Completion = { goal_id: string; user_id: string; xp_awarded: number };
@@ -69,6 +79,7 @@ export type Completion = { goal_id: string; user_id: string; xp_awarded: number 
 export type Standing = {
   userId: string;
   characterName: string;
+  species: SpeciesId | null;
   isSelf: boolean;
   progress: GoalProgress;
   /** True once the server has latched it. Distinct from `progress.met`. */
@@ -146,10 +157,16 @@ export function standingsFor(input: {
   today: string;
 }): Standing[] {
   const goal = toGoal(input.row);
-  const byUser = new Map<string, { name: string; days: GoalDay[] }>();
+  const byUser = new Map<string, { name: string; species: SpeciesId | null; days: GoalDay[] }>();
 
   for (const score of input.scores) {
-    const entry = byUser.get(score.user_id) ?? { name: score.character_name, days: [] };
+    const entry = byUser.get(score.user_id) ?? {
+      name: score.character_name,
+      // Repeated on every one of a participant's rows, exactly as the name is,
+      // so the first row seen sets it and the rest agree.
+      species: score.species ?? null,
+      days: [],
+    };
     // Registered as a participant either way; only a real day is counted. The
     // null-extended row is how a member who has not started still shows on a
     // squad goal at zero rather than vanishing from the roster.
@@ -172,6 +189,7 @@ export function standingsFor(input: {
     .map(([userId, entry]) => ({
       userId,
       characterName: entry.name,
+      species: entry.species,
       isSelf: userId === input.userId,
       progress: evaluateGoal(goal, entry.days, input.today),
       completed: completed.has(userId),

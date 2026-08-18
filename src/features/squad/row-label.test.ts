@@ -37,6 +37,31 @@ describe('leaderboardRowLabel', () => {
     expect(leaderboardRowLabel({ ...base, isSelf: true })).toContain('Jay, you');
   });
 
+  it('names the species after the person', () => {
+    // Reading order stays rank → who → how much. The species is part of *who*
+    // — it is what the row's picture shows in place of the initial disc — so
+    // it lands beside the name rather than down among the detail.
+    expect(
+      leaderboardRowLabel({ ...base, rank: 2, characterName: 'Bantay', species: 'Philippine Eagle' }),
+    ).toContain('Bantay, Philippine Eagle');
+  });
+
+  it('omits the species clause entirely when there is none', () => {
+    // Everyone who predates the migration. An empty clause would leave a doubled
+    // comma, which is audible.
+    const label = leaderboardRowLabel({ ...base, rank: 2, characterName: 'Bantay' });
+    expect(label).not.toMatch(/,\s*,/);
+    expect(label).toContain('Bantay, 640 behind');
+  });
+
+  it('keeps the YOU marker ahead of the species on your own row', () => {
+    // "you" qualifies the name and has to stay against it; the species is the
+    // next field, not an interruption of that one.
+    expect(
+      leaderboardRowLabel({ ...base, isSelf: true, species: 'Tamaraw' }),
+    ).toContain('Jay, you, Tamaraw');
+  });
+
   it('says a one-day streak in words that survive being read aloud', () => {
     // The row draws "1-day streak", which is correct on screen and wrong out
     // loud. This is the whole reason the string is built rather than scraped.

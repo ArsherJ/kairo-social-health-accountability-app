@@ -3986,10 +3986,13 @@ describe('goals.metric — the Daily Walk', () => {
       expect(rows[0]?.walk_cleared).toBe(false);
     });
 
-    it('reaches no raw steps — the projection gained the tier and nothing else', async () => {
+    it('reaches no raw steps — the projection gained the tier and the species, nothing else', async () => {
       // The privacy surface, asserted as the literal row shape. A future column
       // carrying steps or hourly movement would breach §5 while producing an
       // identical screen, so the guard is the shape rather than a convention.
+      // `species` is the second column added deliberately: cosmetic, chosen
+      // rather than measured, and already projected by squad_leaderboard().
+      // It is last, so every positional consumer keeps its column.
       const user = await h.createUser();
       const goalId = await walkGoal(user);
       const rows = await h.asUser<Record<string, unknown>>(
@@ -3999,6 +4002,7 @@ describe('goals.metric — the Daily Walk', () => {
       );
       expect(Object.keys(rows[0]!)).toEqual([
         'user_id', 'character_name', 'local_date', 'total', 'status', 'walk_cleared',
+        'species',
       ]);
     });
   });
@@ -4158,6 +4162,35 @@ describe('squad_leaderboard projects species', () => {
       'program',
       'species',
     ]);
+  });
+
+  it('reports a goal participant their squadmate species, and null for none', async () => {
+    const leader = await h.createUser({ characterName: 'Alpha' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Goal species')`,
+    );
+    const member = await h.createUser({ characterName: 'Beta' });
+    await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+    await h.asService(`update public.profiles set species = 'carabao' where id = $1`, [member]);
+
+    const goal = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_goal(
+         'Together', null, 'cumulative', 5000, '2026-01-01'::date, '2026-01-31'::date,
+         null, $1)`,
+      [squad[0]!.id],
+    );
+
+    const rows = await h.asUser<{ character_name: string; species: string | null }>(
+      leader,
+      'select character_name, species from public.goal_window_scores($1)',
+      [goal[0]!.id],
+    );
+    expect(rows.find((r) => r.character_name === 'Beta')?.species).toBe('carabao');
+    // Null is the pre-migration state and must survive as null — the roster
+    // falls back to the initial disc for it rather than inventing an animal.
+    expect(rows.find((r) => r.character_name === 'Alpha')?.species).toBeNull();
   });
 
   it('shows a squadmate their squadmate species', async () => {

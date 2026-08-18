@@ -1,5 +1,7 @@
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
+import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
+import { SPECIES_NAMES } from '@/features/character/species.ts';
 import { leaderboardRowLabel } from './row-label.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
@@ -50,6 +52,10 @@ export function LeaderboardRow({
         rank: row.rank,
         characterName: row.character_name,
         isSelf: row.is_self,
+        // The name, resolved here — `row-label.ts` takes the word, never the
+        // id, so it keeps importing no UI. Undefined for anyone predating the
+        // choice, which is what drops the clause rather than emptying it.
+        ...(row.species ? { species: SPECIES_NAMES[row.species] } : {}),
         level: row.level,
         gap,
         ratings: Object.fromEntries(
@@ -81,8 +87,25 @@ export function LeaderboardRow({
         {row.rank}
       </Text>
 
-      {/* `Avatar` already hides itself. */}
-      <Avatar name={row.character_name} self={row.is_self} />
+      {row.species ? (
+        // Replaces the disc rather than sitting beside it. `Avatar`'s tints are
+        // terracotta and sage — the palette's only two hues, and both already
+        // mean something here (your own row, the leader's) — so four species
+        // hues next to them would be two colour systems in one row.
+        <Image
+          source={SPECIES_FIGURES[row.species]}
+          style={styles.species}
+          resizeMode="contain"
+          // The row is one element and `leaderboardRowLabel` already names the
+          // species in its own reading order.
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      ) : (
+        /* `Avatar` already hides itself. Kept for anyone predating the choice —
+           a row with no picture at all would be less identifiable, not more. */
+        <Avatar name={row.character_name} self={row.is_self} />
+      )}
 
       {/* Hiding the wrapper takes the whole name / meta / ratings subtree with
           it, which is why this is four props and not twenty. */}
@@ -207,6 +230,9 @@ const styles = StyleSheet.create({
   // element this replaced used `colors.text`, so 600 was a regression on the
   // very thing that took the total's place.
   gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700] },
+  // Matches `Avatar`'s default size, so a mixed board — some rows chose an
+  // animal, some have not — keeps one column edge rather than two.
+  species: { width: 44, height: 44 },
   middle: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   name: { ...font.display.small, fontSize: 17, color: colors.text, flexShrink: 1 },

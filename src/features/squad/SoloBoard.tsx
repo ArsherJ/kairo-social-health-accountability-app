@@ -65,6 +65,10 @@ export function SoloBoard({
       VIT: profile.data?.vit_total ?? 0,
     },
     contributing_stats: today?.contributing_stats ?? 0,
+    // From the profile, for the same reason the ratings above are: solo is the
+    // one board the RPC does not build, so this is where the row and the
+    // character screen have to be kept showing the same animal.
+    species: profile.data?.species ?? null,
     has_rec: false,
     // Both are squad-social signals (§20, §5) with no meaning at an audience of
     // one, and the streak lands with the profile screen rather than here.

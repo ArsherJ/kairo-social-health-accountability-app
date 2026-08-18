@@ -34,6 +34,7 @@ function score(overrides: Partial<WindowScore> = {}): WindowScore {
     total: 1_000,
     status: 'final',
     walk_cleared: false,
+    species: null,
     ...overrides,
   };
 }
@@ -43,6 +44,21 @@ function build(scores: WindowScore[], completions: Completion[] = [], row = goal
 }
 
 describe('standingsFor', () => {
+  it('carries each participant\'s species onto their standing', () => {
+    // Repeated on every row a participant has, the same as the name — so the
+    // grouping has to pick one and it has to be theirs. A goal is exactly where
+    // one member's data can quietly be credited to another.
+    const standings = build([
+      score({ species: 'eagle' }),
+      score({ species: 'eagle', local_date: '2026-01-03' }),
+      score({ user_id: THEM, character_name: 'Them', species: 'carabao', total: 9_000 }),
+    ]);
+    // Found by id, not by position: the list is sorted by progress, so an
+    // index here would be asserting the sort as much as the grouping.
+    expect(standings.find((s) => s.userId === ME)!.species).toBe('eagle');
+    expect(standings.find((s) => s.userId === THEM)!.species).toBe('carabao');
+  });
+
   it('never credits one member’s day to another', () => {
     // The worst bug this file could have. Two members, one day each.
     const standings = build([
