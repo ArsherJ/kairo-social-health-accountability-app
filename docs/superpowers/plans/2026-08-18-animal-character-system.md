@@ -65,7 +65,7 @@
 - Consumes: `CoreStat` from `@kairo/core` — **as a type-only import**, so the module still loads under root Vitest with no alias resolution at runtime.
 - Produces: `SPECIES_IDS: readonly SpeciesId[]`, `type SpeciesId`, `SPECIES: Record<SpeciesId, Species>`, `SPECIES_NAMES: Record<SpeciesId, string>`, `parseSpecies(raw: unknown): SpeciesId | null`, `interface Species { id, name, affinity, hue, blurb }`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/character/species.test.ts`:
 
@@ -146,12 +146,12 @@ describe('parseSpecies', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts src/features/character/species.test.ts`
 Expected: FAIL — `Failed to resolve import "./species.ts"`.
 
-- [ ] **Step 3: Write the registry**
+- [x] **Step 3: Write the registry**
 
 Create `src/features/character/species.ts`:
 
@@ -270,17 +270,17 @@ export function parseSpecies(raw: unknown): SpeciesId | null {
 }
 ```
 
-- [ ] **Step 4: Run the test and verify it passes**
+- [x] **Step 4: Run the test and verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts src/features/character/species.test.ts`
 Expected: PASS, 10 tests.
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `npm run typecheck`
 Expected: clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/features/character/species.ts src/features/character/species.test.ts
@@ -299,7 +299,7 @@ git commit -m "feat: the species registry"
 - Consumes: the species ids from Task 1 (as SQL literals — the CHECK and `SPECIES_IDS` are kept in step by Task 1's test, not by an import).
 - Produces: `profiles.species text` nullable; `species` in the INSERT and UPDATE column grants; `squad_leaderboard()` returning an additional `species text` column, positioned last.
 
-- [ ] **Step 1: Write the failing schema tests**
+- [x] **Step 1: Write the failing schema tests**
 
 Append to `supabase/tests/schema.test.ts`:
 
@@ -476,12 +476,12 @@ describe('squad_leaderboard projects species', () => {
 
 **Note for the implementer:** `h.createSquadWithMembers()` is illustrative — use whatever squad fixture the surrounding `squad_leaderboard` describes already use (see `supabase/tests/schema.test.ts:1396`) and match its exact helper names and destructuring. Do not add a new fixture.
 
-- [ ] **Step 2: Run the schema suite and verify it fails**
+- [x] **Step 2: Run the schema suite and verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts supabase/tests/schema.test.ts -t "species"`
 Expected: FAIL — `column "species" does not exist`.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Create `supabase/migrations/20260818120000_species.sql`:
 
@@ -648,12 +648,19 @@ grant execute on function public.squad_leaderboard(uuid, date, text, uuid) to au
 commit;
 ```
 
-- [ ] **Step 4: Run the schema suite and verify it passes**
+- [x] **Step 4: Run the schema suite and verify it passes**
 
 Run: `npm run test:schema`
 Expected: PASS — including the pre-existing `squad_leaderboard` describes, which must be unaffected. If any of them fail, the function body was not copied verbatim; fix that rather than the test.
 
-- [ ] **Step 5: Apply to the live project**
+- [x] **Step 5: Apply to the live project** — **done late, on 2026-08-18, during Task 9.**
+
+The migration was committed in Task 2 and never applied: `profiles.species` did
+not exist on the live project and `squad_leaderboard()` had no species column,
+which the Task 9 smoke check is what caught. Applied then, with its
+`schema_migrations` row, and re-verified. Worth noting because every test passed
+throughout — they exercise the migration files, not the live database, which is
+the same gap `smoke-sync.mjs` exists for.
 
 ```bash
 ./supabase/scripts/remote-sql.sh -f supabase/migrations/20260818120000_species.sql
@@ -662,12 +669,12 @@ Expected: PASS — including the pre-existing `squad_leaderboard` describes, whi
 ```
 Expected: the third command returns one row.
 
-- [ ] **Step 6: Confirm no Edge Function redeploy is owed**
+- [x] **Step 6: Confirm no Edge Function redeploy is owed**
 
 Run: `grep -rn "squad_leaderboard\|character_body" supabase/functions/`
 Expected: no hits. A migration touching a table an Edge Function writes must ship with that function's redeploy — this one touches neither, and confirming that is cheaper than the two-day scoring outage that rule came from.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add supabase/migrations/20260818120000_species.sql supabase/tests/schema.test.ts
@@ -686,7 +693,7 @@ git commit -m "feat: profiles.species, granted and projected"
 - Consumes: `SpeciesId` from Task 1.
 - Produces: `Profile.species: SpeciesId | null`; `NewProfile = { name: string; species: SpeciesId | null }`.
 
-- [ ] **Step 1: Add species to the profile row type and select list**
+- [x] **Step 1: Add species to the profile row type and select list**
 
 In `src/features/profile/queries.ts`, add to the row type beside `character_body`:
 
@@ -702,7 +709,7 @@ Import the type:
 import type { SpeciesId } from '@/features/character/species.ts';
 ```
 
-- [ ] **Step 2: Widen NewProfile and the INSERT**
+- [x] **Step 2: Widen NewProfile and the INSERT**
 
 In `src/features/profile/create-profile.ts`:
 
@@ -724,12 +731,12 @@ and in the insert object, replace `character_body: body,` with:
 
 destructuring `{ name, species }` in `mutationFn`. **Leave the comment above the insert intact** — the column-scoped grant note still applies, and `level`/`total_xp`/`is_legendary` are still deliberately absent.
 
-- [ ] **Step 3: Typecheck and see the expected breakage**
+- [x] **Step 3: Typecheck and see the expected breakage**
 
 Run: `npm run typecheck`
 Expected: FAIL in `app/(onboard)/name.tsx` and `app/(tabs)/index.tsx`, which still pass `body`. That is the correct blast radius; Tasks 4 and 5 fix it. Do not patch them here.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/features/profile/queries.ts src/features/profile/create-profile.ts
@@ -752,13 +759,13 @@ git commit -m "feat: the profile row carries species"
 - Consumes: `SpeciesId`, `SPECIES` from Task 1; `Profile.species` from Task 3.
 - Produces: `SPECIES_FIGURES: Record<SpeciesId, ImageSourcePropType>`, `SPECIES_HABITATS: Record<SpeciesId, ImageSourcePropType>`; `CharacterFigure` and `Diorama` taking `species?: SpeciesId | null`.
 
-- [ ] **Step 1: Generate placeholder art**
+- [x] **Step 1: Generate placeholder art**
 
 Eight flat PNGs, transparent, 512×1024 for figures and 1024×1024 for habitats, each a solid silhouette in the species' `hue` from Task 1. Any tool — these exist to make the layout real and to prove the swap path, and they are replaced file-for-file when the illustrator delivers.
 
 **Two properties are load-bearing even for placeholders:** transparent background (`Panel` and `Diorama` draw the ground), and **no ground shadow baked in** — `GroundShadow` draws it, keyed to level stage, which is what lets one asset read correctly at all four stages.
 
-- [ ] **Step 2: Write the art map**
+- [x] **Step 2: Write the art map**
 
 Create `src/features/character/species-art.ts`:
 
@@ -798,7 +805,7 @@ export const SPECIES_HABITATS: Record<SpeciesId, ImageSourcePropType> = {
 };
 ```
 
-- [ ] **Step 3: Swap the figure's prop**
+- [x] **Step 3: Swap the figure's prop**
 
 In `src/features/character/CharacterFigure.tsx`:
 
@@ -823,7 +830,7 @@ In `src/features/character/CharacterFigure.tsx`:
 
 Leave `build`, `scale`, `shadowWidth`, `shadowOpacity`, `auraStrength` and everything downstream **exactly as they are**. That they need no change is the point of "one artwork per species" — and if a diff here grows past the prop and the art lookup, stop and re-read spec §4.
 
-- [ ] **Step 4: Give the diorama a habitat**
+- [x] **Step 4: Give the diorama a habitat**
 
 In `src/features/character/Diorama.tsx`:
 
@@ -856,16 +863,16 @@ In `src/features/character/Diorama.tsx`:
  * the ground for a character with no species yet.
 ```
 
-- [ ] **Step 5: Update the home screen's call**
+- [x] **Step 5: Update the home screen's call**
 
 In `app/(tabs)/index.tsx:285`, replace `body={profile.data?.character_body}` with `species={profile.data?.species}`.
 
-- [ ] **Step 6: Typecheck and run the app**
+- [x] **Step 6: Typecheck and run the app**
 
 Run: `npm run typecheck` — expected FAIL only in `app/(onboard)/name.tsx` and `app/(onboard)/character.tsx`, which Task 5 fixes.
 Run: `npm run ios`, sign in on an account with `species` set via SQL, and confirm the figure and habitat render.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add assets/character/species src/features/character/species-art.ts \
@@ -887,7 +894,7 @@ git commit -m "feat: the figure is a species, standing in its habitat"
 - Consumes: `SPECIES`, `SPECIES_IDS`, `SpeciesId`, `parseSpecies` (Task 1); `SPECIES_FIGURES` (Task 4); `NewProfile` (Task 3).
 - Produces: `SpeciesPicker({ title: string; help: string; cta: string; selected: SpeciesId | null; onSelect: (id: SpeciesId) => void; onConfirm: (id: SpeciesId) => void; busy?: boolean })`.
 
-- [ ] **Step 1: Write the picker**
+- [x] **Step 1: Write the picker**
 
 Create `src/features/character/SpeciesPicker.tsx`:
 
@@ -931,8 +938,14 @@ export function SpeciesPicker({
   // work here: a percentage resolves against a ScrollView whose own size
   // depends on measuring this content, so direct Text children lay out wider
   // than the card and clip mid-word.
+  //
+  // Three terms, and the third is the one that got missed the first time:
+  // the screen's own horizontal padding (space.lg each side), the card's
+  // padding (space.md each side) PLUS the card's row `gap` (space.md, once,
+  // between the art and this View) — hence space.md * 3 — and the art's
+  // fixed 72pt.
   const { width } = useWindowDimensions();
-  const textWidth = width - space.lg * 2 - space.md * 2 - 72;
+  const textWidth = width - space.lg * 2 - space.md * 3 - 72;
 
   return (
     <View style={styles.container}>
@@ -1024,7 +1037,7 @@ const styles = StyleSheet.create({
 - **An explicit point width on the text `View`**, never `width: '100%'`.
 - **`Text` imported from `@/ui`**, never from `react-native`.
 
-- [ ] **Step 2: Rewrite the onboarding screen**
+- [x] **Step 2: Rewrite the onboarding screen**
 
 Replace the body of `app/(onboard)/character.tsx` with a `SpeciesPicker` that pushes `` router.push(`/name?species=${chosen}`) ``.
 
@@ -1039,7 +1052,7 @@ Keep the file's existing doc comment about **why this screen writes nothing** �
 
 and set the help copy to: `You can change this any time.`
 
-- [ ] **Step 3: Read the species param on the name screen**
+- [x] **Step 3: Read the species param on the name screen**
 
 In `app/(onboard)/name.tsx`, replace the `parseCharacterBody` import and line 33 with:
 
@@ -1051,7 +1064,7 @@ import { parseSpecies } from '@/features/character/species.ts';
 
 and line 39's mutation argument with `{ name, species }`.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `npm run typecheck`
 Expected: clean. `character-body.ts` and its test are now unreferenced by any screen — **leave both in place**; Task 10 decides their fate with the docs, and deleting them here mixes a cleanup into a feature commit.
@@ -1072,7 +1085,7 @@ xcrun simctl ui booted content_size accessibility-extra-extra-extra-large
 ```
 **Then relaunch the app** — RN caches text measurements, so a live size change renders correct text inside stale boxes and looks exactly like a layout regression. Screenshot with `xcrun simctl io booted screenshot`. Every card's name and blurb must be fully visible and the confirm button reachable. Reset with `xcrun simctl ui booted content_size medium`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/features/character/SpeciesPicker.tsx "app/(onboard)/character.tsx" "app/(onboard)/name.tsx"
@@ -1092,7 +1105,7 @@ git commit -m "feat: onboarding picks a species"
 - Consumes: `SpeciesPicker` (Task 5); `Profile.species` (Task 3).
 - Produces: the `/species` route, reachable from home (once) and from the profile screen (any time).
 
-- [ ] **Step 1: Write the route**
+- [x] **Step 1: Write the route**
 
 Create `app/species.tsx`:
 
@@ -1183,17 +1196,17 @@ Head the file with:
  */
 ```
 
-- [ ] **Step 2: Prompt once from home**
+- [x] **Step 2: Prompt once from home**
 
 In `app/(tabs)/index.tsx`, when the profile has loaded and `species` is null, push `/species` once per app session (an in-module `let prompted = false`, or the existing MMKV once-ever pattern if a permanent dismissal is wanted).
 
 **Gate on the loaded profile, never on the in-flight one.** This is deviation #37's fourth lesson in a new place: `profile.data?.species` reads `undefined` while the query is in flight, which is indistinguishable from null, and prompting on that frame throws the picker at a user who already has a species. Require `profile.isSuccess` before reading it.
 
-- [ ] **Step 3: Add the profile-screen entry**
+- [x] **Step 3: Add the profile-screen entry**
 
 In `app/(tabs)/profile.tsx`, a `Panel` above the existing Timezone panel showing the current species name and pushing `/species`, following that panel's markup exactly.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `npm run typecheck`
 Expected: clean.
@@ -1205,7 +1218,7 @@ Expected: clean.
 ```
 Then: (a) relaunch — the picker appears once, and choosing returns you home with the new figure; (b) relaunch again — no prompt; (c) profile screen → change species → the home figure changes. Confirm none of the three ever bounces to `/connect` or `/`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/species.tsx "app/(tabs)/index.tsx" "app/(tabs)/profile.tsx"
@@ -1225,7 +1238,7 @@ git commit -m "feat: choose or change your species after onboarding"
 - Consumes: `SpeciesId`, `CoreStat`, `Dominance` as types only.
 - Produces: `speciesFigureLabel(input: { species: SpeciesId | null; level: number; dominance: Dominance; speciesNames: Record<SpeciesId, string>; statNames: Record<CoreStat, string> }): string`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/character/species-label.test.ts`:
 
@@ -1276,12 +1289,12 @@ describe('speciesFigureLabel', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts src/features/character/species-label.test.ts`
 Expected: FAIL — `Failed to resolve import "./species-label.ts"`.
 
-- [ ] **Step 3: Write the label**
+- [x] **Step 3: Write the label**
 
 Create `src/features/character/species-label.ts`:
 
@@ -1331,12 +1344,12 @@ export function speciesFigureLabel(input: SpeciesLabelInput): string {
 }
 ```
 
-- [ ] **Step 4: Run the test and verify it passes**
+- [x] **Step 4: Run the test and verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts src/features/character/species-label.test.ts`
 Expected: PASS, 5 tests.
 
-- [ ] **Step 5: Wire it into the diorama**
+- [x] **Step 5: Wire it into the diorama**
 
 Wrap the figure and its habitat in a `View` carrying `accessible` **and** `accessibilityLabel={speciesFigureLabel(...)}`, and give every direct child `accessibilityElementsHidden` **and** `importantForAccessibility="no-hide-descendants"`.
 
@@ -1346,7 +1359,7 @@ Wrap the figure and its habitat in a `View` carrying `accessible` **and** `acces
 
 Open Xcode → Developer Tools → Accessibility Inspector, target the simulator, and step through the character screen. The figure, its shadow, its ring and its habitat must be **one** element speaking the composed label — not four. This answers the question directly, with no VoiceOver gestures and no build.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/features/character/species-label.ts src/features/character/species-label.test.ts \
@@ -1368,7 +1381,7 @@ git commit -m "feat: the figure says which animal it is"
 - Consumes: `squad_leaderboard()`'s `species` column (Task 2); `SPECIES_FIGURES`, `SPECIES_NAMES`.
 - Produces: species art on leaderboard rows, the roster, and goal cards.
 
-- [ ] **Step 1: Add species to the leaderboard row type**
+- [x] **Step 1: Add species to the leaderboard row type**
 
 `src/features/squad/queries.ts:26` declares `LeaderboardRow` as "exactly the columns `squad_leaderboard()` returns". Append, matching that comment's promise:
 
@@ -1383,7 +1396,7 @@ git commit -m "feat: the figure says which animal it is"
 
 The call at `:170` is `supabase.rpc('squad_leaderboard', …)`, which returns every column the function declares — so **no select list to update**, and the type is the whole change.
 
-- [ ] **Step 2: Render the species icon in place of the initial disc**
+- [x] **Step 2: Render the species icon in place of the initial disc**
 
 At `src/features/squad/LeaderboardRow.tsx:85`, replace the `Avatar` call with:
 
@@ -1409,7 +1422,7 @@ At `src/features/squad/LeaderboardRow.tsx:85`, replace the `Avatar` call with:
 
 The image is `accessibilityElementsHidden`; the row is already one element with a composed label, and Step 3 is what puts the species into it.
 
-- [ ] **Step 3: Add the species to the spoken row**
+- [x] **Step 3: Add the species to the spoken row**
 
 Extend `leaderboardRowLabel`'s input with `species?: string` (the resolved **name**, injected — the module imports no UI and must not start now) and place it directly after the character name, so the reading order stays rank → who → how much.
 
@@ -1430,13 +1443,30 @@ it('omits the species clause entirely when there is none', () => {
 });
 ```
 
-- [ ] **Step 4: Add species to goal cards**
+- [x] **Step 4: Add species to goal cards** — **needed a migration the plan did not budget for.**
+
+`goal_window_scores()` returns `user_id, character_name, local_date, total,
+status, walk_cleared` and no species, and `profiles` is owner-readable — so a
+participant's species is reachable through a projection or not at all. Added as
+`20260818130000_goal_window_scores_species.sql`: fifth drop-and-recreate of that
+function, `species` **last** so `finalize-days`' named-field reader is
+untouched, and the schema suite's literal row-shape assertion updated
+deliberately rather than loosened. The privacy argument is Task 2's unchanged —
+`can_see_goal()` still gates the whole function, so the audience is exactly the
+participants who already receive each other's `character_name` from it.
+
+The goal *card* needed nothing: it renders no participants. The roster on
+`app/goal/[id].tsx` is what carries the art.
+
+<details><summary>Original step text</summary>
 
 Render participants as their species art on the goal card — same `<Image>` shape as Step 2, at whatever size the card's existing participant row uses, `accessibilityElementsHidden` + `importantForAccessibility="no-hide-descendants"`, with the existing participant label unchanged.
 
 **Check what is already spoken there first.** Kairo's rule is that a label repeating adjacent text is noise, and `GoalBar`'s pace marker needed nothing because `statusLine()` already said "behind pace". If the card already names participants, the art adds nothing to say.
 
-- [ ] **Step 5: Run the tests**
+</details>
+
+- [x] **Step 5: Run the tests**
 
 Run: `npm test`
 Expected: PASS.
@@ -1445,7 +1475,7 @@ Expected: PASS.
 
 Two accounts in one squad with different species. Confirm the board shows two distinguishable animals, and step the row in Accessibility Inspector to confirm it is still **one** element.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/features/squad app/\(tabs\)/squad.tsx
@@ -1458,21 +1488,21 @@ git commit -m "feat: squadmates are their animals"
 
 **Files:** none — verification only.
 
-- [ ] **Step 1: Confirm the deployed RPC returns the new column**
+- [x] **Step 1: Confirm the deployed RPC returns the new column**
 
 ```bash
 ./supabase/scripts/remote-sql.sh "select species from public.squad_leaderboard('<a real squad id>')"
 ```
 Expected: a `species` column, null or a species per row.
 
-- [ ] **Step 2: Run the sync smoke test**
+- [x] **Step 2: Run the sync smoke test**
 
 Run: `node supabase/scripts/smoke-sync.mjs`
 Expected: PASS.
 
 This migration touches no table an Edge Function writes, so nothing is owed a redeploy — but the two-day August outage happened because a migration and its function drifted and **every test passed the whole time**, since they check the source and not the deployed artifact. The smoke test is the guard that runs against what is actually deployed, and skipping it here is exactly the reasoning that failed then.
 
-- [ ] **Step 3: Commit nothing**
+- [x] **Step 3: Commit nothing**
 
 Verification only. If either step fails, stop and fix before Task 10.
 
@@ -1485,7 +1515,7 @@ Verification only. If either step fails, stop and fix before Task 10.
 - Delete: `docs/kairo-animal-character-plan.md`
 - Decide: `src/features/profile/character-body.ts` and its test
 
-- [ ] **Step 1: Add roadmap deviation #40**
+- [x] **Step 1: Add roadmap deviation #40**
 
 Append a row to the approved-deviations table (`docs/roadmap.md:27`), matching the depth of #35–#39 — those rows record what the *build* found, not just what the design intended. Cover:
 
@@ -1498,19 +1528,19 @@ Append a row to the approved-deviations table (`docs/roadmap.md:27`), matching t
   4. **One artwork per species, because the figure's responses are already code** — stage drives the ground shadow, dominance the tint, rating the ring. The stage × dominance art matrix (~96 assets) was deleted rather than filled.
 - Note on the #27 row that it is superseded.
 
-- [ ] **Step 2: Update CLAUDE.md**
+- [x] **Step 2: Update CLAUDE.md**
 
 Replace the "Onboarding is two screens as of 2026-08-11" paragraph. It must still say the profile row commits exactly once on the name screen and that steps go *before* the name — those are unchanged and load-bearing. It must now say: `profiles.species` is the choice, `character_body` is dead like `profiles.sex`, the picker is one component behind two routes because the gate forbids one, and species is cosmetic and never read by scoring.
 
 Also amend the "Hunter and barkada were retired" paragraph: §20's "dark fantasy hunter aesthetic" brief and the `scripts/generate_swap_assets*.py` prompts are listed there as "a genuinely open decision the art regeneration has to settle". **Deviation #40 settles it** — flat vector, bold outlines, colourful. Say so, and drop them from the not-stale list.
 
-- [ ] **Step 3: Update the remaining docs**
+- [x] **Step 3: Update the remaining docs**
 
 - `docs/user-journey.md` — onboarding and character sections.
 - `docs/mvp-scope.md` — the character bullet under "Solo, and first-class", plus spec §13's out-of-scope list (animation beyond `Animated`, evolution art, skins, battle frames, roster beyond four, mechanical affinity, rep-counting, trading).
 - `assets/character/README.md` — rewrite for the species keys and the art contract: transparent, up to 2:1 portrait, **no baked shadow**, layered source retained upstream.
 
-- [ ] **Step 4: Delete the superseded draft**
+- [x] **Step 4: Delete the superseded draft**
 
 ```bash
 git rm docs/kairo-animal-character-plan.md
@@ -1518,18 +1548,18 @@ git rm docs/kairo-animal-character-plan.md
 
 Its content is superseded by the spec, whose §15 already records what it assumed that is no longer true.
 
-- [ ] **Step 5: Decide `character-body.ts`**
+- [x] **Step 5: Decide `character-body.ts`**
 
 `parseCharacterBody`, `CHARACTER_BODIES` and `character-body.test.ts` now have no caller. **Delete all three.** The column stays (with its new "DEAD" comment) and the schema test for it stays — that is what documents the column's disposition. A TypeScript parser for a value no screen can produce documents nothing, and leaving it invites a future reader to wire it back up.
 
-- [ ] **Step 6: Run everything**
+- [x] **Step 6: Run everything**
 
 ```bash
 npm test && npm run typecheck
 ```
 Expected: both clean.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -1543,3 +1573,30 @@ git commit -m "docs: the character is an animal (deviation #40)"
 - **The art itself.** Track A — AI style board, illustrator brief, the Eagle gate — runs in parallel and is not code. Real art swaps in file-for-file over Task 4's placeholders.
 - **Brand.** App icon, logo restyle, store screenshots. Agreed, and its own spec.
 - **Animation past `Animated` transforms**, evolution stages, skins, battle frames, roster growth, mechanical affinity, rep-counting. Spec §13.
+
+
+---
+
+## Outstanding after implementation (2026-08-18)
+
+Everything above is built, committed, typechecked and green (914 tests), and
+both migrations are applied to the live project. What is left needs a device or
+a GUI and cannot be done headlessly here — synthetic simulator taps land 60–120s
+late, and Accessibility Inspector has no CLI:
+
+- **Onboarding, end to end on the simulator** (Task 5 Steps 5–6), including at
+  `accessibility-extra-extra-extra-large`. Relaunch the app after changing the
+  content size — RN caches text measurements, so a size change on a running app
+  renders correct text inside stale boxes and looks exactly like a layout
+  regression.
+- **The three `/species` paths** (Task 6 Step 5): the once-per-launch prompt
+  appears and choosing returns home with the new figure; a relaunch does not
+  prompt again; Profile → Companion → Change works. None of the three should
+  ever bounce to `/connect` or `/`.
+- **The figure is one accessibility element** speaking `speciesFigureLabel()`
+  (Task 7 Step 6), and **a leaderboard row is still one element** with the
+  species named after the person (Task 8 Step 6).
+
+`./supabase/scripts/remote-sql.sh "update public.profiles set species = null
+where character_name = '<test character>'"` is how to get back to the
+never-chosen state for the first of those.

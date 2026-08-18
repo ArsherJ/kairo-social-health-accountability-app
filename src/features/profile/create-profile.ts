@@ -3,7 +3,6 @@ import { normalizeCharacterName } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 import { track } from '@/features/telemetry/events.ts';
 import type { SpeciesId } from '@/features/character/species.ts';
-import type { CharacterBody } from './character-body.ts';
 import { deviceTimeZone } from './device-timezone.ts';
 import { profileKey } from './queries.ts';
 
