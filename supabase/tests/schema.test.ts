@@ -4216,3 +4216,63 @@ describe('squad_leaderboard projects species', () => {
     expect(rows.every((r) => r.species === null || typeof r.species === 'string')).toBe(true);
   });
 });
+
+describe('three-stat expand migration', () => {
+  it('adds mind_points to daily_scores, defaulted and non-negative', async () => {
+    const rows = await h.asService<{ column_name: string; is_nullable: string }>(`
+      select column_name, data_type, is_nullable, column_default
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_scores'
+        and column_name = 'mind_points'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.is_nullable).toBe('NO');
+  });
+
+  it('keeps rec_points during the expand phase, so a rollback needs no restore', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_scores'
+        and column_name in ('rec_points', 'end_points', 'vit_points')
+    `);
+    expect(rows).toHaveLength(3);
+  });
+
+  it('records sleep origin for the trust layers', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_sleep'
+        and column_name in ('source', 'was_user_entered')
+    `);
+    expect(rows.map((r) => r.column_name).sort()).toEqual(['source', 'was_user_entered']);
+  });
+
+  it('records workout origin including heart-rate evidence', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'workout_sessions'
+        and column_name in ('source_bundle_id', 'was_user_entered', 'has_heart_rate_evidence')
+    `);
+    expect(rows).toHaveLength(3);
+  });
+
+  // MND must be storable as a featured stat before Task 3 can emit it.
+  it('accepts MND as a featured stat', async () => {
+    const rows = await h.asService<{ def: string }>(`
+      select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and pg_get_constraintdef(oid) like '%featured_stat%'
+    `);
+    expect(rows[0]!.def).toContain('MND');
+  });
+
+  // Transitional: five stats can contribute until Task 4 retires END and VIT.
+  it('allows up to five contributing stats during the transition', async () => {
+    const rows = await h.asService<{ def: string }>(`
+      select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname like '%contributing_stats%'
+    `);
+    expect(rows[0]!.def).toContain('5');
+  });
+});
