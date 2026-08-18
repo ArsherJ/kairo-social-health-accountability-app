@@ -273,7 +273,7 @@ export function parseSpecies(raw: unknown): SpeciesId | null {
 - [ ] **Step 4: Run the test and verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts src/features/character/species.test.ts`
-Expected: PASS, 11 tests.
+Expected: PASS, 10 tests.
 
 - [ ] **Step 5: Typecheck**
 
