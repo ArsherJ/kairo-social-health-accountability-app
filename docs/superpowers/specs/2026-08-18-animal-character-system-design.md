@@ -149,7 +149,8 @@ Mirrors how `character-body.ts` and `StatIcon.tsx` are already organised.
   `ANCHORS` is replaced. **`stage`, `dominance`, `auraStrength` and
   `GroundShadow` are untouched** — that is what "one artwork per species" buys,
   and it is why this is a smaller change than it looks.
-- **One picker component, three call sites** — see §8.
+- **`src/features/character/SpeciesPicker.tsx`** — one picker, two routes, three
+  call sites. Commit behaviour is a prop; see §8.
 
 ## 8. Routing, onboarding, and the migration for existing users
 
@@ -159,15 +160,34 @@ param, exactly as `body` does now. **The profile row still commits exactly
 once, on `/name`** — deviation #22's deleted `finishingOnboarding` flag stays
 deleted only while every step is *before* the name screen.
 
-**Existing users get a one-time picker, and it must not live in `(onboard)`.**
-`redirectTarget` is a denylist: a `ready` user in group `(onboard)` is bounced
-straight to `/`. So the picker is **`app/species.tsx`, a stacked route outside
-any group** — the same shape as `/goal/new` and `/delete-account`, which that
-denylist explicitly permits and was written to permit. Consequences, all good:
+**Two thin routes over one shared picker component.** The gate cuts both ways
+and it is easy to read only half of it:
 
-- **One screen serves all three entry points** — pushed from onboarding, pushed
-  once from home when `species is null`, pushed from the profile screen to swap.
-- **No new `resolveRoute` state and no `finishingOnboarding` flag.**
+- A **`ready`** user cannot be sent to an `(onboard)` route — `redirectTarget`'s
+  `ready` case is a denylist that bounces group `(onboard)` to `/`.
+- A **`needs-profile`** user cannot be sent *outside* `(onboard)` — that case
+  returns `/connect` for any other group, so an onboarding user pushed to a
+  groupless `/species` loops back to `/connect` forever.
+
+So there is no single route that serves both. The picker is one component,
+`src/features/character/SpeciesPicker.tsx`, mounted by two thin routes:
+
+| Route | Group | Serves |
+|---|---|---|
+| `app/(onboard)/character.tsx` | `(onboard)` | Onboarding. Pushes `/name?species=…`; writes nothing. |
+| `app/species.tsx` | none (stacked) | The one-time migration prompt, and swapping from the profile screen. Writes an UPDATE. |
+
+`app/species.tsx` being groupless is what the `ready` denylist explicitly
+permits — the same shape as `/goal/new` and `/delete-account`, and the comment
+on that case says it was written as a denylist precisely so stacked routes
+outside any group are legitimate destinations.
+
+Consequences, all good:
+
+- **The picker's design and copy exist once.** Only the commit behaviour differs,
+  and that is a prop.
+- **No new `resolveRoute` state and no `finishingOnboarding` flag.** Onboarding
+  still writes nothing before `/name`.
 - Nobody loses progress, and no interstitial fights the gate.
 
 **The screen may now promise the choice is changeable**, which retires the
