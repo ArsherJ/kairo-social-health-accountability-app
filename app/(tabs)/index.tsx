@@ -309,6 +309,7 @@ export default function Character() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Diorama
           height={skyHeight}
+          level={level}
           stage={stage}
           dominance={dominance.data}
           species={profile.data?.species}

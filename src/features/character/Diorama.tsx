@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import type { SpeciesId } from './species.ts';
+import { SPECIES_NAMES, type SpeciesId } from './species.ts';
 import { SPECIES_HABITATS } from './species-art.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
 import type { Stop } from '@/ui/gradient.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
+import { speciesFigureLabel } from './species-label.ts';
 
 /**
  * The world the character stands in.
@@ -44,25 +45,9 @@ const FADE: Stop[] = [
   { color: colors.bg, at: 1 },
 ];
 
-/**
- * The figure, in words.
- *
- * `STAT_NAMES` rather than a second map of its own: `Dominance` is
- * `CoreStat | 'balanced' | null`, so the stat case is already named once, and
- * a parallel table here is exactly the drift `StatIcon`'s comment warns about.
- *
- * `balanced` is the All-Rounder and is worth saying — it is a build someone
- * worked toward, not the absence of one.
- */
-function describeFigure(stage: 1 | 2 | 3 | 4, dominance?: Dominance): string {
-  const base = `Your character, stage ${stage} of 4`;
-  if (!dominance) return base;
-  if (dominance === 'balanced') return `${base}, balanced build`;
-  return `${base}, built for ${STAT_NAMES[dominance]}`;
-}
-
 export function Diorama({
   height,
+  level,
   stage,
   dominance,
   species,
@@ -70,6 +55,12 @@ export function Diorama({
   children,
 }: {
   height: number;
+  /**
+   * Spoken by the figure's label, never drawn. `stage` is what the art reads —
+   * `evolutionStageForLevel` collapses a level into one of four bands — and
+   * four bands is not what someone means by "how far have I got".
+   */
+  level: number;
   stage: 1 | 2 | 3 | 4;
   dominance?: Dominance;
   species?: SpeciesId | null;
@@ -122,17 +113,30 @@ export function Diorama({
 
       <View
         // The figure is the app's centrepiece and it is drawn, not written —
-        // three things are said by shape alone (§6): the ground shadow by
-        // level band, the build proportions by dominant stat, the presence
-        // ring by ability rating. Without a name it is invisible to a screen
-        // reader, and the character screen becomes a HUD floating over
-        // nothing.
+        // four things are said by shape alone (§6): which animal you are, the
+        // ground shadow by level band, the build proportions by dominant stat,
+        // the presence ring by ability rating. Without a name it is invisible
+        // to a screen reader, and the character screen becomes a HUD floating
+        // over nothing.
         //
-        // Deliberately said in the app's own vocabulary: "your character",
-        // never a Hunter (deviation #26).
+        // Composed in `species-label.ts` rather than here: the conditionals
+        // read as obviously right and are wrong at the edges — no dominance
+        // yet, and no species at all — so they are a pure module tested in
+        // Node, the same treatment `row-label.ts` got. `SPECIES_NAMES` and
+        // `STAT_NAMES` are injected, so that module imports no UI and stays
+        // loadable by root Vitest.
+        //
+        // Deliberately said in the app's own vocabulary: a species or "your
+        // character", never a Hunter (deviation #26).
         accessible
         accessibilityRole="image"
-        accessibilityLabel={describeFigure(stage, dominance)}
+        accessibilityLabel={speciesFigureLabel({
+          species: species ?? null,
+          level,
+          dominance: dominance ?? null,
+          speciesNames: SPECIES_NAMES,
+          statNames: STAT_NAMES,
+        })}
         style={[styles.stage, { bottom: height * 0.12 }]}
       >
         {/* `accessible` on the wrapper should collapse this on iOS and did
