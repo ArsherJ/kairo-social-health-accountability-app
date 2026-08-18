@@ -131,12 +131,13 @@ export function CharacterFigure({
           that rises with the figure reads as the whole world bobbing, where
           one that stays put reads as the figure lifting off the ground. */}
       <Animated.View style={[styles.lift, { transform: [{ translateY }] }]}>
-        {/* Art when there is art, primitives when there is not. With the anchor
-            in place the second branch no longer renders — it stays because the
-            anchor is a placeholder, and it is the primitives that carry §6's
-            dominance table (leaner AGI, broader STR, END's planted stance).
-            Drop them only when real per-dominance art replaces what they
-            encode. */}
+        {/* Art when there is art, primitives when there is not. This branch is
+            live, not leftover: every profile predating the species choice (or
+            still loading it) has no `species`, so `art` is undefined and the
+            primitives render — they are also what carries §6's dominance
+            table (leaner AGI, broader STR, END's planted stance). Drop them
+            only once every profile has a species and real per-species art
+            covers every case. */}
         {art ? (
           <Image
             source={art}
