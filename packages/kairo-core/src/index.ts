@@ -22,5 +22,6 @@ export * from './goal.ts';
 export * from './challenge.ts';
 export * from './disclosure.ts';
 export * from './strain.ts';
+export * from './mind.ts';
 export * from './streak.ts';
 export * from './notifications.ts';
