@@ -37,8 +37,13 @@ export function SpeciesPicker({
   // work here: a percentage resolves against a ScrollView whose own size
   // depends on measuring this content, so direct Text children lay out wider
   // than the card and clip mid-word.
+  //
+  // Three terms subtracted from the screen width: the container's own
+  // horizontal padding (`space.lg * 2`), the card's padding on both sides
+  // plus the row `gap` between the art and this text View — three `space.md`
+  // widths, not two — and the art's fixed width (72).
   const { width } = useWindowDimensions();
-  const textWidth = width - space.lg * 2 - space.md * 2 - 72;
+  const textWidth = width - space.lg * 2 - space.md * 3 - 72;
 
   return (
     <View style={styles.container}>
