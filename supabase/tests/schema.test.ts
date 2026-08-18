@@ -1803,6 +1803,7 @@ describe('profiles.focus is gone', () => {
       'exclude_from_recap',
       'height_cm',
       'sex',
+      'species',
       'timezone',
       'trains_run',
       'trains_strength',
@@ -3630,6 +3631,7 @@ describe('profiles.character_body', () => {
       'height_cm',
       'id',
       'sex',
+      'species',
       'timezone',
       'weight_kg',
     ]);
@@ -3999,5 +4001,185 @@ describe('goals.metric — the Daily Walk', () => {
         'user_id', 'character_name', 'local_date', 'total', 'status', 'walk_cleared',
       ]);
     });
+  });
+});
+
+describe('profiles.species', () => {
+  it('exists and is nullable', async () => {
+    const rows = await h.asService<{ is_nullable: string; data_type: string }>(
+      `select is_nullable, data_type from information_schema.columns
+       where table_schema = 'public' and table_name = 'profiles'
+         and column_name = 'species'`,
+    );
+    // NULL means "never asked", which every row predating this column is.
+    // A not-null default would backfill an assertion nobody made — and the
+    // one-time picker keys off exactly this null.
+    expect(rows[0]!.is_nullable).toBe('YES');
+    expect(rows[0]!.data_type).toBe('text');
+  });
+
+  it('accepts each of the four species', async () => {
+    const user = await h.createUser();
+    for (const s of ['pilandok', 'tamaraw', 'carabao', 'eagle']) {
+      await h.asService(`update public.profiles set species = $2 where id = $1`, [user, s]);
+      const rows = await h.asService<{ species: string }>(
+        `select species from public.profiles where id = $1`,
+        [user],
+      );
+      expect(rows[0]!.species).toBe(s);
+    }
+  });
+
+  it('rejects a value outside the CHECK', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asService(`update public.profiles set species = 'tarsier' where id = $1`, [user]),
+      /species/,
+    );
+  });
+
+  it('lets a client set it on their own row', async () => {
+    // The swap path: the profile screen UPDATEs directly under the
+    // column-scoped grant, with no RPC in between.
+    const user = await h.createUser();
+    await h.asUser(user, `update public.profiles set species = 'eagle' where id = $1`, [user]);
+    const rows = await h.asService<{ species: string }>(
+      `select species from public.profiles where id = $1`,
+      [user],
+    );
+    expect(rows[0]!.species).toBe('eagle');
+  });
+
+  it('is in the column-scoped INSERT grant', async () => {
+    const rows = await h.asService<{ column_name: string }>(
+      `select distinct column_name from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and privilege_type = 'INSERT' order by column_name`,
+    );
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'birth_year',
+      'character_body',
+      'character_name',
+      'class',
+      'exclude_from_recap',
+      'height_cm',
+      'id',
+      'sex',
+      'species',
+      'timezone',
+      'weight_kg',
+    ]);
+  });
+
+  it('is in the column-scoped UPDATE grant, and the rest survived the rebuild', async () => {
+    const rows = await h.asService<{ column_name: string }>(
+      `select distinct column_name from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and privilege_type = 'UPDATE' order by column_name`,
+    );
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'birth_year',
+      'character_body',
+      'character_name',
+      'class',
+      'exclude_from_recap',
+      'height_cm',
+      'sex',
+      'species',
+      'timezone',
+      'trains_run',
+      'trains_strength',
+      'weight_kg',
+    ]);
+  });
+
+  it('still refuses server-awarded columns after the grant rebuild', async () => {
+    // The rebuild rewrites the whole column list. This is the half a careless
+    // rebuild gets wrong: widening the grant past what was intended.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, `update public.profiles set level = 99 where id = $1`, [user]),
+      /permission denied/i,
+    );
+  });
+
+  it('keeps has_wearable out of both write grants', async () => {
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from information_schema.column_privileges
+       where table_name = 'profiles' and grantee = 'authenticated'
+         and column_name = 'has_wearable'
+         and privilege_type in ('INSERT', 'UPDATE')`,
+    );
+    expect(rows[0]!.n).toBe(0);
+  });
+});
+
+describe('squad_leaderboard projects species', () => {
+  async function seedSquad() {
+    const leader = await h.createUser({ characterName: 'Alpha' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      leader,
+      `select id, invite_code from public.create_squad('Species')`,
+    );
+    const member = await h.createUser({ characterName: 'Beta' });
+    await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+    return { leader, member, squadId: squad[0]!.id };
+  }
+
+  it('returns species last, and the rest of the row shape is unchanged', async () => {
+    // The row shape is pinned because this RPC *is* the §5 privacy boundary:
+    // squadmates reach data only through it. Species is cosmetic and
+    // non-sensitive, unlike steps or heart rate — but the pin is what makes
+    // adding a column a decision rather than an accident.
+    const rows = await h.asService<{ column_name: string; ordinal_position: number }>(
+      `select p.parameter_name as column_name, p.ordinal_position
+         from information_schema.parameters p
+         join information_schema.routines r using (specific_name)
+        where r.routine_schema = 'public' and r.routine_name = 'squad_leaderboard'
+          and p.parameter_mode = 'OUT'
+        order by p.ordinal_position`,
+    );
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'rank',
+      'user_id',
+      'character_name',
+      'class',
+      'level',
+      'local_date',
+      'total',
+      'tiers',
+      'ratings',
+      'contributing_stats',
+      'has_rec',
+      'flagged',
+      'status',
+      'current_streak',
+      'is_self',
+      'program',
+      'species',
+    ]);
+  });
+
+  it('shows a squadmate their squadmate species', async () => {
+    const { squadId, leader, member } = await seedSquad();
+    await h.asService(`update public.profiles set species = 'tamaraw' where id = $1`, [member]);
+    const rows = await h.asUser<{ character_name: string; species: string | null }>(
+      leader,
+      'select character_name, species from public.squad_leaderboard($1)',
+      [squadId],
+    );
+    expect(rows.some((r) => r.species === 'tamaraw')).toBe(true);
+  });
+
+  it('reports null for a squadmate who has never chosen', async () => {
+    // Null is the pre-migration state and must reach the client as null, not
+    // as a default — the client renders a neutral figure for it.
+    const { squadId, leader } = await seedSquad();
+    const rows = await h.asUser<{ species: string | null }>(
+      leader,
+      'select species from public.squad_leaderboard($1)',
+      [squadId],
+    );
+    expect(rows.every((r) => r.species === null || typeof r.species === 'string')).toBe(true);
   });
 });
