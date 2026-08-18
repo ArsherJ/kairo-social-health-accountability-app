@@ -213,7 +213,7 @@ a normalization bump, which returns far less. It is derived at read time from
 `has_wearable` stays exactly as it is for the leaderboard icon. It simply stops
 being load-bearing for scoring.
 
-### Two open decisions this section leaves for Phase 2
+### Two decisions this section left open — both now resolved
 
 Both were found by the Phase 1 final review (2026-08-18), which checked the
 shipped code against this document rather than against the plan derived from
@@ -233,8 +233,17 @@ three candidate resolutions: flagged sleep counts toward capability (closes the
 hole, weakens the allowlist's meaning); flagged sleep scores but is excluded
 from normalization's denominator (needs a third eligibility state); or flagged
 sleep does not score after all (contradicts §20's social-only posture, and is
-the option this spec argued against). **Phase 2 must pick one before wiring
-`normalizationFactor`.**
+the option this spec argued against). **RESOLVED 2026-08-18: flagged sleep counts toward capability.** If it scores,
+it counts — one rule, no third eligibility state, and the ceiling holds at
+4,400. The consequence is deliberate and should not be re-litigated in review:
+the allowlist no longer affects score at all. It survives purely as the
+`flagged` social signal (§20), which is what it was always documented to be.
+
+Phase 1's `capability.ts` docstring says the opposite — *"Untrusted nights must
+not be passed here"* — because it was written against the unresolved version.
+**Phase 2 must change that docstring and pass scoring sleep dates (trusted OR
+flagged), not trusted ones.** It is the one place Phase 1's shipped code is now
+knowingly wrong.
 
 **2. "Verified" is undefined, and it is §2's one unpinned rule.** §2 says an
 unverified session shifts nothing, but nothing here says what verified *means*.
@@ -242,9 +251,20 @@ unverified session shifts nothing, but nothing here says what verified *means*.
 flag, and **HR evidence** — while `SampleOrigin` in `trust.ts` models only the
 first two, so Phase 1 cannot express it even in principle. If Phase 2 reaches
 for `scoresAtAll` as the verification test, an unknown-source workout app
-reporting inflated minutes buys a full 25% STR band shift. **Workout
-verification needs its own predicate, taking the HR-evidence flag, distinct
-from `sampleTrust`.**
+reporting inflated minutes buys a full 25% STR band shift. **RESOLVED 2026-08-18: a workout is verified when its source is allowlisted
+AND the session carries heart-rate evidence.** Both, not either. This needs:
+
+- a third field on `SampleOrigin` (or a separate `WorkoutOrigin`) carrying the
+  HR-evidence flag;
+- a `workoutVerified()` predicate distinct from `sampleTrust` — reusing
+  `scoresAtAll` here is the specific hole the final review identified;
+- a per-session `getStatistic('HKQuantityTypeIdentifierHeartRate')` call on the
+  client, at the cost of N bridge round-trips per sync window (§3).
+
+Known consequence: a real workout from an obscure app that records no heart
+rate shifts nothing, and the UI cannot currently explain why. Accepted at this
+strictness deliberately — STR's shift is worth up to 25% of a band, which is
+too much to hand to an unverified claim.
 
 ---
 
