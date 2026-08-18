@@ -73,7 +73,7 @@ export function SpeciesPicker({
               accessibilityState={{ selected: chosen }}
               accessibilityLabel={`${s.name}. ${s.blurb}`}
               onPress={() => onSelect(id)}
-              style={[styles.card, chosen && { borderColor: s.hue, borderWidth: 2 }]}
+              style={[styles.card, chosen && { borderColor: s.hue }]}
             >
               {/* The card's own label already names the species. */}
               <Image
