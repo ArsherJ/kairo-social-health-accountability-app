@@ -24,6 +24,14 @@ export interface RowLabelInput {
   rank: number;
   characterName: string;
   isSelf: boolean;
+  /**
+   * The species' display **name**, already resolved and injected — never the
+   * id, and never looked up here: this module imports no UI and must not start
+   * now. Omitted for anyone predating the choice, and omitted means no clause
+   * at all rather than an empty one, which would leave a doubled comma the
+   * screen reader pronounces as a stumble.
+   */
+  species?: string;
   level: number;
   /**
    * How far behind the row above this one is, or null when nothing is above it.
@@ -55,6 +63,12 @@ export function leaderboardRowLabel(input: RowLabelInput): string {
   // for the first second.
   parts.push(`Rank ${input.rank}`);
   parts.push(input.isSelf ? `${input.characterName}, you` : input.characterName);
+
+  // Directly after the person, because it *is* part of who: the row draws the
+  // species art where the initial disc used to be, so this is the picture said
+  // out loud. Anything later would put it among the detail, which is not what
+  // it is.
+  if (input.species) parts.push(input.species);
 
   // Relative, never absolute — and only when there is a gap to speak of. The
   // condition matches the row's render condition exactly rather than

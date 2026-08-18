@@ -7,6 +7,7 @@ import {
   DEMO_SQUAD,
 } from '@/features/demo/fixtures.ts';
 import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
+import type { SpeciesId } from '@/features/character/species.ts';
 import { supabase } from '@/lib/supabase.ts';
 import { normalizeInviteCode } from './invite-code.ts';
 
@@ -48,6 +49,12 @@ export type LeaderboardRow = {
   status: 'provisional' | 'final';
   current_streak: number;
   is_self: boolean;
+  /**
+   * Which animal the squadmate chose, or null for anyone predating the choice.
+   * Cosmetic — it is in this projection because it reveals nothing (§5), not
+   * because it is needed for ranking.
+   */
+  species: SpeciesId | null;
   /**
    * The squad's program, repeated on every row. `total` above is already
    * weighted by it (deviation #11) — the row carries the program so the UI can

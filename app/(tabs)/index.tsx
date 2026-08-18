@@ -181,6 +181,20 @@ function detailCopy(detail: StatDetail): string | null {
   }
 }
 
+/**
+ * Whether this launch has already offered the species picker.
+ *
+ * Module scope, so it resets on a cold start and nothing is persisted: a user
+ * who backs out of the picker is asked again next launch, and never twice in
+ * one session. That is the right trade for a choice every account made at
+ * onboarding after 2026-08-18 — the only people who ever see this are the
+ * cohort that predates the column, and once they choose, `species` is no
+ * longer null and the condition below can never fire again. An MMKV
+ * once-ever marker would make "not now" permanent and leave those accounts
+ * rendering the fallback figure forever with no prompt to fix it.
+ */
+let speciesPrompted = false;
+
 export default function Character() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -225,6 +239,21 @@ export default function Character() {
     if (!today || today.total <= 0) return;
     markFirstScoreSeen(userId);
   }, [userId, today]);
+
+  // The one-time offer for accounts created before the species column existed.
+  //
+  // `profile.isSuccess` is the load-bearing half, and it is deviation #37's
+  // fourth lesson in a new place: `profile.data?.species` reads `undefined`
+  // while the query is in flight, which is indistinguishable from null here,
+  // and pushing on that frame throws the picker at someone who already chose.
+  // Require the loaded row, then read it.
+  useEffect(() => {
+    if (speciesPrompted) return;
+    if (!profile.isSuccess || !profile.data) return;
+    if (profile.data.species !== null) return;
+    speciesPrompted = true;
+    router.push('/species');
+  }, [profile.isSuccess, profile.data, router]);
 
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
@@ -280,9 +309,10 @@ export default function Character() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Diorama
           height={skyHeight}
+          level={level}
           stage={stage}
           dominance={dominance.data}
-          body={profile.data?.character_body}
+          species={profile.data?.species}
           lifetimePoints={lifetime}
         >
           {/* The HUD. Everything here floats over the world rather than

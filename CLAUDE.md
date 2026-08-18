@@ -170,12 +170,14 @@ reverse. Four things break easily:
 character has no noun — it is "your character", and the centre tab is `Character`;
 a squad is a **squad**. The spec says "Hunter" throughout (§6, §15, §20) and so do
 the dated docs under `docs/superpowers/`; both are historical records, not intent.
-Three things deliberately still say it and are *not* stale: `profiles.class`'s
-`'hunter'` default (inert internal enum, no surface renders it), the
-`output/imagegen/hunter-*.png` render sources, and the **art-direction prompts** in
-`scripts/generate_swap_assets*.py` plus §20's "dark fantasy hunter aesthetic" brief —
-that last one is a genuinely open decision the art regeneration has to settle, not a
-missed find-and-replace. Anywhere else, it is stale — fix it.
+Two things deliberately still say it and are *not* stale: `profiles.class`'s
+`'hunter'` default (inert internal enum, no surface renders it) and the
+`output/imagegen/hunter-*.png` render sources. **§20's "dark fantasy hunter
+aesthetic" brief and the art-direction prompts in
+`scripts/generate_swap_assets*.py` used to be listed here as a genuinely open
+decision; deviation #40 settles it** — the direction is flat vector, bold
+outlines, colourful, and the subject is an animal. Those prompts are now stale
+like anything else. Anywhere else, it is stale — fix it.
 
 **`src/ui/Text.tsx` is the only Text, as of 2026-08-14.** Import it from `@/ui`,
 never from `react-native` — the two are otherwise identical, which is exactly
@@ -236,14 +238,46 @@ MaterialCommunityIcons on purpose while all chrome stays Feather — the split i
 hairline = *things you operate*, solid = *things you are*. Don't blur it in either
 direction.
 
-**Onboarding is two screens as of 2026-08-11** (roadmap deviation #27): choose a
-character body, then name it. **The profile row still commits exactly once**, on
-the name screen — that is load-bearing, not incidental. Deviation #22 deleted the
-`finishingOnboarding` flag when onboarding collapsed to one step; asking anything
-*after* the INSERT flips `resolveRoute` to `'ready'` under the unfinished screen
-and needs that flag back. Add onboarding steps *before* the name, never after.
-`profiles.character_body` is cosmetic and nullable (null = never asked); it is
-deliberately **not** `profiles.sex`, which stays dead.
+**The character is an animal as of 2026-08-18** (roadmap deviation #40, which
+supersedes #27). Four Philippine endemic species — `'pilandok' | 'tamaraw' |
+'carabao' | 'eagle'` — live in `src/features/character/species.ts`, a
+zero-import registry that is the single source for ids, names, hues,
+affinities and blurbs. **`affinity` is flavour and nothing in `@kairo/core`
+imports that file**: a species never touches scoring, and adding a mechanical
+bonus later would rescore history, because `daily_scores` is replayed from
+stored buckets. Five things break easily:
+
+- **`profiles.species` is a new nullable column; `profiles.character_body` is
+  dead**, never written and read by no surface — the same disposition as
+  `profiles.sex`. Its TypeScript parser was deleted (a parser for a value no
+  screen can produce documents nothing); the column comment and its schema test
+  are what record the disposition.
+- **One `SpeciesPicker`, mounted by two routes, because `redirectTarget` cuts
+  both ways** — a `ready` user inside `(onboard)` is bounced to `/`, and a
+  `needs-profile` user outside it is bounced to `/connect`, so no single route
+  can serve both. `app/(onboard)/character.tsx` is the onboarding mount and
+  writes nothing; the groupless `app/species.tsx` serves everyone past it and
+  writes directly under the column-scoped UPDATE grant. Groupless is what the
+  `ready` denylist permits, the same as `/goal/new`.
+- **Onboarding is still `/connect` → `/character` → `/name`, and the profile
+  row still commits exactly once**, on the name screen — unchanged by #40 and
+  still load-bearing. Deviation #22 deleted the `finishingOnboarding` flag when
+  onboarding collapsed to one step; asking anything *after* the INSERT flips
+  `resolveRoute` to `'ready'` under the unfinished screen and needs that flag
+  back. Add onboarding steps *before* the name, never after.
+- **`SpeciesPicker` is vertical, scrolls, and its text sits in a `View` with a
+  computed point width.** All three are the permission sheet's 2026-08-17
+  lessons in a new place, and the width arithmetic has been wrong twice: it
+  subtracts the screen padding, the card's `borderWidth` (Yoga lays out
+  border-box), *three* `space.md` widths — two paddings plus the row `gap` —
+  and `ART_WIDTH`. `CARD_BORDER` and `ART_WIDTH` are constants precisely so the
+  stylesheet and that sum cannot drift.
+- **The home screen prompts for a species once per launch, gated on
+  `profile.isSuccess`.** `profile.data?.species` reads `undefined` while the
+  query is in flight, which is indistinguishable from null — deviation #37's
+  fourth lesson again. The flag is module scope, not MMKV: a permanent
+  dismissal would strand the pre-#40 cohort on the fallback figure with no
+  prompt to fix it.
 
 **Two documents hold the decisions. Read them before proposing changes.**
 

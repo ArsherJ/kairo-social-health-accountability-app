@@ -49,9 +49,13 @@ the squad gap, the Daily Walk and its streak.
 Kairo is **solo-first**. Everything below works with zero friends, and the
 squad is a layer on top.
 
-- **Character** — one body chosen at onboarding (deviation #27), named by you.
-  It has **no in-app noun**: it is "your character", never a Hunter
-  (deviation #26).
+- **Character** — one of **four Philippine endemic species** chosen at
+  onboarding (deviation #40, superseding #27), named by you, and changeable any
+  time from Profile → Companion: Pilandok, Tamaraw, Carabao, Philippine Eagle.
+  **Cosmetic only** — the choice reaches nothing in scoring, and each species'
+  "affinity" names the stat it is *about*, never a bonus. Squadmates see it on
+  the leaderboard and on shared goal rosters. It has **no in-app noun**: it is
+  "your character", never a Hunter (deviation #26).
 - **Four stats from HealthKit** — AGI (steps, distance), STR (active calories),
   END (active minutes), VIT (hourly movement). **REC** (sleep) is a
   wearable-only bonus that simply does not appear without one.
@@ -127,6 +131,7 @@ a regression.
 |---|---|---|
 | **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it. | Deviation #17 |
 | **Character morphing, gear slots, Rive animation** | V1. The art is not commissioned; §15 scopes the MVP to *static* placeholder art, and pulling in an animation runtime for a placeholder is the wrong trade. The three responses listed above are what exists. | §15, `CharacterFigure.tsx` |
+| **Anything the species choice is not** — per-species evolution art, skins, battle frames, a roster past four, a *mechanical* affinity bonus, and animation beyond React Native `Animated` | Deliberate, and each one for its own reason. One artwork per species is what makes four species affordable, and it works because the figure's three responses are already code — a per-stage or per-dominance set is ~96 assets nobody will maintain. A mechanical affinity would rescore history, since `daily_scores` is replayed from stored buckets, so it is a migration rather than a tweak. No new dependency was added for motion: `react-native-svg`, Rive and Reanimated all stay uninstalled. | Deviation #40, spec §13 |
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
 | **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It is a third mechanic beside Goals and Challenges, and three questions are open on purpose: how a Routine-level shield and Challenge-level ease coordinate on one missed week, where it surfaces relative to `SquadGoalPanel` and `GoalCard`, and the squad-level `required_members` default. | Deviation #33, spec §9 |
@@ -147,10 +152,12 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | daily score | points, today's XP |
 | program | focus *(`profiles.focus` was dropped; `squads.program` is the only focus concept)* |
 
-One deliberate exception: the **art-direction prompts** in
+The one exception used to be the **art-direction prompts** in
 `scripts/generate_swap_assets*.py` and §20's "dark fantasy hunter aesthetic"
-brief still say Hunter. That is a genuinely open decision for the art
-regeneration to settle, not a missed find-and-replace.
+brief, which were listed here as an open decision for the art regeneration to
+settle. **Deviation #40 settles it**: the direction is flat vector, bold
+outlines, colourful, and the subject is an animal. Those prompts are stale like
+anything else that says Hunter.
 
 ---
 

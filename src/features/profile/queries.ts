@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DEMO_STREAK } from '@/features/demo/fixtures.ts';
 import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
+import type { SpeciesId } from '@/features/character/species.ts';
 
 /**
  * The owner-readable profile. `profiles` is deliberately not readable by
@@ -18,6 +19,11 @@ export type Profile = {
    * the male anchor, which is what they already showed.
    */
   character_body: 'male' | 'female' | null;
+  /**
+   * Which animal species the player's character is (§6, cosmetic only).
+   * Null when the choice screen was bypassed — the column is nullable for it.
+   */
+  species: SpeciesId | null;
   timezone: string;
   level: number;
   total_xp: number;
@@ -71,7 +77,7 @@ export function useProfile(userId: string | undefined) {
           'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
             'agi_total, str_total, end_total, vit_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
-            'trains_run, trains_strength',
+            'trains_run, trains_strength, species',
         )
         .eq('id', userId as string)
         .maybeSingle();

@@ -1,88 +1,67 @@
-# Character placeholder art
+# Character art
 
 §15 scopes MVP to **AI-placeholder static art**. This directory holds it.
 
-`CharacterFigure` (`src/features/character/CharacterFigure.tsx`) looks each
-file up by `${stage}-${dominance}`. **A missing file is not a bug** — the
-component falls back to `anchor-male.png`, so art can land one file at a time and a
-half-populated directory renders correctly.
+**The character is an animal as of 2026-08-18** (roadmap deviation #40). The
+figure is one of four Philippine endemic species, chosen at onboarding and
+changeable any time. `species-art.ts` (`src/features/character/`) maps each id
+to a file; `CharacterFigure` renders it, and `Diorama` renders the matching
+habitat behind it.
+
+## `species/`
+
+| Id | File | Habitat |
+|---|---|---|
+| `pilandok` | `species/pilandok.png` | `species/habitat-pilandok.png` |
+| `tamaraw` | `species/tamaraw.png` | `species/habitat-tamaraw.png` |
+| `carabao` | `species/carabao.png` | `species/habitat-carabao.png` |
+| `eagle` | `species/eagle.png` | `species/habitat-eagle.png` |
+
+The ids are pinned by a test and by the CHECK constraint on
+`profiles.species` — `src/features/character/species.ts` is the single source
+for them, along with each species' name, hue, affinity and blurb.
+
+**A missing file is a bundling failure, not a silent miss.** Metro resolves
+`require` statically, which is why `species-art.ts` writes all eight paths out
+literally instead of building them from the id: a template string would be a
+runtime miss on device, which is the failure mode this arrangement exists to
+avoid.
+
+## The art contract
+
+Real art swaps in **file-for-file with no code change**, provided it holds to
+this:
+
+- **PNG, transparent background**, anything up to 2:1 portrait at 636 tall
+  (@3×). The slot is 190 × 212 with `resizeMode="contain"`, so a narrower
+  figure simply sits centred.
+- **No shadow, no glow, no ring baked in.** `GroundShadow` draws the contact
+  shadow sized from the evolution stage, and the presence ring is drawn from
+  the ability rating — so one artwork per species reads correctly at every
+  stage and every build. Art carrying its own contact shadow doubles it, and
+  that is what would force a stage × dominance matrix nobody wants to draw.
+- **Figure centred, feet at the bottom edge**, so a swap does not shift the
+  layout under the TODAY card.
+- **Reads on cream and on its own habitat.** The app is a warm light theme
+  (`colors.bg` is #f5ead8) and the figure stands on a sage sky when it has no
+  habitat yet, so pure black merges into neither — but a raw render often ships
+  with its outline at 0,0,0, which is what `prep_character_art.py --lift` is
+  for.
+- **Direction: flat vector, bold outlines, colourful.** Deviation #40 settles
+  what §20's "dark fantasy hunter aesthetic" brief left open. Habitats are in
+  the same language as the figures — flat vector, not photographic — which is
+  why a literal outdoors no longer fights the character art the way that
+  concern assumed it would.
+- **Layered source is retained upstream**, not here. This directory holds the
+  flattened export only.
+
+The picker uses the same figure file at 72 × 72 as a list thumbnail, so a
+figure that only reads at full size will not read on the choice screen.
 
 ## `anchor-male.png` / `anchor-female.png`
 
-The baseline figure for each body, standing in for every key that has no file
-of its own. They are the neutral build, so they carry `stage` (the shadow under
-them grows) but not `dominance` — a per-key file always wins over them.
-
-Which one renders is `profiles.character_body`, chosen in onboarding. NULL
-means never asked and falls back to the male anchor.
-
-Regenerate from a render with:
-
-```bash
-python scripts/prep_character_art.py output/imagegen/character-anchor-female.png \
-    --out assets/character/anchor-female.png --aspect 0.60
-```
-
-That script does the three things a raw render needs: keys out the white
-background it ships with, lifts the black floor so the suit and outline do not
-merge into `colors.bg`, and re-pads the figure feet-to-bottom. Run it on any new
-render rather than dropping the render in directly.
-
-## Adding a per-key file
-
-Two steps, both required:
-
-1. Drop the PNG here as `<stage>-<dominance>.png`.
-2. Add its line to `CHARACTER_ART` in the component:
-   `'3-STR': require('../../../assets/character/3-STR.png'),`
-
-Metro resolves `require` statically, which is why step 2 cannot be automated
-away — a `require` naming a file that does not exist fails the bundle rather
-than missing at runtime.
-
-## Specification
-
-- **PNG, transparent background**, anything up to 2:1 portrait at 636 tall
-  (@3×). The slot is 190 × 212 with `resizeMode="contain"`, so a narrower figure
-  is fine and simply sits centred — both anchors are 382 × 636 and render
-  127 × 212.
-- **No shadow, no glow, no ring baked in.** The component draws the ground
-  shadow (and the All-Rounder's ring) itself, sized from `stage`, so the same
-  figure reads correctly as its presence grows. Art carrying its own contact
-  shadow will double it.
-- **Figure centred, feet at the bottom edge**, so a swap does not shift the
-  layout under the TODAY card.
-- Reads on cream. The app is a warm light theme now (`colors.bg` is #f5ead8)
-  and the character stands on a sage sky, so pure black merges into neither —
-  but `prep_character_art.py --lift` exists because a raw render often ships
-  with its outline at 0,0,0.
-
-## The keys
-
-`stage` is the evolution band from §6: **1** = level 1–5, **2** = 6–10,
-**3** = 11–20, **4** = 21+. Presence should grow across stages; the figure is
-the same character throughout.
-
-`dominance` is §6's visual-evolution table:
-
-| Key | §6 | Notes |
-|---|---|---|
-| `AGI` | Leaner frame | The idle animation §6 also asks for needs Rive; V1. |
-| `STR` | Broader silhouette, power aura intensifies | |
-| `END` | Endurance stance, stamina particle effect | Particles need Rive; the planted stance does not. |
-| `VIT` | Recovery glow, healthier skin tone | |
-| `balanced` | The rare **All-Rounder** — "cannot be bought, must be earned" | Should read as clearly rarer than the other four. |
-| `none` | Unstarted, or the profile query still in flight | Neutral. Stage 1 is the common case by far. |
-
-That is 4 × 6 = 24 keys. **Only `1-none` through `4-none` and stage 1–2 of each
-dominance are worth generating first** — the seed data cannot reach the higher
-stages yet, and the primitives cover anything missing.
-
-| | AGI | STR | END | VIT | balanced | none |
-|---|---|---|---|---|---|---|
-| **1** | `1-AGI` | `1-STR` | `1-END` | `1-VIT` | `1-balanced` | `1-none` |
-| **2** | `2-AGI` | `2-STR` | `2-END` | `2-VIT` | `2-balanced` | `2-none` |
-| **3** | `3-AGI` | `3-STR` | `3-END` | `3-VIT` | `3-balanced` | `3-none` |
-| **4** | `4-AGI` | `4-STR` | `4-END` | `4-VIT` | `4-balanced` | `4-none` |
-
-Commissioned art and Rive replace all of this in V1 (§6, §15).
+**Dead, kept in place.** They belonged to `profiles.character_body`
+(deviation #27), which #40 superseded — no surface renders them, and
+`CharacterFigure` falls back to its drawn primitives rather than to an anchor
+when a profile has no species. Kept rather than deleted for the same reason the
+column is: they cost nothing and they record what the figure used to be.

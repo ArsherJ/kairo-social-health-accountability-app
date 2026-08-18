@@ -51,11 +51,15 @@ export const DEMO_MEMBER_COUNT = 3;
  * Ramon 6,060 · you 4,820 · Trina 3,410 — so the home pill reads
  * "Ramon is 1,240 ahead" and the board hero reads "2nd".
  */
+// Three different species on purpose: a board where everyone shares one animal
+// cannot show whether the row art actually reads from the row, which is the
+// same hole the single-day fixture left in the Today/Yesterday toggle below.
 export const DEMO_LEADERBOARD: LeaderboardRow[] = [
   {
     rank: 1,
     user_id: RAMON_ID,
     character_name: 'Ramon',
+    species: 'eagle',
     class: 'runner',
     level: 14,
     local_date: LOCAL_DATE,
@@ -77,6 +81,7 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     rank: 2,
     user_id: SELF_ID,
     character_name: 'You',
+    species: 'tamaraw',
     class: 'runner',
     level: 12,
     local_date: LOCAL_DATE,
@@ -95,6 +100,7 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     rank: 3,
     user_id: TRINA_ID,
     character_name: 'Trina',
+    species: 'carabao',
     class: 'runner',
     level: 11,
     local_date: LOCAL_DATE,

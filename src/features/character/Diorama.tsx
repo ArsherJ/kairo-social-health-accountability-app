@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import type { CharacterBody } from '@/features/profile/character-body.ts';
+import { SPECIES_NAMES, type SpeciesId } from './species.ts';
+import { SPECIES_HABITATS } from './species-art.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
 import type { Stop } from '@/ui/gradient.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
+import { speciesFigureLabel } from './species-label.ts';
 
 /**
  * The world the character stands in.
@@ -16,11 +18,12 @@ import { CharacterFigure } from './CharacterFigure.tsx';
  * that place. Everything else on the screen is deliberately quiet so this can
  * be the thing you remember.
  *
- * The sky is sage rather than a literal outdoors — Kairo is played in Manila
- * traffic and at 6am, and a photographic landscape would date instantly and
- * fight the flat character art. Sage also already means "your lane" in this
- * palette, so the ground the character stands on is the same colour as the
- * progress they are making.
+ * The sky was sage rather than a literal outdoors until 2026-08-18, on the
+ * reasoning that "a photographic landscape would date instantly and fight the
+ * flat character art". Deviation #40 overrides that deliberately: the habitats
+ * are flat vector in the same bold-outline language as the figure, so they are
+ * neither photographic nor fighting it. The sage gradient stays underneath as
+ * the ground for a character with no species yet.
  */
 
 /** Sage, deepening toward the horizon. */
@@ -42,35 +45,25 @@ const FADE: Stop[] = [
   { color: colors.bg, at: 1 },
 ];
 
-/**
- * The figure, in words.
- *
- * `STAT_NAMES` rather than a second map of its own: `Dominance` is
- * `CoreStat | 'balanced' | null`, so the stat case is already named once, and
- * a parallel table here is exactly the drift `StatIcon`'s comment warns about.
- *
- * `balanced` is the All-Rounder and is worth saying — it is a build someone
- * worked toward, not the absence of one.
- */
-function describeFigure(stage: 1 | 2 | 3 | 4, dominance?: Dominance): string {
-  const base = `Your character, stage ${stage} of 4`;
-  if (!dominance) return base;
-  if (dominance === 'balanced') return `${base}, balanced build`;
-  return `${base}, built for ${STAT_NAMES[dominance]}`;
-}
-
 export function Diorama({
   height,
+  level,
   stage,
   dominance,
-  body,
+  species,
   lifetimePoints,
   children,
 }: {
   height: number;
+  /**
+   * Spoken by the figure's label, never drawn. `stage` is what the art reads —
+   * `evolutionStageForLevel` collapses a level into one of four bands — and
+   * four bands is not what someone means by "how far have I got".
+   */
+  level: number;
   stage: 1 | 2 | 3 | 4;
   dominance?: Dominance;
-  body?: CharacterBody | null;
+  species?: SpeciesId | null;
   /** Lifetime per-stat points, for the presence ring. See `aura.ts`. */
   lifetimePoints?: Record<CoreStat, number>;
   /** The floating HUD. Absolutely positioned by the caller. */
@@ -79,6 +72,19 @@ export function Diorama({
   return (
     <View style={[styles.sky, { height }]}>
       <Gradient stops={SKY} />
+
+      {species && (
+        <Image
+          source={SPECIES_HABITATS[species]}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          // Decorative. The figure's own label already says where the character
+          // is by naming the species, and a backdrop that announced itself
+          // would be a second stop describing scenery.
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
 
       {/* Two soft bodies behind the figure. They give the sky somewhere to be
           — a flat ramp reads as a swatch — and they are placed off both edges
@@ -107,17 +113,30 @@ export function Diorama({
 
       <View
         // The figure is the app's centrepiece and it is drawn, not written —
-        // three things are said by shape alone (§6): the ground shadow by
-        // level band, the build proportions by dominant stat, the presence
-        // ring by ability rating. Without a name it is invisible to a screen
-        // reader, and the character screen becomes a HUD floating over
-        // nothing.
+        // four things are said by shape alone (§6): which animal you are, the
+        // ground shadow by level band, the build proportions by dominant stat,
+        // the presence ring by ability rating. Without a name it is invisible
+        // to a screen reader, and the character screen becomes a HUD floating
+        // over nothing.
         //
-        // Deliberately said in the app's own vocabulary: "your character",
-        // never a Hunter (deviation #26).
+        // Composed in `species-label.ts` rather than here: the conditionals
+        // read as obviously right and are wrong at the edges — no dominance
+        // yet, and no species at all — so they are a pure module tested in
+        // Node, the same treatment `row-label.ts` got. `SPECIES_NAMES` and
+        // `STAT_NAMES` are injected, so that module imports no UI and stays
+        // loadable by root Vitest.
+        //
+        // Deliberately said in the app's own vocabulary: a species or "your
+        // character", never a Hunter (deviation #26).
         accessible
         accessibilityRole="image"
-        accessibilityLabel={describeFigure(stage, dominance)}
+        accessibilityLabel={speciesFigureLabel({
+          species: species ?? null,
+          level,
+          dominance: dominance ?? null,
+          speciesNames: SPECIES_NAMES,
+          statNames: STAT_NAMES,
+        })}
         style={[styles.stage, { bottom: height * 0.12 }]}
       >
         {/* `accessible` on the wrapper should collapse this on iOS and did
@@ -128,7 +147,7 @@ export function Diorama({
           <CharacterFigure
             stage={stage}
             dominance={dominance}
-            body={body}
+            species={species}
             height={height * 0.6}
             lifetimePoints={lifetimePoints}
           />

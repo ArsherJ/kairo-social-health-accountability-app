@@ -2,14 +2,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { normalizeCharacterName } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
 import { track } from '@/features/telemetry/events.ts';
-import type { CharacterBody } from './character-body.ts';
+import type { SpeciesId } from '@/features/character/species.ts';
 import { deviceTimeZone } from './device-timezone.ts';
 import { profileKey } from './queries.ts';
 
 export type NewProfile = {
   name: string;
   /** Null when the choice screen was bypassed — the column is nullable for it. */
-  body: CharacterBody | null;
+  species: SpeciesId | null;
 };
 
 // Postgres error codes worth distinguishing from a generic failure. Keyed by
@@ -26,7 +26,7 @@ export function useCreateProfile(userId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, body }: NewProfile): Promise<{ inserted: boolean }> => {
+    mutationFn: async ({ name, species }: NewProfile): Promise<{ inserted: boolean }> => {
       if (!userId) throw new Error('Not signed in.');
 
       // level, total_xp and is_legendary are deliberately absent. The INSERT
@@ -35,7 +35,7 @@ export function useCreateProfile(userId: string | undefined) {
       const { error } = await supabase.from('profiles').insert({
         id: userId,
         character_name: normalizeCharacterName(name),
-        character_body: body,
+        species,
         timezone: deviceTimeZone(),
       });
 

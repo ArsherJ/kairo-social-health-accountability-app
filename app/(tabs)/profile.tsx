@@ -9,6 +9,7 @@ import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
 import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
+import { SPECIES_NAMES } from '@/features/character/species.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
@@ -68,6 +69,28 @@ export default function ProfileTab() {
               wrong without the user knowing: the zone follows the device, but a
               notification permission revoked in iOS Settings is silent. */}
           <NotificationSettingsCard />
+
+          {/* Above Timezone, because this one is a choice and that one is an
+              observation. The picker itself is `/species`, groupless — see
+              that file for why it cannot live in `(onboard)` alongside the
+              onboarding mount. */}
+          <Panel>
+            <Label>Companion</Label>
+            <Text style={styles.value}>
+              {profile.data.species === null
+                ? 'Not chosen yet'
+                : SPECIES_NAMES[profile.data.species]}
+            </Text>
+            <Text style={styles.help}>
+              Cosmetic only — your stats, scores and streak are untouched by
+              which animal you play as.
+            </Text>
+            <Button
+              label={profile.data.species === null ? 'Choose a companion' : 'Change'}
+              variant="secondary"
+              onPress={() => router.push('/species')}
+            />
+          </Panel>
 
           <Panel>
             <Label>Timezone</Label>
