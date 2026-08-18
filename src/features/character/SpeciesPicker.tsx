@@ -11,6 +11,14 @@ import { SPECIES_FIGURES } from './species-art.ts';
 // too, not just in the stylesheet.
 const CARD_BORDER = 2;
 
+// Same reasoning as `CARD_BORDER`: shared by `styles.art.width` and the
+// `textWidth` derivation, so a resize of the art can't silently leave one of
+// the two behind. The art box is a fixed square (a list-icon thumbnail, the
+// same treatment `Avatar`'s `size` uses) — `height` is not an independently
+// chosen number that merely happens to match, so it is this same constant,
+// not a coincidental second literal.
+const ART_WIDTH = 72;
+
 /**
  * Choose an animal. Mounted by both routes — see `app/species.tsx` for why
  * there are two — with the commit behaviour supplied by the caller.
@@ -50,9 +58,9 @@ export function SpeciesPicker({
   // sides (`CARD_BORDER * 2` — Yoga lays out border-box, so this is real
   // content-box width, not a cosmetic outline), the card's padding on both
   // sides plus the row `gap` between the art and this text View — three
-  // `space.md` widths, not two — and the art's fixed width (72).
+  // `space.md` widths, not two — and the art's fixed width, `ART_WIDTH`.
   const { width } = useWindowDimensions();
-  const textWidth = width - space.lg * 2 - space.md * 3 - CARD_BORDER * 2 - 72;
+  const textWidth = width - space.lg * 2 - space.md * 3 - CARD_BORDER * 2 - ART_WIDTH;
 
   return (
     <View style={styles.container}>
@@ -131,7 +139,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLift,
     ...shadow.sm,
   },
-  art: { width: 72, height: 72 },
+  art: { width: ART_WIDTH, height: ART_WIDTH },
   name: { color: colors.text, ...font.display.small },
   blurb: { color: colors.subtle, ...font.body.body, marginTop: 2 },
 });
