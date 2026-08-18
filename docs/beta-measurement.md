@@ -16,18 +16,18 @@ there is a reason to build one.
 ## The activation funnel
 
 One row per step, so each step's drop-off is visible rather than folded into
-a single conversion percentage — **with one exception, at the health-ask
-step; see "What is not measurable, and why" below before reading a flat
-step 3 as a clean number.**
+a single conversion percentage.
 
 ```sql
 with steps(step, type) as (
   values
+    (0, 'pitch_seen'),
     (1, 'onboarding_started'),
-    (2, 'profile_created'),
-    (3, 'health_ask_completed'),
+    (2, 'health_ask_completed'),
+    (3, 'profile_created'),
     (4, 'first_sync_seen'),
-    (5, 'first_score_seen')
+    (5, 'first_score_seen'),
+    (6, 'disclosure_unlocked')
 )
 select
   s.step,
@@ -39,21 +39,54 @@ group by s.step, s.type
 order by s.step;
 ```
 
-**Step order here is `profile_created` before `health_ask_completed`, not the
-order the names might suggest.** `PermissionAsks` — the only place `HealthAsk`
-mounts — lives in `app/(tabs)/_layout.tsx`, which only exists for a `'ready'`
-user (`resolveRoute`'s post-profile state), so on this branch
-`health_ask_completed` cannot fire before `profile_created` fires. Numbering
-it step 2 anyway would print a funnel with a huge, fake drop-off between
-"onboarding started" and "health asked" — every user who created a profile
-and never got that far would appear to have vanished at step 2 when they are
-in fact sitting at step 3. This reordering is temporary: design §7.1 moves
-the health ask to a new `/connect` screen ahead of `/character` and `/name`,
-at which point `health_ask_completed` genuinely does precede
-`profile_created` again and the steps revert to name order.
+**The step order is now the name order, as of 2026-08-17.** It was not for one
+release: `PermissionAsks` — then the only place `HealthAsk` mounted — lives in
+`app/(tabs)/_layout.tsx`, which exists only for a `'ready'` user, so
+`health_ask_completed` could not fire before `profile_created` and this list
+had to number them the other way round or print a huge fake drop-off. The
+`/connect` screen now asks for Health as the *first* onboarding step, ahead of
+`/character` and `/name`, so the natural order is the true one again. Anyone
+comparing a run of this query against one from before that date is comparing
+two different flows, not two cohorts.
 
-The five steps are exactly the five `AppEventType` members
-`src/features/telemetry/events.ts` added for this release. `first_sync_seen`
+**Step 0 is `pitch_seen`, and it is the only step that fires with no session.**
+It is the sign-in screen's own render — before Apple's sheet, before anything
+has been asked for — buffered by `track` and attributed by
+`flushTelemetryBuffer` with **its own timestamp**, not the flush time. That is
+the whole reason the pre-auth buffer exists, and it makes step 0 → step 1 the
+first honest measurement of the pitch: how many people read what Kairo is and
+signed in anyway. It is not once-ever — a user who opens the app signed out
+twice fires it twice — so `count(distinct user_id)` is doing real work here.
+
+**Step 2 has a denominator now.** `health_ask_completed` fires only on success,
+so until `health_ask_dismissed` existed (2026-08-17) a user who dismissed the
+sheet and a user who was never offered it produced identical event sequences,
+and the step the design calls the activation bottleneck had no measurable
+drop-off. Read the two together:
+
+```sql
+select type, count(distinct user_id) as users
+from public.app_events
+where type in ('health_ask_completed', 'health_ask_dismissed')
+group by type;
+```
+
+Note that a single user can appear in both: `/connect`'s "Not now" is a
+deferral, and `PermissionAsks` offers the sheet again later. That is a real
+sequence rather than a data error — someone who put it off and came back is
+exactly who this pair exists to make visible.
+
+**Step 6, `disclosure_unlocked`, is the first honest read on whether the core
+loop holds.** It fires once per account when the account reaches
+`DISCLOSURE_THRESHOLD_DAYS` (3) days scored above zero and the rest of the app
+appears — Goals, Challenges, per-stat detail, strain. Everyone before it is
+seeing the reduced app by design, so step 5 → step 6 is not friction: it is the
+share of activated users who came back and moved for three separate days. It is
+once-ever, MMKV-gated like its two siblings, for the reason below — the stage is
+*derived* from a day count, so without a marker it would re-fire on every launch
+afterwards and become a launch counter.
+
+`first_sync_seen`
 and `first_score_seen` are the two that matter most to read correctly: both
 are **once-ever per account for the life of one install**, gated on an MMKV
 marker (`src/features/telemetry/milestone-store.ts`), not on session count —
@@ -227,19 +260,24 @@ Three things, stated so they are not re-filed as gaps in a later review:
   granted with an empty phone are indistinguishable from the app's side;
   whether `first_sync_seen` ever fires for that account is the closest
   available proxy, not a direct answer.
-- **The health-ask step's drop-off itself.** `health_ask_completed` fires
-  only when `HealthAsk`'s request *resolves* (`HealthPermissionSheet.tsx`) —
-  never on the "Not now" dismissal (`PermissionAsks.tsx`'s `onDismiss` sets
-  local state only, no `track` call), and never for a user `nextPermissionAsk`
-  never offers the sheet to at all. All three of "dismissed", "never
-  offered", and "hasn't gotten there yet this session" read identically in
-  `app_events`: no row. A flat step-3 count in the funnel above is therefore
-  not evidence anyone declined — reading it as one is the mistake this note
-  exists to head off. `health_permission_failed` (the native-rejection path)
-  is recorded but, deliberately, appears in none of this document's queries;
-  it is diagnostic evidence for a support conversation, not a funnel step —
-  a query counting it needs to decide first whether a failed attempt should
-  count as reaching step 3, which is a product question, not a SQL one.
+- **Which kind of non-completion a user is in.** This was "the health-ask step
+  has no denominator at all" until 2026-08-17; `health_ask_dismissed` now
+  separates a dismissal from silence, so *dismissed* is measurable. What is
+  still not: telling "never offered the sheet" from "hasn't gotten there yet
+  this session" — both are still the absence of a row. So a user with neither
+  event has not necessarily refused anything. `health_permission_failed` (the
+  native-rejection path) is recorded but, deliberately, appears in none of this
+  document's queries; it is diagnostic evidence for a support conversation, not
+  a funnel step — a query counting it would first have to decide whether a
+  failed attempt counts as reaching the step, which is a product question, not
+  a SQL one.
+- **Why an account never scored.** `syncStatus`'s `'no-data'` state
+  (`src/features/health/sync-status.ts`) is the user-facing counterpart of the
+  first bullet, and it is bounded by the same wall: it can say Apple Health has
+  sent nothing in the six hours since the first sync, and it can never say the
+  user declined. Nothing about that state is written to `app_events` — it is a
+  render-time projection over sync state and the scored-day count, so there is
+  no event to count.
 - **Anything before the app's first launch.** Install-to-open is App Store
   Connect's number, not ours — nothing in `app_events` can see a device that
   never opened the app.
@@ -249,8 +287,9 @@ Three things, stated so they are not re-filed as gaps in a later review:
 ## Reading the once-ever events
 
 `first_sync_seen` (`src/features/health/useHealthSync.ts`,
-`markFirstSyncSeen`) and `first_score_seen`
-(`app/(tabs)/index.tsx`) each claim their MMKV marker *before* the write that
+`markFirstSyncSeen`), `first_score_seen` (`app/(tabs)/index.tsx`) and
+`disclosure_unlocked` (`src/features/character/useDisclosure.ts`)
+each claim their MMKV marker *before* the write that
 justifies it, then release the claim with `markUnreached` if `track` resolves
 `false` — a write that did not land. `track` resolves `true` only when the
 row actually reached `app_events`. That release is what lets a failed insert

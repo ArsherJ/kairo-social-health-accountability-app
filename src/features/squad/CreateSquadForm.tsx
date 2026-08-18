@@ -81,7 +81,10 @@ export function CreateSquadForm({
           accessibilityLabel="Squad name"
           accessibilityHint={`Up to ${SQUAD_NAME_MAX} characters`}
           maxFontSizeMultiplier={1.4}
-          placeholder="Barangay Runners"
+          // Instruction, not example. "Barangay Runners" read as a name already
+          // typed while Create sat disabled — which reads as an app that has
+          // stopped responding rather than a form waiting for input.
+          placeholder="Name your squad"
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}
           style={styles.input}

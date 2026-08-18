@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { currentLocalDate } from '@kairo/core';
 import { todayBucketsKey, todayVitalsKey } from '@/features/character/buckets.ts';
-import { todayScoreKey } from '@/features/character/queries.ts';
+import { scoredDayCountKey, todayScoreKey } from '@/features/character/queries.ts';
 import { profileKey } from '@/features/profile/queries.ts';
 import { squadKeys } from '@/features/squad/queries.ts';
 import { track } from '@/features/telemetry/events.ts';
@@ -107,6 +107,7 @@ export function useHealthSync(
     setSyncStatus({
       syncing: false,
       lastSyncedAt: stored.lastSyncedAt,
+      firstSyncedAt: stored.firstSyncedAt,
       lastError: stored.lastError,
     });
 
@@ -143,6 +144,7 @@ export function useHealthSync(
       setSyncStatus({
         syncing: false,
         lastSyncedAt: persisted.lastSyncedAt,
+        firstSyncedAt: persisted.firstSyncedAt,
         lastError: persisted.lastError,
       });
 
@@ -169,6 +171,17 @@ export function useHealthSync(
         });
         void queryClient.invalidateQueries({
           queryKey: todayVitalsKey(userId, localDate),
+        });
+
+        // The scored-day count moves with every sync too, and it drives two
+        // claims rather than one figure: the disclosure stage, and — through
+        // `everReceivedData` — whether `SyncStatus` says Apple Health is
+        // sending nothing. Left stale it produces exactly the false accusation
+        // `QUIET_GRACE_MS` was added to prevent, by the back door: connect at
+        // 8am, first sync scores zero, walk all day, and at 2pm the cached
+        // count is still the 8am zero while the grace window has elapsed.
+        void queryClient.invalidateQueries({
+          queryKey: scoredDayCountKey(userId),
         });
       }
 

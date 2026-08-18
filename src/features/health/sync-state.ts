@@ -24,6 +24,20 @@ export type SyncState = {
   /** Local dates (`YYYY-MM-DD`) awaiting a successful sync, sorted ascending. */
   dirtyDates: string[];
   lastSyncedAt: number | null;
+  /**
+   * The *first* sync this account ever completed, never overwritten.
+   *
+   * `lastSyncedAt` cannot answer "how long has Health been connected", and that
+   * is the question `syncStatus`'s 'no-data' branch has to answer before it is
+   * allowed to claim nothing is arriving. Someone who connects at 8am with 200
+   * steps is not a broken install, and telling them to open Settings is the
+   * same false accusation that state exists to remove, aimed the other way.
+   *
+   * Null on a state stored before this field existed. That fails toward
+   * silence — the grace window never elapses, so 'no-data' never fires — which
+   * is the right direction for a claim about something being wrong.
+   */
+  firstSyncedAt: number | null;
   /** Persisted for the Phase 7 profile screen. Nothing renders it yet. */
   lastError: string | null;
   lastErrorAt: number | null;
@@ -32,6 +46,7 @@ export type SyncState = {
 export const initialSyncState: SyncState = {
   dirtyDates: [],
   lastSyncedAt: null,
+  firstSyncedAt: null,
   lastError: null,
   lastErrorAt: null,
 };
@@ -65,6 +80,11 @@ export function markSynced(
   return {
     dirtyDates: state.dirtyDates.filter((d) => !confirmed.has(d)),
     lastSyncedAt: at,
+    // Claimed once and then left alone. `??` rather than a conditional so a
+    // stored state predating this field adopts the current sync as its first,
+    // which restarts the grace window rather than skipping it — the safe
+    // direction for a timer that gates an accusation.
+    firstSyncedAt: state.firstSyncedAt ?? at,
     lastError: null,
     lastErrorAt: null,
   };

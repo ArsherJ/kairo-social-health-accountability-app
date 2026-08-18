@@ -16,12 +16,15 @@ import { create } from 'zustand';
 type SyncStatusState = {
   syncing: boolean;
   lastSyncedAt: number | null;
+  /** Anchor for `syncStatus`'s 'no-data' grace window. See `sync-state.ts`. */
+  firstSyncedAt: number | null;
   lastError: string | null;
 };
 
 const initial: SyncStatusState = {
   syncing: false,
   lastSyncedAt: null,
+  firstSyncedAt: null,
   lastError: null,
 };
 

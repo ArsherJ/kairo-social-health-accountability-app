@@ -72,13 +72,16 @@ export default function NameYourCharacter() {
           autoFocus
           autoCorrect={false}
           maxLength={CHARACTER_NAME_MAX}
-          // "Aeon" is a placeholder, and unlabelled a screen reader reads
-          // it as a value already filled in — on the one screen where the
-          // whole task is choosing your own.
+          // The placeholder instructs rather than exemplifies. "Aeon" read as
+          // a name already entered — sighted, next to a disabled Continue
+          // button, that looks like a broken app; unlabelled, a screen reader
+          // announced it as the field's value, on the one screen where the
+          // whole task is choosing your own. The label is still needed: a
+          // placeholder is not an accessible name whatever it says.
           accessibilityLabel="Character name"
           accessibilityHint={`Up to ${CHARACTER_NAME_MAX} characters`}
           maxFontSizeMultiplier={1.4}
-          placeholder="Aeon"
+          placeholder="Name your character"
           placeholderTextColor={colors.muted}
           selectionColor={colors.accent}
           style={[

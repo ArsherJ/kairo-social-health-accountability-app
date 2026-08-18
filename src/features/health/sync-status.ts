@@ -11,6 +11,20 @@
  * The rule this encodes: a figure is never shown without its provenance. If
  * Kairo cannot say when a number last came from Apple Health, it says so.
  *
+ * **`'no-data'` was added on 2026-08-17 as a state, not as new words.** Someone
+ * who declines the Health sheet saw "Couldn't reach Apple Health." — a
+ * technical failure reported for an intentional choice, which is hostile. The
+ * message could not simply be reworded, because 'failed' exists to catch the
+ * 9-11 Aug outage class and softening its copy would blind exactly that case.
+ * So a real failure still outranks everything, and 'no-data' sits below both it
+ * and 'stale'.
+ *
+ * What it can honestly claim is narrow. HealthKit deliberately never reports
+ * read-permission denial — that would leak whether a user has a given
+ * condition — so the app cannot know anyone said no. It can know that syncs are
+ * current, that they have been for a while, and that nothing has ever arrived.
+ * That is the sentence.
+ *
  * Pure, and takes `now` as an argument like everything else in the day math —
  * so every threshold below is testable without mocking the clock.
  */
@@ -18,12 +32,29 @@
 /** Beyond this, "synced" stops meaning "current" and the strip offers a retry. */
 export const STALE_AFTER_MS = 60 * 60 * 1000;
 
+/**
+ * How long Health may be connected and quiet before Kairo says so.
+ *
+ * Six hours, measured from the **first** sync this account ever completed. The
+ * failure this guards against is not hypothetical: connect at 8am with 200
+ * steps, nothing has scored yet, and a shorter window tells a perfectly healthy
+ * user to go and fix their Settings — the same false accusation `'no-data'`
+ * exists to remove, aimed the other way.
+ *
+ * Six rather than twenty-four: a user who genuinely declined should not spend a
+ * whole day watching a screen that never fills in, and by six hours a phone
+ * being carried at all has produced something.
+ */
+export const QUIET_GRACE_MS = 6 * 60 * 60 * 1000;
+
 export type SyncStatusKind =
   | 'syncing'
   | 'never'
   | 'fresh'
   | 'stale'
-  | 'failed';
+  | 'failed'
+  /** Syncing works, has for a while, and nothing has ever come back. */
+  | 'no-data';
 
 export interface SyncStatus {
   kind: SyncStatusKind;
@@ -42,6 +73,25 @@ export interface SyncStatusInput {
   lastSyncedAt: number | null;
   /** Message from the last failed attempt, cleared by any success. */
   lastError: string | null;
+  /**
+   * Epoch ms of the **first** sync this account ever completed, or null.
+   *
+   * Not `lastSyncedAt`: the question is how long Health has been connected, and
+   * the last sync answers how long ago the most recent one was. Null on a state
+   * stored before the field existed, which keeps `'no-data'` silent — the right
+   * direction for a claim that something is wrong.
+   */
+  firstSyncedAt: number | null;
+  /**
+   * Whether any sync has ever returned a day with data.
+   *
+   * This is what separates "connected, the phone is just quiet" from "the
+   * permission was declined" — which HealthKit deliberately will not tell us,
+   * since revealing read authorization would leak whether a user has a given
+   * condition. The app cannot know the user said no; it can know nothing has
+   * arrived, and that is the honest thing to say.
+   */
+  everReceivedData: boolean;
   now: number;
 }
 
@@ -101,11 +151,41 @@ export function syncStatus(input: SyncStatusInput): SyncStatus {
     };
   }
 
+  // Above 'no-data' on purpose. A stale sync is the nearer problem, it has a
+  // retry, and claiming nothing is arriving while syncs are an hour behind
+  // would describe a symptom of the staleness as though it were a second fault.
   if (age >= STALE_AFTER_MS) {
     return {
       kind: 'stale',
       message: `Last synced ${describeAge(age)}`,
       action: 'Sync now',
+      attention: true,
+    };
+  }
+
+  // Everything above has passed: syncs are current, none is failing, and one
+  // landed. So the only remaining explanation for an empty app is that Apple
+  // Health has nothing to give it — which, after the grace window, is worth
+  // saying out loud.
+  //
+  // The window is measured from the first sync rather than the last, and a
+  // missing anchor means the window never elapses. Both keep this off the
+  // screen of the one user it would be wrong about: someone who connected an
+  // hour ago and has simply not walked yet.
+  if (
+    !input.everReceivedData &&
+    input.firstSyncedAt !== null &&
+    input.now - input.firstSyncedAt >= QUIET_GRACE_MS
+  ) {
+    return {
+      kind: 'no-data',
+      // No verdict on why. "Isn't sending anything yet" is the whole of what
+      // is knowable — HealthKit will not say whether permission was refused,
+      // and "yet" is what keeps this a status rather than a dead end.
+      message: "Apple Health isn't sending anything yet.",
+      // Settings, not a retry: there is nothing to retry. Every sync in the
+      // window already succeeded.
+      action: 'Open Settings',
       attention: true,
     };
   }

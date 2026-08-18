@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { CreateGoalForm } from '@/features/goals/CreateGoalForm.tsx';
 import { colors } from '@/theme.ts';
@@ -22,6 +23,7 @@ export default function NewGoal() {
   const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
+  const disclosure = useDisclosure(session?.user.id);
 
   // The orbit nav is a tab-shell thing, and this route is a card *over* the
   // tab shell — so it is covered, not absent, and `Screen` would otherwise
@@ -38,6 +40,13 @@ export default function NewGoal() {
   // The window starts on the user's OWN local date (§2). Without a timezone
   // there is no honest start date, so the form waits rather than guessing UTC
   // and setting a goal that begins yesterday for somebody in Manila.
+  // The other half of hiding GoalCard: this route is reachable by deep link and
+  // from `SquadGoalPanel`'s empty state regardless of what the home screen
+  // shows, and a goal set on day one has no baseline behind the number.
+  // `resolved` for the same reason `/train` needs it — 'core' while the count
+  // is in flight would bounce a `full` user off their own goal form.
+  if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
+
   const timeZone = profile.data?.timezone;
   const today = timeZone ? currentLocalDate(new Date(), timeZone) : null;
 

@@ -10,4 +10,13 @@
  * production callers and was removed in the final whole-branch review.
  */
 
-export type Milestone = 'first_sync_seen' | 'first_score_seen';
+export type Milestone =
+  | 'first_sync_seen'
+  | 'first_score_seen'
+  /**
+   * The day the rest of the app appeared (design §5). Once-ever like its
+   * siblings — the stage is derived from a day count, so without a marker this
+   * would re-fire on every launch after the threshold, turning an unlock into a
+   * launch counter.
+   */
+  | 'disclosure_unlocked';

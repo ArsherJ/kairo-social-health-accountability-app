@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import {
   clearingSession,
   currentLocalDate,
@@ -8,6 +8,7 @@ import {
   type ChallengeArea,
 } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { ChallengeCard } from '@/features/train/ChallengeCard.tsx';
@@ -42,6 +43,7 @@ export default function Train() {
   const sessions = useWorkoutSessions(userId, profile.data?.timezone);
   const clears = useChallengeClears(userId);
   const update = useUpdateProfile(userId);
+  const disclosure = useDisclosure(userId);
 
   // Same shape as the goal routes: a card over the tab shell, so the orbit nav
   // is covered rather than absent and `Screen` must not reserve room for it.
@@ -52,6 +54,17 @@ export default function Train() {
       return () => setNavHidden(false);
     }, []),
   );
+
+  // A hidden entry point is not a closed door: `notificationTarget` can route a
+  // Challenge push here, and a user who installed, cleared their data and came
+  // back has a live token. Redirect rather than render an empty screen.
+  //
+  // Gated on `resolved`, not on the stage alone. The stage reads 'core' while
+  // the count is in flight, and a push tap that cold-launches straight here has
+  // no cached count — redirecting on that frame would send a `full` user home
+  // and read exactly like Challenges having been removed. The screen below
+  // already renders its own pending states, so waiting costs nothing.
+  if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
 
   const today = profile.data?.timezone
     ? currentLocalDate(new Date(), profile.data.timezone)

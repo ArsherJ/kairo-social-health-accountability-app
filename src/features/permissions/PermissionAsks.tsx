@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Panel } from '@/ui/index.ts';
 import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
 import { readHealthPermissionState } from '@/features/health/permission.ts';
+import { track } from '@/features/telemetry/events.ts';
 import type { HealthPermissionState } from '@/features/health/permission-state.ts';
 import { NotificationAsk } from '@/features/notifications/NotificationPermissionSheet.tsx';
 import type { NotificationPermission } from '@/features/notifications/ask-policy.ts';
@@ -45,6 +46,27 @@ export function PermissionAsks({
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   const [answeredAnAskThisSession, setAnswered] = useState(false);
 
+  /**
+   * The sheet's content width, in points, computed rather than expressed as a
+   * percentage — and that is the fix, not a style preference.
+   *
+   * `width: '100%'` resolves against the ScrollView, and the ScrollView hugs
+   * its content vertically (see `sheetScroll`), so its own size depends on
+   * measuring that content. The measurement is circular, and RN resolves it by
+   * measuring the text against an unbounded width: every line was laid out
+   * wider than the card and then cut off by `Panel`'s `overflow: 'hidden'`,
+   * clipped mid-word with no ellipsis. It reads exactly like a text-wrapping
+   * bug and is not one.
+   *
+   * At normal text sizes no line was long enough to cross the boundary, so this
+   * was invisible in every screenshot until an XXXL one.
+   *
+   * RN's box model is border-box, so this is the card's full width and the
+   * `space.lg` padding on the content container sits inside it.
+   */
+  const { width: windowWidth } = useWindowDimensions();
+  const sheetWidth = windowWidth - space.lg * 2;
+
   useEffect(() => {
     let cancelled = false;
     void readHealthPermissionState().then((state) => {
@@ -83,7 +105,38 @@ export function PermissionAsks({
   return (
     <Modal visible={ask !== null} transparent animationType="slide">
       <View style={styles.backdrop}>
+        {/* The sheet is bounded and its contents scroll.
+
+            Neither was true until 2026-08-17, and the failure was invisible in
+            every screenshot taken at a normal text size: `Panel` sets
+            `overflow: 'hidden'`, so at the largest accessibility sizes the
+            content did not spill past the card — it was silently cut off
+            inside it. On an XXXL simulator the Health sheet lost its "Not now"
+            entirely, which is the one control that lets someone decline. A
+            permission sheet whose dismissal is unreachable is a trap, not a
+            layout bug.
+
+            It lives here rather than in either sheet because this component
+            owns the geometry — both asks are plain content, and putting the
+            bound in one of them would leave the other to rediscover this. */}
         <Panel variant="plain" style={styles.sheet}>
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.sheetContent}
+            // The sheet is only as tall as it needs to be at normal sizes, so
+            // at those sizes this never scrolls and shows no indicator.
+            showsVerticalScrollIndicator
+            bounces={false}
+          >
+          {/* A plain View with an explicit point width, wrapping the whole
+              sheet. This is the fix, and the evidence for it is specific: with
+              the asks' `<Text>` elements as *direct* children of the scroll
+              content, every line was laid out wider than the card and cut off
+              by `Panel`'s `overflow: 'hidden'` — while the disclosure rows,
+              which are Views containing Text, wrapped perfectly in the same
+              pass. A View establishes the bound; a Text measuring against the
+              content container did not get one. */}
+          <View style={[styles.sheetInner, { width: sheetWidth }]}>
           {ask === 'health' && (
             <HealthAsk
               userId={userId}
@@ -94,7 +147,10 @@ export function PermissionAsks({
                 setHealth('asked');
                 setAnswered(true);
               }}
-              onDismiss={() => setHealthDismissed(true)}
+              onDismiss={() => {
+                setHealthDismissed(true);
+                void track(userId, 'health_ask_dismissed');
+              }}
             />
           )}
 
@@ -107,6 +163,8 @@ export function PermissionAsks({
               onDismiss={() => setNotificationDismissed(true)}
             />
           )}
+          </View>
+          </ScrollView>
         </Panel>
       </View>
     </Modal>
@@ -119,5 +177,45 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: `${colors.bg}CC`,
   },
-  sheet: { marginTop: 0, marginBottom: space.lg, marginHorizontal: space.lg },
+  // `maxHeight` rather than a height: at normal text sizes the sheet still
+  // hugs its content and sits at the bottom of the screen, exactly as before.
+  // The bound only engages when the content would otherwise exceed the screen,
+  // which is the only case that was broken. 85% leaves the backdrop visible so
+  // the sheet still reads as a sheet rather than as a full-screen takeover.
+  // `padding: 0` overrides `Panel`'s own `space.lg`, and the padding moves onto
+  // the scroll content below instead. That is not cosmetic: with the padding on
+  // the card, the ScrollView inside it was being laid out against the card's
+  // *outer* width, so every line wrapped ~48pt wider than the box that clips
+  // it. At normal text sizes the lines were short enough that nothing crossed
+  // the boundary and the layout looked correct; it only showed up once the type
+  // was large enough for a line to reach the edge — which is why this survived
+  // until an XXXL screenshot.
+  //
+  // It also puts the scroll indicator at the card's edge rather than inset
+  // inside the padding, which is where it belongs.
+  sheet: {
+    marginTop: 0,
+    marginBottom: space.lg,
+    marginHorizontal: space.lg,
+    maxHeight: '85%',
+    padding: 0,
+  },
+  // `flexGrow: 0` + `flexShrink: 1` is the whole trick, and both halves matter.
+  // A ScrollView's default is to grow, so with `maxHeight` on the card above it
+  // the sheet took the full 85% at *every* text size — a short notification ask
+  // became a near-full-screen panel with its content spread down the page.
+  // Growing off, shrinking on: the card hugs its content until the content
+  // exceeds the cap, and only then does the ScrollView bound it and scroll.
+  sheetScroll: { alignSelf: 'stretch', flexGrow: 0, flexShrink: 1 },
+  // `flexGrow: 0` so a short sheet is not stretched to the bound. Without it
+  // the notification ask — which is half the height of the health one — would
+  // be padded out to 85% of the screen at every text size.
+  //
+  sheetContent: { flexGrow: 0 },
+  // The padding lives here rather than on `Panel` (which is overridden to 0)
+  // so the scroll indicator sits at the card's edge, and the width is a point
+  // value rather than '100%' — a percentage resolves against the ScrollView,
+  // whose own size depends on measuring this content, and the circularity is
+  // what produced the unbounded text width.
+  sheetInner: { padding: space.lg },
 });

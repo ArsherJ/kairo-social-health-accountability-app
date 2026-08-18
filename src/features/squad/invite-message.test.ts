@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INVITE_HOST, INVITE_PATH_PREFIX, inviteUrl } from './invite-link.ts';
 import { inviteMessage, inviteTitle } from './invite-message.ts';
 import { inviteCodeFromParam } from './pending-invite.ts';
+import { SQUAD_NAME_MAX } from './squad-name.ts';
 
 const base = { squadName: 'Barangay Runners', inviteCode: 'NRN7P7' };
 
@@ -17,7 +18,26 @@ describe('inviteMessage', () => {
   it('says what Kairo is to someone who has never heard of it', () => {
     // The recipient is not a user yet. A bare code and a squad name would mean
     // nothing to them.
-    expect(inviteMessage(base)).toMatch(/activity|leaderboard/i);
+    //
+    // Matched on "walk" rather than the old /activity|leaderboard/: the body
+    // was rewritten on 2026-08-17 to name what the recipient is being asked
+    // into — a group holding each other to a daily walk — instead of describing
+    // the scoring mechanism to somebody with no reason to care about it yet.
+    // "Leaderboard" also invited the public-fitness-feed reading this product
+    // is positioned against.
+    expect(inviteMessage(base)).toMatch(/walk/i);
+  });
+
+  it('carries the privacy promise, the one claim a non-user can act on', () => {
+    // The invite is the only Kairo copy someone who has never installed it
+    // reads. Pinned because it is the first clause that gets cut when the
+    // message next runs up against the length budget below — which is exactly
+    // what happened on the day it was written.
+    //
+    // Matched loosely on purpose. The claim is what must survive; the exact
+    // wording is copy, and pinning it makes every future trim a test failure
+    // that says nothing about whether the promise is still being made.
+    expect(inviteMessage(base)).toMatch(/never .{0,6}Health data/i);
   });
 
   it('trims a name padded by the create form', () => {
@@ -28,6 +48,16 @@ describe('inviteMessage', () => {
 
   it('stays short enough to survive a message preview', () => {
     expect(inviteMessage(base).length).toBeLessThan(200);
+  });
+
+  it('stays under the budget for the longest squad name allowed', () => {
+    // The fixture above is 16 characters and `SQUAD_NAME_MAX` is 30, so the
+    // assertion above passes on copy that overflows for half of all legal
+    // names. It did: the 2026-08-17 rewrite measured 196 here and 210 with a
+    // real long name. The budget is only meaningful at the worst case.
+    const longest = inviteMessage({ ...base, squadName: 'x'.repeat(SQUAD_NAME_MAX) });
+
+    expect(longest.length).toBeLessThan(200);
   });
 
   it('ends on the code rather than burying it mid-sentence', () => {

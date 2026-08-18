@@ -30,20 +30,34 @@ export type AppEventType =
   // The activation funnel. Added 2026-08-16; before it, the beta could measure
   // retention (SQL over daily_scores) but not activation, so the six-week test
   // the outside review asked for could not be run at all.
+  //
+  // Step 0, and the only one that fires with **no session at all** — it is the
+  // sign-in screen's own render, before anything has been asked for. Buffered
+  // by `track` and attributed by `flushTelemetryBuffer` with this timestamp,
+  // not the flush time, so the interval it measures (pitch read → decision) is
+  // the real one. It is the denominator every later step is a fraction of.
+  | 'pitch_seen'
   | 'onboarding_started'
   // Payload carries the resulting HealthPermissionState and **never** a
   // granted/denied verdict: HealthKit does not report read-permission denial,
   // and an event asserting otherwise would be believed.
   | 'health_ask_completed'
+  // The other half of the health step, and the reason it has a denominator at
+  // all. `health_ask_completed` fires only on success, so until this existed a
+  // user who dismissed the sheet and a user who was never offered it produced
+  // identical event sequences — leaving the step the design calls the
+  // activation bottleneck with no measurable drop-off.
+  | 'health_ask_dismissed'
   | 'profile_created'
   | 'first_score_seen'
   | 'squad_created'
   | 'squad_joined'
   | 'goal_created'
-  // Declared, fired nowhere, on purpose: the gate this belongs to (§7.1's
-  // `/connect`) is a later plan's work, not this one's. The vocabulary entry
-  // lands now so that plan only has to wire a call site — do not read the
-  // absence of a call site here as a bug.
+  // Fired by `useDisclosure` the first time an account crosses
+  // `DISCLOSURE_THRESHOLD_DAYS` scored days. Once-ever, marked in MMKV: the
+  // stage is *derived* from a day count rather than stored, so without the
+  // marker this would re-fire on every launch afterwards and become a launch
+  // counter. It is the first honest read on whether the core loop holds.
   | 'disclosure_unlocked';
 
 /**
