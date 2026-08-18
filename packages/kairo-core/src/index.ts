@@ -25,5 +25,6 @@ export * from './strain.ts';
 export * from './mind.ts';
 export * from './shifts.ts';
 export * from './capability.ts';
+export * from './trust.ts';
 export * from './streak.ts';
 export * from './notifications.ts';
