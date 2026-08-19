@@ -121,14 +121,18 @@ export interface WeightedBoardInput {
   statPoints: Record<CoreStat, number>;
   consistencyBonus: number;
   /**
-   * `daily_scores.rec_points`, which still exists.
+   * A universal bonus with no column behind it since deviation #41.
    *
-   * The REC *bonus* is gone from scoring — deviation #41 promoted sleep to
-   * MND, and nothing writes a non-zero value here any more. The field stays
-   * because the SQL mirror still sums the column and the differential test
-   * compares the two expressions: dropping it on one side only would be a
-   * divergence the test cannot see. Phase 3 drops the column, this field, and
-   * `program_weighted_total`'s `p_rec` together.
+   * The REC bonus is gone from scoring — sleep became the MND stat — and
+   * `daily_scores.rec_points` was dropped by `20260819150000`, so
+   * `squad_leaderboard()` passes a literal 0. The field stays, and so does
+   * `program_weighted_total`'s `p_rec`, because the two expressions are
+   * compared term by term by the differential test in
+   * `supabase/tests/schema.test.ts`: dropping it on one side only would be a
+   * divergence that test cannot see, and dropping it on both is another
+   * signature change — which, for a Postgres function, is a drop and a
+   * recreate of this function and of `squad_leaderboard()` on top of it.
+   * A term §5 can refill without any of that is worth its zero.
    */
   recBonus: number;
   /**

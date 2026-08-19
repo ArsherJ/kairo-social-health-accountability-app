@@ -501,11 +501,15 @@ describe('challenge opt-in columns', () => {
 });
 
 describe('per-stat ability rollups', () => {
+  // Three rollups, matching CoreStat. `end_total` and `vit_total` were dropped
+  // by 20260819150000 along with the columns that fed them — a fixture naming
+  // either would fail at the SQL, which is the point of selecting them by name
+  // rather than `select *`.
   async function ratings(userId: string) {
     const rows = await h.asService<{
-      agi_total: number; str_total: number; end_total: number; vit_total: number;
+      agi_total: number; str_total: number; mnd_total: number;
     }>(
-      `select agi_total, str_total, end_total, vit_total
+      `select agi_total, str_total, mnd_total
        from public.profiles where id = $1`,
       [userId],
     );
@@ -515,35 +519,34 @@ describe('per-stat ability rollups', () => {
   async function setDayStats(
     userId: string,
     date: string,
-    stats: { agi: number; str: number; end: number; vit: number; xp?: number },
+    stats: { agi: number; str: number; mnd: number; xp?: number },
   ) {
     await h.asService(
       `insert into public.daily_scores
-         (user_id, local_date, agi_points, str_points, end_points, vit_points, xp_awarded)
-       values ($1, $2, $3, $4, $5, $6, $7)
+         (user_id, local_date, agi_points, str_points, mind_points, xp_awarded)
+       values ($1, $2, $3, $4, $5, $6)
        on conflict (user_id, local_date) do update set
          agi_points = excluded.agi_points,
          str_points = excluded.str_points,
-         end_points = excluded.end_points,
-         vit_points = excluded.vit_points,
+         mind_points = excluded.mind_points,
          xp_awarded = excluded.xp_awarded`,
-      [userId, date, stats.agi, stats.str, stats.end, stats.vit, stats.xp ?? 0],
+      [userId, date, stats.agi, stats.str, stats.mnd, stats.xp ?? 0],
     );
   }
 
   it('starts at zero, which reads as rating 1', async () => {
     const user = await h.createUser();
     expect(await ratings(user)).toEqual({
-      agi_total: 0, str_total: 0, end_total: 0, vit_total: 0,
+      agi_total: 0, str_total: 0, mnd_total: 0,
     });
   });
 
   it('sums each stat across days independently', async () => {
     const user = await h.createUser();
-    await setDayStats(user, '2026-07-26', { agi: 900, str: 200, end: 0, vit: 500 });
-    await setDayStats(user, '2026-07-27', { agi: 500, str: 200, end: 900, vit: 0 });
+    await setDayStats(user, '2026-07-26', { agi: 900, str: 200, mnd: 500 });
+    await setDayStats(user, '2026-07-27', { agi: 500, str: 200, mnd: 0 });
     expect(await ratings(user)).toEqual({
-      agi_total: 1_400, str_total: 400, end_total: 900, vit_total: 500,
+      agi_total: 1_400, str_total: 400, mnd_total: 500,
     });
   });
 
@@ -552,7 +555,7 @@ describe('per-stat ability rollups', () => {
     // same day repeatedly; an incrementing rollup would triple this.
     const user = await h.createUser();
     for (let i = 0; i < 3; i++) {
-      await setDayStats(user, '2026-07-27', { agi: 900, str: 0, end: 0, vit: 0 });
+      await setDayStats(user, '2026-07-27', { agi: 900, str: 0, mnd: 0 });
     }
     expect((await ratings(user)).agi_total).toBe(900);
   });
@@ -564,17 +567,17 @@ describe('per-stat ability rollups', () => {
     // swallowed it silently, leaving the ability rating behind the days that
     // earned it.
     const user = await h.createUser();
-    await setDayStats(user, '2026-07-27', { agi: 500, str: 0, end: 0, vit: 0, xp: 25 });
-    await setDayStats(user, '2026-07-27', { agi: 620, str: 0, end: 0, vit: 0, xp: 25 });
+    await setDayStats(user, '2026-07-27', { agi: 500, str: 0, mnd: 0, xp: 25 });
+    await setDayStats(user, '2026-07-27', { agi: 620, str: 0, mnd: 0, xp: 25 });
     expect((await ratings(user)).agi_total).toBe(620);
   });
 
   it('follows a deleted day back down', async () => {
     const user = await h.createUser();
-    await setDayStats(user, '2026-07-27', { agi: 900, str: 900, end: 900, vit: 900 });
+    await setDayStats(user, '2026-07-27', { agi: 900, str: 900, mnd: 900 });
     await h.asService('delete from public.daily_scores where user_id = $1', [user]);
     expect(await ratings(user)).toEqual({
-      agi_total: 0, str_total: 0, end_total: 0, vit_total: 0,
+      agi_total: 0, str_total: 0, mnd_total: 0,
     });
   });
 
@@ -584,7 +587,7 @@ describe('per-stat ability rollups', () => {
     // the curve.
     const user = await h.createUser();
     for (const points of [0, 99, 100, 27_000, 328_500]) {
-      await setDayStats(user, '2026-07-27', { agi: points, str: 0, end: 0, vit: 0 });
+      await setDayStats(user, '2026-07-27', { agi: points, str: 0, mnd: 0 });
       const state = await ratings(user);
       expect(state.agi_total).toBe(points);
       expect(ratingForStatPoints(state.agi_total)).toBe(ratingForStatPoints(points));
@@ -680,9 +683,10 @@ describe('profiles.mnd_total', () => {
     // The trigger's skip guard (daily_scores_xp_rollup) tests every column the
     // rollup reads before deciding to skip recalculate_user_xp. It had to widen
     // by exactly one column the moment the rollup started reading mind_points —
-    // otherwise a day whose mind_points moves while xp_awarded, agi_points,
-    // str_points, end_points and vit_points all hold steady would skip the
-    // recompute and leave mnd_total silently stale. Same shape as the AGI
+    // otherwise a day whose mind_points moves while xp_awarded, agi_points and
+    // str_points all hold steady would skip the recompute and leave mnd_total
+    // silently stale. (The guard named end_points and vit_points too until
+    // 20260819150000 dropped them.) Same shape as the AGI
     // regression above, for the column that just joined the rollup.
     const user = await h.createUser();
     await h.asService(
@@ -2199,10 +2203,7 @@ describe('leaderboard program weighting', () => {
       agi: number;
       str: number;
       mind?: number;
-      end: number;
-      vit: number;
       consistency?: number;
-      rec?: number;
       factor?: number;
     },
   ) {
@@ -2215,18 +2216,15 @@ describe('leaderboard program weighting', () => {
     const squadId = squad[0]!.id;
     await h.asService(
       `insert into public.daily_scores
-         (user_id, local_date, agi_points, str_points, mind_points, end_points,
-          vit_points, consistency_points, rec_points, normalization_factor, total)
-       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, $8, $9, 0)`,
+         (user_id, local_date, agi_points, str_points, mind_points,
+          consistency_points, normalization_factor, total)
+       values ($1, '2026-07-27', $2, $3, $4, $5, $6, 0)`,
       [
         leader,
         day.agi,
         day.str,
         day.mind ?? 0,
-        day.end,
-        day.vit,
         day.consistency ?? 0,
-        day.rec ?? 0,
         day.factor ?? 1,
       ],
     );
@@ -2239,17 +2237,15 @@ describe('leaderboard program weighting', () => {
   }
 
   // A three-stat day: AGI gold, STR silver, MND bronze, and full breadth.
-  // `end`/`vit` are 0 because nothing writes them any more (deviation #41).
+  // `end`/`vit`/`rec` are absent because 20260819150000 dropped the columns —
+  // naming one here would fail at the SQL rather than quietly summing a zero.
   // MND is non-zero on purpose — the board did not pass mind_points at all
-  // until this migration, so a fixture that left it 0 would pass either way.
+  // until 20260819140000, so a fixture that left it 0 would pass either way.
   const DAY = {
     agi: 1_200,
     str: 650,
     mind: 250,
-    end: 0,
-    vit: 0,
     consistency: 800,
-    rec: 0,
   };
 
   it('leaves an all_around board unweighted', async () => {
@@ -2268,7 +2264,7 @@ describe('leaderboard program weighting', () => {
   // hourly-movement signal now lowers AGI's bands instead. A walking board
   // weighting p_vit would be weighting a column nothing writes.
   it('boosts AGI on a walking board', async () => {
-    const agiOnly = { agi: 1_200, str: 0, end: 0, vit: 0 };
+    const agiOnly = { agi: 1_200, str: 0 };
     expect((await boardWith('walking', agiOnly)).total).toBe(1_800);
   });
 
@@ -2299,8 +2295,6 @@ describe('leaderboard program weighting', () => {
       agi: 1_200,
       str: 1_200,
       mind: 0,
-      end: 0,
-      vit: 0,
       consistency: 800,
       factor: 1.5,
     });
@@ -2308,8 +2302,6 @@ describe('leaderboard program weighting', () => {
       agi: 1_200,
       str: 1_200,
       mind: 1_200,
-      end: 0,
-      vit: 0,
       consistency: 800,
       factor: 1,
     });
@@ -2325,19 +2317,10 @@ describe('leaderboard program weighting', () => {
       agi: 1_200,
       str: 0,
       mind: 0,
-      end: 0,
-      vit: 0,
       consistency: 800,
       factor: 1.5,
     });
     expect(day.total).toBe(2_600);
-  });
-
-  it('never boosts the retired columns, on any program', async () => {
-    const retiredOnly = { agi: 0, str: 0, end: 900, vit: 900 };
-    for (const program of SQUAD_PROGRAMS) {
-      expect((await boardWith(program, retiredOnly)).total).toBe(1_800);
-    }
   });
 
   it('reports the squad’s program on every row', async () => {
@@ -2423,51 +2406,45 @@ describe('program weights agree with kairo-core', () => {
   // packages/kairo-core/src/program.ts are two implementations of one rule,
   // because a migration cannot import TypeScript. This is the
   // finalizable_days() / isFinalizable() precedent applied to the weights.
-  // `end`, `vit` and `rec` stay in the fixtures because the COLUMNS still
-  // exist and the SQL still sums them — a historical row holds real values
-  // there, and a board that stopped counting them would rewrite the past.
-  // What no fixture may do is give them a value the TypeScript side cannot
-  // see: `weightedBoardTotal` takes a Record<CoreStat, number> and CoreStat no
-  // longer has END or VIT, so the two would diverge by exactly those points.
-  // They are pinned at 0 for that reason, not for tidiness.
+  //
+  // `end` and `vit` are gone from the fixtures because 20260819150000 dropped
+  // the parameters with the columns. They were pinned at 0 while they lasted
+  // for a reason worth keeping in mind next time: `weightedBoardTotal` takes a
+  // Record<CoreStat, number>, so any value the SQL side could see and the
+  // TypeScript side could not would have made this differential diverge by
+  // exactly those points — which is what a differential is supposed to catch,
+  // not what it is supposed to be fed.
+  //
+  // `rec` stays. The column is gone and squad_leaderboard passes 0, but both
+  // implementations still carry the term as a universal bonus, so the fixtures
+  // exercise it with real values — a term dropped on one side only is a
+  // divergence this test cannot see.
   //
   // `mind` and `factor` carry real values. They were 0 and absent while
   // program_weighted_total had no p_mind and no p_factor, which meant the two
   // parameters that actually differ between the four-stat and three-stat
   // models were the two this differential could not see.
   const FIXTURES = [
-    { agi: 0, str: 0, mind: 0, end: 0, vit: 0, consistency: 0, rec: 0, factor: 1 },
-    {
-      agi: 1_200, str: 650, mind: 250, end: 0, vit: 0,
-      consistency: 800, rec: 0, factor: 1,
-    },
-    {
-      agi: 1_200, str: 1_200, mind: 1_200, end: 0, vit: 0,
-      consistency: 800, rec: 500, factor: 1,
-    },
+    { agi: 0, str: 0, mind: 0, consistency: 0, rec: 0, factor: 1 },
+    { agi: 1_200, str: 650, mind: 250, consistency: 800, rec: 0, factor: 1 },
+    { agi: 1_200, str: 1_200, mind: 1_200, consistency: 800, rec: 500, factor: 1 },
     // Phone-only: two stats earned, scaled by 3/2. The one shape §2 exists for.
-    {
-      agi: 1_200, str: 1_200, mind: 0, end: 0, vit: 0,
-      consistency: 800, rec: 0, factor: 1.5,
-    },
-    { agi: 650, str: 250, mind: 650, end: 0, vit: 0, consistency: 400, rec: 0, factor: 1 },
+    { agi: 1_200, str: 1_200, mind: 0, consistency: 800, rec: 0, factor: 1.5 },
+    { agi: 650, str: 250, mind: 650, consistency: 400, rec: 0, factor: 1 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
     // future one from producing them. The 1.5 factor stacks with the 1.5
     // program boost, so the .5 has to survive two multiplications.
-    {
-      agi: 125, str: 375, mind: 125, end: 0, vit: 0,
-      consistency: 0, rec: 0, factor: 1.5,
-    },
-    { agi: 1, str: 1, mind: 1, end: 0, vit: 0, consistency: 0, rec: 0, factor: 1.5 },
+    { agi: 125, str: 375, mind: 125, consistency: 0, rec: 0, factor: 1.5 },
+    { agi: 1, str: 1, mind: 1, consistency: 0, rec: 0, factor: 1.5 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
     for (const program of SQUAD_PROGRAMS) {
       for (const f of FIXTURES) {
         const rows = await h.asService<{ total: number }>(
-          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7, $8, $9) as total`,
-          [program, f.agi, f.str, f.mind, f.end, f.vit, f.consistency, f.rec, f.factor],
+          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7) as total`,
+          [program, f.agi, f.str, f.mind, f.consistency, f.rec, f.factor],
         );
         expect({ program, ...f, total: rows[0]!.total }).toEqual({
           program,
@@ -2484,14 +2461,16 @@ describe('program weights agree with kairo-core', () => {
     }
   });
 
-  it('exists as exactly one overload, carrying p_mind and p_factor', async () => {
-    // Postgres resolves by argument list, so appending the two parameters with
-    // a bare `create or replace` would have left the seven-argument function
-    // standing beside the new one — and a call site that still passed seven
-    // arguments would have kept resolving to it, silently, with MND uncounted
-    // and normalization unapplied. 20260819140000 drops the old signature by
-    // its exact argument list; this is what says it worked. Same trap
-    // `create_goal` hit with `p_metric`.
+  it('exists as exactly one overload — three stats, no p_end, no p_vit', async () => {
+    // Postgres resolves by argument list, so a signature change here is a DROP
+    // and never a `create or replace`. This has now been proved by mutation
+    // twice. Deleting 20260819140000's `drop function` left the seven-argument
+    // form standing beside the nine-argument one and every other test in this
+    // suite passed. Deleting 20260819150000's leaves the nine-argument form —
+    // whose body sums `p_end` and `p_vit`, columns that no longer exist —
+    // standing beside the seven-argument one, waiting for the next call site
+    // that passes nine arguments. This is the assertion that fails in both
+    // cases, and the same trap `create_goal` hit with `p_metric`.
     const rows = await h.asService<{ args: string }>(
       `select pg_get_function_arguments(p.oid) as args
          from pg_proc p
@@ -2501,6 +2480,10 @@ describe('program weights agree with kairo-core', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.args).toContain('p_mind integer');
     expect(rows[0]!.args).toContain('p_factor numeric');
+    // By name, because that is what a stale overload would carry. Substring
+    // matches are safe here: no surviving parameter contains either word.
+    expect(rows[0]!.args).not.toContain('p_end');
+    expect(rows[0]!.args).not.toContain('p_vit');
   });
 
   it('is executable by authenticated but not anon, after the drop', async () => {
@@ -2514,7 +2497,7 @@ describe('program weights agree with kairo-core', () => {
     const rows = await h.asService<{ role: string; has: boolean }>(
       `select r.role, has_function_privilege(r.role,
          'public.program_weighted_total(text, integer, integer, integer,
-            integer, integer, integer, integer, numeric)', 'execute') as has
+            integer, integer, numeric)', 'execute') as has
          from (values ('authenticated'), ('anon')) as r(role)`,
     );
     expect(rows).toEqual([
@@ -3629,7 +3612,7 @@ describe('goals', () => {
       );
       const declared = signature[0]!.result;
       expect(declared).not.toMatch(/steps|distance|kcal|minutes|hour|had_workout|heart/i);
-      expect(declared).not.toMatch(/agi|str|end_points|vit|tiers|consistency/i);
+      expect(declared).not.toMatch(/agi|str|mind|tiers|consistency/i);
       expect(declared).toMatch(/total integer/);
     });
   });
@@ -4470,6 +4453,39 @@ describe('profiles.species', () => {
   });
 });
 
+describe('squad_leaderboard projects three lifetime ratings', () => {
+  it('carries AGI, STR and MND — the CoreStat set, not the retired one', async () => {
+    // `ratings` projected end_total and vit_total from 20260810150000 until the
+    // contract migration, and never carried a Mind figure at all. LeaderboardRow
+    // filters the map by CORE_STATS, so END and VIT were silently discarded and
+    // MND read `undefined` — which ratingForStatPoints floors at 1. Every
+    // squadmate's Mind ability therefore rendered as unearned no matter what
+    // they slept, on a board that had been ranking them on it since
+    // 20260819140000. Nothing failed; the number was simply always the same.
+    //
+    // Asserted as the whole object rather than one key: a map that gained MND
+    // while keeping END and VIT would satisfy a `toHaveProperty` and still be
+    // projecting two columns that no longer exist.
+    const leader = await h.createUser({ characterName: 'Alpha' });
+    const squad = await h.asUser<{ id: string }>(
+      leader,
+      `select id from public.create_squad('Ratings')`,
+    );
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, mind_points)
+       values ($1, '2026-07-27', 1200, 650, 250)`,
+      [leader],
+    );
+    const rows = await h.asUser<{ ratings: Record<string, number> }>(
+      leader,
+      `select ratings from public.squad_leaderboard($1, '2026-07-27'::date)`,
+      [squad[0]!.id],
+    );
+    expect(rows[0]!.ratings).toEqual({ AGI: 1_200, STR: 650, MND: 250 });
+  });
+});
+
 describe('squad_leaderboard projects species', () => {
   async function seedSquad() {
     const leader = await h.createUser({ characterName: 'Alpha' });
@@ -4581,16 +4597,46 @@ describe('three-stat expand migration', () => {
     expect(rows[0]!.is_nullable).toBe('NO');
   });
 
-  // Still true through the contract phase: the checks tighten here, the
-  // columns go in Phase 3 with the redeploy. A function rollback in between
-  // needs no schema restore.
-  it('keeps rec_points, end_points and vit_points until Phase 3 drops them', async () => {
+  // Inverted by 20260819150000, which is the migration this assertion was
+  // written to guard. It asserted the three columns SURVIVED the expand phase,
+  // so that a rollback of the Edge Functions needed no schema restore; that
+  // window closed when the contract migration dropped them. Both halves are
+  // named: gone is not the same claim as "the three that remain are the right
+  // three", and a drop that took `mind_points` with it would satisfy the first
+  // on its own.
+  it('drops rec_points, end_points and vit_points, and keeps exactly the three stats', async () => {
     const rows = await h.asService<{ column_name: string }>(`
       select column_name from information_schema.columns
       where table_schema = 'public' and table_name = 'daily_scores'
-        and column_name in ('rec_points', 'end_points', 'vit_points')
+        and column_name in ('rec_points', 'end_points', 'vit_points',
+                            'agi_points', 'str_points', 'mind_points')
+      order by column_name
     `);
-    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'agi_points',
+      'mind_points',
+      'str_points',
+    ]);
+  });
+
+  it('drops profiles.end_total and vit_total, leaving three lifetime rollups', async () => {
+    // The rollup columns go with the score columns they summed. Split from the
+    // test above because they are separate ALTERs on separate tables, and a
+    // migration that dropped one pair and not the other would leave
+    // recalculate_user_xp() naming a column that no longer exists — which
+    // fails on the next sync, not here.
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles'
+        and column_name in ('end_total', 'vit_total',
+                            'agi_total', 'str_total', 'mnd_total')
+      order by column_name
+    `);
+    expect(rows.map((r) => r.column_name)).toEqual([
+      'agi_total',
+      'mnd_total',
+      'str_total',
+    ]);
   });
 
   it('records sleep origin for the trust layers', async () => {
@@ -4710,21 +4756,24 @@ describe('three-stat expand migration', () => {
   });
 
   /**
-   * The one thing this harness structurally cannot check, pinned as a shape
-   * instead.
+   * The deferred half of that constraint, now closed.
    *
-   * PGlite starts empty, so a constraint that would abort against real data
-   * passes here for want of a row to fail on — and the live project holds 32
-   * rows scored under the four-stat model with `contributing_stats = 4`. The
-   * constraint is therefore NOT VALID: enforced on every write, not
-   * retroactively scanned, with `validate constraint` deferred to Phase 3
-   * after spec §5's replay has rewritten those rows.
+   * 20260819110000 added it NOT VALID because the live project held 32 rows
+   * scored under the four-stat model with `contributing_stats = 4`, and
+   * `add constraint ... check` validates every existing row on the way in.
+   * NOT VALID is not a weaker constraint — it is enforced on every INSERT and
+   * UPDATE from the moment it exists — but it skips the scan of history, so
+   * the guarantee was write-time only.
    *
-   * Dropping `not valid` to "tidy up" would make this migration unappliable
-   * with nothing failing until someone ran it against production. That is what
-   * this asserts.
+   * 20260819150000 runs `validate constraint` after the §5 replay has
+   * rewritten those rows, which is what makes the guarantee total. PGlite
+   * starts empty and so cannot prove the replay worked; what it can prove is
+   * that the statement is in the migration at all, which is exactly the half
+   * that is easy to forget. Removing it costs a weaker guarantee and nothing
+   * that fails, which is why this asserts on `convalidated` rather than on
+   * anything a write would show.
    */
-  it('adds the contributing-stats check NOT VALID, so it cannot abort on four-stat history', async () => {
+  it('validates the contributing-stats check once the replay has landed', async () => {
     // By exact name, not by pattern: `drop constraint if exists` in both
     // three-stat migrations targets this name, so a second constraint matching
     // the pattern would be one the drops never reach.
@@ -4734,7 +4783,7 @@ describe('three-stat expand migration', () => {
         and conname = 'daily_scores_contributing_stats_check'
     `);
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.convalidated).toBe(false);
+    expect(rows[0]!.convalidated).toBe(true);
   });
 
   it('leaves the featured-stat check validated — no stored row has one', async () => {

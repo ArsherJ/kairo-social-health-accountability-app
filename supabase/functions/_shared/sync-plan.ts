@@ -508,12 +508,15 @@ export function observesWearable(request: SyncRequest): boolean {
  *
  * `end_points`, `vit_points` and `rec_points` are gone from this shape as of
  * deviation #41's contract phase, while the columns themselves survive until
- * Phase 3 drops them. **That gap has a consequence worth stating**: an upsert
- * names only the columns it carries, so a rescored day keeps whatever those
- * three columns already held, and `squad_leaderboard()` still sums them. The
- * §4 deploy ordering is what closes it — the replay and the column drop land
- * together, before any board is read against a half-migrated row. Do not
- * deploy this shape ahead of that migration.
+ * `20260819150000` drops them. **That gap has a consequence worth stating**:
+ * an upsert names only the columns it carries, so a rescored day keeps
+ * whatever those three columns already held, `squad_leaderboard()` still sums
+ * them, and since `20260819140000` it also **multiplies them by the
+ * normalization factor** — so a stale 900 END counts as 1,350 on a phone-only
+ * day. Both are null today, because the replay and the drop land in the same
+ * window. The §4 deploy ordering is what closes it — the replay and the column
+ * drop land together, before any board is read against a half-migrated row.
+ * Do not deploy this shape ahead of that migration.
  */
 export interface DayScoreRow {
   user_id: string;

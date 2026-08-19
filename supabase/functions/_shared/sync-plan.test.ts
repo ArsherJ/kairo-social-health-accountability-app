@@ -342,9 +342,11 @@ describe('planDay', () => {
     expect(planDay(input()).row.mind_points).toBe(0);
     const withSleep = planDay(input({ sleepMinutes: 8 * 60 }));
     expect(withSleep.row.mind_points).toBe(1_200); // 8h clears MND gold.
-    // The contract phase: end_points, vit_points and rec_points are gone from
-    // the row shape while the columns themselves survive until Phase 3 drops
-    // them. A row that still carried them would be writing a retired bonus.
+    // The contract phase: end_points, vit_points and rec_points left the row
+    // shape here, and 20260819150000 drops the columns themselves. A row that
+    // still carried them would be writing a retired bonus — and, between this
+    // deploy and that migration, one the board multiplies by the day's
+    // normalization factor.
     expect(Object.keys(withSleep.row)).not.toContain('rec_points');
     expect(Object.keys(withSleep.row)).not.toContain('end_points');
     expect(Object.keys(withSleep.row)).not.toContain('vit_points');

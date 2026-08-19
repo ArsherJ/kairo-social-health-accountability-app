@@ -263,15 +263,16 @@ export default function Character() {
   // profile loads — `ratingForStatPoints` floors at 1, so an unloaded rail says
   // the same thing a brand-new character's does rather than flashing a dash.
   //
-  // MND reads 0 rather than a lifetime rollup: `profiles.mnd_total` exists as
-  // of Phase 3's schema task, but nothing reads it here yet — that wiring, and
-  // retiring `end_total`/`vit_total`, are later Phase 3 tasks. 0 is the same
-  // "unearned" reading the coin already gives a stat with no lifetime points,
-  // and every Mind rating therefore sits at its floor until that wiring lands.
+  // Three rollups, matching CoreStat. MND read a hardcoded 0 between the
+  // column landing and this wiring, which is the same figure a stat with no
+  // lifetime points shows — so the rail could not distinguish "never slept"
+  // from "never read", and the second failure looks exactly like the first.
+  // `mnd_total`, not `mind_total`: the rollup is spelled for the stat, the
+  // score column it sums is `mind_points`, and that split has cost a bug.
   const lifetime: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,
-    MND: 0,
+    MND: profile.data.mnd_total,
   };
 
   // No featured stat any more. The redesign branch still had §6's weekly ×1.5
