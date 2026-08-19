@@ -107,6 +107,14 @@ export interface DailyScore {
   hasRec: boolean;
   /** The day's whole score, from this user's own activity. Nothing reduces it. */
   healthTotal: number;
+  /**
+   * Progression XP for the day, **after** normalization.
+   *
+   * Scaled by the same `3 / earnableStats` factor as stat points: a level is
+   * the thing a user watches move, so leaving it unscaled would put the
+   * gradient §2 removes from the leaderboard back on the slower surface, where
+   * it is harder to notice and harder to explain.
+   */
   xp: number;
   featuredStat: CoreStat | null;
 }

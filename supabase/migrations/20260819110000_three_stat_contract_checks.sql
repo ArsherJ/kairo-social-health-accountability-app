@@ -1,12 +1,39 @@
 -- Three-stat model (roadmap deviation #41), contract phase — part one.
 --
--- The **checks only**. The columns themselves (`rec_points`, `end_points`,
--- `vit_points`, and `profiles.end_total` / `vit_total`) are dropped in Phase 3,
--- after the dual-writing functions are deployed. Spec §4's four-step
--- expand/contract exists because renaming a column out from under a deployed
--- Edge Function is the August 2026 outage in miniature: the bucket upsert
--- commits before the score upsert, so health data keeps landing while nothing
--- scores, silently.
+-- ===========================================================================
+-- ORDERING: `daily_scores.contributing_stats` still holds 4 on real rows.
+-- ===========================================================================
+--
+-- Read this before anything else. The live project has rows scored under the
+-- four-stat model — at the time of writing, 32 of 75 — whose
+-- `contributing_stats` is 4. `alter table ... add constraint ... check (...)`
+-- **validates every existing row on the way in**, so a plain tightening to
+-- `0..3` aborts this migration against real data.
+--
+-- No test can catch that: the PGlite harness applies migrations to an empty
+-- database, so the check passes there for want of a row to fail on.
+--
+-- The constraint is therefore added `NOT VALID`. That is not a weaker
+-- constraint — it is enforced on every INSERT and UPDATE from the moment it
+-- exists, which is everything the engine needs. What it skips is the scan of
+-- rows written before it. Those rows are rewritten by spec §5's replay, and
+-- **Phase 3 runs `validate constraint` after the replay has landed**, at which
+-- point the guarantee is total. The statement is spelled out at the bottom of
+-- section 1 so it can be copied rather than reconstructed.
+--
+-- The ordering is enforced here rather than remembered: applying this file
+-- early is now safe, and forgetting the validation costs a weaker guarantee
+-- rather than an aborted migration or a silent corruption.
+--
+-- ---------------------------------------------------------------------------
+--
+-- Otherwise: the **checks only**. The columns themselves (`rec_points`,
+-- `end_points`, `vit_points`, and `profiles.end_total` / `vit_total`) are
+-- dropped in Phase 3, after the dual-writing functions are deployed. Spec §4's
+-- four-step expand/contract exists because renaming a column out from under a
+-- deployed Edge Function is the August 2026 outage in miniature: the bucket
+-- upsert commits before the score upsert, so health data keeps landing while
+-- nothing scores, silently.
 --
 -- What is here is everything that can tighten *ahead* of the drop without
 -- breaking a deployed function, plus the two program changes deviation #41
@@ -27,13 +54,28 @@ begin;
 alter table public.daily_scores
   drop constraint if exists daily_scores_contributing_stats_check;
 
+-- NOT VALID: enforced on every write from now on, not retroactively scanned.
+-- See the header. Historical four-stat rows are rewritten by the §5 replay.
 alter table public.daily_scores
   add constraint daily_scores_contributing_stats_check
-    check (contributing_stats between 0 and 3);
+    check (contributing_stats between 0 and 3)
+    not valid;
+
+-- Phase 3, AFTER the replay — the statement, so nobody has to reconstruct it:
+--
+--   alter table public.daily_scores
+--     validate constraint daily_scores_contributing_stats_check;
+--
+-- It takes only a SHARE UPDATE EXCLUSIVE lock, so it does not block writers.
+-- If it errors, a row survived the replay unrescored: find it before forcing
+-- anything.
 
 alter table public.daily_scores
   drop constraint if exists daily_scores_featured_stat_check;
 
+-- Validating, unlike the one above, because `featured_stat` is null on every
+-- stored row — deviation #10 retired the rotation from the write path — so
+-- there is nothing for the scan to reject.
 alter table public.daily_scores
   add constraint daily_scores_featured_stat_check
     check (featured_stat is null or featured_stat in ('AGI', 'STR', 'MND'));

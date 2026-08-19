@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { earnableStats, hasSleepCapability } from './capability.ts';
 import {
   DAILY_STEP_BASELINE,
   FEATURED_STAT_MULTIPLIER,
@@ -192,7 +193,10 @@ describe('consistency bonus', () => {
         sleepMinutes: contributing >= 3 ? 5 * 60 : null,
       });
       expect(result.contributingStats).toBe(contributing);
-      expect(result.consistencyBonus).toBeGreaterThanOrEqual(0);
+      // Strictly positive from two stats up, because that is what a missing
+      // array entry looks like: `undefined ?? 0` is a perfectly ordinary zero,
+      // so `>= 0` would pass on exactly the failure this exists to catch.
+      if (contributing >= 2) expect(result.consistencyBonus).toBeGreaterThan(0);
     }
   });
 
@@ -316,6 +320,62 @@ describe('normalization', () => {
       earnableStats: 2,
     });
     expect(result.healthTotal - Math.round(2_400 * 1.5)).toBe(800);
+  });
+});
+
+// Spec §3's resolved decision, as arithmetic. This is the one place the two
+// halves of the rule are asserted against each other, so it lives here rather
+// than in capability.test.ts, which cannot see a score.
+describe('the 6,200 breach', () => {
+  const goldTwoStatDay = () => dayWith({ steps: 10_000, activeKcal: 400 });
+
+  // The hole spec §3 names by figure: score MND *and* be normalized as a
+  // two-stat user and the day pays (1,200 x 3) x 1.5 + 800 = 6,200, against a
+  // stated ceiling of 4,400 — a 41% breach.
+  //
+  // `computeDailyScore` neither prevents this nor could: `earnableStats` is an
+  // input, because deriving it needs a clock and a query. The guarantee lives
+  // entirely in the coupling between "this night scores" and "this night
+  // counts toward capability", and this pins that the engine is where the
+  // breach is *expressible* rather than where it is stopped.
+  it('is what scoring MND as a two-stat user would pay', () => {
+    const breach = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: 2,
+    });
+    expect(breach.healthTotal).toBe(6_200);
+    expect(breach.healthTotal).toBeGreaterThan(MAX_DAILY_SCORE_WITH_WEARABLE);
+  });
+
+  // And the coupling that makes the supported call shape unable to produce it:
+  // a night that scores is a night inside the capability window, because
+  // `hasSleepCapability` compares inclusively against `today`. Narrow that to
+  // strictly-before — an easy "off-by-one fix" — and 6,200 comes back with no
+  // other test moving.
+  it('cannot be reached through earnableStats(hasSleepCapability(...))', () => {
+    const today = '2026-08-19';
+    const scoringSleepDates = [today];
+    expect(hasSleepCapability(scoringSleepDates, today)).toBe(true);
+
+    const supported = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability(scoringSleepDates, today)),
+    });
+    expect(supported.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
+    expect(supported.healthTotal).toBe(4_400);
+  });
+
+  // The other direction of the same coupling: no sleep that scores means no
+  // MND points, so two earnable stats and the ceiling still holds.
+  it('is not reachable by a genuinely phone-only day either', () => {
+    const phoneOnly = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: null,
+      earnableStats: earnableStats(hasSleepCapability([], '2026-08-19')),
+    });
+    expect(phoneOnly.healthTotal).toBe(4_400);
   });
 });
 
@@ -493,15 +553,25 @@ describe('XP', () => {
     );
   });
 
-  // XP is deliberately NOT normalized. Points decide a leaderboard, which is
-  // what §2's fairness argument is about; XP decides a level, which is a
-  // private progression curve nothing is ranked on. Normalizing it would make
-  // levels arrive in fractions.
-  it('is not scaled by the normalization factor', () => {
-    const buckets = dayWith({ steps: 10_000, activeKcal: 400 });
-    expect(computeDailyScore({ buckets, earnableStats: 2 }).xp).toBe(
-      computeDailyScore({ buckets, earnableStats: 3 }).xp,
-    );
+  // XP is normalized on the same `3 / earnable stats` factor as stat points:
+  // equivalent effort must level two users at the same rate. Scaling the
+  // leaderboard and leaving XP alone would move the same gradient onto the
+  // slower surface, where it is harder to notice and harder to explain.
+  it('scales by the normalization factor, so equivalent days level equally', () => {
+    // Two Gold stats phone-only, three Gold stats with a wearable: the same
+    // day in each user's own terms, and the same XP.
+    const phoneOnly = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    const wearable = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: 7 * 60,
+      earnableStats: 3,
+    });
+    expect(phoneOnly.xp).toBe(150);
+    expect(wearable.xp).toBe(150);
   });
 });
 

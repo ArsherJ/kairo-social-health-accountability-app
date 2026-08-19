@@ -4303,12 +4303,58 @@ describe('three-stat expand migration', () => {
 
   // Contracted: END and VIT are retired, so three is the ceiling again.
   it('allows at most three contributing stats', async () => {
+    // By exact name. `conname like '%contributing_stats%'` also matches the
+    // column's NOT NULL constraint, which pg_constraint carries as a row of
+    // its own — so a pattern match here is one row-ordering change away from
+    // asserting against the wrong constraint.
     const rows = await h.asService<{ def: string }>(`
       select pg_get_constraintdef(oid) as def from pg_constraint
       where conrelid = 'public.daily_scores'::regclass
-        and conname like '%contributing_stats%'
+        and conname = 'daily_scores_contributing_stats_check'
     `);
+    expect(rows).toHaveLength(1);
     expect(rows[0]!.def).toContain('3');
     expect(rows[0]!.def).not.toContain('5');
+  });
+
+  /**
+   * The one thing this harness structurally cannot check, pinned as a shape
+   * instead.
+   *
+   * PGlite starts empty, so a constraint that would abort against real data
+   * passes here for want of a row to fail on — and the live project holds 32
+   * rows scored under the four-stat model with `contributing_stats = 4`. The
+   * constraint is therefore NOT VALID: enforced on every write, not
+   * retroactively scanned, with `validate constraint` deferred to Phase 3
+   * after spec §5's replay has rewritten those rows.
+   *
+   * Dropping `not valid` to "tidy up" would make this migration unappliable
+   * with nothing failing until someone ran it against production. That is what
+   * this asserts.
+   */
+  it('adds the contributing-stats check NOT VALID, so it cannot abort on four-stat history', async () => {
+    // By exact name, not by pattern: `drop constraint if exists` in both
+    // three-stat migrations targets this name, so a second constraint matching
+    // the pattern would be one the drops never reach.
+    const rows = await h.asService<{ conname: string; convalidated: boolean }>(`
+      select conname, convalidated from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname = 'daily_scores_contributing_stats_check'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.convalidated).toBe(false);
+  });
+
+  it('leaves the featured-stat check validated — no stored row has one', async () => {
+    // Deviation #10 retired the rotation from the write path, so the column is
+    // null everywhere and the scan has nothing to reject. Only the constraint
+    // that would genuinely abort is deferred.
+    const rows = await h.asService<{ convalidated: boolean }>(`
+      select convalidated from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname = 'daily_scores_featured_stat_check'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.convalidated).toBe(true);
   });
 });

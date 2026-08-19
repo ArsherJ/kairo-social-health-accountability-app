@@ -363,6 +363,13 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
   );
   const normalized = Math.round(statPoints * factor);
 
+  // XP scales by the same factor, and for the same reason. Levels are what a
+  // user watches move; leaving XP alone would fix the leaderboard and leave a
+  // phone-only user levelling at two-thirds the rate for an equivalent day —
+  // the gradient §2 removes, reappearing on the slower surface where it is
+  // harder to notice and harder to explain.
+  const normalizedXp = Math.round(xp * factor);
+
   // The consistency bonus is not multiplied by the featured stat — the weekly
   // meta shifts which stat is worth grinding, not the reward for breadth. Nor
   // is it normalized: `breadthBonus` already accounts for earnable stats, and
@@ -381,7 +388,7 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
     normalizationFactor: factor,
     hasRec,
     healthTotal: normalized + consistencyBonus,
-    xp,
+    xp: normalizedXp,
     featuredStat,
   };
 }
