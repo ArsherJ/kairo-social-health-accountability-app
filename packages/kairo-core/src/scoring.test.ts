@@ -367,6 +367,13 @@ describe('the 6,200 breach', () => {
     expect(supported.healthTotal).toBe(4_400);
   });
 
+  // This pair only proves the contract together. On its own, a call with the
+  // scored date on both sides of `hasSleepCapability` never diverges from the
+  // coincident case above — and coincident dates were never the risk. The
+  // second test is the discriminator: it passes a *different* date as
+  // `today` (wall-clock, as a caller narrowing "today" to `new Date()` would)
+  // while the sleep that scored stays on the original date, and the ceiling
+  // breaks exactly as the docstring says it does.
   it('holds when the scored date is not today — the backfill case', () => {
     // The breach that hides here: score 2026-08-01, where sleep exists ON that
     // date (so MND scores) but no scoring sleep falls in the 14 days ending at
@@ -385,6 +392,26 @@ describe('the 6,200 breach', () => {
 
     expect(day.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
     expect(day.healthTotal).toBe(4_400);
+  });
+
+  // The negative control the positive case above cannot provide on its own:
+  // give `hasSleepCapability` a `today` that is not the scored date — the
+  // exact regression named in its docstring, a caller reaching for
+  // wall-clock "now" instead of threading through the date being scored.
+  // 6,200 is asserted here to document what an unsupported call shape pays,
+  // not to bless it: nothing in this package produces this call shape today,
+  // and nothing should.
+  it('would breach if a caller passed wall-clock today instead of the scored date', () => {
+    const scored = '2026-08-01';
+    const wallClockToday = '2026-08-19';
+
+    const day = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability([scored], wallClockToday)),
+    });
+
+    expect(day.healthTotal).toBe(6_200);
   });
 
   // The other direction of the same coupling: no sleep that scores means no
