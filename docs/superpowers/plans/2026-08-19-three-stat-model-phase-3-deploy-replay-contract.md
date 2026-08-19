@@ -524,6 +524,35 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
+
+### Task 3b: The client sends sample origin, and hand-typed sleep stops scoring
+
+**Added mid-flight, 2026-08-19.** Task 3's implementer found — and the controller
+confirmed at the source — that this plan wired the server to *read* three
+`workout_sessions` origin columns and `daily_sleep.was_user_entered`, and gave
+nothing the job of *writing* them. `IncomingWorkoutSession` and `IncomingSleep`
+carry no such fields and `sync-health`'s upserts set none, so `workoutVerified`
+is false for every session forever and STR's threshold shift is structurally 0 —
+a spec §3 mechanism, resolved and implemented server-side, dead on arrival.
+
+Task 3's review then found the second half: `sampleTrust` and `scoresAtAll` have
+**zero production consumers**, so nothing stops a hand-typed night from scoring
+MND. Combined with Task 3's capability filter, the moment sleep origin arrives a
+manual night scores 1,200 while being excluded from capability — `earnableStats`
+2, factor 1.5, `(1200 × 3) × 1.5 + 800 = 6,200` against the 4,400 ceiling, waved
+through by the check constraint at `contributing_stats` 3. The two halves must
+ship together, which is why they are one task.
+
+Full brief: `.superpowers/sdd/2026-08-19-three-stat-model-phase-3-deploy-replay-contract/task-3b-brief.md`
+(Part A reads the metadata, Part B gates hand-typed sleep, Part C adds a
+two-sided guard so the PostgREST select list cannot silently drift.)
+
+It runs after Task 3 and before Task 4, and it must land before Task 6's dry run
+and Task 7's replay: a replay run before the transport exists bakes shift-0 into
+every historical row and has to be re-run.
+
+---
+
 ### Task 4: The leaderboard counts MND, and normalization reaches the board
 
 The review's C2, at its corrected width. `squad_leaderboard()` does not rank on `daily_scores.total` — it re-sums the per-stat columns so it can apply program weights. It passes `agi, str, end, vit, consistency, rec` and **never `mind_points`**, and `program_weighted_total` has no `p_mind` parameter.

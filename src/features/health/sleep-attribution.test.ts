@@ -14,9 +14,21 @@ function manila(day: number, hour: number, minute = 0): number {
   return Date.UTC(2026, 7, day, hour - 8, minute);
 }
 
-function segment(startMs: number, endMs: number, value: number): SleepSegment {
-  return { startMs, endMs, value };
+function segment(
+  startMs: number,
+  endMs: number,
+  value: number,
+  wasUserEntered = false,
+): SleepSegment {
+  return { startMs, endMs, value, wasUserEntered };
 }
+
+/** A hand-typed night: same shape, `HKWasUserEntered` set. */
+function typed(startMs: number, endMs: number, value: number): SleepSegment {
+  return segment(startMs, endMs, value, true);
+}
+
+const GENUINE = { wasUserEntered: false };
 
 const NIGHT_DATES = ['2026-08-01', '2026-08-02'];
 
@@ -33,7 +45,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480, ...GENUINE }]);
   });
 
   it('counts core, deep and REM as sleep', () => {
@@ -46,7 +58,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 360 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 360, ...GENUINE }]);
   });
 
   it('ignores in-bed and awake', () => {
@@ -60,7 +72,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480, ...GENUINE }]);
   });
 
   it('counts a night reported by two sources once', () => {
@@ -74,7 +86,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480, ...GENUINE }]);
   });
 
   it('unions partially overlapping sources rather than adding them', () => {
@@ -87,7 +99,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 495 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 495, ...GENUINE }]);
   });
 
   it('joins adjacent segments into one night', () => {
@@ -99,7 +111,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 480, ...GENUINE }]);
   });
 
   it('attributes a session ending exactly at midnight to the day that ended', () => {
@@ -108,7 +120,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-01', minutes: 240 }]);
+    expect(result).toEqual([{ localDate: '2026-08-01', minutes: 240, ...GENUINE }]);
   });
 
   it('adds a nap to the same date as the night', () => {
@@ -120,7 +132,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 540 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 540, ...GENUINE }]);
   });
 
   it('excludes a night whose wake date is not requested', () => {
@@ -149,7 +161,7 @@ describe('sleepMinutesByDate', () => {
       NIGHT_DATES,
       MANILA,
     );
-    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 1 }]);
+    expect(result).toEqual([{ localDate: '2026-08-02', minutes: 1, ...GENUINE }]);
   });
 
   it('clamps an absurd total to a whole day', () => {
@@ -177,5 +189,87 @@ describe('sleepMinutesByDate', () => {
 
   it('exposes the asleep values it recognises', () => {
     expect([...ASLEEP_VALUES].sort()).toEqual([1, 3, 4, 5]);
+  });
+});
+
+describe('sleepMinutesByDate — hand-typed nights', () => {
+  // The flag the server gates MND on. It has to be decided here, on segments,
+  // because `daily_sleep` stores one row per date and by then the segments are
+  // gone — and a night that scores MND must also make MND earnable, or the day
+  // pays 6,200 against a 4,400 ceiling (capability.ts:34-41).
+
+  it('marks a night whose every segment was hand-typed', () => {
+    const result = sleepMinutesByDate(
+      [typed(manila(1, 23), manila(2, 7), 1)],
+      NIGHT_DATES,
+      MANILA,
+    );
+    expect(result).toEqual([
+      { localDate: '2026-08-02', minutes: 480, wasUserEntered: true },
+    ]);
+  });
+
+  it('does not mark a night with any genuine segment', () => {
+    // Partial manual entry must not void real data. Someone who wore a watch
+    // for six hours and typed in the nap they forgot has measured sleep, and
+    // discarding the night would cost them MND *and* their capability window.
+    const result = sleepMinutesByDate(
+      [
+        segment(manila(1, 23), manila(2, 5), 1),
+        typed(manila(2, 14), manila(2, 15), 1),
+      ],
+      NIGHT_DATES,
+      MANILA,
+    );
+    expect(result).toEqual([
+      { localDate: '2026-08-02', minutes: 420, wasUserEntered: false },
+    ]);
+  });
+
+  it('does not let a genuine segment rescue a night it was merged beside', () => {
+    // Two dates, one hand-typed and one real. The flag is per date, so the
+    // real Sunday must not vouch for the typed-in Saturday.
+    const result = sleepMinutesByDate(
+      [
+        typed(manila(1, 0), manila(1, 8), 1),
+        segment(manila(1, 23), manila(2, 7), 1),
+      ],
+      NIGHT_DATES,
+      MANILA,
+    );
+    expect(result).toEqual([
+      { localDate: '2026-08-01', minutes: 480, wasUserEntered: true },
+      { localDate: '2026-08-02', minutes: 480, wasUserEntered: false },
+    ]);
+  });
+
+  it('clears a hand-typed night that a genuine source also recorded', () => {
+    // Merging happens before attribution, so the two become one interval. The
+    // interval carries genuine evidence and the night is not hand-typed.
+    const result = sleepMinutesByDate(
+      [
+        typed(manila(1, 23), manila(2, 7), 1),
+        segment(manila(2, 1), manila(2, 6), 3),
+      ],
+      NIGHT_DATES,
+      MANILA,
+    );
+    expect(result).toEqual([
+      { localDate: '2026-08-02', minutes: 480, wasUserEntered: false },
+    ]);
+  });
+
+  it('says nothing about a date with no segments at all', () => {
+    // Absence is not a hand-typed night. The date is omitted entirely, so
+    // there is no row to carry a flag and `daily_sleep` keeps meaning "no MND"
+    // by absence rather than by a claim.
+    expect(sleepMinutesByDate([], NIGHT_DATES, MANILA)).toEqual([]);
+    expect(
+      sleepMinutesByDate(
+        [typed(manila(1, 23), manila(2, 7), SLEEP_AWAKE)],
+        NIGHT_DATES,
+        MANILA,
+      ),
+    ).toEqual([]);
   });
 });

@@ -7,6 +7,10 @@ import {
 } from '../../packages/kairo-core/src/program.ts';
 import { levelForXp, ratingForStatPoints } from '../../packages/kairo-core/src/progression.ts';
 import { squadTopic } from '../../src/features/squad/squad-topic.ts';
+import {
+  DAILY_SLEEP_COLUMNS,
+  WORKOUT_SESSION_COLUMNS,
+} from '../functions/_shared/scoring-inputs.ts';
 import { planDay } from '../functions/_shared/sync-plan.ts';
 import { setupHarness, type Harness } from './harness.ts';
 
@@ -4488,6 +4492,77 @@ describe('three-stat expand migration', () => {
         and column_name in ('source_bundle_id', 'was_user_entered', 'has_heart_rate_evidence')
     `);
     expect(rows).toHaveLength(3);
+  });
+
+  // The third side of M1's guard. `scoring-inputs.ts` pins its select strings
+  // to its row types at compile time, and its own tests build fixtures by
+  // parsing those strings — but both live entirely inside TypeScript, so a
+  // name that is spelled consistently and wrong everywhere still passes.
+  // These two ask Postgres. Same seam, and the same reason, as `planDay`'s
+  // row-shape test above: the layers are otherwise tested apart.
+  it('selects only columns daily_sleep actually has', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_sleep'
+    `);
+    const existing = rows.map((r) => r.column_name);
+    for (const column of DAILY_SLEEP_COLUMNS) expect(existing).toContain(column);
+  });
+
+  it('selects only columns workout_sessions actually has', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'workout_sessions'
+    `);
+    const existing = rows.map((r) => r.column_name);
+    for (const column of WORKOUT_SESSION_COLUMNS) expect(existing).toContain(column);
+  });
+
+  it('stores the origin sync-health now writes, and reads NULL for a row without it', async () => {
+    // The other half of the August 2026 seam: a migration and the function
+    // that writes through it, checked against each other rather than apart.
+    // NULL is asserted alongside because it is the whole existing cohort's
+    // state, and `scoringSleepDates`/`verifiedWorkoutMinutesFrom` both have to
+    // keep meaning "eligible" and "unverified" for it.
+    const user = await h.createUser();
+
+    await h.asService(
+      `insert into public.daily_sleep (user_id, local_date, minutes, was_user_entered)
+       values ($1, '2026-07-27', 480, true),
+              ($1, '2026-07-26', 480, null)`,
+      [user],
+    );
+    const sleep = await h.asService<{ local_date: string; was_user_entered: boolean | null }>(
+      `select local_date, was_user_entered from public.daily_sleep
+       where user_id = $1 order by local_date`,
+      [user],
+    );
+    expect(sleep.map((r) => r.was_user_entered)).toEqual([null, true]);
+
+    await h.asService(
+      `insert into public.workout_sessions
+         (user_id, hk_uuid, local_date, started_at, ended_at, activity_type,
+          duration_s, distance_m, active_kcal,
+          source_bundle_id, was_user_entered, has_heart_rate_evidence)
+       values ($1, 'uuid-origin', '2026-07-27', now(), now(), 37,
+               2700, 7400.50, 512.25,
+               'com.apple.workout', false, true)`,
+      [user],
+    );
+    const session = await h.asService<{
+      source_bundle_id: string | null;
+      was_user_entered: boolean | null;
+      has_heart_rate_evidence: boolean | null;
+    }>(
+      `select source_bundle_id, was_user_entered, has_heart_rate_evidence
+       from public.workout_sessions where user_id = $1`,
+      [user],
+    );
+    expect(session[0]).toEqual({
+      source_bundle_id: 'com.apple.workout',
+      was_user_entered: false,
+      has_heart_rate_evidence: true,
+    });
   });
 
   it('accepts MND as a featured stat, and no longer END or VIT', async () => {

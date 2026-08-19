@@ -128,6 +128,47 @@ describe('validateSyncRequest', () => {
   });
 });
 
+describe('validateSyncRequest — hand-typed sleep', () => {
+  // The flag that stops a typed-in night scoring MND. It has to cross the wire
+  // or the gate has nothing to read: a hand-typed night that scores while
+  // being excluded from §3's capability window pays 6,200 against a 4,400
+  // ceiling, with `contributing_stats` at 3 so the check constraint passes it.
+
+  it('carries the flag both ways', () => {
+    const typed = validateSyncRequest(
+      body({ sleep: [{ localDate: DAY, minutes: 430, wasUserEntered: true }] }),
+    );
+    expect(typed.ok).toBe(true);
+    if (typed.ok) expect(typed.value.sleep![0]!.wasUserEntered).toBe(true);
+
+    const measured = validateSyncRequest(
+      body({ sleep: [{ localDate: DAY, minutes: 430, wasUserEntered: false }] }),
+    );
+    expect(measured.ok).toBe(true);
+    if (measured.ok) expect(measured.value.sleep![0]!.wasUserEntered).toBe(false);
+  });
+
+  it('reads an older client, which sends nothing, as not hand-typed', () => {
+    // Which is exactly what happens today, so nothing regresses for an install
+    // that has not updated. Absent is not a claim of manual entry.
+    const result = validateSyncRequest(body({ sleep: [{ localDate: DAY, minutes: 430 }] }));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.sleep![0]!.wasUserEntered).toBe(false);
+  });
+
+  it('rejects a malformed flag rather than coercing it', () => {
+    for (const wasUserEntered of ['true', 1, null]) {
+      const result = validateSyncRequest(
+        body({ sleep: [{ localDate: DAY, minutes: 430, wasUserEntered }] }),
+      );
+      expect(result).toEqual({
+        ok: false,
+        error: 'sleep.wasUserEntered must be a boolean',
+      });
+    }
+  });
+});
+
 describe('affectedDates', () => {
   it('collects distinct dates from buckets and sleep, sorted', () => {
     const result = validateSyncRequest({
@@ -362,7 +403,7 @@ describe('observesWearable', () => {
       observesWearable({
         timezone: MANILA,
         buckets: [],
-        sleep: [{ localDate: DAY, minutes: 7 * 60 }],
+        sleep: [{ localDate: DAY, minutes: 7 * 60, wasUserEntered: false }],
       }),
     ).toBe(true);
   });
@@ -384,7 +425,21 @@ describe('observesWearable', () => {
       observesWearable({
         timezone: MANILA,
         buckets: [],
-        sleep: [{ localDate: DAY, minutes: 0 }],
+        sleep: [{ localDate: DAY, minutes: 0, wasUserEntered: false }],
+      }),
+    ).toBe(false);
+  });
+
+  it('does not count a hand-typed night as a wearable', () => {
+    // Typing a night into the Health app is evidence of *not* owning one, and
+    // the flag is sticky, so this false positive would be permanent. Same flag
+    // §3's capability window reads: a night that cannot make MND earnable
+    // cannot prove a wearable either.
+    expect(
+      observesWearable({
+        timezone: MANILA,
+        buckets: [],
+        sleep: [{ localDate: DAY, minutes: 7 * 60, wasUserEntered: true }],
       }),
     ).toBe(false);
   });
@@ -395,8 +450,8 @@ describe('observesWearable', () => {
         timezone: MANILA,
         buckets: [],
         sleep: [
-          { localDate: '2026-07-26', minutes: 0 },
-          { localDate: DAY, minutes: 400 },
+          { localDate: '2026-07-26', minutes: 0, wasUserEntered: false },
+          { localDate: DAY, minutes: 400, wasUserEntered: false },
         ],
       }),
     ).toBe(true);
@@ -530,6 +585,10 @@ describe('validateSyncRequest — workout sessions', () => {
           durationS: 2_700,
           distanceM: 7_400.5,
           activeKcal: 512.25,
+          // The fixture sends no origin, so the parsed row carries no evidence.
+          sourceBundleId: null,
+          wasUserEntered: false,
+          hasHeartRateEvidence: false,
         },
       ]);
     }
@@ -604,6 +663,99 @@ describe('validateSyncRequest — workout sessions', () => {
     // `totalDistance` is absent on a lifting session, and `read.ts` sends 0.
     const result = validateSyncRequest(body({ sessions: [session({ distanceM: 0 })] }));
     expect(result.ok).toBe(true);
+  });
+
+  it('carries the three origin signals STR verification needs', () => {
+    // The client sends evidence, never a verdict — the allowlist is
+    // server-side (§3), so a forged client cannot promote itself past a list
+    // it does not hold.
+    const result = validateSyncRequest(
+      body({
+        sessions: [
+          session({
+            sourceBundleId: 'com.apple.workout',
+            wasUserEntered: false,
+            hasHeartRateEvidence: true,
+          }),
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sessions![0]).toMatchObject({
+        sourceBundleId: 'com.apple.workout',
+        wasUserEntered: false,
+        hasHeartRateEvidence: true,
+      });
+    }
+  });
+
+  it('carries a hand-typed session through as hand-typed', () => {
+    // Its own assertion, because the false case above is also what an absent
+    // field produces — a test that only ever sends false cannot tell the field
+    // being carried from the field being dropped.
+    const result = validateSyncRequest(
+      body({ sessions: [session({ wasUserEntered: true })] }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.sessions![0]!.wasUserEntered).toBe(true);
+  });
+
+  it('reads an older client, which sends none of them, as no evidence', () => {
+    // Every install in the field predates this field, and its sessions must
+    // still land — the request also carries the day's steps. Absent is not
+    // absent *evidence of objection*: null and false are the honest reading,
+    // and `workoutVerified` shifts nothing for them.
+    const result = validateSyncRequest(body({ sessions: [session()] }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sessions![0]).toMatchObject({
+        sourceBundleId: null,
+        wasUserEntered: false,
+        hasHeartRateEvidence: false,
+      });
+    }
+  });
+
+  it('rejects a malformed origin signal rather than coercing it', () => {
+    // `hadWorkout` and friends use `=== true`, which silently reads the string
+    // "false" as false and the number 0 as false. These three decide whether a
+    // workout may move a score band, so a value that is not what it claims to
+    // be is a malformed payload, not a default.
+    for (const [field, value] of [
+      ['sourceBundleId', 7],
+      ['sourceBundleId', ''],
+      ['wasUserEntered', 'false'],
+      ['wasUserEntered', 0],
+      ['hasHeartRateEvidence', 'true'],
+      ['hasHeartRateEvidence', 1],
+    ] as const) {
+      const result = validateSyncRequest(
+        body({ sessions: [session({ [field]: value })] }),
+      );
+      expect(result.ok, `${field}=${JSON.stringify(value)}`).toBe(false);
+    }
+  });
+
+  it('bounds the bundle identifier, which is client-controlled free text', () => {
+    const result = validateSyncRequest(
+      body({ sessions: [session({ sourceBundleId: 'x'.repeat(256) })] }),
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: 'session.sourceBundleId must be a non-empty string under 256 characters',
+    });
+  });
+
+  it('accepts an explicit null bundle identifier', () => {
+    // `sourceRevision.source.bundleIdentifier` is typed non-optional, but
+    // read.ts crosses a native boundary and coalesces. Null must be a value
+    // the wire accepts, not a rejected payload.
+    const result = validateSyncRequest(
+      body({ sessions: [session({ sourceBundleId: null })] }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.sessions![0]!.sourceBundleId).toBeNull();
   });
 
   it('rounds to what the columns can store', () => {

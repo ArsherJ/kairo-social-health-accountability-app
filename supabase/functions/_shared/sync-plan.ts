@@ -38,6 +38,14 @@ export interface IncomingBucket {
 export interface IncomingSleep {
   localDate: string;
   minutes: number;
+  /**
+   * True when **every** asleep segment behind this date was hand-typed
+   * (`HKWasUserEntered`), per `sleep-attribution.ts`. Stored on
+   * `daily_sleep.was_user_entered`, and gated on server-side: a hand-typed
+   * night scores no MND and does not open §3's capability window. Both, or
+   * the day pays 6,200 against a 4,400 ceiling.
+   */
+  wasUserEntered: boolean;
 }
 
 /** Apple's own per-day resting rate. Wearable users only; absent is normal. */
@@ -62,6 +70,21 @@ export interface IncomingWorkoutSession {
   durationS: number;
   distanceM: number;
   activeKcal: number;
+  /**
+   * `sourceRevision.source.bundleIdentifier`, untranslated. **Evidence, never
+   * a verdict**: `WORKOUT_SOURCE_ALLOWLIST` lives server-side in
+   * `scoring-inputs.ts` so it can change without an app release and so a
+   * forged client cannot promote itself past a list it does not hold (§3).
+   */
+  sourceBundleId: string | null;
+  /** Apple's `HKWasUserEntered`. True makes the session `rejected`. */
+  wasUserEntered: boolean;
+  /**
+   * Whether the session carried heart-rate samples. Required for STR's
+   * threshold shift on top of an allowlisted source, because that shift is
+   * worth up to 25% of a band — see `workoutVerified`.
+   */
+  hasHeartRateEvidence: boolean;
 }
 
 export interface SyncRequest {
@@ -218,6 +241,31 @@ function parseSession(
     }
   }
 
+  // The three origin signals, and the one place in this file that refuses a
+  // value instead of defaulting it. `hadWorkout` and friends use `=== true`,
+  // which quietly reads the string "false" and the number 0 as false; that is
+  // right for a corroborating flag and wrong here, because these three decide
+  // whether a session may move a scoring band. **Absent is still absent**,
+  // though — every install in the field predates this field, and its sessions
+  // have to keep landing. Null and false are the honest reading of silence,
+  // and `workoutVerified` shifts nothing for them.
+  if (s['sourceBundleId'] !== undefined && s['sourceBundleId'] !== null) {
+    // Free text from a client, into a `text` column. Bundle identifiers are
+    // short; anything else is malformed rather than long.
+    if (typeof s['sourceBundleId'] !== 'string' || s['sourceBundleId'].length === 0 ||
+        s['sourceBundleId'].length > 255) {
+      return {
+        ok: false,
+        error: 'session.sourceBundleId must be a non-empty string under 256 characters',
+      };
+    }
+  }
+  for (const field of ['wasUserEntered', 'hasHeartRateEvidence']) {
+    if (s[field] !== undefined && typeof s[field] !== 'boolean') {
+      return { ok: false, error: `session.${field} must be a boolean` };
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -230,6 +278,9 @@ function parseSession(
       durationS: Math.round(s['durationS'] as number),
       distanceM: round2(s['distanceM'] as number),
       activeKcal: round2(s['activeKcal'] as number),
+      sourceBundleId: (s['sourceBundleId'] as string | undefined) ?? null,
+      wasUserEntered: s['wasUserEntered'] === true,
+      hasHeartRateEvidence: s['hasHeartRateEvidence'] === true,
     },
   };
 }
@@ -319,7 +370,21 @@ function parseSleep(
   ) {
     return { ok: false, error: 'sleep.minutes must be an integer 0-1440' };
   }
-  return { ok: true, value: { localDate: s['localDate'], minutes: s['minutes'] } };
+  // Refused rather than coerced, for the reason `parseSession` states: this
+  // flag decides whether the night scores at all, and `=== true` would read
+  // the string "false" as a measured night. Absent stays absent — an install
+  // that predates this field behaves exactly as it does today.
+  if (s['wasUserEntered'] !== undefined && typeof s['wasUserEntered'] !== 'boolean') {
+    return { ok: false, error: 'sleep.wasUserEntered must be a boolean' };
+  }
+  return {
+    ok: true,
+    value: {
+      localDate: s['localDate'],
+      minutes: s['minutes'],
+      wasUserEntered: s['wasUserEntered'] === true,
+    },
+  };
 }
 
 function parseRestingHeartRate(
@@ -426,9 +491,16 @@ export interface DayPlanInput {
  * Zero minutes does not count. It is indistinguishable from no data, and the
  * flag is sticky — a false positive is permanent, and it would light the 🔗
  * icon on the leaderboard for someone who has no wearable at all.
+ *
+ * **Neither does a hand-typed night**, for exactly that reason. Typing eight
+ * hours into the Health app is the clearest possible evidence of *not* owning
+ * a wearable, and it is the one false positive this function could previously
+ * not see: `wasUserEntered` did not cross the wire until the three-stat
+ * switch. It reads the same flag §3's capability window does — a night that
+ * cannot make MND earnable cannot prove a wearable either.
  */
 export function observesWearable(request: SyncRequest): boolean {
-  return (request.sleep ?? []).some((s) => s.minutes > 0);
+  return (request.sleep ?? []).some((s) => s.minutes > 0 && !s.wasUserEntered);
 }
 
 /**

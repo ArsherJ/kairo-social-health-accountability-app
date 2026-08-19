@@ -24,7 +24,11 @@ export async function rescoreDay(
 ): Promise<{ total: number; xp: number; flagged: boolean } | { error: string }> {
   const { userId, localDate, timeZone, now } = args;
 
-  const [buckets, sleep, existing] = await Promise.all([
+  // Sleep is not read here. `readScoringInputs` returns it already gated —
+  // a hand-typed night reads null — and it has to be the same read that
+  // decides §3's capability window, or the two disagree and the day pays
+  // 6,200 against a 4,400 ceiling. Two write paths, one implementation.
+  const [buckets, existing] = await Promise.all([
     admin
       .from('health_buckets')
       .select(
@@ -32,12 +36,6 @@ export async function rescoreDay(
       )
       .eq('user_id', userId)
       .eq('local_date', localDate),
-    admin
-      .from('daily_sleep')
-      .select('minutes')
-      .eq('user_id', userId)
-      .eq('local_date', localDate)
-      .maybeSingle(),
     admin
       .from('daily_scores')
       .select('status')
@@ -84,7 +82,7 @@ export async function rescoreDay(
     buckets: hourBuckets,
     hadWorkoutHours: workoutHours,
     elevatedHeartRateHours: heartRateHours,
-    sleepMinutes: sleep.data ? Number(sleep.data.minutes) : null,
+    sleepMinutes: scoringInputs.sleepMinutes,
     earnableStats: scoringInputs.earnableStats,
     verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
     existingStatus,

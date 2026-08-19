@@ -1,8 +1,13 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.58.0';
 import {
+  DAILY_SLEEP_SELECT,
+  WORKOUT_SESSION_SELECT,
   capabilityWindowStart,
   earnableStatsFor,
+  scoringSleepDates,
+  scoringSleepMinutes,
   verifiedWorkoutMinutesFrom,
+  type DailySleepRow,
   type WorkoutSessionRow,
 } from './scoring-inputs.ts';
 
@@ -22,6 +27,17 @@ import {
 export interface ScoringInputs {
   earnableStats: number;
   verifiedWorkoutMinutes: number;
+  /**
+   * The scored date's sleep as `planDay` should see it, **already gated** — a
+   * hand-typed night reads null here.
+   *
+   * It lives here rather than in each handler's own `daily_sleep` read because
+   * the gate and §3's capability window have to agree, and they only agree if
+   * one predicate answers both. Two handlers reading sleep two ways is how the
+   * 6,200-against-4,400 breach returns: a night that scores MND while the
+   * window excludes it gives the day three contributing stats and two earnable.
+   */
+  sleepMinutes: number | null;
 }
 
 /**
@@ -43,33 +59,32 @@ export async function readScoringInputs(
   const { userId, localDate } = args;
 
   const [sleepHistory, sessions] = await Promise.all([
-    // §3's capability window: has any sleep that SCORES landed in the 14 days
-    // ending on the date being scored?
+    // §3's capability window, **unfiltered on purpose**. The window is
+    // inclusive of the scored date, so these same rows answer both questions:
+    // which nights make MND earnable, and how many minutes the scored date
+    // itself contributes. One query, one predicate, and therefore no way for
+    // the two answers to disagree — which is the 6,200 breach.
     //
-    // Zero minutes is indistinguishable from no data, and an explicitly
-    // hand-typed night is `rejected` by `sampleTrust` and scores nothing —
-    // counting it would hand the user three earnable stats and only two that
-    // can score, factor 1.0 where 1.5 is owed. That filter is user-protective,
-    // not anti-cheat. `not.is.true` and not `eq.false` on purpose: every row
-    // written before the expand migration has the column NULL, and NULL must
-    // stay eligible. A *flagged* night still counts — if a night scores MND it
-    // must make MND earnable, which is the 6,200 breach resolved the other way
-    // in Phase 1.
+    // The filtering that used to live in this query (`gt('minutes', 0)`,
+    // `not('was_user_entered', 'is', true)`) moved into `scoringSleepDates`
+    // and `scoringSleepMinutes`, where it is tested in plain Node. A decision
+    // in a PostgREST chain in this file is a decision no test can reach — the
+    // whole reason the pure/`.deno.ts` seam exists. The hand-typed row is
+    // still read rather than filtered away, so the gate is legible at the
+    // point it is applied.
     admin
       .from('daily_sleep')
-      .select('local_date')
+      .select(DAILY_SLEEP_SELECT)
       .eq('user_id', userId)
       .gte('local_date', capabilityWindowStart(localDate))
-      .lte('local_date', localDate)
-      .gt('minutes', 0)
-      .not('was_user_entered', 'is', true),
+      .lte('local_date', localDate),
     // Verified workout minutes for this date. The allowlist is applied here,
     // server-side, on purpose (§3) — a pure function could not reach it, and a
     // client that decided its own verification would be deciding its own
     // score.
     admin
       .from('workout_sessions')
-      .select('duration_s, source_bundle_id, was_user_entered, has_heart_rate_evidence')
+      .select(WORKOUT_SESSION_SELECT)
       .eq('user_id', userId)
       .eq('local_date', localDate),
   ]);
@@ -78,14 +93,18 @@ export async function readScoringInputs(
     if (result.error) return { error: result.error.message };
   }
 
-  const scoringSleepDates = (sleepHistory.data ?? []).map(
-    (r) => r.local_date as string,
-  );
+  // Both select strings are constants derived from these row types, and both
+  // sides of that pairing are guarded — `satisfies` at compile time, and a
+  // test that builds its fixtures by parsing the strings. A cast checks
+  // nothing, and a drifted select would read `undefined` on every field: a
+  // zero STR shift and an unscored night, with no error anywhere.
+  const sleepRows = (sleepHistory.data ?? []) as unknown as DailySleepRow[];
 
   return {
-    earnableStats: earnableStatsFor(scoringSleepDates, localDate),
+    earnableStats: earnableStatsFor(scoringSleepDates(sleepRows), localDate),
+    sleepMinutes: scoringSleepMinutes(sleepRows, localDate),
     verifiedWorkoutMinutes: verifiedWorkoutMinutesFrom(
-      (sessions.data ?? []) as WorkoutSessionRow[],
+      (sessions.data ?? []) as unknown as WorkoutSessionRow[],
     ),
   };
 }

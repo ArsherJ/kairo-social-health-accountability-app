@@ -119,6 +119,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         user_id: userId,
         local_date: s.localDate,
         minutes: s.minutes,
+        // Origin, not a verdict. True only when every asleep segment behind
+        // the date was hand-typed — the decision is `sleep-attribution.ts`'s,
+        // because `daily_sleep` holds one row per date and the segments are
+        // gone by the time this row exists. `readScoringInputs` gates on it.
+        was_user_entered: s.wasUserEntered,
         updated_at: now.toISOString(),
       })),
       { onConflict: 'user_id,local_date' },
@@ -148,9 +153,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // upserts rather than duplicating and a workout Apple later revises flows
   // through exactly the way retroactive step revisions already do.
   //
-  // Nothing below reads this, and no score depends on it — the same posture
-  // strain takes. A run still earns AGI through its steps; pace never enters
-  // `daily_scores`, which is what keeps score replay safe.
+  // A run still earns AGI through its steps; pace never enters `daily_scores`,
+  // which is what keeps score replay safe. What *does* reach scoring, as of
+  // the three-stat switch, is the origin trio below — read back by
+  // `readScoringInputs` for §3's STR threshold shift, never trusted from this
+  // payload directly. The client sends evidence; the allowlist that turns
+  // evidence into verification lives server-side.
   if (request.sessions && request.sessions.length > 0) {
     const { error } = await admin.from('workout_sessions').upsert(
       request.sessions.map((s) => ({
@@ -163,6 +171,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         duration_s: s.durationS,
         distance_m: s.distanceM,
         active_kcal: s.activeKcal,
+        source_bundle_id: s.sourceBundleId,
+        was_user_entered: s.wasUserEntered,
+        has_heart_rate_evidence: s.hasHeartRateEvidence,
         updated_at: now.toISOString(),
       })),
       { onConflict: 'user_id,hk_uuid' },
@@ -173,7 +184,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Read the FULL day back rather than scoring the payload alone. A sync
   // carrying only hour 14 must still be scored against every other hour
   // already stored, or the day's total would collapse to that one hour.
-  const [bucketsResult, sleepResult, existingResult] =
+  //
+  // Sleep is deliberately **not** read here any more. It comes back per date
+  // from `readScoringInputs`, already gated: a hand-typed night reads null.
+  // Reading it separately is how the gate gets bypassed — the row is there,
+  // with real minutes on it, and an innocent-looking `sleepByDate.get(date)`
+  // scores MND while §3's capability window excludes the same night, which is
+  // 6,200 against a 4,400 ceiling.
+  const [bucketsResult, existingResult] =
     await Promise.all([
       admin
         .from('health_buckets')
@@ -183,18 +201,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .eq('user_id', userId)
         .in('local_date', dates),
       admin
-        .from('daily_sleep')
-        .select('local_date, minutes')
-        .eq('user_id', userId)
-        .in('local_date', dates),
-      admin
         .from('daily_scores')
         .select('local_date, status')
         .eq('user_id', userId)
         .in('local_date', dates),
     ]);
 
-  for (const result of [bucketsResult, sleepResult, existingResult]) {
+  for (const result of [bucketsResult, existingResult]) {
     if (result.error) return fail(`read failed: ${result.error.message}`, 500);
   }
 
@@ -221,10 +234,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       heartRateHoursByDate.get(date)!.add(row.hour as number);
     }
   }
-
-  const sleepByDate = new Map<string, number>(
-    (sleepResult.data ?? []).map((r) => [r.local_date as string, Number(r.minutes)]),
-  );
 
   const statusByDate = new Map<string, 'provisional' | 'final'>(
     (existingResult.data ?? []).map((r) => [
@@ -261,7 +270,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       buckets: bucketsByDate.get(date) ?? [],
       hadWorkoutHours: workoutHoursByDate.get(date) ?? new Set(),
       elevatedHeartRateHours: heartRateHoursByDate.get(date) ?? new Set(),
-      sleepMinutes: sleepByDate.get(date) ?? null,
+      sleepMinutes: scoringInputs.sleepMinutes,
       earnableStats: scoringInputs.earnableStats,
       verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
       existingStatus: statusByDate.get(date) ?? null,
