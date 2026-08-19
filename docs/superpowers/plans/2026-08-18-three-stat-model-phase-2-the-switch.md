@@ -760,6 +760,36 @@ comparison logic** — have `tierFor` delegate to `shiftedTierFor(stat, raw, 0)`
 **not** normalized — spec §2 scales stat points, and the bonus already accounts
 for earnable stats through its own full-breadth rule.
 
+- [ ] **Step 4b: Own the three gaps Task 3's review surfaced**
+
+These are not optional cleanups. Each is a real hole that Task 3 could not
+close within its own scope, and each becomes wrong — not merely untidy — the
+moment END and VIT are gone.
+
+**(a) `resolveStatDetail` must stop skipping MND.** Task 3 added an explicit
+MND skip in `src/features/character/stat-detail.ts` because `DayTotals` carries
+no sleep field, and a naive MND arm reported a bogus "5 hours more sleep" gap on
+a fully-maxed day. That skip was right for a transitional fifth stat. With three
+stats it silently omits **a third of the stat model** from the home screen's gap
+hint, permanently. Thread the day's sleep minutes into that screen so MND
+reports a real gap, or — if the data genuinely cannot reach it — return
+`{ kind: 'maxed' }`-style neutrality *deliberately*, with a comment saying why.
+Do not leave the skip unexamined.
+
+**(b) `CONSISTENCY_BONUS` must be re-indexed, and this is the step that does
+it.** Task 3 left it at indices 0–4, so a five-stat day falls off the end and
+pays 0 — less than a four-stat day's 800, inverting the breadth reward. Step 3
+above sets it to `[0, 0, 400, 800]`. Verify the array length matches
+`CORE_STATS.length + 1` and add a test that the top index pays 800, so the next
+person to change the stat count gets a failure rather than a silent zero.
+
+**(c) `nextTierFor('MND', …)` is a landmine.** It reads the linear `THRESHOLDS`
+table with no oversleep flattening, so it reports an eleven-hour night as
+"already gold" when `mindTierFor` scores it Bronze. It is dead code today only
+because `resolveStatDetail` skips MND — and (a) removes that skip. Fix them
+together: `nextTierFor` must agree with `mindTierFor` for MND, or must refuse to
+answer for MND. A test pinning the eleven-hour case is required either way.
+
 - [ ] **Step 5: Sweep the consumers and drop the columns from `sync-plan`**
 
 Remove `END`/`VIT` entries from every `Record<CoreStat, …>` literal Task 3
