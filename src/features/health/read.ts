@@ -327,7 +327,16 @@ export async function readHealthWindow(
       // present: this is a native boundary, and the whole sync — steps
       // included — dies on a property read against an undefined object. Same
       // reasoning as the try/catch above; the honest fallback is no evidence.
-      sourceBundleId: workout.sourceRevision?.source?.bundleIdentifier ?? null,
+      //
+      // `|| null` rather than `?? null`, so an **empty** identifier is inert
+      // too. The validator refuses `''` deliberately — a bundle id that is
+      // present and blank is malformed, and the client should stop producing
+      // it rather than the server start tolerating it — but the validator's
+      // refusal rejects the *whole request*, and this repo has already lost
+      // two days of scoring to a sync that failed after its bucket upsert had
+      // committed. An odd identifier costs a workout its STR shift; it must
+      // not cost the day its steps.
+      sourceBundleId: workout.sourceRevision?.source?.bundleIdentifier || null,
       // `HKWasUserEntered` is `boolean | undefined`. Undefined is absence of a
       // flag, not a flag set to false, and both mean the same thing here.
       wasUserEntered: workout.metadata?.HKWasUserEntered === true,
