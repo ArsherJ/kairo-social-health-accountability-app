@@ -4,14 +4,17 @@ import { space } from '@/theme.ts';
 import { StatCoin, STAT_NAMES } from '@/ui/index.ts';
 
 /**
- * The four stats as a rail of coins down the edge of the diorama.
+ * The core stats as a rail of coins down the edge of the diorama.
  *
- * It replaced a row of four chips under the figure. The row had to compress
- * four numbers, four meters and four tier names into a phone's width, which
- * made every one of them small; the rail only ever has to say *which stat* and
+ * It replaced a row of chips under the figure. The row had to compress a
+ * number, a meter and a tier name per stat into a phone's width, which made
+ * every one of them small; the rail only ever has to say *which stat* and
  * *how far along*, and hands the numbers to the detail below. That is also why
- * this is one control rather than four — the coins are a summary you tap to
- * open, not four separate buttons.
+ * this is one control rather than several — the coins are a summary you tap to
+ * open, not separate buttons.
+ *
+ * It renders `CORE_STATS`, so it went from four coins to three with deviation
+ * #41 and needed no edit — including its composed label, which shrank with it.
  */
 export function StatRail({
   ratings,
@@ -54,6 +57,6 @@ export function StatRail({
 const styles = StyleSheet.create({
   rail: { gap: space.sm },
   // The coins are 54pt, comfortably over the 44pt target, and the rail as a
-  // whole is one control — so the tappable area is the four of them together.
+  // whole is one control — so the tappable area is all of them together.
   slot: {},
 });

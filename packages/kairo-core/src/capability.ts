@@ -28,16 +28,26 @@ import { addDays } from './day.ts';
 export const SLEEP_CAPABILITY_WINDOW_DAYS = 14;
 
 /**
- * `trustedSleepDates` are local dates (`YYYY-MM-DD`) on which trusted sleep
- * data arrived. Untrusted nights must not be passed here — see `trust.ts`.
+ * `scoringSleepDates` are local dates (`YYYY-MM-DD`) on which sleep data that
+ * **scores** arrived — trusted or flagged, per `scoresAtAll`. Only nights
+ * rejected as hand-typed are excluded.
+ *
+ * **This was resolved the other way in Phase 1 and corrected here.** If a
+ * night scores MND, it must also make MND earnable. Excluding flagged nights
+ * from capability while still scoring them lets a user earn three stats and be
+ * normalized as a two-stat user: (1,200 x 3) x 1.5 + 800 = 6,200, against a
+ * stated ceiling of 4,400. The consequence is deliberate — the allowlist no
+ * longer affects score at all, and survives as the `flagged` social signal
+ * (§20) it was always documented to be.
+ *
  * Lexicographic comparison is exact for this format.
  */
 export function hasSleepCapability(
-  trustedSleepDates: readonly string[],
+  scoringSleepDates: readonly string[],
   today: string,
 ): boolean {
   const windowStart = addDays(today, -(SLEEP_CAPABILITY_WINDOW_DAYS - 1));
-  return trustedSleepDates.some((date) => date >= windowStart && date <= today);
+  return scoringSleepDates.some((date) => date >= windowStart && date <= today);
 }
 
 export function earnableStats(hasSleep: boolean): number {

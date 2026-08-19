@@ -51,10 +51,12 @@ const BUILDS: Record<Exclude<Dominance, null>, Build> = {
   AGI: { shoulders: 0.86, torso: 0.84, height: 1.0, shade: ramp.sage[700], weight: -0.03, stance: 0 },
   // "Broader silhouette, power aura intensifies."
   STR: { shoulders: 1.18, torso: 1.14, height: 0.94, shade: colors.damage, weight: 0.07, stance: 0 },
-  // "Endurance stance" — the particle effect needs Rive, the stance does not.
-  END: { shoulders: 1.0, torso: 0.98, height: 1.12, shade: ramp.sage[800], weight: 0.04, stance: 58 },
-  // "Recovery glow, healthier skin tone."
-  VIT: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
+  // §6's "recovery glow, healthier skin tone", inherited from the VIT build
+  // this replaces. MND has no table entry of its own — it joined as a stat in
+  // roadmap deviation #41, long after §6 was written — and the recovery build
+  // is the nearest thing §6 describes, which makes it a better placeholder
+  // than a neutral frame that would read as "no dominance at all".
+  MND: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
   // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, evenly
   // proportioned, and the only build that earns the ring.
   balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: earnedColor, weight: 0.03, stance: 34 },

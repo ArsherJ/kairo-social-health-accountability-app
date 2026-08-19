@@ -9,8 +9,7 @@ import {
 export const STAT_UNITS: Record<CoreStat, string> = {
   AGI: 'steps',
   STR: 'kcal',
-  END: 'active minutes',
-  VIT: 'active hours',
+  MND: 'minutes of sleep',
 };
 
 /**
@@ -23,32 +22,31 @@ export const STAT_UNITS: Record<CoreStat, string> = {
  * more lines on the densest screen in the app, to explain numbers that are
  * already explained there.
  *
- * VIT's is the one that matters most and the one the app most conspicuously
- * never said. It is not "move a bit more" — it is that a single long workout
- * does not buy off a day spent sitting, which is a different claim and the
- * actual reason the stat exists.
+ * AGI's carries what VIT's used to, and it has to: spreading movement across
+ * the day is now the thing that makes Agility's bands easier rather than a
+ * stat of its own (deviation #41), and it is the claim the app most
+ * conspicuously never made — a single long workout does not buy off a day
+ * spent sitting.
  */
 export const STAT_WHY: Record<CoreStat, string> = {
-  AGI: 'Daily step count is one of the strongest single predictors of long-term health — more than almost anything else you can measure this easily.',
-  STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked.',
-  END: 'Sustained effort, rather than a burst of it. This one rides Apple’s exercise minutes, so a watch reads it far better than a phone in a pocket.',
-  VIT: 'How many hours you moved in at all. Moving every hour matters more than one long workout — sitting still the rest of the day carries its own risk, independent of how hard you trained.',
+  AGI: 'Daily step count is one of the strongest single predictors of long-term health — more than almost anything else you can measure this easily. Spreading those steps across the day counts for more than one long walk: sitting still the rest of the day carries its own risk.',
+  STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked — and a tracked workout makes this one easier to top out.',
+  MND: 'Sleep is when training becomes strength. Seven hours tops it out, and a very long night still counts — recovery is never punished.',
 };
 
 /**
  * The same units when there is exactly one left to do.
  *
- * Not a nicety: VIT's bands are 3/6/9 active hours, so a gap of 1 is the
- * *common* VIT case, and "1 more active hours tops out your Vitality today" is
- * the sentence a user is most likely to meet. `kcal` is invariant — "1 more
- * kcal" is already right — and is listed anyway so this table stays a total
- * function over `CoreStat` rather than a partial one with a fallback.
+ * Not a nicety: a gap of exactly one is reachable on every stat, and "1 more
+ * minutes of sleep" is the sentence a user would otherwise meet. `kcal` is
+ * invariant — "1 more kcal" is already right — and is listed anyway so this
+ * table stays a total function over `CoreStat` rather than a partial one with
+ * a fallback.
  */
 const STAT_UNITS_SINGULAR: Record<CoreStat, string> = {
   AGI: 'step',
   STR: 'kcal',
-  END: 'active minute',
-  VIT: 'active hour',
+  MND: 'minute of sleep',
 };
 
 /**
@@ -90,16 +88,32 @@ export type StatDetail =
       unit: string;
     };
 
-function rawFor(stat: CoreStat, totals: DayTotals): number {
+/**
+ * A stat's raw value for today.
+ *
+ * `sleepMinutes` is a second argument rather than a field on `DayTotals`
+ * because it is genuinely a different query: `DayTotals` is
+ * `aggregateBuckets` over `health_buckets`, and sleep lives in `daily_sleep`.
+ * `useTodayVitals` already reads it on this screen, so threading it here costs
+ * nothing and closes the one hole MND had while it was a transitional stat.
+ *
+ * **`null` is not zero.** No sleep row means the night is unknown, and
+ * inventing a "0 minutes" raw value would put MND permanently at the bottom
+ * of the "closest gap" ranking and let it win the guidance line over stats
+ * with real progress. `resolveStatDetail` skips the stat instead.
+ */
+function rawFor(
+  stat: CoreStat,
+  totals: DayTotals,
+  sleepMinutes: number | null,
+): number | null {
   switch (stat) {
     case 'AGI':
       return totals.steps;
     case 'STR':
       return totals.activeKcal;
-    case 'END':
-      return totals.activeMinutes;
-    case 'VIT':
-      return totals.activeHours;
+    case 'MND':
+      return sleepMinutes;
   }
 }
 
@@ -119,9 +133,17 @@ function rawFor(stat: CoreStat, totals: DayTotals): number {
  */
 export function resolveStatDetail({
   totals,
+  sleepMinutes,
   lane,
 }: {
   totals: DayTotals | undefined;
+  /**
+   * Today's attributed sleep, or null when no row exists. `undefined` while
+   * the query is in flight — treated exactly like null, because both mean
+   * "nothing to say about Mind yet" and neither is a reason to hold the whole
+   * line back.
+   */
+  sleepMinutes?: number | null;
   lane: CoreStat | null;
 }): StatDetail {
   if (!totals) return { kind: 'unknown' };
@@ -137,9 +159,15 @@ export function resolveStatDetail({
 
   const open: Open[] = [];
   for (const stat of CORE_STATS) {
-    const raw = rawFor(stat, totals);
+    const raw = rawFor(stat, totals, sleepMinutes ?? null);
+    // Unknown, not zero — see rawFor. A stat with no measurement has no gap
+    // worth naming, and a fabricated 0 would make it win the "closest gap"
+    // pick over stats with real progress.
+    if (raw === null) continue;
     const next = nextTierFor(stat, raw);
-    // null means this stat is already at Gold, which has nothing to ask for.
+    // null means there is nothing more to ask for: Gold in the ordinary case,
+    // and for MND also a night past the oversleep threshold, where no amount
+    // of extra sleep recovers the top band. Either way the stat is closed.
     if (!next) continue;
     // The true band width is (threshold - bandLow), not (threshold - 0):
     // gap / (gap + raw) is a fraction of the target value, which only equals
@@ -158,9 +186,10 @@ export function resolveStatDetail({
 
   const preferred = lane ? open.find((c) => c.stat === lane) : undefined;
 
-  // Gaps live in different units — one active hour is not comparable to twenty
-  // kcal — so "closest" means furthest through the current band, not smallest
-  // raw number. The strict `<` leaves CORE_STATS order breaking exact ties.
+  // Gaps live in different units — twenty kcal is not comparable to twenty
+  // minutes of sleep — so "closest" means furthest through the current band,
+  // not smallest raw number. The strict `<` leaves CORE_STATS order breaking
+  // exact ties.
   const closest = open.reduce((best, c) => (c.remaining < best.remaining ? c : best));
 
   const chosen = preferred ?? closest;

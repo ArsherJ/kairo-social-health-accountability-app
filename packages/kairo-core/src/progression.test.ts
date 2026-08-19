@@ -39,7 +39,7 @@ describe('levelForXp', () => {
 
 describe('curve calibration', () => {
   // A committed player earns roughly 95-140 XP/day (see the XP tests in
-  // scoring.test.ts: 10/25/50 per bronze/silver/gold across four stats).
+  // scoring.test.ts: 10/25/50 per bronze/silver/gold across the core stats).
   const TYPICAL_DAILY_XP = 100;
   const days = (n: number) => levelForXp(TYPICAL_DAILY_XP * n);
 

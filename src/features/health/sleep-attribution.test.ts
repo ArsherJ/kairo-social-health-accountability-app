@@ -27,7 +27,7 @@ describe('sleepMinutesByDate', () => {
 
   it('sums a simple night and attributes it to the wake date', () => {
     // 23:00 on 1 Aug to 07:00 on 2 Aug is eight hours of sleep "for" 2 Aug,
-    // which is how Apple Health frames it and what recBonusFor expects.
+    // which is how Apple Health frames it and what MND's bands expect.
     const result = sleepMinutesByDate(
       [segment(manila(1, 23), manila(2, 7), 1)],
       NIGHT_DATES,

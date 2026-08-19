@@ -81,7 +81,7 @@ export default function ProgressHelp() {
         </View>
       ))}
 
-      {/* The four stats, and why each one is worth measuring. Kairo has always
+      {/* Every stat, and why each one is worth measuring. Kairo has always
           had this reasoning in its spec and has never said it out loud — the
           stats read as arbitrary game currencies without it. This is the sheet
           for it: the reader is already here asking what the numbers mean. */}
@@ -117,8 +117,9 @@ export default function ProgressHelp() {
       ))}
 
       <Text style={styles.footnote}>
-        Bonuses sit on top of the daily score: a little extra for moving in all
-        four stats on one day, and for sleeping well if Kairo can see it.
+        A bonus sits on top of the daily score for covering every stat you can
+        earn in one day — two without a sleep tracker, three with. A tracker
+        buys another way to reach the same daily best, never a higher one.
       </Text>
     </Screen>
   );

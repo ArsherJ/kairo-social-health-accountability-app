@@ -27,10 +27,17 @@ export function walkHistoryKey(userId: string | undefined, today: string | undef
 /**
  * The trailing window of days, as "did the walk clear".
  *
- * Reads `tiers->>'AGI'`, which *is* "≥ 10,000 steps" — `DAILY_STEP_BASELINE` is
- * derived from the AGI Gold threshold precisely so this reading is exact.
- * `daily_scores` stores tiers and never raw steps, so this is the whole reason
- * the walk streak needs no new column and no new sync.
+ * Reads `tiers->>'AGI_base'`, the **unshifted** AGI ladder, which *is*
+ * "≥ 10,000 steps" — `DAILY_STEP_BASELINE` is derived from the AGI Gold
+ * threshold precisely so this reading is exact. `daily_scores` stores tiers and
+ * never raw steps, so this is the whole reason the walk streak needs no new
+ * column and no new sync.
+ *
+ * **Not `tiers->>'AGI'`.** That is the scoring tier, and the spread shift can
+ * bring it to gold at 7,500 steps — the walk baseline is a public-health number
+ * and must not move with the user. Rows written before the three-stat switch
+ * carry no `AGI_base`; they fall back to `AGI`, which for them is the same
+ * thing, because no shift existed when they were scored.
  *
  * Today's own row comes back with the rest and is ignored by `dailyWalkState`,
  * which decides today from live steps instead — today's score is still being
@@ -60,7 +67,7 @@ export function useWalkHistory(userId: string | undefined, timeZone: string | un
 
       return rows.map((row) => ({
         localDate: row.local_date,
-        met: row.tiers?.AGI === 'gold',
+        met: (row.tiers?.AGI_base ?? row.tiers?.AGI) === 'gold',
       }));
     },
   });

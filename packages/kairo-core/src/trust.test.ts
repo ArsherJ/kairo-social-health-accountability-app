@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sampleTrust, scoresAtAll } from './trust.ts';
+import { sampleTrust, scoresAtAll, workoutVerified } from './trust.ts';
 
 const ALLOWLIST = ['com.apple.health.watch', 'com.ouraring.oura', 'com.northcube.sleepcycle'];
 
@@ -51,5 +51,60 @@ describe('scoresAtAll', () => {
     expect(scoresAtAll('trusted')).toBe(true);
     expect(scoresAtAll('flagged')).toBe(true);
     expect(scoresAtAll('rejected')).toBe(false);
+  });
+});
+
+describe('workoutVerified', () => {
+  const ALLOW = ['com.apple.health.watch'];
+
+  it('verifies an allowlisted session carrying heart-rate evidence', () => {
+    expect(
+      workoutVerified(
+        { wasUserEntered: false, sourceBundleId: 'com.apple.health.watch', hasHeartRateEvidence: true },
+        ALLOW,
+      ),
+    ).toBe(true);
+  });
+
+  // Both signals, not either. STR's shift is worth up to 25% of a band, which
+  // is too much to hand to an unverified claim.
+  it('refuses an allowlisted session with no heart-rate evidence', () => {
+    expect(
+      workoutVerified(
+        { wasUserEntered: false, sourceBundleId: 'com.apple.health.watch', hasHeartRateEvidence: false },
+        ALLOW,
+      ),
+    ).toBe(false);
+  });
+
+  it('refuses an unknown source even with heart-rate evidence', () => {
+    expect(
+      workoutVerified(
+        { wasUserEntered: false, sourceBundleId: 'com.unknown.app', hasHeartRateEvidence: true },
+        ALLOW,
+      ),
+    ).toBe(false);
+  });
+
+  it('refuses a hand-typed session outright', () => {
+    expect(
+      workoutVerified(
+        { wasUserEntered: true, sourceBundleId: 'com.apple.health.watch', hasHeartRateEvidence: true },
+        ALLOW,
+      ),
+    ).toBe(false);
+  });
+
+  // The specific hole the Phase 1 final review identified: scoresAtAll is the
+  // sleep rule and treats a flagged sample as scoring. A workout must not
+  // inherit it.
+  it('is stricter than scoresAtAll, which flagged samples pass', () => {
+    const unknown = {
+      wasUserEntered: false,
+      sourceBundleId: 'com.unknown.app',
+      hasHeartRateEvidence: true,
+    };
+    expect(scoresAtAll(sampleTrust(unknown, ALLOW))).toBe(true);
+    expect(workoutVerified(unknown, ALLOW)).toBe(false);
   });
 });

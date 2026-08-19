@@ -5,7 +5,14 @@ import type { HourBucket } from './types.ts';
 const MANILA = 'Asia/Manila';
 const DAY = '2026-07-27';
 
-/** A gym day: AGI bronze, STR gold, END silver, VIT silver, 4-stat bonus = 2,900. */
+/**
+ * A gym day: 2,000 steps spread over six active hours, 450 kcal, 45 exercise
+ * minutes.
+ *
+ * Under the three-stat model that is AGI bronze (250) — the six active hours
+ * shift its bands 15% and 2,000 still does not reach the 4,250 silver — plus
+ * STR gold (1,200), no sleep, and a two-of-three breadth bonus of 400. 1,850.
+ */
 function gymDay(): HourBucket[] {
   const buckets: HourBucket[] = [];
   for (let hour = 0; hour < 6; hour++) {
@@ -29,8 +36,8 @@ describe('computeDay', () => {
       buckets: gymDay(),
     });
 
-    expect(result.score.healthTotal).toBe(2_900);
-    expect(result.total).toBe(2_900);
+    expect(result.score.healthTotal).toBe(1_850);
+    expect(result.total).toBe(1_850);
   });
 
   it('is provisional before the grace window closes', () => {
@@ -55,7 +62,7 @@ describe('computeDay', () => {
 
   it('scores base points with no featured stat by default (deviation #10)', () => {
     // 2026-07-27 is a Monday in ISO week 31, which the retired rotation would
-    // have made an END week (31 - 1 = 30, 30 % 4 = 2 -> END). Squad programs
+    // have made an AGI week (31 - 1 = 30, 30 % 3 = 0 -> AGI). Squad programs
     // carry the meta now, at read time, so stored points must be pre-multiplier.
     const result = computeDay({
       localDate: DAY,
@@ -64,8 +71,8 @@ describe('computeDay', () => {
       buckets: gymDay(),
     });
     expect(result.score.featuredStat).toBeNull();
-    expect(result.score.stats.END.base).toBe(500);
-    expect(result.score.stats.END.points).toBe(500);
+    expect(result.score.stats.AGI.base).toBe(250);
+    expect(result.score.stats.AGI.points).toBe(250);
   });
 
   it('honours an explicitly supplied featured stat', () => {
@@ -77,7 +84,38 @@ describe('computeDay', () => {
       featuredStat: 'STR',
     });
     expect(result.score.featuredStat).toBe('STR');
-    expect(result.score.stats.STR.points).toBe(1_350);
+    expect(result.score.stats.STR.points).toBe(1_800);
+  });
+
+  // The two inputs `sync-health` fills in during Phase 3. They are forwarded
+  // rather than derived — deriving either would need a clock and I/O, which is
+  // the one thing this package may not have.
+  it('forwards earnableStats to the scorer', () => {
+    const base = {
+      localDate: DAY,
+      timeZone: MANILA,
+      now: new Date('2026-07-27T12:00:00Z'),
+      buckets: gymDay(),
+    };
+    expect(computeDay(base).score.normalizationFactor).toBe(1);
+    expect(computeDay({ ...base, earnableStats: 2 }).score.normalizationFactor).toBe(1.5);
+  });
+
+  it('forwards verifiedWorkoutMinutes to the scorer', () => {
+    const base = {
+      localDate: DAY,
+      timeZone: MANILA,
+      now: new Date('2026-07-27T12:00:00Z'),
+      // 300 kcal: STR silver unshifted, gold once 60 verified minutes lower
+      // the band to 300.
+      buckets: [
+        { hour: 0, steps: 0, distanceM: 0, activeKcal: 300, activeMinutes: 60 },
+      ] as HourBucket[],
+    };
+    expect(computeDay(base).score.stats.STR.tier).toBe('silver');
+    expect(
+      computeDay({ ...base, verifiedWorkoutMinutes: 60 }).score.stats.STR.tier,
+    ).toBe('gold');
   });
 
   it('scores a rest day as zero, never negative', () => {

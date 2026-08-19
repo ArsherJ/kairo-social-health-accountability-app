@@ -2096,28 +2096,41 @@ describe('leaderboard program weighting', () => {
     return rows[0]!;
   }
 
-  const DAY = { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 };
+  // A three-stat day: AGI gold, STR silver, and full breadth. `end`/`vit` are
+  // 0 because nothing writes them any more (deviation #41).
+  const DAY = { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 };
 
   it('leaves an all_around board unweighted', async () => {
-    expect((await boardWith('all_around', DAY)).total).toBe(3_200);
+    expect((await boardWith('all_around', DAY)).total).toBe(2_650);
   });
 
   it('boosts AGI on a running board', async () => {
-    expect((await boardWith('running', DAY)).total).toBe(3_650);
+    expect((await boardWith('running', DAY)).total).toBe(3_250);
   });
 
   it('boosts STR on a strength board', async () => {
-    expect((await boardWith('strength', DAY)).total).toBe(3_450);
+    expect((await boardWith('strength', DAY)).total).toBe(2_975);
   });
 
-  it('boosts VIT on a walking board', async () => {
-    expect((await boardWith('walking', DAY)).total).toBe(3_650);
+  // Walking boosted VIT until deviation #41 retired that stat; its
+  // hourly-movement signal now lowers AGI's bands instead. A walking board
+  // weighting p_vit would be weighting a column nothing writes.
+  it('boosts AGI on a walking board', async () => {
+    const agiOnly = { agi: 1_200, str: 0, end: 0, vit: 0 };
+    expect((await boardWith('walking', agiOnly)).total).toBe(1_800);
   });
 
-  it('never boosts END, on any program', async () => {
-    const endOnly = { agi: 0, str: 0, end: 900, vit: 0 };
+  // Knowingly unweighted in SQL until Phase 3 gives program_weighted_total a
+  // p_mind parameter — the signature change ships with the column drops. This
+  // pins the gap so it is a decision on record rather than a surprise.
+  it('does not yet boost anything on a recovery board', async () => {
+    expect((await boardWith('recovery', DAY)).total).toBe(2_650);
+  });
+
+  it('never boosts the retired columns, on any program', async () => {
+    const retiredOnly = { agi: 0, str: 0, end: 900, vit: 900 };
     for (const program of SQUAD_PROGRAMS) {
-      expect((await boardWith(program, endOnly)).total).toBe(900);
+      expect((await boardWith(program, retiredOnly)).total).toBe(1_800);
     }
   });
 
@@ -2204,16 +2217,23 @@ describe('program weights agree with kairo-core', () => {
   // packages/kairo-core/src/program.ts are two implementations of one rule,
   // because a migration cannot import TypeScript. This is the
   // finalizable_days() / isFinalizable() precedent applied to the weights.
+  // `end`, `vit` and `rec` stay in the fixtures because the COLUMNS still
+  // exist and the SQL still sums them — a historical row holds real values
+  // there, and a board that stopped counting them would rewrite the past.
+  // What no fixture may do is give them a value the TypeScript side cannot
+  // see: `weightedBoardTotal` takes a Record<CoreStat, number> and CoreStat no
+  // longer has END or VIT, so the two would diverge by exactly those points.
+  // They are pinned at 0 for that reason, not for tidiness.
   const FIXTURES = [
     { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0 },
-    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 },
-    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500 },
-    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0 },
+    { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 },
+    { agi: 1_200, str: 1_200, end: 0, vit: 0, consistency: 800, rec: 500 },
+    { agi: 650, str: 250, end: 0, vit: 0, consistency: 400, rec: 0 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
     // future one from producing them.
-    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0 },
-    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0 },
+    { agi: 125, str: 375, end: 0, vit: 0, consistency: 0, rec: 0 },
+    { agi: 1, str: 1, end: 0, vit: 0, consistency: 0, rec: 0 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
@@ -2228,7 +2248,18 @@ describe('program weights agree with kairo-core', () => {
           ...f,
           total: weightedBoardTotal({
             program,
-            statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit },
+            // MND: 0 — this fixture set and the SQL side of the differential
+            // test (program_weighted_total()) both predate MND joining
+            // CORE_STATS (deviation #41); neither weights it yet, so 0 keeps
+            // the two sides in agreement rather than exercising a stat this
+            // particular differential test does not cover.
+            // MND: 0 — `program_weighted_total()` has no `p_mind` parameter,
+            // so the `recovery` program's MND boost cannot be expressed on the
+            // SQL side until Phase 3 changes that signature alongside the
+            // column drops. Passing 0 keeps the two sides in agreement on
+            // everything both can express, and is the one thing this
+            // differential test does not cover. See the note in program.ts.
+            statPoints: { AGI: f.agi, STR: f.str, MND: 0 },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
           }),
@@ -3969,6 +4000,72 @@ describe('goals.metric — the Daily Walk', () => {
       expect(rows[0]?.walk_cleared).toBe(false);
     });
 
+    // The three-stat switch made AGI's thresholds movable, so `tiers->>'AGI'`
+    // is the SHIFTED tier — gold at 7,500 steps on a well-spread day. The walk
+    // reads `AGI_base` instead, because the baseline is a public-health number
+    // that must not scale with the user, and because this metric feeds a
+    // consistency goal that LATCHES.
+    async function seedBothTiers(
+      userId: string,
+      date: string,
+      agi: string,
+      agiBase: string,
+    ) {
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, agi_points, total, status, finalized_at, tiers)
+         values ($1, $2, 1000, 1000, 'final', now(), $3::jsonb)`,
+        [userId, date, JSON.stringify({ AGI: agi, AGI_base: agiBase })],
+      );
+    }
+
+    it('is false when the day scored gold only because of the spread shift', async () => {
+      // 7,500 steps across eight active hours: gold for scoring, and not a
+      // cleared walk. This is the case the whole `AGI_base` key exists for.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedBothTiers(user, '2026-09-05', 'gold', 'silver');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-05'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(false);
+    });
+
+    it('is true when the unshifted ladder itself reached gold', async () => {
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedBothTiers(user, '2026-09-06', 'gold', 'gold');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-06'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(true);
+    });
+
+    it('falls back to AGI for rows written before the three-stat switch', async () => {
+      // Those rows carry no `AGI_base` and need none: no shift existed when
+      // they were scored, so their `AGI` *is* the unshifted ladder. Reading
+      // them as "did not clear" would retroactively break every walk streak
+      // and un-latch goals that had already completed.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedTier(user, '2026-09-07', 3000, 'gold');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-07'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(true);
+    });
+
     it('is false, not null, for a participant with no scored day', async () => {
       // The LEFT JOIN keeps a scoreless participant on the roster. Their row
       // must say false — kairo-core's GoalDay.walkCleared is a boolean, and a
@@ -4214,5 +4311,116 @@ describe('squad_leaderboard projects species', () => {
       [squadId],
     );
     expect(rows.every((r) => r.species === null || typeof r.species === 'string')).toBe(true);
+  });
+});
+
+describe('three-stat expand migration', () => {
+  it('adds mind_points to daily_scores, defaulted and non-negative', async () => {
+    const rows = await h.asService<{ column_name: string; is_nullable: string }>(`
+      select column_name, data_type, is_nullable, column_default
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_scores'
+        and column_name = 'mind_points'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.is_nullable).toBe('NO');
+  });
+
+  // Still true through the contract phase: the checks tighten here, the
+  // columns go in Phase 3 with the redeploy. A function rollback in between
+  // needs no schema restore.
+  it('keeps rec_points, end_points and vit_points until Phase 3 drops them', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_scores'
+        and column_name in ('rec_points', 'end_points', 'vit_points')
+    `);
+    expect(rows).toHaveLength(3);
+  });
+
+  it('records sleep origin for the trust layers', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'daily_sleep'
+        and column_name in ('source', 'was_user_entered')
+    `);
+    expect(rows.map((r) => r.column_name).sort()).toEqual(['source', 'was_user_entered']);
+  });
+
+  it('records workout origin including heart-rate evidence', async () => {
+    const rows = await h.asService<{ column_name: string }>(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'workout_sessions'
+        and column_name in ('source_bundle_id', 'was_user_entered', 'has_heart_rate_evidence')
+    `);
+    expect(rows).toHaveLength(3);
+  });
+
+  it('accepts MND as a featured stat, and no longer END or VIT', async () => {
+    const rows = await h.asService<{ def: string }>(`
+      select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and pg_get_constraintdef(oid) like '%featured_stat%'
+    `);
+    expect(rows[0]!.def).toContain('MND');
+    expect(rows[0]!.def).not.toContain('END');
+    expect(rows[0]!.def).not.toContain('VIT');
+  });
+
+  // Contracted: END and VIT are retired, so three is the ceiling again.
+  it('allows at most three contributing stats', async () => {
+    // By exact name. `conname like '%contributing_stats%'` also matches the
+    // column's NOT NULL constraint, which pg_constraint carries as a row of
+    // its own — so a pattern match here is one row-ordering change away from
+    // asserting against the wrong constraint.
+    const rows = await h.asService<{ def: string }>(`
+      select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname = 'daily_scores_contributing_stats_check'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.def).toContain('3');
+    expect(rows[0]!.def).not.toContain('5');
+  });
+
+  /**
+   * The one thing this harness structurally cannot check, pinned as a shape
+   * instead.
+   *
+   * PGlite starts empty, so a constraint that would abort against real data
+   * passes here for want of a row to fail on — and the live project holds 32
+   * rows scored under the four-stat model with `contributing_stats = 4`. The
+   * constraint is therefore NOT VALID: enforced on every write, not
+   * retroactively scanned, with `validate constraint` deferred to Phase 3
+   * after spec §5's replay has rewritten those rows.
+   *
+   * Dropping `not valid` to "tidy up" would make this migration unappliable
+   * with nothing failing until someone ran it against production. That is what
+   * this asserts.
+   */
+  it('adds the contributing-stats check NOT VALID, so it cannot abort on four-stat history', async () => {
+    // By exact name, not by pattern: `drop constraint if exists` in both
+    // three-stat migrations targets this name, so a second constraint matching
+    // the pattern would be one the drops never reach.
+    const rows = await h.asService<{ conname: string; convalidated: boolean }>(`
+      select conname, convalidated from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname = 'daily_scores_contributing_stats_check'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.convalidated).toBe(false);
+  });
+
+  it('leaves the featured-stat check validated — no stored row has one', async () => {
+    // Deviation #10 retired the rotation from the write path, so the column is
+    // null everywhere and the scan has nothing to reject. Only the constraint
+    // that would genuinely abort is deferred.
+    const rows = await h.asService<{ convalidated: boolean }>(`
+      select convalidated from pg_constraint
+      where conrelid = 'public.daily_scores'::regclass
+        and conname = 'daily_scores_featured_stat_check'
+    `);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.convalidated).toBe(true);
   });
 });

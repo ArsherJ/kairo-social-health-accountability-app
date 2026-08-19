@@ -32,7 +32,7 @@ const LOCAL_DATE = '2026-08-09';
 /** The day the "Yesterday" tab shows. One before `LOCAL_DATE`, and finalized. */
 const PREVIOUS_LOCAL_DATE = '2026-08-08';
 
-const TIERS = { AGI: 'gold', STR: 'silver', END: 'silver', VIT: 'bronze' } as const;
+const TIERS = { AGI: 'gold', STR: 'silver', MND: 'bronze' } as const;
 
 export const DEMO_SQUAD: Squad = {
   id: SQUAD_ID,
@@ -48,8 +48,14 @@ export const DEMO_SQUAD: Squad = {
 export const DEMO_MEMBER_COUNT = 3;
 
 /**
- * Ramon 6,060 · you 4,820 · Trina 3,410 — so the home pill reads
- * "Ramon is 1,240 ahead" and the board hero reads "2nd".
+ * Ramon 3,850 · you 2,900 · Trina 2,150 — so the home pill reads
+ * "Ramon is 950 ahead" and the board hero reads "2nd".
+ *
+ * Every total is the real arithmetic of its own tier row under the three-stat
+ * model (deviation #41), including Trina's phone-only normalization: a fixture
+ * that could not come out of `computeDailyScore` is a state the app can never
+ * receive, and anything read off it in a screenshot would be describing a
+ * product that does not exist.
  */
 // Three different species on purpose: a board where everyone shares one animal
 // cannot show whether the row art actually reads from the row, which is the
@@ -63,13 +69,14 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     class: 'runner',
     level: 14,
     local_date: LOCAL_DATE,
-    total: 6060,
-    tiers: { AGI: 'gold', STR: 'gold', END: 'silver', VIT: 'silver' },
-    // Lifetime points, not today's — the ratings they map to are 20/17/13/12,
-    // comfortably above the demo user's, which is what makes the board read as
-    // a squad you have to catch rather than one you already lead.
-    ratings: { AGI: 36_100, STR: 25_600, END: 14_400, VIT: 12_100 },
-    contributing_stats: 4,
+    // 1,200 + 1,200 + 650, plus 800 for full breadth.
+    total: 3850,
+    tiers: { AGI: 'gold', STR: 'gold', MND: 'silver' },
+    // Lifetime points, not today's — comfortably above the demo user's, which
+    // is what makes the board read as a squad you have to catch rather than
+    // one you already lead.
+    ratings: { AGI: 36_100, STR: 25_600, MND: 14_400 },
+    contributing_stats: 3,
     has_rec: true,
     flagged: false,
     status: 'provisional',
@@ -85,10 +92,11 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     class: 'runner',
     level: 12,
     local_date: LOCAL_DATE,
-    total: 4820,
+    // 1,200 + 650 + 250, plus 800 for full breadth.
+    total: 2900,
     tiers: TIERS,
-    ratings: { AGI: 22_500, STR: 14_400, END: 8_100, VIT: 10_000 },
-    contributing_stats: 4,
+    ratings: { AGI: 22_500, STR: 14_400, MND: 8_100 },
+    contributing_stats: 3,
     has_rec: true,
     flagged: false,
     status: 'provisional',
@@ -104,10 +112,14 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     class: 'runner',
     level: 11,
     local_date: LOCAL_DATE,
-    total: 3410,
-    tiers: { AGI: 'silver', STR: 'bronze', END: 'bronze', VIT: 'bronze' },
-    ratings: { AGI: 12_100, STR: 6_400, END: 4_900, VIT: 8_100 },
-    contributing_stats: 3,
+    // Phone-only, and the one row that exercises §2's normalization: two stats
+    // earnable, so (650 + 250) x 1.5 + 800. Without the scaling she would sit
+    // at 1,700 for the same day, which is the leaderboard gradient the rule
+    // exists to remove.
+    total: 2150,
+    tiers: { AGI: 'silver', STR: 'bronze', MND: 'none' },
+    ratings: { AGI: 12_100, STR: 6_400, MND: 0 },
+    contributing_stats: 2,
     has_rec: false,
     flagged: false,
     status: 'provisional',
@@ -150,7 +162,9 @@ export const DEMO_LEADERBOARD_COMPLETED: LeaderboardRow[] = DEMO_LEADERBOARD.map
   .map((row, index) => ({ ...row, rank: index + 1 }));
 
 /**
- * The components sum to 5,320, which is what `total` must be.
+ * The components sum to 2,900, which is what `total` must be — and to the same
+ * figure as the demo user's own leaderboard row above, because they describe
+ * the same stored day.
  *
  * Nothing renders that arithmetic any more — the "includes N for consistency"
  * line went with the hero total (deviation #30). It still has to hold, because
@@ -160,15 +174,13 @@ export const DEMO_LEADERBOARD_COMPLETED: LeaderboardRow[] = DEMO_LEADERBOARD.map
  * would be describing a state that does not exist.
  */
 export const DEMO_SCORE: TodayScore = {
-  agi_points: 1850,
-  str_points: 1240,
-  end_points: 980,
-  vit_points: 700,
-  rec_points: 300,
-  consistency_points: 250,
-  total: 5320,
+  agi_points: 1200,
+  str_points: 650,
+  mind_points: 250,
+  consistency_points: 800,
+  total: 2900,
   tiers: TIERS,
-  contributing_stats: 4,
+  contributing_stats: 3,
   status: 'provisional',
 };
 

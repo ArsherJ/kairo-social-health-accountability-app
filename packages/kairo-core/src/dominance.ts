@@ -3,10 +3,11 @@
  *
  * §6 wants two players at the same level to look different depending on what
  * earned them the points, and gives exactly one quantitative rule for it: the
- * All-Rounder is "all within 20% of each other". That predicate lives here,
- * beside the tier logic, rather than in a screen — it is the sort of rule a
- * silhouette, a label and (eventually) the squad's view of you all have to
- * agree on.
+ * All-Rounder is "all within 20% of each other" — all three of them since
+ * deviation #41, and the rule is written over `CORE_STATS` so the count is
+ * never restated. That predicate lives here, beside the tier logic, rather
+ * than in a screen — it is the sort of rule a silhouette, a label and
+ * (eventually) the squad's view of you all have to agree on.
  *
  * The caller decides what window the points cover. Nothing here reads a clock.
  */
@@ -24,7 +25,7 @@ export function dominantStat(points: Record<CoreStat, number>): Dominance {
   const max = Math.max(...values);
   const min = Math.min(...values);
 
-  // Nothing earned is *unstarted*, not balanced. Four zeros are trivially
+  // Nothing earned is *unstarted*, not balanced. Three zeros are trivially
   // within 20% of each other, so without this a brand new character would be
   // handed the All-Rounder treatment for having done nothing at all.
   if (max <= 0) return null;

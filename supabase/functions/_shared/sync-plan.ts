@@ -411,18 +411,33 @@ export function observesWearable(request: SyncRequest): boolean {
   return (request.sleep ?? []).some((s) => s.minutes > 0);
 }
 
-/** The row `sync-health` will upsert into daily_scores. */
+/**
+ * The row `sync-health` will upsert into daily_scores.
+ *
+ * `end_points`, `vit_points` and `rec_points` are gone from this shape as of
+ * deviation #41's contract phase, while the columns themselves survive until
+ * Phase 3 drops them. **That gap has a consequence worth stating**: an upsert
+ * names only the columns it carries, so a rescored day keeps whatever those
+ * three columns already held, and `squad_leaderboard()` still sums them. The
+ * §4 deploy ordering is what closes it — the replay and the column drop land
+ * together, before any board is read against a half-migrated row. Do not
+ * deploy this shape ahead of that migration.
+ */
 export interface DayScoreRow {
   user_id: string;
   local_date: string;
   agi_points: number;
   str_points: number;
-  end_points: number;
-  vit_points: number;
-  rec_points: number;
+  mind_points: number;
   consistency_points: number;
   total: number;
-  tiers: Record<CoreStat, string>;
+  /**
+   * Per-stat tiers, plus `AGI_base` — the unshifted AGI ladder the Daily Walk
+   * reads. Not `Record<CoreStat, string>`: `AGI_base` is deliberately not a
+   * stat, and widening `CoreStat` to admit it would put it on every stat
+   * table, rail and switch in the app.
+   */
+  tiers: Record<CoreStat, string> & { AGI_base: string };
   contributing_stats: number;
   has_rec: boolean;
   featured_stat: CoreStat | null;
@@ -479,16 +494,23 @@ export function planDay(input: DayPlanInput): DayPlan {
       local_date: input.localDate,
       agi_points: score.stats.AGI.points,
       str_points: score.stats.STR.points,
-      end_points: score.stats.END.points,
-      vit_points: score.stats.VIT.points,
-      rec_points: score.recBonus,
+      mind_points: score.stats.MND.points,
       consistency_points: score.consistencyBonus,
       total: result.total,
       tiers: {
         AGI: score.stats.AGI.tier,
         STR: score.stats.STR.tier,
-        END: score.stats.END.tier,
-        VIT: score.stats.VIT.tier,
+        MND: score.stats.MND.tier,
+        // The unshifted AGI ladder, stored alongside the scoring tier because
+        // the Daily Walk asks a different question: `AGI` can reach gold at
+        // 7,500 steps on a well-spread day, `AGI_base` only ever at
+        // `DAILY_STEP_BASELINE`. Every walk read — `goal_window_scores()`'s
+        // `walk_cleared` and the 90-day streak — uses this key.
+        //
+        // Rows written before the three-stat switch have no `AGI_base` and
+        // need none: no shift existed then, so their `AGI` *is* unshifted.
+        // Both readers coalesce to it, which is correct rather than lenient.
+        AGI_base: score.stats.AGI.unshiftedTier,
       },
       contributing_stats: score.contributingStats,
       has_rec: score.hasRec,

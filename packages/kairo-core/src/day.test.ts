@@ -204,9 +204,12 @@ describe('weekly featured stat', () => {
     expect(isoWeekOf('2026-12-31')).toBe(53);
   });
 
-  it('rotates AGI to STR to END to VIT across consecutive weeks', () => {
+  it('rotates AGI to STR to MND across consecutive weeks', () => {
+    // Three stats rotate now (END and VIT retired, MND promoted — roadmap
+    // deviation #41), so the cycle is three weeks and the fourth Monday is
+    // back on AGI.
     const mondays = ['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26'];
-    expect(mondays.map(featuredStatFor)).toEqual(['STR', 'END', 'VIT', 'AGI']);
+    expect(mondays.map(featuredStatFor)).toEqual(['STR', 'MND', 'AGI', 'STR']);
   });
 
   it('holds the same stat for every day of a week', () => {

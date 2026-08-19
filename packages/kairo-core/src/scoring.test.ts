@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { earnableStats, hasSleepCapability } from './capability.ts';
 import {
   DAILY_STEP_BASELINE,
   FEATURED_STAT_MULTIPLIER,
@@ -9,9 +10,10 @@ import {
   aggregateBuckets,
   computeDailyScore,
   nextTierFor,
+  shiftedTierFor,
   tierFor,
 } from './scoring.ts';
-import type { CoreStat, HourBucket } from './types.ts';
+import { CORE_STATS, type CoreStat, type HourBucket } from './types.ts';
 
 /** Build a day of buckets. `perHour` is applied to each hour listed. */
 function hours(
@@ -103,45 +105,28 @@ describe('tier boundaries', () => {
     AGI: [
       [0, 'none', 0],
       [999, 'none', 0],
-      [1_000, 'bronze', 200],
-      [4_999, 'bronze', 200],
-      [5_000, 'silver', 500],
-      [9_999, 'silver', 500],
-      [10_000, 'gold', 900],
-      [40_000, 'gold', 900],
+      [1_000, 'bronze', 250],
+      [4_999, 'bronze', 250],
+      [5_000, 'silver', 650],
+      [9_999, 'silver', 650],
+      [10_000, 'gold', 1_200],
+      [40_000, 'gold', 1_200],
     ],
     STR: [
       [0, 'none', 0],
       [49, 'none', 0],
-      [50, 'bronze', 200],
-      [199, 'bronze', 200],
-      [200, 'silver', 500],
-      [399, 'silver', 500],
-      [400, 'gold', 900],
-      [5_000, 'gold', 900],
+      [50, 'bronze', 250],
+      [199, 'bronze', 250],
+      [200, 'silver', 650],
+      [399, 'silver', 650],
+      [400, 'gold', 1_200],
+      [5_000, 'gold', 1_200],
     ],
-    END: [
-      [0, 'none', 0],
-      [9, 'none', 0],
-      [10, 'bronze', 200],
-      [29, 'bronze', 200],
-      [30, 'silver', 500],
-      [59, 'silver', 500],
-      [60, 'gold', 900],
-      [600, 'gold', 900],
-    ],
-    VIT: [
-      [0, 'none', 0],
-      [2, 'none', 0],
-      [3, 'bronze', 200],
-      [5, 'bronze', 200],
-      [6, 'silver', 500],
-      [8, 'silver', 500],
-      [9, 'gold', 900],
-      // The spec table caps Gold at "9-12 hrs"; a genuinely active person can
-      // exceed 12, and dropping them back to zero would be absurd.
-      [24, 'gold', 900],
-    ],
+    // Empty on purpose: this table drives buckets through `dayWith`, and MND
+    // reads `sleepMinutes` instead of a bucket total — there is nothing here
+    // for it to construct. Its bands (including the oversleep flattening
+    // `tierFor` cannot express) are covered in "MND as a core stat" below.
+    MND: [],
   };
 
   for (const [stat, rows] of Object.entries(cases) as [
@@ -150,14 +135,12 @@ describe('tier boundaries', () => {
   ][]) {
     for (const [raw, tier, points] of rows) {
       it(`${stat} at ${raw} is ${tier} (${points} pts)`, () => {
+        // AGI's bands are only unshifted while the day is not spread, so the
+        // step cases go into a single hour rather than through `dayWith`'s
+        // `activeHours`. That is the whole point of the shift and it would
+        // silently make every AGI boundary here wrong by up to 25%.
         const buckets =
-          stat === 'AGI'
-            ? dayWith({ steps: raw })
-            : stat === 'STR'
-              ? dayWith({ activeKcal: raw })
-              : stat === 'END'
-                ? dayWith({ activeMinutes: raw })
-                : dayWith({ steps: raw * VIT_ACTIVE_HOUR_STEPS, activeHours: raw });
+          stat === 'AGI' ? dayWith({ steps: raw }) : dayWith({ activeKcal: raw });
 
         const result = computeDailyScore({ buckets });
         expect(result.stats[stat].tier).toBe(tier);
@@ -166,7 +149,6 @@ describe('tier boundaries', () => {
     }
   }
 });
-
 describe('consistency bonus', () => {
   it('awards nothing for zero contributing stats', () => {
     const result = computeDailyScore({ buckets: hours(24) });
@@ -175,80 +157,225 @@ describe('consistency bonus', () => {
   });
 
   it('awards nothing for a single contributing stat', () => {
-    // 1,000 steps in one hour: AGI bronze, and that hour is active but
-    // 1 active hour is still VIT "none".
     const result = computeDailyScore({ buckets: dayWith({ steps: 1_000 }) });
     expect(result.contributingStats).toBe(1);
     expect(result.consistencyBonus).toBe(0);
   });
 
-  it('awards 150 for two', () => {
+  it('awards 400 for two of three', () => {
     const result = computeDailyScore({
       buckets: dayWith({ steps: 1_000, activeKcal: 50 }),
     });
     expect(result.contributingStats).toBe(2);
-    expect(result.consistencyBonus).toBe(150);
-  });
-
-  it('awards 400 for three', () => {
-    const result = computeDailyScore({
-      buckets: dayWith({ steps: 1_000, activeKcal: 50, activeMinutes: 10 }),
-    });
-    expect(result.contributingStats).toBe(3);
     expect(result.consistencyBonus).toBe(400);
   });
 
-  it('awards 800 for all four', () => {
+  it('awards 800 for all three', () => {
     const result = computeDailyScore({
-      buckets: dayWith({
-        steps: 1_000,
-        activeKcal: 50,
-        activeMinutes: 10,
-        activeHours: 3,
-      }),
+      buckets: dayWith({ steps: 1_000, activeKcal: 50 }),
+      sleepMinutes: 5 * 60,
     });
-    expect(result.contributingStats).toBe(4);
+    expect(result.contributingStats).toBe(3);
     expect(result.consistencyBonus).toBe(800);
+  });
+
+  // The failure this guards is silent and inverts the rule: an array shorter
+  // than CORE_STATS.length + 1 returns undefined for a full day, `?? 0` turns
+  // that into zero, and a perfect day pays less than a partial one. Exactly
+  // what a five-stat transitional model did to a four-entry table.
+  it('has a bonus defined for every possible breadth, up to and including all of them', () => {
+    for (let contributing = 0; contributing <= CORE_STATS.length; contributing += 1) {
+      const result = computeDailyScore({
+        buckets: dayWith({
+          steps: contributing >= 1 ? 1_000 : 0,
+          activeKcal: contributing >= 2 ? 50 : 0,
+        }),
+        sleepMinutes: contributing >= 3 ? 5 * 60 : null,
+      });
+      expect(result.contributingStats).toBe(contributing);
+      // Strictly positive from two stats up, because that is what a missing
+      // array entry looks like: `undefined ?? 0` is a perfectly ordinary zero,
+      // so `>= 0` would pass on exactly the failure this exists to catch.
+      if (contributing >= 2) expect(result.consistencyBonus).toBeGreaterThan(0);
+    }
+  });
+
+  // Full breadth means "all the stats available to you" (spec §2), so a
+  // phone-only user's two is a full day. Without this, normalization would fix
+  // the stat points and leave the same gradient on the bonus.
+  it('pays full breadth to a two-stat user who covered both', () => {
+    const result = computeDailyScore({
+      buckets: dayWith({ steps: 1_000, activeKcal: 50 }),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    expect(result.contributingStats).toBe(2);
+    expect(result.consistencyBonus).toBe(800);
+  });
+
+  it('still pays nothing to a two-stat user who did nothing', () => {
+    const result = computeDailyScore({
+      buckets: hours(24),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    expect(result.consistencyBonus).toBe(0);
   });
 });
 
-describe('REC sleep bonus (wearable only)', () => {
-  const bands: ReadonlyArray<readonly [number, number]> = [
-    [0, 0],
-    [4 * 60 + 59, 0],
-    [5 * 60, 100],
-    [5 * 60 + 59, 100],
-    [6 * 60, 250],
-    [6 * 60 + 59, 250],
-    [7 * 60, 500],
-    [9 * 60, 500], // 9h exactly is still optimal
-    [9 * 60 + 1, 200], // oversleeping
-    [12 * 60, 200],
-  ];
+describe('threshold shifts', () => {
+  // END and VIT survive here: as generosity, never as points. A stored
+  // multiplier would stack with a squad program's read-time weight, which is
+  // the trap deviation #10 already sprang once.
 
-  for (const [minutes, expected] of bands) {
-    it(`${minutes} minutes of sleep is worth ${expected}`, () => {
-      const result = computeDailyScore({ buckets: hours(24), sleepMinutes: minutes });
-      expect(result.recBonus).toBe(expected);
+  it('lowers AGI gold to 7,500 steps on a fully spread day', () => {
+    const spread = computeDailyScore({
+      buckets: dayWith({ steps: 7_500, activeHours: 8 }),
+      sleepMinutes: null,
+      earnableStats: 2,
     });
-  }
-
-  it('is absent, not zero-penalised, without a wearable', () => {
-    const result = computeDailyScore({ buckets: hours(24) });
-    expect(result.recBonus).toBe(0);
-    expect(result.hasRec).toBe(false);
+    expect(spread.stats.AGI.tier).toBe('gold');
   });
 
-  it('is reported as present when sleep data exists', () => {
-    const result = computeDailyScore({ buckets: hours(24), sleepMinutes: 480 });
-    expect(result.hasRec).toBe(true);
+  it('leaves AGI gold at 10,000 for the same steps taken in one burst', () => {
+    const burst = computeDailyScore({ buckets: dayWith({ steps: 7_500 }) });
+    expect(burst.stats.AGI.tier).toBe('silver');
   });
 
-  it('never counts toward the consistency bonus', () => {
-    // REC alone must not make this look like a 1-stat day.
-    const result = computeDailyScore({ buckets: hours(24), sleepMinutes: 480 });
-    expect(result.contributingStats).toBe(0);
-    expect(result.consistencyBonus).toBe(0);
+  it('lowers STR bands with sixty verified workout minutes', () => {
+    const shifted = computeDailyScore({
+      buckets: dayWith({ activeKcal: 300 }),
+      verifiedWorkoutMinutes: 60,
+    });
+    expect(shifted.stats.STR.tier).toBe('gold');
+  });
+
+  it('shifts nothing when the session did not verify', () => {
+    // The caller passes 0 minutes for an unverified session, so this is what
+    // a hand-typed workout looks like from in here.
+    const unverified = computeDailyScore({
+      buckets: dayWith({ activeKcal: 300 }),
+      verifiedWorkoutMinutes: 0,
+    });
+    expect(unverified.stats.STR.tier).toBe('silver');
+  });
+
+  it('never shifts MND — the trust gate decides whether sleep scores, not how easily', () => {
+    const both = computeDailyScore({
+      buckets: dayWith({ steps: 20_000, activeHours: 12 }),
+      sleepMinutes: 6 * 60 + 59,
+      verifiedWorkoutMinutes: 300,
+    });
+    expect(both.stats.MND.tier).toBe('silver');
+  });
+
+  it('caps the shift at 25% however extreme the day', () => {
+    // 24 active hours would be a 105% shift uncapped, which would make Gold
+    // arrive at a negative step count.
+    const extreme = computeDailyScore({
+      buckets: dayWith({ steps: 7_499, activeHours: 24 }),
+    });
+    expect(extreme.stats.AGI.tier).toBe('silver');
+    expect(shiftedTierFor('AGI', 7_500, 1)).toBe('gold');
+  });
+});
+
+describe('normalization', () => {
+  // Spec §2. Sleep-as-a-stat would otherwise make a wearable worth 27% of the
+  // daily ceiling and a permanent leaderboard gradient — on a Philippines-market
+  // app, landing hardest on the users least likely to own one.
+
+  it('scales a two-stat user’s points by 1.5', () => {
+    const result = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    expect(result.normalizationFactor).toBe(1.5);
+    // 2,400 base, reported per stat before normalization.
+    expect(result.stats.AGI.points).toBe(1_200);
+    expect(result.healthTotal).toBe(Math.round(2_400 * 1.5) + 800);
+  });
+
+  it('leaves a three-stat user unscaled', () => {
+    const result = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: 7 * 60,
+      earnableStats: 3,
+    });
+    expect(result.normalizationFactor).toBe(1);
+  });
+
+  it('defaults to everyone-can-earn-everything when the caller says nothing', () => {
+    const result = computeDailyScore({ buckets: dayWith({ steps: 10_000 }) });
+    expect(result.normalizationFactor).toBe(1);
+  });
+
+  it('does not normalize the consistency bonus', () => {
+    // Scaling the bonus as well would apply the same correction twice —
+    // `breadthBonus` already accounts for earnable stats.
+    const result = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    expect(result.healthTotal - Math.round(2_400 * 1.5)).toBe(800);
+  });
+});
+
+// Spec §3's resolved decision, as arithmetic. This is the one place the two
+// halves of the rule are asserted against each other, so it lives here rather
+// than in capability.test.ts, which cannot see a score.
+describe('the 6,200 breach', () => {
+  const goldTwoStatDay = () => dayWith({ steps: 10_000, activeKcal: 400 });
+
+  // The hole spec §3 names by figure: score MND *and* be normalized as a
+  // two-stat user and the day pays (1,200 x 3) x 1.5 + 800 = 6,200, against a
+  // stated ceiling of 4,400 — a 41% breach.
+  //
+  // `computeDailyScore` neither prevents this nor could: `earnableStats` is an
+  // input, because deriving it needs a clock and a query. The guarantee lives
+  // entirely in the coupling between "this night scores" and "this night
+  // counts toward capability", and this pins that the engine is where the
+  // breach is *expressible* rather than where it is stopped.
+  it('is what scoring MND as a two-stat user would pay', () => {
+    const breach = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: 2,
+    });
+    expect(breach.healthTotal).toBe(6_200);
+    expect(breach.healthTotal).toBeGreaterThan(MAX_DAILY_SCORE_WITH_WEARABLE);
+  });
+
+  // And the coupling that makes the supported call shape unable to produce it:
+  // a night that scores is a night inside the capability window, because
+  // `hasSleepCapability` compares inclusively against `today`. Narrow that to
+  // strictly-before — an easy "off-by-one fix" — and 6,200 comes back with no
+  // other test moving.
+  it('cannot be reached through earnableStats(hasSleepCapability(...))', () => {
+    const today = '2026-08-19';
+    const scoringSleepDates = [today];
+    expect(hasSleepCapability(scoringSleepDates, today)).toBe(true);
+
+    const supported = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability(scoringSleepDates, today)),
+    });
+    expect(supported.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
+    expect(supported.healthTotal).toBe(4_400);
+  });
+
+  // The other direction of the same coupling: no sleep that scores means no
+  // MND points, so two earnable stats and the ceiling still holds.
+  it('is not reachable by a genuinely phone-only day either', () => {
+    const phoneOnly = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: null,
+      earnableStats: earnableStats(hasSleepCapability([], '2026-08-19')),
+    });
+    expect(phoneOnly.healthTotal).toBe(4_400);
   });
 });
 
@@ -258,29 +385,18 @@ describe('weekly featured stat', () => {
     const plain = computeDailyScore({ buckets });
     const agiWeek = computeDailyScore({ buckets, featuredStat: 'AGI' });
 
-    expect(plain.stats.AGI.points).toBe(900);
-    expect(agiWeek.stats.AGI.points).toBe(1_350);
+    expect(plain.stats.AGI.points).toBe(1_200);
+    expect(agiWeek.stats.AGI.points).toBe(1_800);
     expect(agiWeek.stats.STR.points).toBe(plain.stats.STR.points);
   });
 
   it('does not multiply the consistency bonus', () => {
-    const buckets = dayWith({
-      steps: 10_000,
-      activeKcal: 400,
-      activeMinutes: 60,
-      activeHours: 9,
-    });
-    const result = computeDailyScore({ buckets, featuredStat: 'VIT' });
-    expect(result.consistencyBonus).toBe(800);
-  });
-
-  it('does not multiply the REC bonus', () => {
     const result = computeDailyScore({
-      buckets: dayWith({ steps: 10_000 }),
-      sleepMinutes: 8 * 60,
-      featuredStat: 'AGI',
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: 7 * 60,
+      featuredStat: 'MND',
     });
-    expect(result.recBonus).toBe(500);
+    expect(result.consistencyBonus).toBe(800);
   });
 
   it('cannot resurrect a stat that scored nothing', () => {
@@ -289,37 +405,46 @@ describe('weekly featured stat', () => {
   });
 });
 
-describe('worked scenarios from the spec', () => {
-  it('gym day, low steps = 2,900', () => {
+describe('worked scenarios', () => {
+  it('gym day, low steps = 1,850', () => {
     const result = computeDailyScore({
       buckets: dayWith({
-        steps: 2_000, // AGI bronze
+        steps: 2_000, // AGI bronze even after the spread shift
         activeKcal: 450, // STR gold
-        activeMinutes: 45, // END silver
-        activeHours: 6, // VIT silver
+        activeHours: 6, // a 15% shift on AGI's bands
       }),
     });
-    expect(result.stats.AGI.points).toBe(200);
-    expect(result.stats.STR.points).toBe(900);
-    expect(result.stats.END.points).toBe(500);
-    expect(result.stats.VIT.points).toBe(500);
-    expect(result.consistencyBonus).toBe(800);
-    expect(result.healthTotal).toBe(2_900);
+    expect(result.stats.AGI.points).toBe(250);
+    expect(result.stats.STR.points).toBe(1_200);
+    expect(result.stats.MND.points).toBe(0);
+    expect(result.consistencyBonus).toBe(400);
+    expect(result.healthTotal).toBe(1_850);
   });
 
-  it('lazy Sunday, walked to the mall = 1,300', () => {
+  it('gym day with a wearable and a tracked session = 3,850', () => {
+    const result = computeDailyScore({
+      buckets: dayWith({ steps: 2_000, activeKcal: 450, activeHours: 6 }),
+      sleepMinutes: 7 * 60 + 30, // MND gold
+      verifiedWorkoutMinutes: 60,
+      earnableStats: 3,
+    });
+    expect(result.stats.MND.points).toBe(1_200);
+    expect(result.contributingStats).toBe(3);
+    expect(result.healthTotal).toBe(2_650 + 800);
+  });
+
+  it('lazy Sunday, walked to the mall = 650', () => {
     const result = computeDailyScore({
       buckets: dayWith({
         steps: 6_000, // AGI silver
         activeKcal: 0, // STR none
-        activeMinutes: 15, // END bronze
-        activeHours: 4, // VIT bronze
+        activeHours: 4, // a 5% shift, not enough to reach gold
       }),
     });
     expect(result.stats.STR.points).toBe(0);
-    expect(result.contributingStats).toBe(3);
-    expect(result.consistencyBonus).toBe(400);
-    expect(result.healthTotal).toBe(1_300);
+    expect(result.contributingStats).toBe(1);
+    expect(result.consistencyBonus).toBe(0);
+    expect(result.healthTotal).toBe(650);
   });
 
   it('complete rest day = 0', () => {
@@ -329,44 +454,62 @@ describe('worked scenarios from the spec', () => {
 });
 
 describe('score ceilings', () => {
+  /** Every stat at gold, with the day spread as far as it goes. */
+  function maxedBuckets(): HourBucket[] {
+    return dayWith({
+      steps: 40_000,
+      activeKcal: 2_000,
+      activeMinutes: 600,
+      activeHours: 24,
+    });
+  }
+
   it('caps a phone-only day at 4,400', () => {
     const result = computeDailyScore({
-      buckets: dayWith({
-        steps: 40_000,
-        activeKcal: 2_000,
-        activeMinutes: 600,
-        activeHours: 24,
-      }),
+      buckets: maxedBuckets(),
+      sleepMinutes: null,
+      earnableStats: 2,
     });
     expect(result.healthTotal).toBe(MAX_DAILY_SCORE_PHONE_ONLY);
     expect(result.healthTotal).toBe(4_400);
   });
 
-  it('caps a wearable day at 4,900', () => {
+  it('caps a wearable day at the same 4,400', () => {
     const result = computeDailyScore({
-      buckets: dayWith({
-        steps: 40_000,
-        activeKcal: 2_000,
-        activeMinutes: 600,
-        activeHours: 24,
-      }),
+      buckets: maxedBuckets(),
       sleepMinutes: 8 * 60,
+      earnableStats: 3,
     });
     expect(result.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
-    expect(result.healthTotal).toBe(4_900);
+    expect(result.healthTotal).toBe(4_400);
+  });
+
+  // Spec §2's parity claim, as an executable assertion rather than prose. A
+  // wearable buys a third *route* to the ceiling, never a higher one.
+  it('reaches the same ceiling with or without a wearable', () => {
+    const wearable = computeDailyScore({
+      buckets: maxedBuckets(),
+      sleepMinutes: 7 * 60,
+      earnableStats: 3,
+    });
+    const phoneOnly = computeDailyScore({
+      buckets: maxedBuckets(),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    expect(wearable.healthTotal).toBe(4_400);
+    expect(phoneOnly.healthTotal).toBe(4_400);
   });
 
   it('exposes one per-stat ceiling, derived from the tier table', () => {
-    expect(STAT_POINTS_MAX).toBe(900);
+    expect(STAT_POINTS_MAX).toBe(1_200);
   });
 
   it('keeps the ceilings as the spec states them', () => {
-    // §5 quotes 4,400 and 4,900. With the rotation retired (deviation #10)
-    // stored points are always base points, so these are now the only
-    // ceilings — the *_FEATURED variants were deleted rather than left to
-    // describe scores the engine no longer produces.
+    // Both are 4,400 under deviation #41, and they stay as two constants
+    // because they document two different routes to it.
     expect(MAX_DAILY_SCORE_PHONE_ONLY).toBe(4_400);
-    expect(MAX_DAILY_SCORE_WITH_WEARABLE).toBe(4_900);
+    expect(MAX_DAILY_SCORE_WITH_WEARABLE).toBe(4_400);
   });
 
   it('still applies the multiplier when a featured stat is passed explicitly', () => {
@@ -374,16 +517,13 @@ describe('score ceilings', () => {
     // as a read-time projection — so the arithmetic stays proven rather than
     // merely present.
     const result = computeDailyScore({
-      buckets: dayWith({
-        steps: 40_000,
-        activeKcal: 2_000,
-        activeMinutes: 600,
-        activeHours: 24,
-      }),
+      buckets: maxedBuckets(),
+      sleepMinutes: 8 * 60,
+      earnableStats: 3,
       featuredStat: 'AGI',
     });
     expect(result.healthTotal).toBe(
-      MAX_DAILY_SCORE_PHONE_ONLY +
+      MAX_DAILY_SCORE_WITH_WEARABLE +
         Math.round(STAT_POINTS_MAX * FEATURED_STAT_MULTIPLIER) -
         STAT_POINTS_MAX,
     );
@@ -396,11 +536,10 @@ describe('XP', () => {
       buckets: dayWith({
         steps: 1_000, // bronze -> 10
         activeKcal: 200, // silver -> 25
-        activeMinutes: 60, // gold  -> 50
-        activeHours: 3, // bronze -> 10
       }),
+      sleepMinutes: 7 * 60, // gold -> 50
     });
-    expect(result.xp).toBe(95);
+    expect(result.xp).toBe(85);
   });
 
   it('awards no XP on a rest day', () => {
@@ -413,24 +552,45 @@ describe('XP', () => {
       computeDailyScore({ buckets, featuredStat: 'AGI' }).xp,
     );
   });
+
+  // XP is normalized on the same `3 / earnable stats` factor as stat points:
+  // equivalent effort must level two users at the same rate. Scaling the
+  // leaderboard and leaving XP alone would move the same gradient onto the
+  // slower surface, where it is harder to notice and harder to explain.
+  it('scales by the normalization factor, so equivalent days level equally', () => {
+    // Two Gold stats phone-only, three Gold stats with a wearable: the same
+    // day in each user's own terms, and the same XP.
+    const phoneOnly = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: null,
+      earnableStats: 2,
+    });
+    const wearable = computeDailyScore({
+      buckets: dayWith({ steps: 10_000, activeKcal: 400 }),
+      sleepMinutes: 7 * 60,
+      earnableStats: 3,
+    });
+    expect(phoneOnly.xp).toBe(150);
+    expect(wearable.xp).toBe(150);
+  });
 });
 
 describe('nextTierFor', () => {
   it('names bronze and the gap for a stat with no tier yet', () => {
     expect(nextTierFor('AGI', 0)).toEqual({
-      tier: 'bronze', gap: 1_000, bandLow: 0, pointsGain: 200,
+      tier: 'bronze', gap: 1_000, bandLow: 0, pointsGain: 250,
     });
   });
 
   it('names silver from inside bronze', () => {
     expect(nextTierFor('AGI', 4_760)).toEqual({
-      tier: 'silver', gap: 240, bandLow: 1_000, pointsGain: 300,
+      tier: 'silver', gap: 240, bandLow: 1_000, pointsGain: 400,
     });
   });
 
   it('names gold from inside silver', () => {
     expect(nextTierFor('AGI', 8_760)).toEqual({
-      tier: 'gold', gap: 1_240, bandLow: 5_000, pointsGain: 400,
+      tier: 'gold', gap: 1_240, bandLow: 5_000, pointsGain: 550,
     });
   });
 
@@ -441,22 +601,45 @@ describe('nextTierFor', () => {
   });
 
   it("uses each stat's own thresholds and units", () => {
-    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80, bandLow: 50 , pointsGain: 300 });
-    expect(nextTierFor('END', 9)).toEqual({ tier: 'bronze', gap: 1, bandLow: 0 , pointsGain: 200 });
-    expect(nextTierFor('VIT', 5)).toEqual({ tier: 'silver', gap: 1, bandLow: 3 , pointsGain: 300 });
+    expect(nextTierFor('STR', 120)).toEqual({ tier: 'silver', gap: 80, bandLow: 50, pointsGain: 400 });
+    expect(nextTierFor('MND', 5 * 60 + 30)).toEqual({ tier: 'silver', gap: 30, bandLow: 300, pointsGain: 400 });
   });
 
-  // active_minutes is numeric(6,2), so raw values arrive fractional. Telling
-  // someone they need 0.4 more minutes is not an instruction.
+  // active_kcal is numeric, so raw values arrive fractional. Telling someone
+  // they need 0.4 more kcal is not an instruction.
   it('rounds a fractional gap up to a whole unit', () => {
-    expect(nextTierFor('END', 29.6)).toEqual({ tier: 'silver', gap: 1, bandLow: 10 , pointsGain: 300 });
+    expect(nextTierFor('STR', 199.6)).toEqual({ tier: 'silver', gap: 1, bandLow: 50, pointsGain: 400 });
   });
 
   // The boundary is inclusive in tierFor, so it must be inclusive here too or
   // the two disagree about what "at silver" means.
   it('agrees with tierFor on the boundary', () => {
     expect(tierFor('STR', 200)).toBe('silver');
-    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200, bandLow: 200 , pointsGain: 400 });
+    expect(nextTierFor('STR', 200)).toEqual({ tier: 'gold', gap: 200, bandLow: 200, pointsGain: 550 });
+  });
+
+  // The landmine Task 3's review found, and the reason it had to be fixed in
+  // the same task that stopped `resolveStatDetail` skipping MND. Reading the
+  // linear table above nine hours reported an eleven-hour night as "already
+  // gold" while `mindTierFor` scored it Bronze — two functions disagreeing
+  // about the same night, on the one line whose job is to say what to do next.
+  describe('MND above the oversleep threshold', () => {
+    it('refuses to answer rather than claiming gold', () => {
+      expect(nextTierFor('MND', 11 * 60)).toBeNull();
+    });
+
+    it('does not contradict the tier the scorer actually awards', () => {
+      const eleven = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
+      expect(eleven.stats.MND.tier).toBe('bronze');
+      // Bronze with no next tier is the honest reading: there is no positive
+      // number of extra minutes that recovers Gold.
+      expect(nextTierFor('MND', 11 * 60)).toBeNull();
+    });
+
+    it('still answers normally at nine hours exactly', () => {
+      expect(computeDailyScore({ buckets: [], sleepMinutes: 9 * 60 }).stats.MND.tier).toBe('gold');
+      expect(nextTierFor('MND', 9 * 60)).toBeNull();
+    });
   });
 
   // `bandLow` is the current band's floor — the tier threshold `raw` is at or
@@ -465,43 +648,40 @@ describe('nextTierFor', () => {
   // the target value, which only agreed with "share of band" in the first band.
   describe('bandLow', () => {
     it('is 0 below bronze', () => {
-      expect(nextTierFor('VIT', 0)?.bandLow).toBe(0);
-      expect(nextTierFor('VIT', 2)?.bandLow).toBe(0);
+      expect(nextTierFor('MND', 0)?.bandLow).toBe(0);
+      expect(nextTierFor('MND', 120)?.bandLow).toBe(0);
     });
 
     it('is the bronze threshold inside the bronze band (heading to silver)', () => {
-      // VIT bronze = 3, silver = 6. raw=4 is inside bronze, heading to silver.
-      expect(nextTierFor('VIT', 4)).toEqual({ tier: 'silver', gap: 2, bandLow: 3 , pointsGain: 300 });
+      expect(nextTierFor('MND', 330)).toEqual({ tier: 'silver', gap: 30, bandLow: 300, pointsGain: 400 });
     });
 
     it('is the silver threshold inside the silver band (heading to gold)', () => {
-      // VIT silver = 6, gold = 9. raw=7 is inside silver, heading to gold.
-      expect(nextTierFor('VIT', 7)).toEqual({ tier: 'gold', gap: 2, bandLow: 6 , pointsGain: 400 });
+      expect(nextTierFor('MND', 390)).toEqual({ tier: 'gold', gap: 30, bandLow: 360, pointsGain: 550 });
     });
 
     it('is moot at gold — nextTierFor returns null, there is nothing to band', () => {
-      expect(nextTierFor('VIT', 9)).toBeNull();
+      expect(nextTierFor('MND', 420)).toBeNull();
     });
   });
 });
 
 describe('nextTierFor — what the gap is worth', () => {
   // `pointsGain` exists so the character screen can say "1,240 more steps for
-  // +400 AGI" without naming a tier. The bands still decide the number; they
+  // +550 AGI" without naming a tier. The bands still decide the number; they
   // just stopped being the vocabulary the user reads.
 
   it('is the difference between the two bands, not the next band’s value', () => {
-    // Crossing into Silver from inside Bronze is worth 500 - 200, not 500.
-    expect(nextTierFor('AGI', 4_999)!.pointsGain).toBe(300);
+    // Crossing into Silver from inside Bronze is worth 650 - 250, not 650.
+    expect(nextTierFor('AGI', 4_999)!.pointsGain).toBe(400);
   });
 
   it('is the full band value when nothing has been earned yet', () => {
-    expect(nextTierFor('AGI', 0)!.pointsGain).toBe(200);
+    expect(nextTierFor('AGI', 0)!.pointsGain).toBe(250);
   });
 
   it('is always positive, for every stat and every raw value', () => {
-    const stats: CoreStat[] = ['AGI', 'STR', 'END', 'VIT'];
-    for (const stat of stats) {
+    for (const stat of CORE_STATS) {
       for (const raw of [0, 1, 9, 50, 199, 250, 999, 5_000, 9_999]) {
         const next = nextTierFor(stat, raw);
         if (next) expect(next.pointsGain).toBeGreaterThan(0);
@@ -512,10 +692,72 @@ describe('nextTierFor — what the gap is worth', () => {
   it('sums to the gold band from a standing start', () => {
     // Bronze + the two steps up must equal what a gold day is worth, or the
     // copy would promise points the scorer does not award.
-    const toBronze = nextTierFor('VIT', 0)!.pointsGain;
-    const toSilver = nextTierFor('VIT', 3)!.pointsGain;
-    const toGold = nextTierFor('VIT', 6)!.pointsGain;
+    const toBronze = nextTierFor('MND', 0)!.pointsGain;
+    const toSilver = nextTierFor('MND', 300)!.pointsGain;
+    const toGold = nextTierFor('MND', 360)!.pointsGain;
     expect(toBronze + toSilver + toGold).toBe(STAT_POINTS_MAX);
+  });
+});
+
+describe('the three-stat model', () => {
+  it('has exactly three stats', () => {
+    expect(CORE_STATS).toEqual(['AGI', 'STR', 'MND']);
+  });
+
+  it('no longer exposes END or VIT', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: null, earnableStats: 2 });
+    expect(Object.keys(score.stats).sort()).toEqual(['AGI', 'MND', 'STR']);
+  });
+
+  // TIER_POINTS is module-private and stays that way; the re-tune is asserted
+  // through the one figure that is exported, and through behaviour.
+  it('pays the re-tuned gold figure', () => {
+    expect(STAT_POINTS_MAX).toBe(1_200);
+    const oneGoldStat = computeDailyScore({
+      buckets: [],
+      sleepMinutes: 7 * 60,
+      earnableStats: 3,
+    });
+    expect(oneGoldStat.stats.MND.points).toBe(1_200);
+  });
+
+  // The re-tune is derived, not invented: four stats at 900 and three at 1,200
+  // are the same ceiling, which is what keeps replayed history comparable.
+  it('keeps the four-stat gold ceiling intact across the change', () => {
+    expect(3 * STAT_POINTS_MAX).toBe(4 * 900);
+  });
+
+  it('still measures the hours and minutes END and VIT rode', () => {
+    // They stopped being stats, not measurements — the shifts read them.
+    const totals = aggregateBuckets(
+      dayWith({ steps: 3_000, activeMinutes: 45, activeHours: 6 }),
+    );
+    expect(totals.activeHours).toBe(6);
+    expect(totals.activeMinutes).toBe(45);
+  });
+});
+
+describe('MND as a core stat', () => {
+  it('scores sleep through the MND bands', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: 7 * 60 });
+    expect(score.stats.MND.tier).toBe('gold');
+    expect(score.stats.MND.raw).toBe(7 * 60);
+  });
+
+  it('scores no MND when there is no sleep data at all', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: null });
+    expect(score.stats.MND.tier).toBe('none');
+  });
+
+  // Oversleep is a promoted bonus, never a penalty.
+  it('flattens an eleven-hour night to bronze', () => {
+    const score = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
+    expect(score.stats.MND.tier).toBe('bronze');
+  });
+
+  it('reports sleep presence for the leaderboard’s wearable icon', () => {
+    expect(computeDailyScore({ buckets: [], sleepMinutes: 480 }).hasRec).toBe(true);
+    expect(computeDailyScore({ buckets: [] }).hasRec).toBe(false);
   });
 });
 
@@ -536,5 +778,65 @@ describe('DAILY_STEP_BASELINE', () => {
     // — which is only true while these two are the same number.
     expect(tierFor('AGI', DAILY_STEP_BASELINE)).toBe('gold');
     expect(tierFor('AGI', DAILY_STEP_BASELINE - 1)).not.toBe('gold');
+  });
+
+  // The shift genuinely lowers the SCORING band — that is its whole point.
+  it('is not the band the spread shift lowers', () => {
+    expect(DAILY_STEP_BASELINE).toBe(10_000);
+    expect(shiftedTierFor('AGI', 7_500, 0.25)).toBe('gold');
+  });
+});
+
+// The Daily Walk baseline is a public-health number and must never scale with
+// the user (CLAUDE.md; spec §1). The spread shift made that easy to break by
+// accident, because `daily_scores.tiers->>'AGI'` is the SHIFTED tier and every
+// walk read went through it — including `walk_cleared`, which feeds a
+// consistency goal that LATCHES.
+//
+// These tests deliberately assert through `computeDailyScore`, not `tierFor`.
+// `tierFor` is `shiftedTierFor(stat, raw, 0)`, so it is the one path where the
+// shift is absent by construction — a guard written there passes no matter how
+// wrong the stored tier becomes. That is exactly how this got through review.
+describe('the walk baseline against the spread shift', () => {
+  // Eight active hours earns the 25% cap, so AGI Gold scores at 7,500 steps.
+  const spreadDay = (steps: number) =>
+    computeDailyScore({ buckets: dayWith({ steps, activeHours: 8 }) });
+
+  it('scores Gold at 7,500 steps on a well-spread day', () => {
+    expect(spreadDay(7_500).stats.AGI.tier).toBe('gold');
+  });
+
+  it('does not let that day clear the walk', () => {
+    // The divergence, stated as plainly as it can be: same day, same steps,
+    // Gold for scoring and NOT cleared for the walk. Collapsing these two back
+    // into one field is the regression this file exists to stop.
+    const day = spreadDay(7_500);
+    expect(day.stats.AGI.tier).toBe('gold');
+    expect(day.stats.AGI.unshiftedTier).not.toBe('gold');
+  });
+
+  it('clears the walk only at the full baseline, however spread the day', () => {
+    expect(spreadDay(DAILY_STEP_BASELINE).stats.AGI.unshiftedTier).toBe('gold');
+    expect(spreadDay(DAILY_STEP_BASELINE - 1).stats.AGI.unshiftedTier).not.toBe(
+      'gold',
+    );
+  });
+
+  it('agrees with the scoring tier when no shift is earned', () => {
+    // Three active hours is the floor, so the shift is zero and the two
+    // ladders must not drift apart for the ordinary case.
+    const flat = computeDailyScore({
+      buckets: dayWith({ steps: DAILY_STEP_BASELINE, activeHours: 3 }),
+    });
+    expect(flat.stats.AGI.tier).toBe('gold');
+    expect(flat.stats.AGI.unshiftedTier).toBe('gold');
+  });
+
+  it('leaves MND alone, which takes no shift at all', () => {
+    const night = computeDailyScore({
+      buckets: dayWith({ steps: 1_000 }),
+      sleepMinutes: 7 * 60,
+    });
+    expect(night.stats.MND.unshiftedTier).toBe(night.stats.MND.tier);
   });
 });

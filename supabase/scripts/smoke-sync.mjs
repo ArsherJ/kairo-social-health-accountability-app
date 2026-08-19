@@ -142,7 +142,7 @@ if (syncError) {
 
 const { data: score, error: scoreError } = await supabase
   .from('daily_scores')
-  .select('agi_points, str_points, vit_points, total, xp_awarded, status')
+  .select('agi_points, str_points, mind_points, total, xp_awarded, status')
   .eq('user_id', userId)
   .eq('local_date', localDate)
   .maybeSingle();
@@ -153,7 +153,9 @@ if (score.total <= 0) fail('daily_scores', `score row written but total=${score.
 
 const { data: profile, error: rollupError } = await supabase
   .from('profiles')
-  .select('total_xp, level, agi_total, str_total, end_total, vit_total')
+  // end_total and vit_total still exist and are dropped in Phase 3; nothing
+  // writes them any more, so asserting on them would test the past.
+  .select('total_xp, level, agi_total, str_total')
   .eq('id', userId)
   .maybeSingle();
 if (rollupError) fail('profiles', rollupError.message);

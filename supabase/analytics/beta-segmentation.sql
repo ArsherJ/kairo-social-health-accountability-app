@@ -18,8 +18,8 @@
 --   2. Is the strength program viable phone-only? Compare a wearable-heavy
 --      strength squad against a phone-only one — STR is estimated active energy, which
 --      a phone in a pocket measures poorly during a lifting session.
---   3. Are people being scored as someone they do not train as? A Running squad
---      whose members land VIT-dominant is boosting a stat nobody in it earns —
+--   3. Are people being scored as someone they do not train as? A Recovery squad
+--      whose members land AGI-dominant is boosting a stat nobody in it earns —
 --      a churn risk that shows up in the data weeks before it shows up in an
 --      interview.
 
@@ -102,8 +102,8 @@ order by s.program, p.has_wearable;
 -- becomes one, it must move to @kairo/core and get a differential test, the
 -- same as the program weights.
 --
--- A sustained mismatch is still the signal, one level up: a Running squad whose
--- members land VIT-dominant for three weeks is boosting a stat nobody in it
+-- A sustained mismatch is still the signal, one level up: a Recovery squad whose
+-- members land AGI-dominant for three weeks is boosting a stat nobody in it
 -- earns, and "not winnable for my lifestyle" is the churn reason that follows.
 -- It is also what the character screen's lane now reads, so this doubles as a
 -- check that the lane is pointing somewhere real.
@@ -114,8 +114,9 @@ with window_totals as (
     s.program,
     sum(ds.agi_points) as agi,
     sum(ds.str_points) as str,
-    sum(ds.end_points) as end_,
-    sum(ds.vit_points) as vit
+    -- mind_points, not rec_points: sleep is a stat since deviation #41, and
+    -- end_points / vit_points are retired columns nothing writes.
+    sum(ds.mind_points) as mnd
   from public.profiles p
   join public.squad_members sm on sm.user_id = p.id
   join public.squads s on s.id = sm.squad_id
@@ -127,10 +128,9 @@ with window_totals as (
 observed as (
   select
     w.*,
-    greatest(w.agi, w.str, w.end_, w.vit) as top,
-    case greatest(w.agi, w.str, w.end_, w.vit)
-      when w.agi then 'AGI' when w.str then 'STR'
-      when w.end_ then 'END' else 'VIT'
+    greatest(w.agi, w.str, w.mnd) as top,
+    case greatest(w.agi, w.str, w.mnd)
+      when w.agi then 'AGI' when w.str then 'STR' else 'MND'
     end as dominant
   from window_totals w
 )
@@ -139,7 +139,7 @@ select
   -- All-Rounder: every stat within 20% of the top one.
   case
     when o.top = 0 then 'none'
-    when least(o.agi, o.str, o.end_, o.vit) >= o.top * 0.8 then 'balanced'
+    when least(o.agi, o.str, o.mnd) >= o.top * 0.8 then 'balanced'
     else o.dominant
   end as observed_dominance,
   count(*) as users
