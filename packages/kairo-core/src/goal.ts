@@ -86,8 +86,12 @@ export interface GoalDay {
   localDate: string;
   total: number;
   /**
-   * Whether this day cleared the Daily Walk — `tiers->>'AGI' = 'gold'`, which
-   * is exactly `DAILY_STEP_BASELINE` steps.
+   * Whether this day cleared the Daily Walk — `tiers->>'AGI_base' = 'gold'`,
+   * which is exactly `DAILY_STEP_BASELINE` steps.
+   *
+   * The **unshifted** ladder, deliberately: the spread shift can bring the
+   * scoring tier (`tiers->>'AGI'`) to gold at 7,500 steps, and this is a
+   * consistency goal that LATCHES. A wrong card re-renders; a latch does not.
    *
    * False for a day with no score at all: `goal_window_scores` LEFT JOINs so a
    * participant with nothing yet still appears, and a null there must read as

@@ -242,6 +242,10 @@ describe('planDay', () => {
       STR: 'gold',
       // input() carries no sleepMinutes — MND is 'none' rather than absent.
       MND: 'none',
+      // The unshifted AGI ladder, which the Daily Walk reads instead of `AGI`.
+      // Equal to `AGI` here because this fixture earns no spread shift; the
+      // case where they diverge is pinned in scoring.test.ts.
+      AGI_base: 'bronze',
     });
     expect(row.total).toBeGreaterThan(0);
   });

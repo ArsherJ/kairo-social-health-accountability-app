@@ -431,7 +431,13 @@ export interface DayScoreRow {
   mind_points: number;
   consistency_points: number;
   total: number;
-  tiers: Record<CoreStat, string>;
+  /**
+   * Per-stat tiers, plus `AGI_base` — the unshifted AGI ladder the Daily Walk
+   * reads. Not `Record<CoreStat, string>`: `AGI_base` is deliberately not a
+   * stat, and widening `CoreStat` to admit it would put it on every stat
+   * table, rail and switch in the app.
+   */
+  tiers: Record<CoreStat, string> & { AGI_base: string };
   contributing_stats: number;
   has_rec: boolean;
   featured_stat: CoreStat | null;
@@ -495,6 +501,16 @@ export function planDay(input: DayPlanInput): DayPlan {
         AGI: score.stats.AGI.tier,
         STR: score.stats.STR.tier,
         MND: score.stats.MND.tier,
+        // The unshifted AGI ladder, stored alongside the scoring tier because
+        // the Daily Walk asks a different question: `AGI` can reach gold at
+        // 7,500 steps on a well-spread day, `AGI_base` only ever at
+        // `DAILY_STEP_BASELINE`. Every walk read — `goal_window_scores()`'s
+        // `walk_cleared` and the 90-day streak — uses this key.
+        //
+        // Rows written before the three-stat switch have no `AGI_base` and
+        // need none: no shift existed then, so their `AGI` *is* unshifted.
+        // Both readers coalesce to it, which is correct rather than lenient.
+        AGI_base: score.stats.AGI.unshiftedTier,
       },
       contributing_stats: score.contributingStats,
       has_rec: score.hasRec,

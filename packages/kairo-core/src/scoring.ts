@@ -338,11 +338,16 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
     // also takes no shift — the trust gate decides *whether* sleep scores,
     // not how easily.
     const tier = stat === 'MND' ? mindTierFor(raw) : shiftedTierFor(stat, raw, shift);
+    // The same ladder with the shift removed. For AGI this is what the Daily
+    // Walk reads: `DAILY_STEP_BASELINE` is a public-health floor and must not
+    // move because the user spread their steps out. Identical to `tier`
+    // wherever the shift is zero, and for MND, which takes no shift at all.
+    const unshiftedTier = stat === 'MND' ? tier : shiftedTierFor(stat, raw, 0);
     const base = TIER_POINTS[tier];
     const points =
       stat === featuredStat ? Math.round(base * FEATURED_STAT_MULTIPLIER) : base;
 
-    stats[stat] = { tier, raw, base, points };
+    stats[stat] = { tier, unshiftedTier, raw, base, points };
 
     if (tier !== 'none') contributingStats += 1;
     statPoints += points;

@@ -4000,6 +4000,72 @@ describe('goals.metric — the Daily Walk', () => {
       expect(rows[0]?.walk_cleared).toBe(false);
     });
 
+    // The three-stat switch made AGI's thresholds movable, so `tiers->>'AGI'`
+    // is the SHIFTED tier — gold at 7,500 steps on a well-spread day. The walk
+    // reads `AGI_base` instead, because the baseline is a public-health number
+    // that must not scale with the user, and because this metric feeds a
+    // consistency goal that LATCHES.
+    async function seedBothTiers(
+      userId: string,
+      date: string,
+      agi: string,
+      agiBase: string,
+    ) {
+      await h.asService(
+        `insert into public.daily_scores (user_id, local_date, agi_points, total, status, finalized_at, tiers)
+         values ($1, $2, 1000, 1000, 'final', now(), $3::jsonb)`,
+        [userId, date, JSON.stringify({ AGI: agi, AGI_base: agiBase })],
+      );
+    }
+
+    it('is false when the day scored gold only because of the spread shift', async () => {
+      // 7,500 steps across eight active hours: gold for scoring, and not a
+      // cleared walk. This is the case the whole `AGI_base` key exists for.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedBothTiers(user, '2026-09-05', 'gold', 'silver');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-05'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(false);
+    });
+
+    it('is true when the unshifted ladder itself reached gold', async () => {
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedBothTiers(user, '2026-09-06', 'gold', 'gold');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-06'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(true);
+    });
+
+    it('falls back to AGI for rows written before the three-stat switch', async () => {
+      // Those rows carry no `AGI_base` and need none: no shift existed when
+      // they were scored, so their `AGI` *is* the unshifted ladder. Reading
+      // them as "did not clear" would retroactively break every walk streak
+      // and un-latch goals that had already completed.
+      const user = await h.createUser();
+      const goalId = await walkGoal(user);
+      await seedTier(user, '2026-09-07', 3000, 'gold');
+
+      const rows = await h.asUser<{ walk_cleared: boolean }>(
+        user,
+        `select walk_cleared from public.goal_window_scores($1)
+         where local_date = '2026-09-07'`,
+        [goalId],
+      );
+      expect(rows[0]?.walk_cleared).toBe(true);
+    });
+
     it('is false, not null, for a participant with no scored day', async () => {
       // The LEFT JOIN keeps a scoreless participant on the roster. Their row
       // must say false — kairo-core's GoalDay.walkCleared is a boolean, and a

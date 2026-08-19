@@ -52,6 +52,20 @@ export interface DayTotals {
 
 export interface StatResult {
   tier: Tier;
+  /**
+   * The tier this stat would have reached with **no threshold shift applied**.
+   *
+   * Equal to `tier` for MND (which takes no shift) and for any day whose shift
+   * is zero. It exists for AGI, where the two genuinely diverge and where the
+   * difference is load-bearing: the spread shift can bring Gold down to 7,500
+   * steps, but the **Daily Walk baseline is a public-health number that must
+   * never scale with the user**. Scoring reads `tier`; the walk reads this.
+   *
+   * Do not collapse the two back together. A day can be AGI Gold for scoring
+   * and not have cleared the walk, and that is correct — they answer different
+   * questions.
+   */
+  unshiftedTier: Tier;
   /** The underlying measurement this tier was derived from. */
   raw: number;
   /** Tier points before the weekly featured-stat multiplier. */

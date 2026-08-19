@@ -780,12 +780,63 @@ describe('DAILY_STEP_BASELINE', () => {
     expect(tierFor('AGI', DAILY_STEP_BASELINE - 1)).not.toBe('gold');
   });
 
-  // The shift makes Gold arrive sooner on a spread day, which is a real change
-  // to what the walk streak reads. Deliberate and stated here rather than
-  // discovered later: the Daily Walk is "10,000 steps, or fewer if you spread
-  // them", and the baseline constant still names the unspread number.
-  it('is unaffected by the spread shift, which lowers the band and not the baseline', () => {
+  // The shift genuinely lowers the SCORING band — that is its whole point.
+  it('is not the band the spread shift lowers', () => {
     expect(DAILY_STEP_BASELINE).toBe(10_000);
     expect(shiftedTierFor('AGI', 7_500, 0.25)).toBe('gold');
+  });
+});
+
+// The Daily Walk baseline is a public-health number and must never scale with
+// the user (CLAUDE.md; spec §1). The spread shift made that easy to break by
+// accident, because `daily_scores.tiers->>'AGI'` is the SHIFTED tier and every
+// walk read went through it — including `walk_cleared`, which feeds a
+// consistency goal that LATCHES.
+//
+// These tests deliberately assert through `computeDailyScore`, not `tierFor`.
+// `tierFor` is `shiftedTierFor(stat, raw, 0)`, so it is the one path where the
+// shift is absent by construction — a guard written there passes no matter how
+// wrong the stored tier becomes. That is exactly how this got through review.
+describe('the walk baseline against the spread shift', () => {
+  // Eight active hours earns the 25% cap, so AGI Gold scores at 7,500 steps.
+  const spreadDay = (steps: number) =>
+    computeDailyScore({ buckets: dayWith({ steps, activeHours: 8 }) });
+
+  it('scores Gold at 7,500 steps on a well-spread day', () => {
+    expect(spreadDay(7_500).stats.AGI.tier).toBe('gold');
+  });
+
+  it('does not let that day clear the walk', () => {
+    // The divergence, stated as plainly as it can be: same day, same steps,
+    // Gold for scoring and NOT cleared for the walk. Collapsing these two back
+    // into one field is the regression this file exists to stop.
+    const day = spreadDay(7_500);
+    expect(day.stats.AGI.tier).toBe('gold');
+    expect(day.stats.AGI.unshiftedTier).not.toBe('gold');
+  });
+
+  it('clears the walk only at the full baseline, however spread the day', () => {
+    expect(spreadDay(DAILY_STEP_BASELINE).stats.AGI.unshiftedTier).toBe('gold');
+    expect(spreadDay(DAILY_STEP_BASELINE - 1).stats.AGI.unshiftedTier).not.toBe(
+      'gold',
+    );
+  });
+
+  it('agrees with the scoring tier when no shift is earned', () => {
+    // Three active hours is the floor, so the shift is zero and the two
+    // ladders must not drift apart for the ordinary case.
+    const flat = computeDailyScore({
+      buckets: dayWith({ steps: DAILY_STEP_BASELINE, activeHours: 3 }),
+    });
+    expect(flat.stats.AGI.tier).toBe('gold');
+    expect(flat.stats.AGI.unshiftedTier).toBe('gold');
+  });
+
+  it('leaves MND alone, which takes no shift at all', () => {
+    const night = computeDailyScore({
+      buckets: dayWith({ steps: 1_000 }),
+      sleepMinutes: 7 * 60,
+    });
+    expect(night.stats.MND.unshiftedTier).toBe(night.stats.MND.tier);
   });
 });

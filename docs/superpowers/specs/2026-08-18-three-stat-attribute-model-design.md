@@ -55,12 +55,31 @@ all day makes Gold arrive sooner, rather than making Gold worth more.
 
 ### What this preserves for free
 
-- **`DAILY_STEP_BASELINE = THRESHOLDS.AGI.gold` survives intact.** AGI still
-  exists and its raw value is still steps, so the walk streak's
-  `tiers->>'AGI' = 'gold'` read out of `daily_scores` keeps working with no
-  migration. This looked like the sharpest edge in the change and is not one.
-  The `scoring.test.ts` literal pinning it at 10,000 stays, and still guards the
-  same failure.
+- **`DAILY_STEP_BASELINE = THRESHOLDS.AGI.gold` survives — but the read had to
+  move.** ~~AGI still exists and its raw value is still steps, so the walk
+  streak's `tiers->>'AGI' = 'gold'` read out of `daily_scores` keeps working
+  with no migration. This looked like the sharpest edge in the change and is
+  not one.~~
+
+  **CORRECTED 2026-08-19, found by the final Phase 2 review.** It *was* the
+  sharpest edge. The spread shift lowers AGI's whole ladder, Gold included, and
+  `tiers->>'AGI'` stores the **shifted** tier — so Gold arrived at 7,500 steps
+  on an eight-active-hour day and every walk read silently followed it down.
+  That breaks CLAUDE.md's invariant that the baseline must never scale with the
+  user, and it fed `walk_cleared`, which latches a consistency goal
+  permanently.
+
+  The fix: `sync-plan.ts` also writes `tiers->>'AGI_base'`, the same ladder with
+  the shift removed, and both readers — `goal_window_scores()`'s `walk_cleared`
+  and the 90-day streak — use that key, falling back to `AGI` for rows written
+  before the switch (no shift existed then, so for them the two agree). It cost
+  one migration, `20260819120000_walk_reads_unshifted_agi.sql`.
+
+  The `scoring.test.ts` literal pinning 10,000 stays, but it was **never able to
+  catch this**: it asserts through `tierFor`, which is `shiftedTierFor(stat,
+  raw, 0)` — the one path where the shift is absent by construction. The new
+  tests assert through `computeDailyScore` instead, and pin the case where the
+  two tiers disagree.
 - **`health_buckets` needs no schema change.** Every input still comes from the
   same four hourly columns plus `daily_sleep`.
 - **`KAIRO_READ_TYPES` needs no change.** Sleep, workouts and heart rate are
