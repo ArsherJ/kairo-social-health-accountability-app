@@ -17,8 +17,8 @@ export const MIND_THRESHOLD_HOURS = {
 /**
  * Above this, the night flattens to Bronze — never to none.
  *
- * `recBonusFor` already paid less above nine hours (200, against 500 for a
- * healthy night), so the shape is inherited rather than invented. What must
+ * The retired `recBonusFor` already paid less above nine hours (200, against
+ * 500 for a healthy night), so the shape is inherited rather than invented. What must
  * not be inherited is a zero: MND is a promoted *bonus*, and a stat that pays
  * nothing for a twelve-hour night punishes illness, jet lag and recovery — the
  * exact behaviours the stat exists to reward.

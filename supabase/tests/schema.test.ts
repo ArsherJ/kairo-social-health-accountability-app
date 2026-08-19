@@ -2096,28 +2096,41 @@ describe('leaderboard program weighting', () => {
     return rows[0]!;
   }
 
-  const DAY = { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 };
+  // A three-stat day: AGI gold, STR silver, and full breadth. `end`/`vit` are
+  // 0 because nothing writes them any more (deviation #41).
+  const DAY = { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 };
 
   it('leaves an all_around board unweighted', async () => {
-    expect((await boardWith('all_around', DAY)).total).toBe(3_200);
+    expect((await boardWith('all_around', DAY)).total).toBe(2_650);
   });
 
   it('boosts AGI on a running board', async () => {
-    expect((await boardWith('running', DAY)).total).toBe(3_650);
+    expect((await boardWith('running', DAY)).total).toBe(3_250);
   });
 
   it('boosts STR on a strength board', async () => {
-    expect((await boardWith('strength', DAY)).total).toBe(3_450);
+    expect((await boardWith('strength', DAY)).total).toBe(2_975);
   });
 
-  it('boosts VIT on a walking board', async () => {
-    expect((await boardWith('walking', DAY)).total).toBe(3_650);
+  // Walking boosted VIT until deviation #41 retired that stat; its
+  // hourly-movement signal now lowers AGI's bands instead. A walking board
+  // weighting p_vit would be weighting a column nothing writes.
+  it('boosts AGI on a walking board', async () => {
+    const agiOnly = { agi: 1_200, str: 0, end: 0, vit: 0 };
+    expect((await boardWith('walking', agiOnly)).total).toBe(1_800);
   });
 
-  it('never boosts END, on any program', async () => {
-    const endOnly = { agi: 0, str: 0, end: 900, vit: 0 };
+  // Knowingly unweighted in SQL until Phase 3 gives program_weighted_total a
+  // p_mind parameter — the signature change ships with the column drops. This
+  // pins the gap so it is a decision on record rather than a surprise.
+  it('does not yet boost anything on a recovery board', async () => {
+    expect((await boardWith('recovery', DAY)).total).toBe(2_650);
+  });
+
+  it('never boosts the retired columns, on any program', async () => {
+    const retiredOnly = { agi: 0, str: 0, end: 900, vit: 900 };
     for (const program of SQUAD_PROGRAMS) {
-      expect((await boardWith(program, endOnly)).total).toBe(900);
+      expect((await boardWith(program, retiredOnly)).total).toBe(1_800);
     }
   });
 
@@ -2204,16 +2217,23 @@ describe('program weights agree with kairo-core', () => {
   // packages/kairo-core/src/program.ts are two implementations of one rule,
   // because a migration cannot import TypeScript. This is the
   // finalizable_days() / isFinalizable() precedent applied to the weights.
+  // `end`, `vit` and `rec` stay in the fixtures because the COLUMNS still
+  // exist and the SQL still sums them — a historical row holds real values
+  // there, and a board that stopped counting them would rewrite the past.
+  // What no fixture may do is give them a value the TypeScript side cannot
+  // see: `weightedBoardTotal` takes a Record<CoreStat, number> and CoreStat no
+  // longer has END or VIT, so the two would diverge by exactly those points.
+  // They are pinned at 0 for that reason, not for tidiness.
   const FIXTURES = [
     { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0 },
-    { agi: 900, str: 500, end: 0, vit: 900, consistency: 400, rec: 500 },
-    { agi: 900, str: 900, end: 900, vit: 900, consistency: 800, rec: 500 },
-    { agi: 500, str: 200, end: 200, vit: 500, consistency: 400, rec: 0 },
+    { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 },
+    { agi: 1_200, str: 1_200, end: 0, vit: 0, consistency: 800, rec: 500 },
+    { agi: 650, str: 250, end: 0, vit: 0, consistency: 400, rec: 0 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
     // future one from producing them.
-    { agi: 125, str: 375, end: 0, vit: 25, consistency: 0, rec: 0 },
-    { agi: 1, str: 1, end: 1, vit: 1, consistency: 0, rec: 0 },
+    { agi: 125, str: 375, end: 0, vit: 0, consistency: 0, rec: 0 },
+    { agi: 1, str: 1, end: 0, vit: 0, consistency: 0, rec: 0 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
@@ -2233,7 +2253,13 @@ describe('program weights agree with kairo-core', () => {
             // CORE_STATS (deviation #41); neither weights it yet, so 0 keeps
             // the two sides in agreement rather than exercising a stat this
             // particular differential test does not cover.
-            statPoints: { AGI: f.agi, STR: f.str, END: f.end, VIT: f.vit, MND: 0 },
+            // MND: 0 — `program_weighted_total()` has no `p_mind` parameter,
+            // so the `recovery` program's MND boost cannot be expressed on the
+            // SQL side until Phase 3 changes that signature alongside the
+            // column drops. Passing 0 keeps the two sides in agreement on
+            // everything both can express, and is the one thing this
+            // differential test does not cover. See the note in program.ts.
+            statPoints: { AGI: f.agi, STR: f.str, MND: 0 },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
           }),
@@ -4234,7 +4260,10 @@ describe('three-stat expand migration', () => {
     expect(rows[0]!.is_nullable).toBe('NO');
   });
 
-  it('keeps rec_points during the expand phase, so a rollback needs no restore', async () => {
+  // Still true through the contract phase: the checks tighten here, the
+  // columns go in Phase 3 with the redeploy. A function rollback in between
+  // needs no schema restore.
+  it('keeps rec_points, end_points and vit_points until Phase 3 drops them', async () => {
     const rows = await h.asService<{ column_name: string }>(`
       select column_name from information_schema.columns
       where table_schema = 'public' and table_name = 'daily_scores'
@@ -4261,23 +4290,25 @@ describe('three-stat expand migration', () => {
     expect(rows).toHaveLength(3);
   });
 
-  // MND must be storable as a featured stat before Task 3 can emit it.
-  it('accepts MND as a featured stat', async () => {
+  it('accepts MND as a featured stat, and no longer END or VIT', async () => {
     const rows = await h.asService<{ def: string }>(`
       select pg_get_constraintdef(oid) as def from pg_constraint
       where conrelid = 'public.daily_scores'::regclass
         and pg_get_constraintdef(oid) like '%featured_stat%'
     `);
     expect(rows[0]!.def).toContain('MND');
+    expect(rows[0]!.def).not.toContain('END');
+    expect(rows[0]!.def).not.toContain('VIT');
   });
 
-  // Transitional: five stats can contribute until Task 4 retires END and VIT.
-  it('allows up to five contributing stats during the transition', async () => {
+  // Contracted: END and VIT are retired, so three is the ceiling again.
+  it('allows at most three contributing stats', async () => {
     const rows = await h.asService<{ def: string }>(`
       select pg_get_constraintdef(oid) as def from pg_constraint
       where conrelid = 'public.daily_scores'::regclass
         and conname like '%contributing_stats%'
     `);
-    expect(rows[0]!.def).toContain('5');
+    expect(rows[0]!.def).toContain('3');
+    expect(rows[0]!.def).not.toContain('5');
   });
 });

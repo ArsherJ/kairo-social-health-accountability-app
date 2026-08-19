@@ -14,10 +14,7 @@ import { supabase } from '@/lib/supabase.ts';
 export type TodayScore = {
   agi_points: number;
   str_points: number;
-  end_points: number;
-  vit_points: number;
   mind_points: number;
-  rec_points: number;
   consistency_points: number;
   total: number;
   tiers: Record<string, string>;
@@ -51,7 +48,7 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
       const { data, error } = await supabase
         .from('daily_scores')
         .select(
-          'agi_points, str_points, end_points, vit_points, mind_points, rec_points, ' +
+          'agi_points, str_points, mind_points, ' +
             'consistency_points, total, tiers, ' +
             'contributing_stats, status',
         )
@@ -109,7 +106,7 @@ export function useDominantStat(
     queryFn: async (): Promise<Dominance> => {
       const { data, error } = await supabase
         .from('daily_scores')
-        .select('agi_points, str_points, end_points, vit_points, mind_points')
+        .select('agi_points, str_points, mind_points')
         .eq('user_id', userId as string)
         .gte('local_date', since as string)
         .lte('local_date', today as string);
@@ -117,7 +114,7 @@ export function useDominantStat(
       if (error) throw new Error(error.message);
 
       const rows = (data ?? []) as ReadonlyArray<Record<string, number>>;
-      const totals: Record<CoreStat, number> = { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 };
+      const totals: Record<CoreStat, number> = { AGI: 0, STR: 0, MND: 0 };
       for (const row of rows) {
         for (const stat of CORE_STATS) {
           totals[stat] += row[`${stat.toLowerCase()}_points`] ?? 0;

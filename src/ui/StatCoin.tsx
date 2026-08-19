@@ -47,7 +47,7 @@ export function StatCoin({
   return (
     <View
       // No accessible name of its own. The only caller is `StatRail`, which is
-      // a single Pressable whose label already speaks all four ratings — a
+      // a single Pressable whose label already speaks every rating — a
       // second element here either does nothing or splits one control into
       // four. The coin's job for a screen reader is to stay out of the way.
       accessibilityElementsHidden

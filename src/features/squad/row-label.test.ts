@@ -4,8 +4,6 @@ import { leaderboardRowLabel, type RowLabelInput } from './row-label.ts';
 const statNames = {
   AGI: 'Agility',
   STR: 'Strength',
-  END: 'Endurance',
-  VIT: 'Vitality',
   MND: 'Mind',
 };
 
@@ -19,7 +17,7 @@ const base: RowLabelInput = {
   // stopped printing totals, and a four-digit gap is the wrong shape for what
   // it now means.
   gap: 640,
-  ratings: { AGI: 41, STR: 27, END: 18, VIT: 9 },
+  ratings: { AGI: 41, STR: 27, MND: 9 },
   statNames,
 };
 
@@ -99,9 +97,9 @@ describe('leaderboardRowLabel', () => {
 
   it('keeps the stats in the fixed order the rail uses', () => {
     // Not alphabetical, and not whatever order the map happens to iterate:
-    // AGI STR END VIT is the order every other surface shows.
+    // AGI STR MND is the order every other surface shows.
     const label = leaderboardRowLabel(base);
-    expect(label).toMatch(/Agility 41, Strength 27, Endurance 18, Vitality 9/);
+    expect(label).toMatch(/Agility 41, Strength 27, Mind 9/);
   });
 
   it('never says points', () => {

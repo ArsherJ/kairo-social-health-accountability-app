@@ -19,11 +19,15 @@ describe('SPECIES registry', () => {
     }
   });
 
-  it('maps each core stat to exactly one species', () => {
-    // Four species, four stats, no duplicates. A second AGI species would make
-    // the affinity meaningless without anything failing.
+  it('covers every core stat, with one stat carrying the extra species', () => {
+    // Four species and three stats since deviation #41, so the one-to-one
+    // mapping the four-stat model had cannot hold. What must still hold is
+    // coverage: no stat may be unrepresented, or a whole build would have no
+    // animal to be. Carabao and Tamaraw both sit on STR — carabao inherited
+    // it from END, whose signal now lives in STR's workout shift.
     const affinities = SPECIES_IDS.map((id) => SPECIES[id].affinity);
-    expect([...affinities].sort()).toEqual(['AGI', 'END', 'STR', 'VIT']);
+    expect([...new Set(affinities)].sort()).toEqual(['AGI', 'MND', 'STR']);
+    expect(affinities).toHaveLength(4);
   });
 
   it('derives SPECIES_NAMES from the registry rather than repeating it', () => {

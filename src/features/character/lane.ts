@@ -22,7 +22,7 @@ import type { CoreStat, Dominance } from '@kairo/core';
 
 /**
  * `'balanced'` deliberately yields no lane. It is the answer "a bit of
- * everything", and picking a stat to speak for someone whose four are level
+ * everything", and picking a stat to speak for someone whose stats are level
  * would be inventing a preference they have not shown.
  */
 export function laneStat(dominance: Dominance | undefined): CoreStat | null {
@@ -41,8 +41,6 @@ export function laneStat(dominance: Dominance | undefined): CoreStat | null {
 const LANE_EMPTY_COPY: Record<CoreStat, string> = {
   AGI: 'Your next walk or run fills this bar.',
   STR: 'Your next session fills this bar.',
-  END: 'Your next workout fills this bar.',
-  VIT: 'Moving on the hour fills this bar.',
   MND: 'Rest is training too. Sleep tonight and Mind starts moving.',
 };
 

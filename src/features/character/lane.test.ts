@@ -6,11 +6,10 @@ describe('laneStat', () => {
   it('is the stat the user has actually been grinding', () => {
     expect(laneStat('AGI')).toBe('AGI');
     expect(laneStat('STR')).toBe('STR');
-    expect(laneStat('END')).toBe('END');
-    expect(laneStat('VIT')).toBe('VIT');
+    expect(laneStat('MND')).toBe('MND');
   });
 
-  it('highlights nothing for someone whose four stats are level', () => {
+  it('highlights nothing for someone whose stats are level', () => {
     // 'balanced' is the answer "a bit of everything". Picking a stat to speak
     // for that user would be inventing a preference they have not shown.
     expect(laneStat('balanced')).toBeNull();
@@ -23,7 +22,7 @@ describe('laneStat', () => {
     expect(laneStat(undefined)).toBeNull();
   });
 
-  it('never highlights a stat the four-stat list does not contain', () => {
+  it('never highlights a stat CORE_STATS does not contain', () => {
     for (const stat of CORE_STATS) {
       expect(CORE_STATS).toContain(laneStat(stat));
     }
@@ -35,8 +34,9 @@ describe('laneEmptyCopy', () => {
     // "Your next run" is something a person can go and do. "Your next AGI" is not.
     expect(laneEmptyCopy('AGI')).toBe('Your next walk or run fills this bar.');
     expect(laneEmptyCopy('STR')).toBe('Your next session fills this bar.');
-    expect(laneEmptyCopy('END')).toBe('Your next workout fills this bar.');
-    expect(laneEmptyCopy('VIT')).toBe('Moving on the hour fills this bar.');
+    expect(laneEmptyCopy('MND')).toBe(
+      'Rest is training too. Sleep tonight and Mind starts moving.',
+    );
   });
 
   it('has copy for every core stat, so a lane can never render blank', () => {

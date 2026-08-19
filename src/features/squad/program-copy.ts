@@ -29,6 +29,11 @@ export const PROGRAM_OPTIONS: readonly ProgramOption[] = [
   { value: 'strength', label: 'Strength', blurb: 'Strength and effort count for more' },
   { value: 'walking', label: 'Walking', blurb: 'Steps and active hours count for more' },
   {
+    value: 'recovery',
+    label: 'Recovery',
+    blurb: 'Sleep counts for more — the one game you win by resting',
+  },
+  {
     value: 'all_around',
     label: 'All-around',
     blurb: 'A bit of everything — every stat weighs the same',
@@ -66,8 +71,20 @@ export function boostChipLabel(program: SquadProgram | undefined): string | null
 export const STRENGTH_ACCURACY_NOTE =
   'Strength tracking is most accurate with a watch or band.';
 
+/**
+ * The same rule, and the sharper case of it. Recovery weights Mind, which a
+ * phone cannot measure at all — it needs a sleep-tracking device or app. A
+ * member without one is not scored *down* for it (their day scales to the same
+ * ceiling), but the squad's tilt buys them nothing, so a recovery squad
+ * founded on phones alone is an all-around squad with extra words.
+ */
+export const RECOVERY_ACCURACY_NOTE =
+  'Recovery needs a sleep tracker — a watch, a band, or a sleep app.';
+
 export function programNote(program: SquadProgram): string | null {
-  return program === 'strength' ? STRENGTH_ACCURACY_NOTE : null;
+  if (program === 'strength') return STRENGTH_ACCURACY_NOTE;
+  if (program === 'recovery') return RECOVERY_ACCURACY_NOTE;
+  return null;
 }
 
 /** Every program the core declares. Asserted by `program-copy.test.ts`. */

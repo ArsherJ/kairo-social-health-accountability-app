@@ -3,7 +3,7 @@ import { CORE_STATS, type CoreStat } from './types.ts';
 /**
  * Per-user local days (spec §2). Every player's day runs midnight-to-midnight in
  * their own timezone, so an OFW in Dubai and their sibling in Cebu each get a
- * fair 24-hour window and correct VIT hourly buckets.
+ * fair 24-hour window and correct hourly buckets.
  *
  * Every function here takes `now` as an argument and never reads the clock.
  * That is what makes timezone and DST behaviour testable without time mocking.
@@ -183,8 +183,13 @@ export function isoWeekOf(localDate: string): number {
 }
 
 /**
- * The week's 1.5x featured stat (spec §6). Rotates AGI → STR → END → VIT so no
- * single build dominates long-term, and gives Monday a reason to re-engage.
+ * The week's 1.5x featured stat (spec §6). Rotates over `CORE_STATS` — AGI →
+ * STR → MND since deviation #41 — so no single build dominates long-term, and
+ * gives Monday a reason to re-engage.
+ *
+ * Nothing on the write path calls this: deviation #10 retired the rotation
+ * from stored scoring. It survives so V1 can resurrect it as a read-time
+ * projection.
  */
 export function featuredStatFor(localDate: string): CoreStat {
   const index = (isoWeekOf(localDate) - 1) % CORE_STATS.length;

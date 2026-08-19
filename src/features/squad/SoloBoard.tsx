@@ -58,11 +58,15 @@ export function SoloBoard({
     // Straight off the profile rollups, the same numbers the character screen
     // reads. Solo is the one board where the row is not built by the RPC, so
     // this is where the two sources have to be kept saying the same thing.
+    // MND reads 0 until Phase 3 adds `profiles.mnd_total` — `end_total` and
+    // `vit_total` still exist and are the columns it replaces, but there is
+    // no lifetime Mind figure to read yet, and 0 is the same "unearned"
+    // reading the coin already gives an unstarted stat. The character screen
+    // does exactly this, which is what keeps the two agreeing.
     ratings: {
       AGI: profile.data?.agi_total ?? 0,
       STR: profile.data?.str_total ?? 0,
-      END: profile.data?.end_total ?? 0,
-      VIT: profile.data?.vit_total ?? 0,
+      MND: 0,
     },
     contributing_stats: today?.contributing_stats ?? 0,
     // From the profile, for the same reason the ratings above are: solo is the

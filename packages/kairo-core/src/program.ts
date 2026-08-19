@@ -13,6 +13,14 @@
  * `squad.ts`). Both sides carry a cross-reference comment, and a differential
  * test in the schema suite asserts the two agree on fixture days, the same way
  * `finalizable_days()` and `isFinalizable()` are kept honest.
+ *
+ * **One half of that mirror is knowingly incomplete until Phase 3.**
+ * `program_weighted_total()` takes `p_agi, p_str, p_end, p_vit, p_rec` and has
+ * no `p_mind`, so the `recovery` program's MND boost cannot be expressed in
+ * SQL yet — the parameter list changes with the column drop, and doing it here
+ * would mean recreating `squad_leaderboard()` in a migration Phase 2 has
+ * deliberately not applied. The differential test pins the two sides on
+ * everything both can express and says so where it passes MND as 0.
  */
 
 import { CORE_STATS, type CoreStat } from './types.ts';
@@ -26,13 +34,19 @@ import { CORE_STATS, type CoreStat } from './types.ts';
  * work from weights — a narrower word would promise a distinction the data
  * cannot make.
  */
-export type SquadProgram = 'all_around' | 'running' | 'strength' | 'walking';
+export type SquadProgram =
+  | 'all_around'
+  | 'running'
+  | 'strength'
+  | 'walking'
+  | 'recovery';
 
 export const SQUAD_PROGRAMS: readonly SquadProgram[] = [
   'all_around',
   'running',
   'strength',
   'walking',
+  'recovery',
 ];
 
 export const DEFAULT_SQUAD_PROGRAM: SquadProgram = 'all_around';
@@ -44,17 +58,36 @@ export const DEFAULT_SQUAD_PROGRAM: SquadProgram = 'all_around';
 export const PROGRAM_BOOST_MULTIPLIER = 1.5;
 
 /**
- * The stat each program boosts, or `null` for the untilted default.
+ * The stat each program boosts, or `null` for the untilted default. Keyed by
+ * **program**, valued by stat — several programs may name the same stat.
  *
- * **END is never boosted, on purpose.** It rides `AppleExerciseTime`, which may
- * be Watch-only in the wild (Phase 3's open risk). A program built on a stat
- * most beta users cannot earn is a program nobody can win.
+ * `walking` boosted VIT until deviation #41 retired that stat. It boosts AGI
+ * now, which is what walking always measured: VIT's hourly-movement signal
+ * survives as AGI's spread shift, so a walking squad is still rewarded for
+ * spreading its steps — through easier bands rather than through weight.
+ * Running and walking therefore boost the same stat and stay separate
+ * programs, because they are different games people mean different things by;
+ * collapsing them would be a product decision, not a refactor.
+ *
+ * `recovery` is new and boosts MND. It is the first program a person can play
+ * without moving, which is exactly why sleep had to become a stat before it
+ * could exist.
+ *
+ * **The old warning still applies in its new place.** END was never boosted
+ * because it rode `AppleExerciseTime`, which may be Watch-only in the wild — a
+ * program built on a stat most beta users cannot earn is a program nobody can
+ * win. MND has the same shape: it needs a trusted sleep source. What makes
+ * `recovery` defensible where an END program was not is normalization — a
+ * user who cannot earn MND is scaled up rather than left short — but a
+ * recovery *squad* is still only worth founding where its members can track
+ * sleep, and §15's per-program risk question now covers it.
  */
 const BOOSTED_STAT: Record<SquadProgram, CoreStat | null> = {
   all_around: null,
   running: 'AGI',
   strength: 'STR',
-  walking: 'VIT',
+  walking: 'AGI',
+  recovery: 'MND',
 };
 
 export function boostedStatFor(program: SquadProgram): CoreStat | null {
@@ -76,6 +109,7 @@ export const PROGRAM_WEIGHTS: Record<SquadProgram, Record<CoreStat, number>> = {
   running: weightRow('running'),
   strength: weightRow('strength'),
   walking: weightRow('walking'),
+  recovery: weightRow('recovery'),
 };
 
 export function programWeight(program: SquadProgram, stat: CoreStat): number {
@@ -94,15 +128,25 @@ export interface WeightedBoardInput {
   /** Stored, **base** per-stat points — never post-multiplier. */
   statPoints: Record<CoreStat, number>;
   consistencyBonus: number;
+  /**
+   * `daily_scores.rec_points`, which still exists.
+   *
+   * The REC *bonus* is gone from scoring — deviation #41 promoted sleep to
+   * MND, and nothing writes a non-zero value here any more. The field stays
+   * because the SQL mirror still sums the column and the differential test
+   * compares the two expressions: dropping it on one side only would be a
+   * divergence the test cannot see. Phase 3 drops the column, this field, and
+   * `program_weighted_total`'s `p_rec` together.
+   */
   recBonus: number;
 }
 
 /**
  * The number a squad member is ranked on.
  *
- * Only the four stats are weighted. The consistency bonus and REC stay
- * universal (§5) — a program tilts what activity is worth, never the reward for
- * showing up on all four stats or for sleeping.
+ * Only the stats are weighted. The consistency bonus stays universal (§5) — a
+ * program tilts what activity is worth, never the reward for showing up on
+ * every stat available to you.
  *
  * The zero floor is unreachable now that every term is non-negative. It stays
  * because the SQL mirror keeps its `greatest(0, …)`, and the differential test

@@ -411,16 +411,24 @@ export function observesWearable(request: SyncRequest): boolean {
   return (request.sleep ?? []).some((s) => s.minutes > 0);
 }
 
-/** The row `sync-health` will upsert into daily_scores. */
+/**
+ * The row `sync-health` will upsert into daily_scores.
+ *
+ * `end_points`, `vit_points` and `rec_points` are gone from this shape as of
+ * deviation #41's contract phase, while the columns themselves survive until
+ * Phase 3 drops them. **That gap has a consequence worth stating**: an upsert
+ * names only the columns it carries, so a rescored day keeps whatever those
+ * three columns already held, and `squad_leaderboard()` still sums them. The
+ * §4 deploy ordering is what closes it — the replay and the column drop land
+ * together, before any board is read against a half-migrated row. Do not
+ * deploy this shape ahead of that migration.
+ */
 export interface DayScoreRow {
   user_id: string;
   local_date: string;
   agi_points: number;
   str_points: number;
-  end_points: number;
-  vit_points: number;
   mind_points: number;
-  rec_points: number;
   consistency_points: number;
   total: number;
   tiers: Record<CoreStat, string>;
@@ -480,19 +488,12 @@ export function planDay(input: DayPlanInput): DayPlan {
       local_date: input.localDate,
       agi_points: score.stats.AGI.points,
       str_points: score.stats.STR.points,
-      end_points: score.stats.END.points,
-      vit_points: score.stats.VIT.points,
-      // Dual-write, transitional (deviation #41 expand phase): rec_points
-      // keeps paying below exactly as it always has, and Task 4 retires it.
       mind_points: score.stats.MND.points,
-      rec_points: score.recBonus,
       consistency_points: score.consistencyBonus,
       total: result.total,
       tiers: {
         AGI: score.stats.AGI.tier,
         STR: score.stats.STR.tier,
-        END: score.stats.END.tier,
-        VIT: score.stats.VIT.tier,
         MND: score.stats.MND.tier,
       },
       contributing_stats: score.contributingStats,

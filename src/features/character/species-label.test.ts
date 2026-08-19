@@ -5,8 +5,6 @@ import { speciesFigureLabel } from './species-label.ts';
 const statNames = {
   AGI: 'Agility',
   STR: 'Strength',
-  END: 'Endurance',
-  VIT: 'Vitality',
   MND: 'Mind',
 } as const;
 const base = { speciesNames: SPECIES_NAMES, statNames };
@@ -44,7 +42,7 @@ describe('speciesFigureLabel', () => {
   it('falls back to a neutral noun when no species has been chosen', () => {
     // Every row predating the migration, plus anyone who dismissed the picker.
     expect(
-      speciesFigureLabel({ ...base, species: null, level: 5, dominance: 'END' }),
-    ).toBe('Your character, level 5, Endurance-dominant');
+      speciesFigureLabel({ ...base, species: null, level: 5, dominance: 'MND' }),
+    ).toBe('Your character, level 5, Mind-dominant');
   });
 });

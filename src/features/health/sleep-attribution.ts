@@ -5,7 +5,7 @@ import { mergeIntervals, type Interval } from './intervals.ts';
  * Sleep samples -> minutes per local date, for REC (§5).
  *
  * REC is a wearable bonus and never a penalty, so the expensive mistake here is
- * *over*-reporting: `recBonusFor` pays less above nine hours, so double-counting
+ * *over*-reporting: `mindTierFor` flattens above nine hours, so double-counting
  * a shared night turns a healthy eight into an oversleep penalty.
  */
 

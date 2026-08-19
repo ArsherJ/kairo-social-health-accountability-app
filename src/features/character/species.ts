@@ -74,14 +74,14 @@ export const SPECIES: Record<SpeciesId, Species> = {
   carabao: {
     id: 'carabao',
     name: 'Carabao',
-    affinity: 'END',
+    affinity: 'STR',
     hue: '#8a8f7a',
     blurb: 'The national animal. Works all day and keeps going.',
   },
   eagle: {
     id: 'eagle',
     name: 'Philippine Eagle',
-    affinity: 'VIT',
+    affinity: 'MND',
     hue: '#8c5a3c',
     blurb: 'The national bird, and one of the largest eagles alive. Critically endangered.',
   },

@@ -18,7 +18,7 @@ describe('resolveStatDetail', () => {
     });
   });
 
-  // The weekly meta is the reason to change behaviour this week, so it outranks
+  // The lane is the stat this user actually cares about, so it outranks
   // whichever stat happens to be closest.
   it('prefers the lane even when another stat is closer', () => {
     const detail = resolveStatDetail({
@@ -29,7 +29,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'AGI',
       lane: true,
-      points: 400,
+      points: 550,
       gap: 1_240,
       topsOut: true,
       unit: 'steps',
@@ -46,7 +46,7 @@ describe('resolveStatDetail', () => {
       kind: 'gap',
       stat: 'STR',
       lane: false,
-      points: 400,
+      points: 550,
       gap: 20,
       topsOut: true,
       unit: 'kcal',
@@ -54,73 +54,110 @@ describe('resolveStatDetail', () => {
   });
 
   it('picks the closest stat when no lane is declared', () => {
-    // AGI 500/1,000 and STR 25/50 are both half-way; END at 9 of 10 minutes is
-    // nearly there.
+    // AGI 500/1,000 is half-way; STR 45/50 is nearly there.
     const detail = resolveStatDetail({
-      totals: totals({ steps: 500, activeKcal: 25, activeMinutes: 9 }),
+      totals: totals({ steps: 500, activeKcal: 45 }),
       lane: null,
     });
     expect(detail).toEqual({
       kind: 'gap',
-      stat: 'END',
+      stat: 'STR',
       lane: false,
-      points: 200,
-      gap: 1,
+      points: 250,
+      gap: 5,
       topsOut: false,
-      unit: 'active minute',
+      unit: 'kcal',
     });
   });
 
   // Gaps are in different units, so "smallest" cannot be compared raw across
-  // stats — 1 active hour is not easier than 20 kcal. Compare by how far
+  // stats — 20 kcal is not easier than 20 minutes of sleep. Compare by how far
   // through the band the user is instead.
+  describe('Mind', () => {
+    // The hole this closes: MND was skipped outright while it was a
+    // transitional fifth stat, because DayTotals carries no sleep field. With
+    // three stats that would have silently dropped a third of the model out of
+    // the one line that tells someone what to do next.
+    it('reports a real gap from the day’s sleep', () => {
+      const detail = resolveStatDetail({
+        totals: totals(),
+        sleepMinutes: 5 * 60 + 30,
+        lane: 'MND',
+      });
+      expect(detail).toEqual({
+        kind: 'gap',
+        stat: 'MND',
+        lane: true,
+        points: 400,
+        gap: 30,
+        topsOut: false,
+        unit: 'minutes of sleep',
+      });
+    });
+
+    it('says the unit in the singular when exactly one minute is left', () => {
+      const detail = resolveStatDetail({
+        totals: totals(),
+        sleepMinutes: 5 * 60 + 59,
+        lane: 'MND',
+      });
+      expect(detail).toMatchObject({
+        kind: 'gap',
+        stat: 'MND',
+        gap: 1,
+        unit: 'minute of sleep',
+      });
+    });
+
+    // Unknown is not zero. A fabricated "0 minutes" would make Mind the
+    // furthest-from-its-band stat on every phone-only day and win the line
+    // over stats with real progress.
+    it('is skipped entirely when no sleep row exists', () => {
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 500 }),
+        sleepMinutes: null,
+        lane: null,
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI' });
+    });
+
+    it('is skipped while the sleep query is still in flight', () => {
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 500 }),
+        lane: null,
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI' });
+    });
+
+    // The landmine `nextTierFor` had to be fixed for: reading the linear band
+    // table above nine hours called an eleven-hour night "already gold" while
+    // the scorer awarded Bronze.
+    it('asks for nothing after an eleven-hour night, rather than claiming gold', () => {
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 10_000, activeKcal: 400 }),
+        sleepMinutes: 11 * 60,
+        lane: null,
+      });
+      expect(detail).toEqual({ kind: 'maxed' });
+    });
+  });
+
   it('compares progress through the band, not raw units', () => {
-    // VIT: 2 of 3 active hours for bronze — 67% there, 1 hour short.
+    // STR: 45 of 50 kcal for bronze — 90% there, 5 short.
     // AGI: 100 of 1,000 steps for bronze — 10% there, 900 short.
     const detail = resolveStatDetail({
-      totals: totals({ steps: 100, activeHours: 2 }),
+      totals: totals({ steps: 100, activeKcal: 45 }),
       lane: null,
     });
-    expect(detail).toEqual({
-      kind: 'gap',
-      stat: 'VIT',
-      lane: false,
-      points: 200,
-      gap: 1,
-      topsOut: false,
-      unit: 'active hour',
-    });
-  });
-
-  // VIT's bands are 3/6/9 active hours, so a gap of exactly one is the common
-  // case here, not the edge — "1 more active hours" is the sentence a user is
-  // most likely to be shown.
-  it('says the unit in the singular when exactly one is left', () => {
-    const detail = resolveStatDetail({
-      totals: totals({ activeHours: 5 }),
-      lane: 'VIT',
-    });
-    expect(detail).toMatchObject({ kind: 'gap', stat: 'VIT', gap: 1, unit: 'active hour' });
-  });
-
-  it('keeps the plural for every other gap', () => {
-    const detail = resolveStatDetail({
-      totals: totals({ activeHours: 4 }),
-      lane: 'VIT',
-    });
-    expect(detail).toMatchObject({ kind: 'gap', stat: 'VIT', gap: 2, unit: 'active hours' });
+    expect(detail).toMatchObject({ kind: 'gap', stat: 'STR', gap: 5 });
   });
 
   // Gold is the ceiling. Nothing may imply a tier above it.
-  it('reports every stat maxed when all four reach gold', () => {
+  it('reports every stat maxed when all three reach gold', () => {
     expect(
       resolveStatDetail({
-        totals: totals({
-          steps: 10_000,
-          activeKcal: 400,
-          activeMinutes: 60,
-          activeHours: 9,
-        }),
+        totals: totals({ steps: 10_000, activeKcal: 400 }),
+        sleepMinutes: 8 * 60,
         lane: null,
       }),
     ).toEqual({ kind: 'maxed' });

@@ -236,12 +236,10 @@ describe('planDay', () => {
     const { row } = planDay(input());
     expect(row.user_id).toBe('me');
     expect(row.local_date).toBe(DAY);
-    expect(row.contributing_stats).toBe(4);
+    expect(row.contributing_stats).toBe(2);
     expect(row.tiers).toEqual({
       AGI: 'bronze',
       STR: 'gold',
-      END: 'silver',
-      VIT: 'silver',
       // input() carries no sleepMinutes — MND is 'none' rather than absent.
       MND: 'none',
     });
@@ -285,20 +283,21 @@ describe('planDay', () => {
     expect(planDay(input()).row.flagged).toBe(false);
   });
 
-  it('records REC only when sleep data exists', () => {
+  it('reports sleep presence, which is what lights the wearable icon', () => {
     expect(planDay(input()).row.has_rec).toBe(false);
-    const withSleep = planDay(input({ sleepMinutes: 8 * 60 }));
-    expect(withSleep.row.has_rec).toBe(true);
-    expect(withSleep.row.rec_points).toBe(500);
+    expect(planDay(input({ sleepMinutes: 8 * 60 })).row.has_rec).toBe(true);
   });
 
-  it('writes mind_points from MND, dual-written alongside rec_points (deviation #41)', () => {
-    // Expand phase: MND and REC both read sleepMinutes and both pay. Task 4
-    // retires rec_points once every consumer reads mind_points instead.
+  it('writes mind_points from MND, and no longer writes rec_points (deviation #41)', () => {
     expect(planDay(input()).row.mind_points).toBe(0);
     const withSleep = planDay(input({ sleepMinutes: 8 * 60 }));
-    expect(withSleep.row.mind_points).toBe(900); // 8h clears MND gold.
-    expect(withSleep.row.rec_points).toBe(500);
+    expect(withSleep.row.mind_points).toBe(1_200); // 8h clears MND gold.
+    // The contract phase: end_points, vit_points and rec_points are gone from
+    // the row shape while the columns themselves survive until Phase 3 drops
+    // them. A row that still carried them would be writing a retired bonus.
+    expect(Object.keys(withSleep.row)).not.toContain('rec_points');
+    expect(Object.keys(withSleep.row)).not.toContain('end_points');
+    expect(Object.keys(withSleep.row)).not.toContain('vit_points');
   });
 
   it('stores pre-multiplier points and no featured stat (deviation #11)', () => {
@@ -306,7 +305,7 @@ describe('planDay', () => {
     // canonical and program-independent.
     const { row } = planDay(input());
     expect(row.featured_stat).toBeNull();
-    expect(row.end_points).toBe(500);
+    expect(row.str_points).toBe(1_200);
   });
 });
 

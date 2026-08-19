@@ -90,8 +90,6 @@ function markFirstScoreSeen(userId: string): void {
 const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
   AGI: 'Agility build',
   STR: 'Strength build',
-  END: 'Endurance build',
-  VIT: 'Vitality build',
   MND: 'Mind build',
   balanced: 'All-Rounder',
 };
@@ -100,8 +98,6 @@ const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
 const STAT_LABELS: Record<CoreStat, string> = {
   AGI: 'Steps and distance',
   STR: 'Active calories',
-  END: 'Active minutes',
-  VIT: 'Hourly movement',
   MND: 'Sleep duration',
 };
 
@@ -260,8 +256,6 @@ export default function Character() {
   const points: Record<CoreStat, number> = {
     AGI: today?.agi_points ?? 0,
     STR: today?.str_points ?? 0,
-    END: today?.end_points ?? 0,
-    VIT: today?.vit_points ?? 0,
     MND: today?.mind_points ?? 0,
   };
 
@@ -270,15 +264,14 @@ export default function Character() {
   // the same thing a brand-new character's does rather than flashing a dash.
   //
   // MND reads 0 rather than a lifetime rollup: `profiles` has no `mind_total`
-  // column yet (only `daily_scores.mind_points` exists so far — the stat rollup
-  // trigger and column are follow-up work, not part of this expand phase), so
-  // there is nothing real to read. 0 is the same "unearned" reading the coin
-  // already gives a stat with no lifetime points.
+  // column yet (only `daily_scores.mind_points` exists so far — the rollup
+  // column and its trigger are Phase 3, alongside retiring `end_total` and
+  // `vit_total`), so there is nothing real to read. 0 is the same "unearned"
+  // reading the coin already gives a stat with no lifetime points, and every
+  // Mind rating therefore sits at its floor until that migration lands.
   const lifetime: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,
-    END: profile.data.end_total,
-    VIT: profile.data.vit_total,
     MND: 0,
   };
 
@@ -302,7 +295,15 @@ export default function Character() {
   // collapse "still loading" into "no squad" and render a false claim.
   const hasSquad = squad.data === undefined ? undefined : squad.data !== null;
   const standing = resolveStanding({ hasSquad, rows: board.data });
-  const detail = resolveStatDetail({ totals: buckets.data?.totals, lane });
+  const detail = resolveStatDetail({
+    totals: buckets.data?.totals,
+    // The screen already loads this for the TODAY panel's sleep row, so Mind
+    // reports a real gap here rather than being skipped. Passing it is what
+    // keeps a third of the stat model from silently vanishing out of the one
+    // line that tells someone what to do next.
+    sleepMinutes: vitals.data?.sleepMinutes,
+    lane,
+  });
 
   const standingLine = standingCopy(standing);
   const detailLine = detailCopy(detail);

@@ -1,6 +1,6 @@
 import { isFinalizable } from './day.ts';
 import { computeDailyScore } from './scoring.ts';
-import type { CoreStat, DailyScore, HourBucket } from './types.ts';
+import { CORE_STATS, type CoreStat, type DailyScore, type HourBucket } from './types.ts';
 
 /**
  * The whole day-scoring pipeline in one call — the entry point the
@@ -36,6 +36,19 @@ export interface ComputeDayInput {
    * path may do so.
    */
   featuredStat?: CoreStat | null;
+  /**
+   * How many stats this user can earn (spec §2's normalization). Defaults to
+   * all of them.
+   *
+   * Not derived here, for the same reason `computeDailyScore` does not derive
+   * it: the answer is a trailing window over `daily_sleep`, which is I/O and a
+   * clock. `sync-health` is where it gets filled in. Until it does, every user
+   * is normalized as though they could earn every stat — the pre-normalization
+   * behaviour rather than a wrong one.
+   */
+  earnableStats?: number;
+  /** Minutes from workouts passing `workoutVerified`. Shifts STR's bands. */
+  verifiedWorkoutMinutes?: number;
 }
 
 export interface ComputeDayResult {
@@ -55,6 +68,12 @@ export function computeDay(input: ComputeDayInput): ComputeDayResult {
   const score = computeDailyScore({
     buckets: input.buckets,
     sleepMinutes: input.sleepMinutes ?? null,
+    // `?? default` rather than forwarding `undefined`: with
+    // exactOptionalPropertyTypes an optional field and an explicitly-undefined
+    // one are different types, and spelling the default here keeps the two
+    // layers agreeing about what "not supplied" means.
+    earnableStats: input.earnableStats ?? CORE_STATS.length,
+    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes ?? 0,
     featuredStat: input.featuredStat ?? null,
   });
 

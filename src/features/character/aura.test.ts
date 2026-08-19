@@ -7,8 +7,8 @@ function at(rating: number) {
   return statPointsForRating(rating);
 }
 
-function points(agi: number, str = 0, end = 0, vit = 0, mnd = 0) {
-  return { AGI: agi, STR: str, END: end, VIT: vit, MND: mnd };
+function points(agi: number, str = 0, mnd = 0) {
+  return { AGI: agi, STR: str, MND: mnd };
 }
 
 describe('auraStrength', () => {
@@ -36,9 +36,9 @@ describe('auraStrength', () => {
 
   it('reads the peak stat, so a specialist is not averaged away', () => {
     // §6 exists to make a specialist look different. A mean would hide one
-    // very strong stat behind three untouched ones.
+    // very strong stat behind the untouched ones.
     expect(
-      auraStrength({ lifetimePoints: points(at(AURA_STRONG_RATING), 0, 0, 0), balanced: false }),
+      auraStrength({ lifetimePoints: points(at(AURA_STRONG_RATING), 0, 0), balanced: false }),
     ).toBe('strong');
   });
 

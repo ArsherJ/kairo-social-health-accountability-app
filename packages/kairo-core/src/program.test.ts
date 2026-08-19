@@ -10,13 +10,26 @@ import {
 } from './program.ts';
 import { CORE_STATS, type CoreStat } from './types.ts';
 
-const NO_POINTS: Record<CoreStat, number> = { AGI: 0, STR: 0, END: 0, VIT: 0, MND: 0 };
+const NO_POINTS: Record<CoreStat, number> = { AGI: 0, STR: 0, MND: 0 };
 
 describe('PROGRAM_WEIGHTS', () => {
   it('boosts exactly one stat per focused program', () => {
     expect(boostedStatFor('running')).toBe('AGI');
     expect(boostedStatFor('strength')).toBe('STR');
-    expect(boostedStatFor('walking')).toBe('VIT');
+    // Walking boosted VIT until deviation #41 retired it. VIT's signal now
+    // lives in AGI's spread shift, so walking boosts the stat it always
+    // actually measured.
+    expect(boostedStatFor('walking')).toBe('AGI');
+    expect(boostedStatFor('recovery')).toBe('MND');
+  });
+
+  it('lets two programs boost the same stat', () => {
+    // Running and walking are different games people mean different things by.
+    // Collapsing them because they now name one stat would be a product
+    // decision, not a refactor.
+    expect(boostedStatFor('running')).toBe(boostedStatFor('walking'));
+    expect(SQUAD_PROGRAMS).toContain('running');
+    expect(SQUAD_PROGRAMS).toContain('walking');
   });
 
   it('boosts nothing for all_around', () => {
@@ -26,18 +39,22 @@ describe('PROGRAM_WEIGHTS', () => {
     }
   });
 
-  it('never boosts END on any program', () => {
-    // END rides AppleExerciseTime, which may be Watch-only (Phase 3). Boosting
-    // a stat most beta users cannot earn would make a program unwinnable.
+  it('boosts at most one stat per program', () => {
+    // A second boosted stat would need its own balance argument, and the SQL
+    // mirror expresses exactly one CASE per stat.
     for (const program of SQUAD_PROGRAMS) {
-      expect(programWeight(program, 'END')).toBe(1);
+      const boosted = CORE_STATS.filter(
+        (stat) => programWeight(program, stat) !== 1,
+      );
+      expect(boosted.length).toBeLessThanOrEqual(1);
     }
   });
 
   it('weights the boosted stat by exactly the boost multiplier', () => {
     expect(programWeight('running', 'AGI')).toBe(PROGRAM_BOOST_MULTIPLIER);
     expect(programWeight('strength', 'STR')).toBe(PROGRAM_BOOST_MULTIPLIER);
-    expect(programWeight('walking', 'VIT')).toBe(PROGRAM_BOOST_MULTIPLIER);
+    expect(programWeight('walking', 'AGI')).toBe(PROGRAM_BOOST_MULTIPLIER);
+    expect(programWeight('recovery', 'MND')).toBe(PROGRAM_BOOST_MULTIPLIER);
   });
 
   it('leaves every unboosted stat at 1', () => {
@@ -77,27 +94,28 @@ describe('weightedBoardTotal', () => {
   it('equals the raw total on an all_around board', () => {
     const total = weightedBoardTotal({
       program: 'all_around',
-      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900, MND: 0 },
-      consistencyBonus: 400,
-      recBonus: 500,
+      statPoints: { AGI: 1_200, STR: 650, MND: 250 },
+      consistencyBonus: 800,
+      recBonus: 0,
     });
-    expect(total).toBe(3_200);
+    expect(total).toBe(2_900);
   });
 
   it('boosts only the program stat, leaving the others alone', () => {
-    // Same day as above, scored on a running board: AGI 900 -> 1350.
+    // Same day as above, scored on a running board: AGI 1,200 -> 1,800.
     const total = weightedBoardTotal({
       program: 'running',
-      statPoints: { AGI: 900, STR: 500, END: 0, VIT: 900, MND: 0 },
-      consistencyBonus: 400,
-      recBonus: 500,
+      statPoints: { AGI: 1_200, STR: 650, MND: 250 },
+      consistencyBonus: 800,
+      recBonus: 0,
     });
-    expect(total).toBe(3_650);
+    expect(total).toBe(3_500);
   });
 
-  it('leaves the consistency and REC bonuses unweighted', () => {
-    // The bonuses are universal (§5): a program tilts stats, never the reward
-    // for showing up on all four or for sleeping.
+  it('leaves the consistency bonus unweighted', () => {
+    // Universal (§5): a program tilts stats, never the reward for showing up
+    // on every stat available to you. `recBonus` is still summed because the
+    // stored column outlives the bonus — see WeightedBoardInput.
     const total = weightedBoardTotal({
       program: 'walking',
       statPoints: NO_POINTS,
@@ -107,10 +125,20 @@ describe('weightedBoardTotal', () => {
     expect(total).toBe(1_300);
   });
 
+  it('boosts MND on a recovery board', () => {
+    const total = weightedBoardTotal({
+      program: 'recovery',
+      statPoints: { AGI: 0, STR: 0, MND: 1_200 },
+      consistencyBonus: 0,
+      recBonus: 0,
+    });
+    expect(total).toBe(1_800);
+  });
+
   it('weights only the boosted stat when it is the only one scored', () => {
     const total = weightedBoardTotal({
       program: 'strength',
-      statPoints: { AGI: 0, STR: 900, END: 0, VIT: 0, MND: 0 },
+      statPoints: { AGI: 0, STR: 900, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
     });
@@ -122,7 +150,7 @@ describe('weightedBoardTotal', () => {
     // resolve here and identically in SQL — round-half-up, away from zero.
     const total = weightedBoardTotal({
       program: 'running',
-      statPoints: { AGI: 125, STR: 0, END: 0, VIT: 0, MND: 0 },
+      statPoints: { AGI: 125, STR: 0, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
     });

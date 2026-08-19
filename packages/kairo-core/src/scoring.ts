@@ -1,4 +1,6 @@
-import { mindTierFor, MIND_THRESHOLD_HOURS } from './mind.ts';
+import { normalizationFactor } from './capability.ts';
+import { mindTierFor, MIND_OVERSLEEP_HOURS, MIND_THRESHOLD_HOURS } from './mind.ts';
+import { shiftedThreshold, spreadShift, workoutShift } from './shifts.ts';
 import {
   CORE_STATS,
   type CoreStat,
@@ -10,7 +12,14 @@ import {
   type Tier,
 } from './types.ts';
 
-/** An hour counts toward VIT once it contains this many steps. */
+/**
+ * An hour counts as "active" once it contains this many steps.
+ *
+ * Named for VIT, which it drove until deviation #41. Deliberately not renamed
+ * (spec §1 calls it untouched): it is the same 250 steps, now feeding AGI's
+ * spread shift instead of VIT's tier, and a rename would make every older
+ * reference read as describing a different threshold.
+ */
 export const VIT_ACTIVE_HOUR_STEPS = 250;
 
 /**
@@ -24,11 +33,21 @@ export const VIT_ACTIVE_HOUR_STEPS = 250;
  */
 export const FEATURED_STAT_MULTIPLIER = 1.5;
 
+/**
+ * Re-tuned for three stats (deviation #41), and **derived rather than
+ * invented**: `4 x 900 = 3 x 1,200` keeps the daily ceiling where it was, so
+ * replayed history stays comparable.
+ *
+ * Module-private on purpose. `STAT_POINTS_MAX` below is the one figure that
+ * escapes, and `nextTierFor`'s `pointsGain` is the other way a caller reads
+ * these numbers — both derived here so no surface can size a bar against a
+ * band value this table no longer holds.
+ */
 const TIER_POINTS: Record<Tier, number> = {
   none: 0,
-  bronze: 200,
-  silver: 500,
-  gold: 900,
+  bronze: 250,
+  silver: 650,
+  gold: 1_200,
 };
 
 /**
@@ -48,9 +67,17 @@ export const STAT_POINTS_MAX = TIER_POINTS.gold;
  *
  * Nothing clamps to either number — scores are replayed, not clamped — so they
  * exist for UI sizing and for tests to check the arithmetic against.
+ *
+ * **They are now the same figure, and that is the point** (deviation #41,
+ * spec §2). Normalization means a phone-only user's two Gold stats reach the
+ * same ceiling as a wearable user's three: `(2 x 1,200) x 1.5 + 800` equals
+ * `(3 x 1,200) x 1.0 + 800`. A wearable buys a third *route* to the ceiling,
+ * not a higher one. The two constants stay separate rather than collapsing
+ * into one because they document different routes, and a future change may
+ * part them again.
  */
 export const MAX_DAILY_SCORE_PHONE_ONLY = 4_400;
-export const MAX_DAILY_SCORE_WITH_WEARABLE = 4_900;
+export const MAX_DAILY_SCORE_WITH_WEARABLE = 4_400;
 
 const TIER_XP: Record<Tier, number> = {
   none: 0,
@@ -60,17 +87,16 @@ const TIER_XP: Record<Tier, number> = {
 };
 
 /**
- * Minimum raw value to reach each tier.
+ * Minimum raw value to reach each tier, **before** any threshold shift.
  *
- * VIT's gold threshold is a floor, not the spec table's "9-12 hrs" range: a
- * genuinely active person can clear 12 active hours, and dropping them to zero
- * for it would be absurd.
+ * AGI's and STR's bands are unchanged by deviation #41, which is what keeps
+ * replayed history comparable — END and VIT left as stats, not as difficulty.
+ * What moved instead is how easily these bands are reached: see
+ * `shiftedTierFor`.
  */
 const THRESHOLDS: Record<CoreStat, Record<Exclude<Tier, 'none'>, number>> = {
   AGI: { bronze: 1_000, silver: 5_000, gold: 10_000 },
   STR: { bronze: 50, silver: 200, gold: 400 },
-  END: { bronze: 10, silver: 30, gold: 60 },
-  VIT: { bronze: 3, silver: 6, gold: 9 },
   // In minutes, to match the raw unit. Derived from mind.ts so the bands
   // cannot drift apart, exactly as DAILY_STEP_BASELINE derives from AGI gold.
   // Used by nextTierFor's gap arithmetic only — MND's own tier comes from
@@ -102,15 +128,69 @@ const THRESHOLDS: Record<CoreStat, Record<Exclude<Tier, 'none'>, number>> = {
  */
 export const DAILY_STEP_BASELINE = THRESHOLDS.AGI.gold;
 
-/** Indexed by how many core stats contributed. Rewards breadth over specialisation. */
-const CONSISTENCY_BONUS: readonly number[] = [0, 0, 150, 400, 800];
+/**
+ * Indexed by how many core stats contributed. Rewards breadth over
+ * specialisation.
+ *
+ * Re-indexed for three stats (deviation #41). Its length must stay
+ * `CORE_STATS.length + 1`, and a test pins the top index at 800 — the failure
+ * this guards is silent: an array that is too short returns `undefined` for a
+ * full-breadth day, which `?? 0` turns into *less* than a partial day pays,
+ * inverting the whole rule. That is exactly what happened between Task 3 and
+ * Task 4 of the switch.
+ */
+const CONSISTENCY_BONUS: readonly number[] = [0, 0, 400, 800];
 
-export function tierFor(stat: CoreStat, raw: number): Tier {
+/**
+ * The breadth bonus for a day, given how much breadth was available.
+ *
+ * "Full breadth" means **all the stats available to you** (spec §2) — two
+ * without a wearable, three with — so a stat the user cannot earn is counted
+ * as though it were already covered rather than held against them. Without
+ * that, a phone-only user's perfect day would pay 400 where a wearable user's
+ * pays 800, reintroducing on the bonus exactly the gradient normalization
+ * removes from stat points. It is why the bonus itself is **not** scaled by
+ * `normalizationFactor`: it already accounts for earnable stats here, and
+ * scaling as well would count the same adjustment twice.
+ *
+ * A day with nothing at all pays nothing, whatever the shift would say.
+ */
+function breadthBonus(contributingStats: number, earnable: number): number {
+  if (contributingStats <= 0) return 0;
+  const available = Math.min(Math.max(earnable, 1), CORE_STATS.length);
+  const index = Math.min(
+    CORE_STATS.length,
+    contributingStats + (CORE_STATS.length - available),
+  );
+  return CONSISTENCY_BONUS[index] ?? 0;
+}
+
+/**
+ * The tier a raw value earns, with a threshold shift applied first.
+ *
+ * A shift makes every band *easier* — it is never a point multiplier, because
+ * a stored multiplier stacks with the squad program's read-time weight and
+ * that is the trap deviation #10 already sprang once. `shiftedThreshold`
+ * clamps the shift, so this cannot make a band harder however it is called.
+ */
+export function shiftedTierFor(stat: CoreStat, raw: number, shift: number): Tier {
   const t = THRESHOLDS[stat];
-  if (raw >= t.gold) return 'gold';
-  if (raw >= t.silver) return 'silver';
-  if (raw >= t.bronze) return 'bronze';
+  if (raw >= shiftedThreshold(t.gold, shift)) return 'gold';
+  if (raw >= shiftedThreshold(t.silver, shift)) return 'silver';
+  if (raw >= shiftedThreshold(t.bronze, shift)) return 'bronze';
   return 'none';
+}
+
+/**
+ * The unshifted tier — the bands as a user has learned them.
+ *
+ * Delegates rather than repeating the comparisons: two ladders that must agree
+ * about where a boundary sits is exactly the sort of duplication that drifts
+ * silently. A zero shift is the identity, because `shiftedThreshold` rounds
+ * `threshold * 1`.
+ */
+export function tierFor(stat: CoreStat, raw: number): Tier {
+  return shiftedTierFor(stat, raw, 0);
 }
 
 export interface NextTier {
@@ -139,16 +219,34 @@ export interface NextTier {
 }
 
 /**
- * The next tier up from a raw value, or null once Gold is reached — Gold is
- * the ceiling (§6) and nothing above it exists.
+ * The next tier up from a raw value, or null when there is nothing more to ask
+ * for on this stat today.
+ *
+ * Null means Gold in every ordinary case — Gold is the ceiling (§6) and
+ * nothing above it exists. **MND has a second way to reach it**, and the
+ * distinction is load-bearing: above `MIND_OVERSLEEP_HOURS` the night flattens
+ * back to Bronze, and no amount of *more* sleep recovers Gold. Reading the
+ * linear table there would report an eleven-hour night as "already gold" while
+ * `mindTierFor` scored it Bronze — two functions disagreeing about the same
+ * night, on the one screen whose whole job is to say what to do next. So this
+ * refuses to answer instead. It is honest in the unit the caller renders: the
+ * gap is "raw units still needed", and there is no positive number of extra
+ * minutes that helps.
  *
  * Reads the same THRESHOLDS table as `tierFor`, so the two can never disagree
  * about where a boundary sits. Raw values arrive fractional from
  * `active_minutes numeric(6,2)`, and a gap of "0.4 more minutes" is not an
  * instruction, so the gap is rounded up to a whole unit.
+ *
+ * The bands here are **unshifted**. A shifted-band version is the hero copy's
+ * problem ("Gold at 7,500 today, because you have been moving since 9am") and
+ * is routed through the frontend-design pass in Phase 3 rather than guessed at
+ * here — silent generosity reads as a bug, so the number and the sentence
+ * explaining it have to land together.
  */
 export function nextTierFor(stat: CoreStat, raw: number): NextTier | null {
   const t = THRESHOLDS[stat];
+  if (stat === 'MND' && raw / 60 > MIND_OVERSLEEP_HOURS) return null;
   if (raw < t.bronze) {
     return {
       tier: 'bronze',
@@ -174,19 +272,6 @@ export function nextTierFor(stat: CoreStat, raw: number): NextTier | null {
     };
   }
   return null;
-}
-
-/**
- * REC is a bonus laid on top of the four core stats — never a penalty. Users
- * without a wearable simply never reach this function.
- */
-export function recBonusFor(sleepMinutes: number): number {
-  const hrs = sleepMinutes / 60;
-  if (hrs < 5) return 0;
-  if (hrs < 6) return 100;
-  if (hrs < 7) return 250;
-  if (hrs <= 9) return 500;
-  return 200; // oversleeping
 }
 
 export function aggregateBuckets(buckets: readonly HourBucket[]): DayTotals {
@@ -215,10 +300,6 @@ function rawFor(stat: CoreStat, totals: DayTotals, sleepMinutes: number | null):
       return totals.steps;
     case 'STR':
       return totals.activeKcal;
-    case 'END':
-      return totals.activeMinutes;
-    case 'VIT':
-      return totals.activeHours;
     case 'MND':
       return sleepMinutes ?? 0;
   }
@@ -238,6 +319,12 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
 
   const totals = aggregateBuckets(buckets);
 
+  // END and VIT, spent as generosity instead of as points (spec §2). Both are
+  // computed once, outside the loop, because a shift is a property of the day
+  // rather than of the stat reading it.
+  const spread = spreadShift(totals.activeHours);
+  const workout = workoutShift(input.verifiedWorkoutMinutes ?? 0);
+
   const stats = {} as Record<CoreStat, StatResult>;
   let contributingStats = 0;
   let statPoints = 0;
@@ -245,7 +332,12 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
 
   for (const stat of CORE_STATS) {
     const raw = rawFor(stat, totals, sleepMinutes);
-    const tier = stat === 'MND' ? mindTierFor(raw) : tierFor(stat, raw);
+    const shift = stat === 'AGI' ? spread : stat === 'STR' ? workout : 0;
+    // MND's tier is not a threshold comparison: above nine hours the night
+    // flattens back to Bronze, which no ladder of minimums can express. It
+    // also takes no shift — the trust gate decides *whether* sleep scores,
+    // not how easily.
+    const tier = stat === 'MND' ? mindTierFor(raw) : shiftedTierFor(stat, raw, shift);
     const base = TIER_POINTS[tier];
     const points =
       stat === featuredStat ? Math.round(base * FEATURED_STAT_MULTIPLIER) : base;
@@ -257,21 +349,38 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
     xp += TIER_XP[tier];
   }
 
-  // Neither the consistency bonus nor REC is multiplied by the featured stat —
-  // the weekly meta shifts which stat is worth grinding, not the reward for
-  // breadth or for sleeping well.
-  const consistencyBonus = CONSISTENCY_BONUS[contributingStats] ?? 0;
+  // §2's normalization: a day's stat points scale by `3 / earnable stats`, so
+  // a phone-only user's two Gold stats reach the same ceiling as a wearable
+  // user's three. Without it, sleep-as-a-stat would make a wearable worth 27%
+  // of the ceiling and a permanent leaderboard gradient — which lands hardest
+  // on the users least likely to own one.
+  //
+  // The caller supplies `earnableStats`; the default is everyone-can-earn-
+  // everything, which is the honest reading when nothing is known.
+  const factor = normalizationFactor(
+    input.earnableStats ?? CORE_STATS.length,
+    CORE_STATS.length,
+  );
+  const normalized = Math.round(statPoints * factor);
+
+  // The consistency bonus is not multiplied by the featured stat — the weekly
+  // meta shifts which stat is worth grinding, not the reward for breadth. Nor
+  // is it normalized: `breadthBonus` already accounts for earnable stats, and
+  // scaling it as well would apply the same correction twice.
+  const consistencyBonus = breadthBonus(
+    contributingStats,
+    input.earnableStats ?? CORE_STATS.length,
+  );
   const hasRec = sleepMinutes !== null && sleepMinutes !== undefined;
-  const recBonus = hasRec ? recBonusFor(sleepMinutes) : 0;
 
   return {
     totals,
     stats,
     contributingStats,
     consistencyBonus,
-    recBonus,
+    normalizationFactor: factor,
     hasRec,
-    healthTotal: statPoints + consistencyBonus + recBonus,
+    healthTotal: normalized + consistencyBonus,
     xp,
     featuredStat,
   };

@@ -3,6 +3,7 @@ import { SQUAD_PROGRAMS } from '@kairo/core';
 import {
   PROGRAM_OPTIONS,
   PROGRAM_OPTION_VALUES,
+  RECOVERY_ACCURACY_NOTE,
   STRENGTH_ACCURACY_NOTE,
   boostChipLabel,
   programLabel,
@@ -48,7 +49,10 @@ describe('boostChipLabel', () => {
   it('names the boosted stat and the multiplier', () => {
     expect(boostChipLabel('running')).toBe('AGI ×1.5');
     expect(boostChipLabel('strength')).toBe('STR ×1.5');
-    expect(boostChipLabel('walking')).toBe('VIT ×1.5');
+    // Walking boosted VIT until deviation #41 retired it; VIT's signal now
+    // makes AGI's bands easier instead.
+    expect(boostChipLabel('walking')).toBe('AGI ×1.5');
+    expect(boostChipLabel('recovery')).toBe('MND ×1.5');
   });
 
   it('shows nothing on an untilted board', () => {
@@ -56,11 +60,12 @@ describe('boostChipLabel', () => {
     expect(boostChipLabel(undefined)).toBeNull();
   });
 
-  it('never claims an END boost', () => {
-    // END is never boosted (AppleExerciseTime may be Watch-only), so no chip
-    // may ever promise one.
+  it('never names a stat that no longer exists', () => {
+    // END and VIT are retired (deviation #41). A chip promising either would
+    // name a stat no board can show and no day can score.
     for (const program of SQUAD_PROGRAMS) {
       expect(boostChipLabel(program) ?? '').not.toContain('END');
+      expect(boostChipLabel(program) ?? '').not.toContain('VIT');
     }
   });
 });
@@ -68,6 +73,12 @@ describe('boostChipLabel', () => {
 describe('programNote', () => {
   it('warns about phone-only strength tracking, where it actually bites', () => {
     expect(programNote('strength')).toBe(STRENGTH_ACCURACY_NOTE);
+  });
+
+  it('warns that recovery needs a sleep tracker, which a phone is not', () => {
+    // The sharper case of the same honest-capability rule: a recovery squad
+    // founded on phones alone is an all-around squad with extra words.
+    expect(programNote('recovery')).toBe(RECOVERY_ACCURACY_NOTE);
   });
 
   it('says nothing on programs a phone measures well', () => {

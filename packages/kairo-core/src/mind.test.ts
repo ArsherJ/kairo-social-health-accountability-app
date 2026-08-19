@@ -21,7 +21,7 @@ describe('mindTierFor', () => {
     expect(mindTierFor(hours(8))).toBe('gold');
   });
 
-  // Nine hours is still a good night. The old recBonusFor paid its top figure
+  // Nine hours is still a good night. The retired recBonusFor paid its top figure
   // for `hrs <= 9`, and the tier boundary has to land in the same place or a
   // replayed day silently changes meaning.
   it('still scores gold at exactly nine hours', () => {

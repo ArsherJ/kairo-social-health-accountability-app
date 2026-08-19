@@ -36,17 +36,9 @@ const ICONS = {
   // promise a gym the app never asks for. A bicep is the body, which is what
   // actually changes here.
   STR: 'arm-flex',
-  // Active minutes. A stopwatch, not `timer-sand` — an hourglass means time
-  // running *out*, and END is time you put *in*. The stopwatch is also the
-  // instrument the activity itself uses.
-  END: 'timer',
-  // Hourly movement, and it rhymes with the strain and heart-rate surfaces on
-  // the TODAY panel, which read the same underlying signal.
-  VIT: 'heart-pulse',
   // Sleep, promoted from the REC bonus (roadmap deviation #41). A brain
-  // rather than a moon or a bed: the other four glyphs are all body parts or
-  // the activity itself, and "the organ this stat trains" keeps the same
-  // register.
+  // rather than a moon or a bed: the other glyphs are a body part and the
+  // activity itself, and "the organ this stat trains" keeps the same register.
   MND: 'brain',
 } as const satisfies Record<CoreStat, React.ComponentProps<typeof MaterialCommunityIcons>['name']>;
 
@@ -60,8 +52,6 @@ const ICONS = {
 export const STAT_NAMES: Record<CoreStat, string> = {
   AGI: 'Agility',
   STR: 'Strength',
-  END: 'Endurance',
-  VIT: 'Vitality',
   MND: 'Mind',
 };
 
