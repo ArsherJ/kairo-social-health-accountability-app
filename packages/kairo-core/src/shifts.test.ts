@@ -3,8 +3,10 @@ import {
   MAX_THRESHOLD_SHIFT,
   shiftedThreshold,
   spreadShift,
+  statShifts,
   workoutShift,
 } from './shifts.ts';
+import { CORE_STATS } from './types.ts';
 
 describe('spreadShift', () => {
   // VIT's old bronze band was 3 active hours. Below it, nothing is earned —
@@ -79,5 +81,32 @@ describe('shiftedThreshold', () => {
   // every call site keeps the invariant in one place.
   it('never raises a band, whatever it is handed', () => {
     expect(shiftedThreshold(10_000, -1)).toBe(10_000);
+  });
+});
+
+describe('statShifts', () => {
+  // One table, because the mapping had to be read in two places the moment
+  // the character sheet's hint started naming the band the day is judged
+  // against. Two copies of "AGI takes the spread, STR takes the workout" is
+  // exactly the duplication that drifts silently: the screen would keep
+  // quoting the old ladder and nothing would fail.
+
+  it('routes each signal to the stat that inherited it', () => {
+    const shifts = statShifts({ activeHours: 8, verifiedWorkoutMinutes: 60 });
+    expect(shifts.AGI).toBe(spreadShift(8));
+    expect(shifts.STR).toBe(workoutShift(60));
+  });
+
+  // Not a formality: MND is the one stat whose tier is not a threshold
+  // comparison at all (mindTierFor flattens an oversleep back to Bronze), and
+  // handing it a shift would make the hint quote a ladder the scorer never
+  // reads.
+  it('gives MND no shift, however spread or exercised the day was', () => {
+    expect(statShifts({ activeHours: 24, verifiedWorkoutMinutes: 600 }).MND).toBe(0);
+  });
+
+  it('is total over CoreStat, so a new stat cannot arrive without a decision', () => {
+    const shifts = statShifts({ activeHours: 0, verifiedWorkoutMinutes: 0 });
+    for (const stat of CORE_STATS) expect(shifts[stat]).toBe(0);
   });
 });

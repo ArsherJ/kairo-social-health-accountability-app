@@ -10,6 +10,8 @@
  * than making Gold worth more.
  */
 
+import type { CoreStat } from './types.ts';
+
 /** No shift may exceed this, whatever the inputs. */
 export const MAX_THRESHOLD_SHIFT = 0.25;
 
@@ -49,4 +51,35 @@ export function workoutShift(verifiedMinutes: number): number {
 export function shiftedThreshold(threshold: number, shift: number): number {
   const applied = Math.min(MAX_THRESHOLD_SHIFT, Math.max(0, shift));
   return Math.round(threshold * (1 - applied));
+}
+
+/**
+ * Every stat's shift for one day, in one table.
+ *
+ * The mapping lived inline in `computeDailyScore` until the character sheet's
+ * guidance line started naming the band the day is actually judged against
+ * (deviation #41, Phase 3). Two copies of "AGI inherited VIT's spread, STR
+ * inherited END's workout minutes" is the duplication that drifts in silence:
+ * the screen would go on quoting a ladder the scorer stopped using and no
+ * test would notice, which is precisely the bug this table was extracted to
+ * close.
+ *
+ * `Record<CoreStat, number>` rather than a lookup with a fallback, so a fourth
+ * stat cannot arrive without someone deciding what it inherits.
+ *
+ * MND is 0 deliberately and permanently: its tier is not a threshold
+ * comparison — `mindTierFor` flattens an oversleep night back to Bronze — and
+ * the trust gate decides *whether* sleep scores, never how easily.
+ */
+export function statShifts(input: {
+  /** `DayTotals.activeHours` — hours carrying meaningful movement. */
+  activeHours: number;
+  /** Minutes of workout that cleared `workoutVerified()`. See `trust.ts`. */
+  verifiedWorkoutMinutes: number;
+}): Record<CoreStat, number> {
+  return {
+    AGI: spreadShift(input.activeHours),
+    STR: workoutShift(input.verifiedWorkoutMinutes),
+    MND: 0,
+  };
 }

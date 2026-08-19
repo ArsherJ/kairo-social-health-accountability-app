@@ -48,14 +48,22 @@ export const DEMO_SQUAD: Squad = {
 export const DEMO_MEMBER_COUNT = 3;
 
 /**
- * Ramon 3,850 · you 2,900 · Trina 2,150 — so the home pill reads
+ * Ramon 4,450 · you 3,500 · Trina 2,638 — so the home pill reads
  * "Ramon is 950 ahead" and the board hero reads "2nd".
  *
- * Every total is the real arithmetic of its own tier row under the three-stat
- * model (deviation #41), including Trina's phone-only normalization: a fixture
- * that could not come out of `computeDailyScore` is a state the app can never
- * receive, and anything read off it in a screenshot would be describing a
- * product that does not exist.
+ * **These are board totals, not stored ones.** `LeaderboardRow.total` is what
+ * `squad_leaderboard()` returns: the running program's ×1.5 on AGI applied at
+ * read time (deviation #11), over the three stats, with §2's normalization
+ * folded in — `weightedBoardTotal`'s expression exactly. `DEMO_SCORE` below is
+ * the same day *stored*, and it is legitimately a smaller number.
+ *
+ * They went stale once, in silence: Task 4 taught the board to count MND and
+ * to normalize, and these rows kept the unweighted four-stat sums they were
+ * born with. A fixture that could not come out of the real board is a state
+ * the app can never receive, and anything read off it in a screenshot is
+ * describing a product that does not exist — so `fixtures.test.ts` now
+ * recomputes every total from the row's own tiers rather than trusting the
+ * comments beside them.
  */
 // Three different species on purpose: a board where everyone shares one animal
 // cannot show whether the row art actually reads from the row, which is the
@@ -69,8 +77,10 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     class: 'runner',
     level: 14,
     local_date: LOCAL_DATE,
-    // 1,200 + 1,200 + 650, plus 800 for full breadth.
-    total: 3850,
+    // (1,200 AGI × 1.5 for the running program) + 1,200 STR + 650 MND
+    // = 3,650, plus 800 for full breadth. Three stats earnable, so the
+    // normalization factor is 1.
+    total: 4450,
     tiers: { AGI: 'gold', STR: 'gold', MND: 'silver' },
     // Lifetime points, not today's — comfortably above the demo user's, which
     // is what makes the board read as a squad you have to catch rather than
@@ -92,8 +102,8 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     class: 'runner',
     level: 12,
     local_date: LOCAL_DATE,
-    // 1,200 + 650 + 250, plus 800 for full breadth.
-    total: 2900,
+    // (1,200 × 1.5) + 650 + 250 = 2,700, plus 800 for full breadth.
+    total: 3500,
     tiers: TIERS,
     ratings: { AGI: 22_500, STR: 14_400, MND: 8_100 },
     contributing_stats: 3,
@@ -113,10 +123,13 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     level: 11,
     local_date: LOCAL_DATE,
     // Phone-only, and the one row that exercises §2's normalization: two stats
-    // earnable, so (650 + 250) x 1.5 + 800. Without the scaling she would sit
-    // at 1,700 for the same day, which is the leaderboard gradient the rule
-    // exists to remove.
-    total: 2150,
+    // earnable, so the weighted sum ((650 × 1.5) + 250 = 1,225) scales by 1.5
+    // to 1,838 before the 800 lands. Without the scaling she would sit at
+    // 2,025 for the same day, which is the leaderboard gradient the rule
+    // exists to remove. Rounded once, at the end — the shape both
+    // `weightedBoardTotal` and `program_weighted_total` use, so the board and
+    // the stored total cannot drift by a rounding step.
+    total: 2638,
     tiers: { AGI: 'silver', STR: 'bronze', MND: 'none' },
     ratings: { AGI: 12_100, STR: 6_400, MND: 0 },
     contributing_stats: 2,
@@ -147,14 +160,44 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
  * be seen. Lifetime `ratings` are carried over unchanged: they are cumulative,
  * so they cannot legitimately differ between two adjacent days by much, and
  * moving them would misrepresent what that column is.
+ *
+ * **Each row overrides its tiers, not only its total.** They used to carry
+ * yesterday's numbers on today's tiers, and the numbers were unreachable: your
+ * 7,240 was above the 5,000 ceiling a running squad's board can pay at all.
+ * The totals below are the same `weightedBoardTotal` arithmetic as the board
+ * above, over each row's own tiers, and `fixtures.test.ts` recomputes them.
  */
 export const DEMO_LEADERBOARD_COMPLETED: LeaderboardRow[] = DEMO_LEADERBOARD.map(
   (row) => ({ ...row, local_date: PREVIOUS_LOCAL_DATE, status: 'final' as const }),
 )
   .map((row) => {
-    if (row.is_self) return { ...row, total: 7240, current_streak: 3 };
-    if (row.character_name === 'Ramon') return { ...row, total: 5130, current_streak: 8 };
-    return { ...row, total: 2890, current_streak: 1 };
+    // (1,200 × 1.5) + 1,200 + 650 = 3,650, plus 800.
+    if (row.is_self) {
+      return {
+        ...row,
+        total: 4450,
+        tiers: { AGI: 'gold', STR: 'gold', MND: 'silver' },
+        current_streak: 3,
+      };
+    }
+    // (1,200 × 1.5) + 650 + 250 = 2,700, plus 800.
+    if (row.character_name === 'Ramon') {
+      return {
+        ...row,
+        total: 3500,
+        tiers: { AGI: 'gold', STR: 'silver', MND: 'bronze' },
+        current_streak: 8,
+      };
+    }
+    // Phone-only again: ((650 × 1.5) + 650) × 1.5 = 2,438, plus 800. She
+    // closes most of the gap without ever passing anyone, which is the row
+    // that shows normalization working rather than merely applying.
+    return {
+      ...row,
+      total: 3238,
+      tiers: { AGI: 'silver', STR: 'silver', MND: 'none' },
+      current_streak: 1,
+    };
   })
   // Ranked from the totals rather than hand-numbered, so the fixture cannot
   // disagree with itself the way a typo'd rank column silently would.
@@ -162,11 +205,16 @@ export const DEMO_LEADERBOARD_COMPLETED: LeaderboardRow[] = DEMO_LEADERBOARD.map
   .map((row, index) => ({ ...row, rank: index + 1 }));
 
 /**
- * The components sum to 2,900, which is what `total` must be — and to the same
- * figure as the demo user's own leaderboard row above, because they describe
- * the same stored day.
+ * The components sum to 2,900, which is what `total` must be.
  *
- * Nothing renders that arithmetic any more — the "includes N for consistency"
+ * **Not** the same figure as the demo user's leaderboard row above, and that
+ * is the point: this is `daily_scores`, which stores base, program-independent
+ * points, while the board weights them at read time (deviation #11). The same
+ * day is 2,900 stored and 3,500 on a running squad's board. They were
+ * identical while the fixture board was an unweighted sum, which is exactly
+ * what made that staleness invisible.
+ *
+ * Nothing renders this arithmetic any more — the "includes N for consistency"
  * line went with the hero total (deviation #30). It still has to hold, because
  * the fixture stands in for a real `daily_scores` row and the server derives
  * `total` from the parts: a demo row where they disagree is a row the app can

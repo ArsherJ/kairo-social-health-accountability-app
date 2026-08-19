@@ -13,6 +13,10 @@ import {
 } from '../functions/_shared/scoring-inputs.ts';
 import { planDay } from '../functions/_shared/sync-plan.ts';
 import { setupHarness, type Harness } from './harness.ts';
+// The replay dry run's own board query, imported rather than retyped: a copy
+// here would be a second thing to keep in step with the script, which is the
+// drift this test exists to catch.
+import { BOARD_TOTAL_SQL } from '../../scripts/replay-dry-run.mjs';
 
 let h: Harness;
 
@@ -2504,6 +2508,51 @@ describe('program weights agree with kairo-core', () => {
       { role: 'authenticated', has: true },
       { role: 'anon', has: false },
     ]);
+  });
+
+  // The dry run calls this function too, and its call is the one that cannot
+  // be checked by reading. The retired signature and the current one BOTH take
+  // seven arguments — `p_mind` sits where `p_end` sat, `p_factor` (numeric)
+  // where `p_rec` (integer) sat — and integer→numeric is an implicit cast, so
+  // a call left in the old positional order resolves cleanly against the new
+  // function and mis-ranks the cohort with no error anywhere. The overload
+  // assertion above cannot see it: there is only one function, and it is being
+  // called wrongly. Executing the script's literal query is what catches it.
+  it('agrees with weightedBoardTotal when the replay dry run calls it', async () => {
+    const leader = await h.createUser({ characterName: 'Runner' });
+    await h.asUser(leader, `select public.create_squad('Dry run', 'running')`);
+
+    // Phone-only shape on purpose: three different non-zero stat values, a
+    // factor that is not 1, and a consistency bonus. Every argument the call
+    // could transpose carries a distinguishable number, so any swap moves the
+    // total. A row of equal points would pass whatever order it was fed.
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, mind_points,
+          consistency_points, normalization_factor, total, tiers)
+       values ($1, '2026-08-18', 1200, 650, 250, 400, 1.500, 3000,
+               '{"AGI":"gold","STR":"silver","MND":"bronze"}')`,
+      [leader],
+    );
+
+    // The script's query is deliberately unfiltered — it pulls every member-day
+    // in the project — so this picks its own freshly created user out of
+    // whatever else the suite has seeded rather than pinning a row count.
+    const rows = await h.asService<{ user_id: string; old_weighted: number }>(
+      BOARD_TOTAL_SQL,
+    );
+    const mine = rows.filter((r) => r.user_id === leader);
+
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.old_weighted).toBe(
+      weightedBoardTotal({
+        program: 'running',
+        statPoints: { AGI: 1_200, STR: 650, MND: 250 },
+        consistencyBonus: 400,
+        recBonus: 0,
+        normalizationFactor: 1.5,
+      }),
+    );
   });
 
   it('covers every program the TypeScript side declares', async () => {

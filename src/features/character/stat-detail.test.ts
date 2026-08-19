@@ -181,6 +181,62 @@ describe('resolveStatDetail', () => {
     expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', topsOut: false });
   });
 
+  // The bug: the line quoted the unshifted ladder while the scorer used the
+  // shifted one, so a day spent moving was told to walk 2,500 steps it did
+  // not need and then hit the band early. Early arrival reads as a broken
+  // score, not as a gift.
+  describe('the day\u2019s own threshold shift', () => {
+    it('names the gap to the band the day will actually be judged against', () => {
+      // Eight active hours earns the 25% cap: AGI Gold sits at 7,500, not
+      // 10,000. Unshifted the same day would be told 3,000.
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 7_000, activeHours: 8 }),
+        lane: 'AGI',
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', gap: 500 });
+    });
+
+    it('asks for nothing once the shifted band is reached', () => {
+      // 7,500 steps is Gold on a spread day and Silver on a sedentary one, so
+      // this is also the assertion that the shift is read from the day rather
+      // than assumed.
+      expect(
+        resolveStatDetail({
+          totals: totals({ steps: 7_500, activeKcal: 400, activeHours: 8 }),
+          sleepMinutes: 8 * 60,
+          lane: null,
+        }),
+      ).toEqual({ kind: 'maxed' });
+      expect(
+        resolveStatDetail({
+          totals: totals({ steps: 7_500, activeKcal: 400, activeHours: 0 }),
+          sleepMinutes: 8 * 60,
+          lane: null,
+        }),
+      ).toMatchObject({ kind: 'gap', stat: 'AGI', gap: 2_500 });
+    });
+
+    // STR inherited END's signal, and the home screen has no verified-workout
+    // figure in scope — see the note on `verifiedWorkoutMinutes`. It is an
+    // argument rather than a guess so the day it does, one call site changes.
+    it("uses STR's own shift when the caller has the minutes", () => {
+      const detail = resolveStatDetail({
+        totals: totals({ activeKcal: 200 }),
+        verifiedWorkoutMinutes: 60,
+        lane: 'STR',
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'STR', gap: 100 });
+    });
+
+    it('leaves a sedentary day on the bands the user has learned', () => {
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 8_760, activeHours: 3 }),
+        lane: 'AGI',
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', gap: 1_240 });
+    });
+  });
+
   it('breaks a tie in CORE_STATS order', () => {
     const detail = resolveStatDetail({
       totals: totals({ steps: 500, activeKcal: 25 }),

@@ -34,11 +34,48 @@
  * `KAIRO_REPLAY_CACHE` caches the pull so a tuning loop does not re-hit the
  * Management API for every constant it tries. Point it outside the repo — the
  * pull is real user health data and must not be committed.
+ *
+ * ## Re-running this
+ *
+ * Spec §2's ±10% criterion is **unmet and deferred, not waived**. The run it
+ * was written for could not evaluate it: the cohort was 14 of 15 fixtures,
+ * since purged, and what remained was one user over eight days, one of which
+ * was a corrupt row. Re-run it — do not re-tune against it — when all three
+ * of these hold. Until then the number is arithmetic about a generator.
+ *
+ * 1. **At least ~20 users with ≥14 scored days each.** Per-user medians need
+ *    a window to sit in, and `hasSleepCapability` reads history: a user with
+ *    three days has no capability signal, so their normalization factor is
+ *    whatever the first night happens to say.
+ * 2. **Before any further change to `TIER_POINTS`, `CONSISTENCY_BONUS` or the
+ *    shift constants.** The criterion measures *this* model against the
+ *    four-stat one. A third model in between makes the delta unattributable —
+ *    there is no arithmetic that separates "the three-stat switch cost 6%"
+ *    from "the three-stat switch cost 2% and a later retune cost 4%".
+ * 3. **Both halves must model the deployed board**, which is true only after
+ *    Task 4: the rank half builds its new totals through `weightedBoardTotal`
+ *    with `normalizationFactor`, and production's `squad_leaderboard()` counts
+ *    MND and normalizes. Before Task 4 the two disagreed and the rank result
+ *    was measuring the difference between them.
+ *
+ * And the prerequisite that outlives all three: **every "old" figure in this
+ * script is the stored row as it exists at the moment of the pull.** Before
+ * Task 7's replay that is the four-stat model, which is what makes a
+ * before/after possible at all. After it, `daily_scores` holds the three-stat
+ * model and every delta here is zero by construction. A run after the deploy
+ * therefore needs a baseline captured before it — the cached pull this script
+ * already writes is exactly that artefact, so capture one at Task 7 step 5 and
+ * keep it outside the repo.
+ *
+ * One finding from the unusable run is worth not repeating: **identical daily
+ * totals across users are a fixture signature, not a cohort.** `classifyUsers`
+ * detects that shape mechanically and the report prints the split — read it
+ * before reading the median, rather than averaging a seed generator into one.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { earnableStats, hasSleepCapability } from '../packages/kairo-core/src/capability.ts';
 import { PROGRAM_WEIGHTS, weightedBoardTotal } from '../packages/kairo-core/src/program.ts';
@@ -68,17 +105,55 @@ function sql(query) {
  * checkable by eye.
  *
  * `old_weighted` is computed by the **deployed** `program_weighted_total`
- * rather than reimplemented here. That is the point: the old board is whatever
- * the live function says it is, including its `walking → VIT` boost and its
- * `p_end * 1` term. Reproducing it in JavaScript would be a second
+ * rather than reimplemented here. That is the point: the board is whatever the
+ * live function says it is. Reproducing it in JavaScript would be a second
  * implementation of the thing under test.
+ *
+ * **The call below is written by parameter name, never by position count.**
+ * The retired signature and the current one both take seven arguments, so a
+ * call that merely drops the retired columns still resolves — against
+ * different meanings — and mis-ranks the whole cohort with no error anywhere.
+ * Against `20260819150000_three_stat_contract_drop.sql`, position by position:
+ * `p_program text`, `p_agi integer`, `p_str integer`, `p_mind integer`,
+ * `p_consistency integer`, `p_rec integer`, `p_factor numeric`. `p_mind` sits
+ * where `p_end` used to; `p_factor` sits where `p_rec` used to. `p_rec` is 0
+ * because deviation #41 retired `rec_points` and its only production caller
+ * passes the same literal.
  */
+/**
+ * The board total as the **deployed** function computes it, for every stored
+ * day of every squad member.
+ *
+ * Exported because it is the one query in this file whose correctness cannot
+ * be read off the page — see the note on `pull()` — and
+ * `supabase/tests/schema.test.ts` runs this exact text against PGlite and
+ * compares the answer to `weightedBoardTotal`. A positional slip resolves
+ * cleanly and mis-ranks in silence; only executing it catches that.
+ */
+export const BOARD_TOTAL_SQL = `
+      select sm.squad_id::text as squad_id, ds.user_id::text as user_id,
+             ds.local_date::text as local_date,
+             public.program_weighted_total(
+               s.program,              -- p_program     text
+               ds.agi_points,          -- p_agi         integer
+               ds.str_points,          -- p_str         integer
+               ds.mind_points,         -- p_mind        integer
+               ds.consistency_points,  -- p_consistency integer
+               0,                      -- p_rec         integer
+               ds.normalization_factor -- p_factor      numeric
+             ) as old_weighted
+      from public.daily_scores ds
+      join public.squad_members sm on sm.user_id = ds.user_id
+      join public.squads s         on s.id = sm.squad_id
+`;
+
 function pull() {
   return {
     scores: sql(`
       select user_id::text as user_id, local_date::text as local_date,
-             agi_points, str_points, end_points, vit_points, rec_points,
-             consistency_points, total, has_rec, status::text as status
+             agi_points, str_points, mind_points,
+             consistency_points, normalization_factor::float8 as normalization_factor,
+             total, has_rec, status::text as status
       from public.daily_scores
       order by user_id, local_date
     `),
@@ -109,18 +184,7 @@ function pull() {
       join public.squads s   on s.id = sm.squad_id
       join public.profiles p on p.id = sm.user_id
     `),
-    oldWeighted: sql(`
-      select sm.squad_id::text as squad_id, ds.user_id::text as user_id,
-             ds.local_date::text as local_date,
-             public.program_weighted_total(
-               s.program,
-               ds.agi_points, ds.str_points, ds.end_points, ds.vit_points,
-               ds.consistency_points, ds.rec_points
-             ) as old_weighted
-      from public.daily_scores ds
-      join public.squad_members sm on sm.user_id = ds.user_id
-      join public.squads s         on s.id = sm.squad_id
-    `),
+    oldWeighted: sql(BOARD_TOTAL_SQL),
     bias: sql(`
       select
         (select count(*) from public.workout_sessions) as workout_sessions,
@@ -176,8 +240,15 @@ function num(v) {
  * `was_user_entered` and `has_heart_rate_evidence` are columns the expand
  * migration adds, so no pre-existing row can satisfy `workoutVerified()`. The
  * replay therefore understates STR's threshold shift throughout, and the
- * report says so rather than tuning it away — the bias disappears on its own
- * once the client populates those columns.
+ * report says so rather than tuning it away.
+ *
+ * It does **not** disappear on its own, which this comment used to claim. The
+ * columns existing is half of it; **Task 3 is the other half** — the client
+ * sends the sample's origin, `scoring-inputs` reads those three columns back
+ * through `verifiedWorkoutMinutesFrom`, and only then does a non-zero figure
+ * reach `planDay`. Historical rows predate all of it and always will, so this
+ * bias is permanent for the replayed cohort and disappears only for days
+ * scored after that deploy.
  */
 function replayDay(row, ctx, { normalize = true } = {}) {
   const buckets = ctx.bucketsByDay.get(key(row.user_id, row.local_date)) ?? [];
@@ -326,9 +397,18 @@ function classifyUsers(scores, ctx) {
  *
  * Mirrors `squad_leaderboard()`: every member appears, a member with no row
  * scores 0, and ties break on the name ordinal ascending. The new side uses
- * `weightedBoardTotal` from `@kairo/core` — the three-stat mirror — because
- * that is what Phase 3 deploys; the SQL half still carries `p_end`/`p_vit` and
- * has no `p_mind` until then.
+ * `weightedBoardTotal` from `@kairo/core`, which is the expression Task 4
+ * deployed into `program_weighted_total` — three stats, weighted, with §2's
+ * normalization applied to the weighted sum and rounded once at the end.
+ *
+ * **Both halves have to model the same board or the rank result measures the
+ * difference between them.** Until Task 4 this side counted MND and did not
+ * normalize while production did neither, so a phone-only member was ranked
+ * two-thirds short here and full-height there — a rank movement that belonged
+ * to the script, not to the switch. `normalizationFactor` is a required field
+ * on `weightedBoardTotal` and omitting it does not throw: the multiplication
+ * yields NaN, every comparison against it is false, and the sort quietly
+ * degenerates to input order.
  */
 function rankBoard(entries, totalOf) {
   return [...entries]
@@ -381,9 +461,14 @@ function rankMovement(data, newByDay) {
                 program,
                 statPoints,
                 consistencyBonus: score.consistencyBonus,
-                // Nothing writes rec_points any more; Phase 3 drops the
-                // column, this field and `p_rec` together.
+                // Nothing writes rec_points any more; `20260819150000` drops
+                // the column and `squad_leaderboard()` passes the same
+                // literal into `p_rec`.
                 recBonus: 0,
+                // The replayed day's own factor, not a recomputed one: the
+                // board is read time and the row being ranked was scored
+                // under whatever capability its owner had that day.
+                normalizationFactor: score.normalizationFactor,
               })
             : 0,
         };
@@ -477,8 +562,8 @@ function behaviourGroups(scores, ctx, newByDay) {
     const score = newByDay.get(key(row.user_id, row.local_date));
     const tiers = CORE_STATS.map((s) => score.stats[s].tier).join('/');
     const oldParts = [
-      num(row.agi_points), num(row.str_points), num(row.end_points),
-      num(row.vit_points), num(row.rec_points), num(row.consistency_points),
+      num(row.agi_points), num(row.str_points), num(row.mind_points),
+      num(row.consistency_points),
     ].join(',');
     const k = `${tiers}|${score.normalizationFactor}|${oldParts}`;
     if (!groups.has(k)) {
@@ -571,7 +656,7 @@ function main() {
   // ---- behaviour groups --------------------------------------------------
   console.log('\n=== Distinct behaviour groups (aggregate; each is one equation) ===');
   console.log(
-    'days  new tiers (AGI/STR/MND)  factor  old parts (agi,str,end,vit,rec,cons)  old -> new    delta',
+    'days  new tiers (AGI/STR/MND)  factor  stored parts (agi,str,mind,cons)      old -> new    delta',
   );
   for (const g of behaviourGroups(data.scores, ctx, newByDay)) {
     const delta = g.oldTotal === 0 ? 'n/a' : pct((g.newTotal - g.oldTotal) / g.oldTotal);
@@ -640,8 +725,17 @@ function main() {
     'verifiedWorkoutMinutes is 0 for every replayed day, so STR\'s threshold shift is',
   );
   console.log('unexercised here and its effect is understated. Do not tune against it.');
+  console.log(
+    'That bias is permanent for these rows: Task 3 is what puts sample origin on new',
+  );
+  console.log('sessions, and no historical row can ever satisfy workoutVerified().');
 
   process.exitCode = medianOk && rankOk ? 0 : 1;
 }
 
-main();
+// Run only as a command, never on import: `BOARD_TOTAL_SQL` above is imported
+// by the schema suite, and a bare `main()` here would fire the Management API
+// pull inside a test run.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

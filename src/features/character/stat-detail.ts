@@ -1,6 +1,7 @@
 import {
   CORE_STATS,
   nextTierFor,
+  statShifts,
   type CoreStat,
   type DayTotals,
 } from '@kairo/core';
@@ -134,6 +135,7 @@ function rawFor(
 export function resolveStatDetail({
   totals,
   sleepMinutes,
+  verifiedWorkoutMinutes = 0,
   lane,
 }: {
   totals: DayTotals | undefined;
@@ -144,9 +146,33 @@ export function resolveStatDetail({
    * line back.
    */
   sleepMinutes?: number | null;
+  /**
+   * Minutes of workout that cleared `workoutVerified()`, which is what lowers
+   * STR's bands (`shifts.ts`).
+   *
+   * **The home screen has none to pass, and that is a stated gap rather than
+   * an oversight.** Verification reads `was_user_entered`,
+   * `has_heart_rate_evidence` and `source_bundle_id`, three columns
+   * `useWorkoutSessions` deliberately does not select — §5 keeps
+   * `workout_sessions` owner-only and out of every projection, and widening
+   * that read is a privacy decision, not a plumbing one. So STR's hint quotes
+   * the unshifted band on a day with a verified workout and can overstate the
+   * gap by up to a quarter. It is an argument here rather than a zero buried
+   * inside, so the day the figure exists exactly one call site changes.
+   */
+  verifiedWorkoutMinutes?: number;
   lane: CoreStat | null;
 }): StatDetail {
   if (!totals) return { kind: 'unknown' };
+
+  // The same table `computeDailyScore` scores the day with, not a second copy
+  // of it. Reading the unshifted ladder here is the bug this closes: a
+  // well-spread day was told "1,240 more steps" and reached Gold at 7,500,
+  // and arriving early reads as a broken score rather than a gift.
+  const shifts = statShifts({
+    activeHours: totals.activeHours,
+    verifiedWorkoutMinutes,
+  });
 
   interface Open {
     stat: CoreStat;
@@ -164,7 +190,7 @@ export function resolveStatDetail({
     // worth naming, and a fabricated 0 would make it win the "closest gap"
     // pick over stats with real progress.
     if (raw === null) continue;
-    const next = nextTierFor(stat, raw);
+    const next = nextTierFor(stat, raw, shifts[stat]);
     // null means there is nothing more to ask for: Gold in the ordinary case,
     // and for MND also a night past the oversleep threshold, where no amount
     // of extra sleep recovers the top band. Either way the stat is closed.

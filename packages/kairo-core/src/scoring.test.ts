@@ -13,6 +13,7 @@ import {
   shiftedTierFor,
   tierFor,
 } from './scoring.ts';
+import { spreadShift, workoutShift } from './shifts.ts';
 import { CORE_STATS, type CoreStat, type HourBucket } from './types.ts';
 
 /** Build a day of buckets. `perHour` is applied to each hour listed. */
@@ -710,6 +711,59 @@ describe('nextTierFor', () => {
     it('is moot at gold — nextTierFor returns null, there is nothing to band', () => {
       expect(nextTierFor('MND', 420)).toBeNull();
     });
+  });
+});
+
+describe('nextTierFor — the band the day is actually judged against', () => {
+  // The bug this closes: the hint read the unshifted ladder while the scorer
+  // read the shifted one, so a well-spread day was told "1,240 more steps"
+  // and hit Gold 2,500 steps early. Arriving early reads as a bug in the
+  // score, not as a gift — and it is the one line on the screen whose whole
+  // job is to say what to do next.
+
+  it('reports the distance to the shifted band on a well-spread day', () => {
+    // Eight active hours earns the 25% cap, so AGI Gold sits at 7,500.
+    const shift = spreadShift(8);
+    expect(nextTierFor('AGI', 7_000, shift)).toEqual({
+      tier: 'gold',
+      gap: 500,
+      // The floor moves with the ceiling: shifted Silver is 3,750. A band
+      // whose top is shifted and whose floor is not is a false fraction on
+      // every progress bar reading it.
+      bandLow: 3_750,
+      pointsGain: 550,
+    });
+  });
+
+  it('stops asking exactly where the scorer awards gold', () => {
+    const shift = spreadShift(8);
+    expect(shiftedTierFor('AGI', 7_500, shift)).toBe('gold');
+    expect(nextTierFor('AGI', 7_500, shift)).toBeNull();
+    // And one step below it, the two still agree there is something to ask
+    // for — a hint that goes quiet early is the same failure mirrored.
+    expect(shiftedTierFor('AGI', 7_499, shift)).toBe('silver');
+    expect(nextTierFor('AGI', 7_499, shift)).toMatchObject({ tier: 'gold', gap: 1 });
+  });
+
+  it("uses STR's own shift, which comes from verified workout minutes", () => {
+    // Sixty verified minutes is the cap, so STR Silver sits at 150 and Gold
+    // at 300. Unshifted, 200 kcal is exactly the Silver line and Gold is 200
+    // away; shifted, it is already inside Silver and Gold is 100 away.
+    const shift = workoutShift(60);
+    expect(nextTierFor('STR', 200)).toMatchObject({ tier: 'gold', gap: 200, bandLow: 200 });
+    expect(nextTierFor('STR', 200, shift)).toEqual({
+      tier: 'gold',
+      gap: 100,
+      bandLow: 150,
+      pointsGain: 550,
+    });
+  });
+
+  it('is the unshifted ladder when the day earned no shift', () => {
+    // The default and an explicit zero are the same answer, and both are the
+    // bands a user has learned.
+    expect(nextTierFor('AGI', 8_760, 0)).toEqual(nextTierFor('AGI', 8_760));
+    expect(nextTierFor('AGI', 8_760, spreadShift(2))).toEqual(nextTierFor('AGI', 8_760));
   });
 });
 
