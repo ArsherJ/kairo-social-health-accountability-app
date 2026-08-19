@@ -2198,10 +2198,12 @@ describe('leaderboard program weighting', () => {
     day: {
       agi: number;
       str: number;
+      mind?: number;
       end: number;
       vit: number;
       consistency?: number;
       rec?: number;
+      factor?: number;
     },
   ) {
     const leader = await h.createUser();
@@ -2213,17 +2215,19 @@ describe('leaderboard program weighting', () => {
     const squadId = squad[0]!.id;
     await h.asService(
       `insert into public.daily_scores
-         (user_id, local_date, agi_points, str_points, end_points, vit_points,
-          consistency_points, rec_points, total)
-       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, 0)`,
+         (user_id, local_date, agi_points, str_points, mind_points, end_points,
+          vit_points, consistency_points, rec_points, normalization_factor, total)
+       values ($1, '2026-07-27', $2, $3, $4, $5, $6, $7, $8, $9, 0)`,
       [
         leader,
         day.agi,
         day.str,
+        day.mind ?? 0,
         day.end,
         day.vit,
         day.consistency ?? 0,
         day.rec ?? 0,
+        day.factor ?? 1,
       ],
     );
     const rows = await h.asUser<{ total: number; program: string }>(
@@ -2234,20 +2238,30 @@ describe('leaderboard program weighting', () => {
     return rows[0]!;
   }
 
-  // A three-stat day: AGI gold, STR silver, and full breadth. `end`/`vit` are
-  // 0 because nothing writes them any more (deviation #41).
-  const DAY = { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 };
+  // A three-stat day: AGI gold, STR silver, MND bronze, and full breadth.
+  // `end`/`vit` are 0 because nothing writes them any more (deviation #41).
+  // MND is non-zero on purpose — the board did not pass mind_points at all
+  // until this migration, so a fixture that left it 0 would pass either way.
+  const DAY = {
+    agi: 1_200,
+    str: 650,
+    mind: 250,
+    end: 0,
+    vit: 0,
+    consistency: 800,
+    rec: 0,
+  };
 
   it('leaves an all_around board unweighted', async () => {
-    expect((await boardWith('all_around', DAY)).total).toBe(2_650);
+    expect((await boardWith('all_around', DAY)).total).toBe(2_900);
   });
 
   it('boosts AGI on a running board', async () => {
-    expect((await boardWith('running', DAY)).total).toBe(3_250);
+    expect((await boardWith('running', DAY)).total).toBe(3_500);
   });
 
   it('boosts STR on a strength board', async () => {
-    expect((await boardWith('strength', DAY)).total).toBe(2_975);
+    expect((await boardWith('strength', DAY)).total).toBe(3_225);
   });
 
   // Walking boosted VIT until deviation #41 retired that stat; its
@@ -2258,11 +2272,65 @@ describe('leaderboard program weighting', () => {
     expect((await boardWith('walking', agiOnly)).total).toBe(1_800);
   });
 
-  // Knowingly unweighted in SQL until Phase 3 gives program_weighted_total a
-  // p_mind parameter — the signature change ships with the column drops. This
-  // pins the gap so it is a decision on record rather than a surprise.
-  it('does not yet boost anything on a recovery board', async () => {
-    expect((await boardWith('recovery', DAY)).total).toBe(2_650);
+  it('boosts MND on a recovery board', async () => {
+    // 1,200 + 650 + (250 x 1.5) + 800.
+    expect((await boardWith('recovery', DAY)).total).toBe(3_025);
+  });
+
+  it('counts MND on every program, not only recovery', async () => {
+    // The board passed no mind_points at all until 20260819140000, so a Gold
+    // night was 1,200 stored points the ranking number could not see — on
+    // every program. Compared against the same day with MND zeroed, because a
+    // single expected constant would not say which half moved.
+    for (const program of SQUAD_PROGRAMS) {
+      const withSleep = await boardWith(program, { ...DAY, mind: 1_200 });
+      const withoutSleep = await boardWith(program, { ...DAY, mind: 0 });
+      const weight = program === 'recovery' ? 1.5 : 1;
+      expect(withSleep.total - withoutSleep.total).toBe(1_200 * weight);
+    }
+  });
+
+  it('applies normalization, so a phone-only day ranks at its real total', async () => {
+    // §2's whole purpose: two Gold stats scaled by 1.5 rank level with three
+    // Gold stats scaled by 1. The board re-sums the per-stat columns rather
+    // than reading daily_scores.total, so the factor has to reach it or the
+    // gradient survives on the one surface §2 names.
+    const phoneOnly = await boardWith('all_around', {
+      agi: 1_200,
+      str: 1_200,
+      mind: 0,
+      end: 0,
+      vit: 0,
+      consistency: 800,
+      factor: 1.5,
+    });
+    const wearable = await boardWith('all_around', {
+      agi: 1_200,
+      str: 1_200,
+      mind: 1_200,
+      end: 0,
+      vit: 0,
+      consistency: 800,
+      factor: 1,
+    });
+
+    expect(phoneOnly.total).toBe(4_400);
+    expect(wearable.total).toBe(4_400);
+  });
+
+  it('leaves the consistency bonus outside normalization', async () => {
+    // breadthBonus already accounts for earnable stats, so scaling the bonus
+    // as well would apply one correction twice — 1,800 + 800, not 3,900.
+    const day = await boardWith('all_around', {
+      agi: 1_200,
+      str: 0,
+      mind: 0,
+      end: 0,
+      vit: 0,
+      consistency: 800,
+      factor: 1.5,
+    });
+    expect(day.total).toBe(2_600);
   });
 
   it('never boosts the retired columns, on any program', async () => {
@@ -2362,48 +2430,97 @@ describe('program weights agree with kairo-core', () => {
   // see: `weightedBoardTotal` takes a Record<CoreStat, number> and CoreStat no
   // longer has END or VIT, so the two would diverge by exactly those points.
   // They are pinned at 0 for that reason, not for tidiness.
+  //
+  // `mind` and `factor` carry real values. They were 0 and absent while
+  // program_weighted_total had no p_mind and no p_factor, which meant the two
+  // parameters that actually differ between the four-stat and three-stat
+  // models were the two this differential could not see.
   const FIXTURES = [
-    { agi: 0, str: 0, end: 0, vit: 0, consistency: 0, rec: 0 },
-    { agi: 1_200, str: 650, end: 0, vit: 0, consistency: 800, rec: 0 },
-    { agi: 1_200, str: 1_200, end: 0, vit: 0, consistency: 800, rec: 500 },
-    { agi: 650, str: 250, end: 0, vit: 0, consistency: 400, rec: 0 },
+    { agi: 0, str: 0, mind: 0, end: 0, vit: 0, consistency: 0, rec: 0, factor: 1 },
+    {
+      agi: 1_200, str: 650, mind: 250, end: 0, vit: 0,
+      consistency: 800, rec: 0, factor: 1,
+    },
+    {
+      agi: 1_200, str: 1_200, mind: 1_200, end: 0, vit: 0,
+      consistency: 800, rec: 500, factor: 1,
+    },
+    // Phone-only: two stats earned, scaled by 3/2. The one shape §2 exists for.
+    {
+      agi: 1_200, str: 1_200, mind: 0, end: 0, vit: 0,
+      consistency: 800, rec: 0, factor: 1.5,
+    },
+    { agi: 650, str: 250, mind: 650, end: 0, vit: 0, consistency: 400, rec: 0, factor: 1 },
     // Odd points force the .5 that round() has to resolve identically on both
     // sides. These cannot come out of the tier table, but nothing stops a
-    // future one from producing them.
-    { agi: 125, str: 375, end: 0, vit: 0, consistency: 0, rec: 0 },
-    { agi: 1, str: 1, end: 0, vit: 0, consistency: 0, rec: 0 },
+    // future one from producing them. The 1.5 factor stacks with the 1.5
+    // program boost, so the .5 has to survive two multiplications.
+    {
+      agi: 125, str: 375, mind: 125, end: 0, vit: 0,
+      consistency: 0, rec: 0, factor: 1.5,
+    },
+    { agi: 1, str: 1, mind: 1, end: 0, vit: 0, consistency: 0, rec: 0, factor: 1.5 },
   ];
 
   it('matches weightedBoardTotal for every program on every fixture day', async () => {
     for (const program of SQUAD_PROGRAMS) {
       for (const f of FIXTURES) {
         const rows = await h.asService<{ total: number }>(
-          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7) as total`,
-          [program, f.agi, f.str, f.end, f.vit, f.consistency, f.rec],
+          `select public.program_weighted_total($1, $2, $3, $4, $5, $6, $7, $8, $9) as total`,
+          [program, f.agi, f.str, f.mind, f.end, f.vit, f.consistency, f.rec, f.factor],
         );
         expect({ program, ...f, total: rows[0]!.total }).toEqual({
           program,
           ...f,
           total: weightedBoardTotal({
             program,
-            // MND: 0 — this fixture set and the SQL side of the differential
-            // test (program_weighted_total()) both predate MND joining
-            // CORE_STATS (deviation #41); neither weights it yet, so 0 keeps
-            // the two sides in agreement rather than exercising a stat this
-            // particular differential test does not cover.
-            // MND: 0 — `program_weighted_total()` has no `p_mind` parameter,
-            // so the `recovery` program's MND boost cannot be expressed on the
-            // SQL side until Phase 3 changes that signature alongside the
-            // column drops. Passing 0 keeps the two sides in agreement on
-            // everything both can express, and is the one thing this
-            // differential test does not cover. See the note in program.ts.
-            statPoints: { AGI: f.agi, STR: f.str, MND: 0 },
+            statPoints: { AGI: f.agi, STR: f.str, MND: f.mind },
             consistencyBonus: f.consistency,
             recBonus: f.rec,
+            normalizationFactor: f.factor,
           }),
         });
       }
     }
+  });
+
+  it('exists as exactly one overload, carrying p_mind and p_factor', async () => {
+    // Postgres resolves by argument list, so appending the two parameters with
+    // a bare `create or replace` would have left the seven-argument function
+    // standing beside the new one — and a call site that still passed seven
+    // arguments would have kept resolving to it, silently, with MND uncounted
+    // and normalization unapplied. 20260819140000 drops the old signature by
+    // its exact argument list; this is what says it worked. Same trap
+    // `create_goal` hit with `p_metric`.
+    const rows = await h.asService<{ args: string }>(
+      `select pg_get_function_arguments(p.oid) as args
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'program_weighted_total'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.args).toContain('p_mind integer');
+    expect(rows[0]!.args).toContain('p_factor numeric');
+  });
+
+  it('is executable by authenticated but not anon, after the drop', async () => {
+    // `drop` takes the EXECUTE grants with it, and nothing else in this suite
+    // would notice — the differential above runs as the owner.
+    //
+    // What this actually pins is the re-REVOKE. Supabase's default privileges
+    // grant ALL on new functions to anon and authenticated, so the re-grant is
+    // belt and braces and removing it changes nothing; removing the revoke
+    // hands anon a function it never had, and fails here.
+    const rows = await h.asService<{ role: string; has: boolean }>(
+      `select r.role, has_function_privilege(r.role,
+         'public.program_weighted_total(text, integer, integer, integer,
+            integer, integer, integer, integer, numeric)', 'execute') as has
+         from (values ('authenticated'), ('anon')) as r(role)`,
+    );
+    expect(rows).toEqual([
+      { role: 'authenticated', has: true },
+      { role: 'anon', has: false },
+    ]);
   });
 
   it('covers every program the TypeScript side declares', async () => {

@@ -97,6 +97,7 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 1_200, STR: 650, MND: 250 },
       consistencyBonus: 800,
       recBonus: 0,
+      normalizationFactor: 1,
     });
     expect(total).toBe(2_900);
   });
@@ -108,6 +109,7 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 1_200, STR: 650, MND: 250 },
       consistencyBonus: 800,
       recBonus: 0,
+      normalizationFactor: 1,
     });
     expect(total).toBe(3_500);
   });
@@ -121,6 +123,7 @@ describe('weightedBoardTotal', () => {
       statPoints: NO_POINTS,
       consistencyBonus: 800,
       recBonus: 500,
+      normalizationFactor: 1,
     });
     expect(total).toBe(1_300);
   });
@@ -131,6 +134,7 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 0, STR: 0, MND: 1_200 },
       consistencyBonus: 0,
       recBonus: 0,
+      normalizationFactor: 1,
     });
     expect(total).toBe(1_800);
   });
@@ -141,6 +145,7 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 0, STR: 900, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
+      normalizationFactor: 1,
     });
     expect(total).toBe(1_350);
   });
@@ -153,8 +158,52 @@ describe('weightedBoardTotal', () => {
       statPoints: { AGI: 125, STR: 0, MND: 0 },
       consistencyBonus: 0,
       recBonus: 0,
+      normalizationFactor: 1,
     });
     expect(total).toBe(188);
+  });
+
+  it('counts MND on every program, not only recovery', () => {
+    // The board is the surface §2's normalization exists for. A stat the
+    // ranking number cannot see is a stat that does not exist competitively.
+    const withSleep = weightedBoardTotal({
+      program: 'running',
+      statPoints: { AGI: 1_200, STR: 1_200, MND: 1_200 },
+      consistencyBonus: 800,
+      recBonus: 0,
+      normalizationFactor: 1,
+    });
+    const withoutSleep = weightedBoardTotal({
+      program: 'running',
+      statPoints: { AGI: 1_200, STR: 1_200, MND: 0 },
+      consistencyBonus: 800,
+      recBonus: 0,
+      normalizationFactor: 1,
+    });
+
+    expect(withSleep - withoutSleep).toBe(1_200);
+  });
+
+  it('applies normalization, so a phone-only day ranks at its real total', () => {
+    // Two Gold stats at factor 1.5 must rank level with three Gold stats at
+    // factor 1 — the gradient §2 removes, on the surface §2 names.
+    const phoneOnly = weightedBoardTotal({
+      program: 'all_around',
+      statPoints: { AGI: 1_200, STR: 1_200, MND: 0 },
+      consistencyBonus: 800,
+      recBonus: 0,
+      normalizationFactor: 1.5,
+    });
+    const wearable = weightedBoardTotal({
+      program: 'all_around',
+      statPoints: { AGI: 1_200, STR: 1_200, MND: 1_200 },
+      consistencyBonus: 800,
+      recBonus: 0,
+      normalizationFactor: 1,
+    });
+
+    expect(phoneOnly).toBe(4_400);
+    expect(wearable).toBe(4_400);
   });
 
   it('is zero for a day with nothing on it', () => {
@@ -164,6 +213,7 @@ describe('weightedBoardTotal', () => {
         statPoints: NO_POINTS,
         consistencyBonus: 0,
         recBonus: 0,
+        normalizationFactor: 1,
       }),
     ).toBe(0);
   });
