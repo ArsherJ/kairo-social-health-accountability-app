@@ -367,6 +367,26 @@ describe('the 6,200 breach', () => {
     expect(supported.healthTotal).toBe(4_400);
   });
 
+  it('holds when the scored date is not today — the backfill case', () => {
+    // The breach that hides here: score 2026-08-01, where sleep exists ON that
+    // date (so MND scores) but no scoring sleep falls in the 14 days ending at
+    // wall-clock today. earnableStats reads 2, MND still scores, and the day
+    // pays 6,200 — with contributing_stats at 3, so the check constraint waves
+    // it through. The fix is contractual, not arithmetic: `today` must be the
+    // date being scored.
+    const scored = '2026-08-01';
+    const scoringSleepDates = [scored];
+
+    const day = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability(scoringSleepDates, scored)),
+    });
+
+    expect(day.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
+    expect(day.healthTotal).toBe(4_400);
+  });
+
   // The other direction of the same coupling: no sleep that scores means no
   // MND points, so two earnable stats and the ceiling still holds.
   it('is not reachable by a genuinely phone-only day either', () => {
