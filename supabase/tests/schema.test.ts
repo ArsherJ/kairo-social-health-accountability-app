@@ -2519,38 +2519,63 @@ describe('program weights agree with kairo-core', () => {
   // assertion above cannot see it: there is only one function, and it is being
   // called wrongly. Executing the script's literal query is what catches it.
   it('agrees with weightedBoardTotal when the replay dry run calls it', async () => {
-    const leader = await h.createUser({ characterName: 'Runner' });
-    await h.asUser(leader, `select public.create_squad('Dry run', 'running')`);
+    // **Two squads, on two different programs, because one cannot pin three
+    // positions.** A program boosts exactly one stat and leaves the other two
+    // at 1.0, so a single running squad is blind to a `p_str` ↔ `p_mind`
+    // transposition — the two arguments weigh the same and the total does not
+    // move. That is the trap's own neighbourhood: `p_mind` sits exactly where
+    // `p_end` sat. Running separates AGI from {STR, MND}; strength separates
+    // STR from {AGI, MND}; asserting both rows is what leaves no pair of stat
+    // arguments interchangeable. It says nothing about `p_program` itself,
+    // which is pinned by the differential above running every program.
+    //
+    // Distinct non-zero values in every position, a factor that is not 1 on
+    // the running row, and a consistency bonus: a row of equal points would
+    // pass whatever order it was fed.
+    const runner = await h.createUser({ characterName: 'Runner' });
+    await h.asUser(runner, `select public.create_squad('Dry run', 'running')`);
+    const lifter = await h.createUser({ characterName: 'Lifter' });
+    await h.asUser(lifter, `select public.create_squad('Dry run gym', 'strength')`);
 
-    // Phone-only shape on purpose: three different non-zero stat values, a
-    // factor that is not 1, and a consistency bonus. Every argument the call
-    // could transpose carries a distinguishable number, so any swap moves the
-    // total. A row of equal points would pass whatever order it was fed.
     await h.asService(
       `insert into public.daily_scores
          (user_id, local_date, agi_points, str_points, mind_points,
           consistency_points, normalization_factor, total, tiers)
        values ($1, '2026-08-18', 1200, 650, 250, 400, 1.500, 3000,
-               '{"AGI":"gold","STR":"silver","MND":"bronze"}')`,
-      [leader],
+               '{"AGI":"gold","STR":"silver","MND":"bronze"}'),
+              ($2, '2026-08-18', 650, 1200, 250, 800, 1.000, 2900,
+               '{"AGI":"silver","STR":"gold","MND":"bronze"}')`,
+      [runner, lifter],
     );
 
     // The script's query is deliberately unfiltered — it pulls every member-day
-    // in the project — so this picks its own freshly created user out of
+    // in the project — so this picks its own freshly created users out of
     // whatever else the suite has seeded rather than pinning a row count.
     const rows = await h.asService<{ user_id: string; old_weighted: number }>(
       BOARD_TOTAL_SQL,
     );
-    const mine = rows.filter((r) => r.user_id === leader);
+    const totalFor = (userId: string) => {
+      const mine = rows.filter((r) => r.user_id === userId);
+      expect(mine).toHaveLength(1);
+      return mine[0]!.old_weighted;
+    };
 
-    expect(mine).toHaveLength(1);
-    expect(mine[0]!.old_weighted).toBe(
+    expect(totalFor(runner)).toBe(
       weightedBoardTotal({
         program: 'running',
         statPoints: { AGI: 1_200, STR: 650, MND: 250 },
         consistencyBonus: 400,
         recBonus: 0,
         normalizationFactor: 1.5,
+      }),
+    );
+    expect(totalFor(lifter)).toBe(
+      weightedBoardTotal({
+        program: 'strength',
+        statPoints: { AGI: 650, STR: 1_200, MND: 250 },
+        consistencyBonus: 800,
+        recBonus: 0,
+        normalizationFactor: 1,
       }),
     );
   });

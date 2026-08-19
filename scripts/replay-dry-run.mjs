@@ -63,9 +63,42 @@
  * Task 7's replay that is the four-stat model, which is what makes a
  * before/after possible at all. After it, `daily_scores` holds the three-stat
  * model and every delta here is zero by construction. A run after the deploy
- * therefore needs a baseline captured before it — the cached pull this script
- * already writes is exactly that artefact, so capture one at Task 7 step 5 and
- * keep it outside the repo.
+ * therefore needs a baseline captured before it.
+ *
+ * **This version of the file cannot capture that baseline at any point in Task
+ * 7's window, and an earlier draft of this section wrongly said to take one at
+ * step 5.** `BOARD_TOTAL_SQL` first resolves at **step 8**, when the contract
+ * migration installs the seven-argument `p_mind`/`p_factor` form — and step 6's
+ * replay has already rewritten `daily_scores` by then, which is the very case
+ * the paragraph above says is worthless. Earlier it does not resolve at all:
+ * before step 5 the project holds the pre-Phase-3 `(text, integer × 6)` form
+ * and this call passes `ds.normalization_factor`, which is numeric, into an
+ * integer position — an assignment cast, not an implicit one, so overload
+ * resolution fails outright; between steps 5 and 8 it holds the nine-argument
+ * form and the arity is wrong.
+ *
+ * So the baseline is a **pre-flight artefact, taken before step 1**, with the
+ * version of this file that predates Task 6, whose call matches the deployed
+ * four-stat signature exactly:
+ *
+ *   git show 310695c:scripts/replay-dry-run.mjs > /tmp/replay-4stat.mjs
+ *   KAIRO_REPLAY_CACHE=~/kairo-baseline-4stat.json node /tmp/replay-4stat.mjs
+ *
+ * (Verified against the live project on 2026-08-20: all six queries resolve.)
+ * Keep the cache outside the repo — it is real user health data. Two things
+ * about it. Its `scores` rows carry `end_points`/`vit_points`/`rec_points` and
+ * no `mind_points`, so it is **not loadable by this version**: `num()` turns
+ * the missing column into 0 and the run reports confidently wrong numbers
+ * instead of failing. And that build's rank half omits `normalizationFactor`,
+ * so every `newTotal` in it is NaN and its printed rank movement is
+ * meaningless — the artefact worth keeping is the pull, not the report.
+ *
+ * If no pre-flight capture was taken, the stored four-stat totals are gone the
+ * moment step 6 runs. They are reconstructable in principle — they were
+ * themselves derived from `health_buckets` and `daily_sleep`, neither of which
+ * the replay touches, so the four-stat engine out of git history would
+ * regenerate them — but that is strictly more work than remembering to take
+ * the cache, and it is not something to discover mid-deploy.
  *
  * One finding from the unusable run is worth not repeating: **identical daily
  * totals across users are a fixture signature, not a cohort.** `classifyUsers`
@@ -152,8 +185,7 @@ function pull() {
     scores: sql(`
       select user_id::text as user_id, local_date::text as local_date,
              agi_points, str_points, mind_points,
-             consistency_points, normalization_factor::float8 as normalization_factor,
-             total, has_rec, status::text as status
+             consistency_points, total, has_rec, status::text as status
       from public.daily_scores
       order by user_id, local_date
     `),
