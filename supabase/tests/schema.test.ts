@@ -672,6 +672,31 @@ describe('profiles.mnd_total', () => {
     expect(rows[0]!.mnd_total).toBe(620);
   });
 
+  it('follows a same-tier rescore that leaves every other column untouched', async () => {
+    // The trigger's skip guard (daily_scores_xp_rollup) tests every column the
+    // rollup reads before deciding to skip recalculate_user_xp. It had to widen
+    // by exactly one column the moment the rollup started reading mind_points —
+    // otherwise a day whose mind_points moves while xp_awarded, agi_points,
+    // str_points, end_points and vit_points all hold steady would skip the
+    // recompute and leave mnd_total silently stale. Same shape as the AGI
+    // regression above, for the column that just joined the rollup.
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, mind_points, xp_awarded)
+       values ($1, '2026-07-27', 500, 25)`,
+      [user],
+    );
+    await h.asService(
+      `update public.daily_scores set mind_points = 620 where user_id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ mnd_total: number }>(
+      'select mnd_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.mnd_total).toBe(620);
+  });
+
   it('is not client-writable — an ability cannot be minted', async () => {
     const user = await h.createUser();
     await rejects(

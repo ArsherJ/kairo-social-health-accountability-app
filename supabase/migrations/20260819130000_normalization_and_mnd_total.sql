@@ -105,4 +105,47 @@ $function$;
 
 revoke execute on function public.recalculate_user_xp(uuid) from public, anon, authenticated;
 
+-- ---------------------------------------------------------------------------
+-- The trigger's skip guard has to widen too, or this is dead on arrival
+-- ---------------------------------------------------------------------------
+--
+-- `daily_scores_xp_rollup()` skips the recompute on UPDATE only when every
+-- column the rollup reads is unchanged (2026-08-10, stat_rollups migration).
+-- The rollup just started reading `mind_points`; the guard did not know that
+-- yet. Left alone, a day whose `mind_points` moves while `xp_awarded` and the
+-- other four points columns hold steady — the same "same-tier rescore" shape
+-- `agi_total` already has a regression test for — would skip the recompute
+-- and leave `mnd_total` silently stale. Widen the guard by exactly the one
+-- column the rollup gained.
+
+create or replace function public.daily_scores_xp_rollup()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if tg_op = 'DELETE' then
+    perform public.recalculate_user_xp(old.user_id);
+    return old;
+  end if;
+
+  -- The skip now tests every column the rollup reads. Score rows are rewritten
+  -- on every sync, so a cheap "did anything actually move" check is still worth
+  -- keeping — it just has to be honest about what "anything" means.
+  if tg_op = 'UPDATE'
+     and new.xp_awarded = old.xp_awarded
+     and new.agi_points = old.agi_points
+     and new.str_points = old.str_points
+     and new.end_points = old.end_points
+     and new.vit_points = old.vit_points
+     and new.mind_points = old.mind_points then
+    return new;
+  end if;
+
+  perform public.recalculate_user_xp(new.user_id);
+  return new;
+end;
+$function$;
+
 commit;
