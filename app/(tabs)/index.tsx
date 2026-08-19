@@ -263,12 +263,11 @@ export default function Character() {
   // profile loads — `ratingForStatPoints` floors at 1, so an unloaded rail says
   // the same thing a brand-new character's does rather than flashing a dash.
   //
-  // MND reads 0 rather than a lifetime rollup: `profiles` has no `mind_total`
-  // column yet (only `daily_scores.mind_points` exists so far — the rollup
-  // column and its trigger are Phase 3, alongside retiring `end_total` and
-  // `vit_total`), so there is nothing real to read. 0 is the same "unearned"
-  // reading the coin already gives a stat with no lifetime points, and every
-  // Mind rating therefore sits at its floor until that migration lands.
+  // MND reads 0 rather than a lifetime rollup: `profiles.mnd_total` exists as
+  // of Phase 3's schema task, but nothing reads it here yet — that wiring, and
+  // retiring `end_total`/`vit_total`, are later Phase 3 tasks. 0 is the same
+  // "unearned" reading the coin already gives a stat with no lifetime points,
+  // and every Mind rating therefore sits at its floor until that wiring lands.
   const lifetime: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,

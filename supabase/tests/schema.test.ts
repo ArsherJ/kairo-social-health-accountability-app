@@ -596,6 +596,91 @@ describe('per-stat ability rollups', () => {
   });
 });
 
+describe('daily_scores.normalization_factor', () => {
+  it('exists as numeric(4,3), not null, default 1.000', async () => {
+    const rows = await h.asService<{
+      is_nullable: string;
+      data_type: string;
+      numeric_precision: number;
+      numeric_scale: number;
+      column_default: string;
+    }>(
+      `select is_nullable, data_type, numeric_precision, numeric_scale, column_default
+       from information_schema.columns
+       where table_schema = 'public' and table_name = 'daily_scores'
+         and column_name = 'normalization_factor'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.is_nullable).toBe('NO');
+    expect(rows[0]!.data_type).toBe('numeric');
+    expect(rows[0]!.numeric_precision).toBe(4);
+    expect(rows[0]!.numeric_scale).toBe(3);
+    expect(rows[0]!.column_default).toContain('1.000');
+  });
+
+  it('defaults to 1.000 for a row that names no value — the honest reading for every row scored before deviation #41', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date) values ($1, '2026-07-27')`,
+      [user],
+    );
+    const rows = await h.asService<{ normalization_factor: string }>(
+      `select normalization_factor from public.daily_scores where user_id = $1`,
+      [user],
+    );
+    expect(Number(rows[0]!.normalization_factor)).toBe(1);
+  });
+});
+
+describe('profiles.mnd_total', () => {
+  it('exists as integer, not null, default 0', async () => {
+    const rows = await h.asService<{
+      is_nullable: string;
+      data_type: string;
+      column_default: string;
+    }>(
+      `select is_nullable, data_type, column_default from information_schema.columns
+       where table_schema = 'public' and table_name = 'profiles'
+         and column_name = 'mnd_total'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.is_nullable).toBe('NO');
+    expect(rows[0]!.data_type).toBe('integer');
+    expect(rows[0]!.column_default).toContain('0');
+  });
+
+  it('starts at zero, which reads as rating 1 — same as every other stat', async () => {
+    const user = await h.createUser();
+    const rows = await h.asService<{ mnd_total: number }>(
+      'select mnd_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.mnd_total).toBe(0);
+  });
+
+  it('is maintained by the widened recalculate_user_xp, the same way agi_total is', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, mind_points, xp_awarded)
+       values ($1, '2026-07-27', 620, 25)`,
+      [user],
+    );
+    const rows = await h.asService<{ mnd_total: number }>(
+      'select mnd_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.mnd_total).toBe(620);
+  });
+
+  it('is not client-writable — an ability cannot be minted', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'update public.profiles set mnd_total = 999999 where id = $1', [user]),
+      /permission denied/i,
+    );
+  });
+});
+
 describe('planDay writes a row daily_scores can actually store', () => {
   /**
    * The seam that broke on 2026-08-09, and the only one nothing watched.
