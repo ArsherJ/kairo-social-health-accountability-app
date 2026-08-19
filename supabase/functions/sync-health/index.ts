@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import type { HourBucket } from '../_shared/core.ts';
+import { readScoringInputs } from '../_shared/scoring-inputs.deno.ts';
 import {
   affectedDates,
   observesWearable,
@@ -237,6 +238,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const response: Array<{ localDate: string; total: number; frozen: boolean }> = [];
 
   for (const date of dates) {
+    // §2's normalization and §3's STR shift. **Inside the loop, keyed on this
+    // date**, and deliberately not hoisted above it: a sync carries today and
+    // yesterday at minimum and a backfill carries a fortnight, so one answer
+    // for the whole payload would be the same bug as reading wall-clock today
+    // — sleep on the scored date still makes MND score while the capability
+    // window was measured against some other date, and the day pays 6,200
+    // against a 4,400 ceiling with contributing_stats at 3.
+    const scoringInputs = await readScoringInputs(admin, {
+      userId,
+      localDate: date,
+    });
+    if ('error' in scoringInputs) {
+      return fail(`scoring inputs read failed: ${scoringInputs.error}`, 500);
+    }
+
     const plan = planDay({
       userId,
       localDate: date,
@@ -246,6 +262,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       hadWorkoutHours: workoutHoursByDate.get(date) ?? new Set(),
       elevatedHeartRateHours: heartRateHoursByDate.get(date) ?? new Set(),
       sleepMinutes: sleepByDate.get(date) ?? null,
+      earnableStats: scoringInputs.earnableStats,
+      verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
       existingStatus: statusByDate.get(date) ?? null,
     });
 

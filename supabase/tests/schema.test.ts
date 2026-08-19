@@ -733,7 +733,7 @@ describe('planDay writes a row daily_scores can actually store', () => {
     activeMinutes: hour >= 8 && hour < 18 ? 6 : 0,
   }));
 
-  function rowFor(userId: string) {
+  function rowFor(userId: string, earnableStats = 3) {
     return planDay({
       userId,
       localDate: '2026-07-27',
@@ -743,6 +743,12 @@ describe('planDay writes a row daily_scores can actually store', () => {
       hadWorkoutHours: new Set(),
       elevatedHeartRateHours: new Set(),
       sleepMinutes: 420,
+      // The day sleeps, so three stats are earnable and the factor is 1.0.
+      // `verifiedWorkoutMinutes` is zero because this fixture logs no workout,
+      // which is a real answer rather than an omission — both fields are
+      // required on DayPlanInput for exactly that distinction.
+      earnableStats,
+      verifiedWorkoutMinutes: 0,
       existingStatus: null,
     }).row;
   }
@@ -778,6 +784,24 @@ describe('planDay writes a row daily_scores can actually store', () => {
     );
     expect(stored[0]!.total).toBe(row.total);
     expect(stored[0]!.xp_awarded).toBe(row.xp_awarded);
+  });
+
+  it('stores the normalization factor the planner applied', async () => {
+    // The column is numeric(4,3) and the phone-only factor is 3/2, so this
+    // also proves the precision is wide enough for the only two values §2 can
+    // produce. A silently truncated factor would be indistinguishable from
+    // normalization never having been wired — the failure this task removes.
+    const user = await h.createUser();
+    const row = rowFor(user, 2);
+    expect(row.normalization_factor).toBeCloseTo(1.5, 5);
+
+    await insertPlannedRow(row as unknown as Record<string, unknown>);
+
+    const stored = await h.asService<{ normalization_factor: string }>(
+      'select normalization_factor from public.daily_scores where user_id = $1',
+      [user],
+    );
+    expect(Number(stored[0]!.normalization_factor)).toBeCloseTo(1.5, 5);
   });
 
   it('a day with real movement scores above zero and moves the rollups', async () => {

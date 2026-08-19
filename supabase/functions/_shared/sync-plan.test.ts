@@ -227,6 +227,11 @@ describe('planDay', () => {
       hadWorkoutHours: new Set<number>(),
       elevatedHeartRateHours: new Set<number>(),
       sleepMinutes: null,
+      // Both required on DayPlanInput, so every fixture states them. Three and
+      // zero are the neutral pair — factor 1.0, no STR shift — which is what
+      // keeps every assertion written before this task meaning what it did.
+      earnableStats: 3,
+      verifiedWorkoutMinutes: 0,
       existingStatus: null,
       ...overrides,
     };
@@ -302,6 +307,41 @@ describe('planDay', () => {
     expect(Object.keys(withSleep.row)).not.toContain('rec_points');
     expect(Object.keys(withSleep.row)).not.toContain('end_points');
     expect(Object.keys(withSleep.row)).not.toContain('vit_points');
+  });
+
+  it('normalizes a phone-only day, and does not normalize a wearable day', () => {
+    // The whole point of §2's normalization, at the only place that writes a
+    // score row. Two earnable stats means stat points scale by 3/2.
+    const phoneOnly = planDay({ ...input(), earnableStats: 2 });
+    const wearable = planDay({ ...input(), earnableStats: 3 });
+
+    expect(phoneOnly.row.total).toBeGreaterThan(wearable.row.total);
+  });
+
+  it('reports the factor it applied, so the row can be explained', () => {
+    const { row } = planDay({ ...input(), earnableStats: 2 });
+    expect(row.normalization_factor).toBeCloseTo(1.5, 5);
+  });
+
+  it('applies the STR threshold shift from verified workout minutes', () => {
+    // 60 verified minutes earns the 25% cap, so STR's Gold band falls from
+    // 400 kcal to 300. A 300-kcal day is Silver without the shift and Gold
+    // with it — which is the whole difference this field makes.
+    //
+    // A local fixture rather than a moved shared one: the shared input()
+    // burns 450 kcal and the row-shape test above pins STR at gold for it.
+    const at300 = () => ({
+      ...input(),
+      buckets: input().buckets.map((b) =>
+        b.hour === 0 ? { ...b, activeKcal: 300 } : b,
+      ),
+    });
+    const unverified = planDay({ ...at300(), verifiedWorkoutMinutes: 0 });
+    const verified = planDay({ ...at300(), verifiedWorkoutMinutes: 60 });
+
+    expect(unverified.row.tiers.STR).toBe('silver');
+    expect(verified.row.tiers.STR).toBe('gold');
+    expect(verified.row.str_points).toBeGreaterThan(unverified.row.str_points);
   });
 
   it('stores pre-multiplier points and no featured stat (deviation #11)', () => {

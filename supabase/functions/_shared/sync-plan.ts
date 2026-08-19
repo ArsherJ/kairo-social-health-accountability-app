@@ -391,6 +391,26 @@ export interface DayPlanInput {
   hadWorkoutHours: ReadonlySet<number>;
   elevatedHeartRateHours: ReadonlySet<number>;
   sleepMinutes: number | null;
+  /**
+   * How many of the three stats this user can earn on this date (§2). Two for
+   * a phone-only user, three once sleep is arriving.
+   *
+   * **Required, deliberately.** `DailyScoreInput` defaults it, which is right
+   * for a pure function whose callers include tests. Here it is not: `planDay`
+   * has exactly two callers and both are write paths, so a default is the
+   * silent failure this field exists to prevent — every stored row scoring at
+   * factor 1.0 with nothing to notice. Make the compiler ask.
+   *
+   * `scoring-inputs.ts` derives it, against **the date being scored** and
+   * never wall-clock today.
+   */
+  earnableStats: number;
+  /**
+   * Minutes of workout on this date that passed `workoutVerified` — an
+   * allowlisted source AND heart-rate evidence (§3). Drives STR's threshold
+   * shift. Zero is a real answer; absent is not, for the same reason as above.
+   */
+  verifiedWorkoutMinutes: number;
   /** Status already stored for this date, if any. */
   existingStatus: DayStatus | null;
 }
@@ -431,6 +451,7 @@ export interface DayScoreRow {
   mind_points: number;
   consistency_points: number;
   total: number;
+  normalization_factor: number;
   /**
    * Per-stat tiers, plus `AGI_base` — the unshifted AGI ladder the Daily Walk
    * reads. Not `Record<CoreStat, string>`: `AGI_base` is deliberately not a
@@ -473,6 +494,8 @@ export function planDay(input: DayPlanInput): DayPlan {
     now: input.now,
     buckets: input.buckets,
     sleepMinutes: input.sleepMinutes,
+    earnableStats: input.earnableStats,
+    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes,
     // Deviation #11: stored per-stat points are **base** — pre-multiplier and
     // program-independent. All weighting happens at read time in
     // squad_leaderboard(). Never pass a featuredStat from a write path.
@@ -497,6 +520,11 @@ export function planDay(input: DayPlanInput): DayPlan {
       mind_points: score.stats.MND.points,
       consistency_points: score.consistencyBonus,
       total: result.total,
+      // What stat points were multiplied by (§2). Stored rather than derived
+      // because squad_leaderboard() re-sums the per-stat columns and has no
+      // other way to reach it — and because the update note has to be able to
+      // say why two users with identical steps scored differently.
+      normalization_factor: score.normalizationFactor,
       tiers: {
         AGI: score.stats.AGI.tier,
         STR: score.stats.STR.tier,

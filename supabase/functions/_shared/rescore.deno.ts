@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.58.0';
 import type { HourBucket } from './core.ts';
+import { readScoringInputs } from './scoring-inputs.deno.ts';
 import { planDay } from './sync-plan.ts';
 
 /**
@@ -70,6 +71,11 @@ export async function rescoreDay(
     | 'final'
     | null;
 
+  // §2's normalization and §3's STR shift, both keyed on `localDate` — the
+  // date being replayed, which on a backfill is not today.
+  const scoringInputs = await readScoringInputs(admin, { userId, localDate });
+  if ('error' in scoringInputs) return { error: scoringInputs.error };
+
   const plan = planDay({
     userId,
     localDate,
@@ -79,6 +85,8 @@ export async function rescoreDay(
     hadWorkoutHours: workoutHours,
     elevatedHeartRateHours: heartRateHours,
     sleepMinutes: sleep.data ? Number(sleep.data.minutes) : null,
+    earnableStats: scoringInputs.earnableStats,
+    verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
     existingStatus,
   });
 
