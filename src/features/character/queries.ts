@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   addDays,
-  CORE_STATS,
   currentLocalDate,
   dominantStat,
   type CoreStat,
@@ -114,11 +113,15 @@ export function useDominantStat(
       if (error) throw new Error(error.message);
 
       const rows = (data ?? []) as ReadonlyArray<Record<string, number>>;
+      // Explicit per-stat columns, never `${stat.toLowerCase()}_points`. MND's
+      // column is `mind_points`, not `mnd_points` — it is the one stat whose
+      // id and column name disagree, so string-building the key silently read
+      // undefined, `?? 0` swallowed it, and MND could never be dominant.
       const totals: Record<CoreStat, number> = { AGI: 0, STR: 0, MND: 0 };
       for (const row of rows) {
-        for (const stat of CORE_STATS) {
-          totals[stat] += row[`${stat.toLowerCase()}_points`] ?? 0;
-        }
+        totals.AGI += row.agi_points ?? 0;
+        totals.STR += row.str_points ?? 0;
+        totals.MND += row.mind_points ?? 0;
       }
 
       return dominantStat(totals);
