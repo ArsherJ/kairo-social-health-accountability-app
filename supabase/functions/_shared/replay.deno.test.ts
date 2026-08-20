@@ -64,7 +64,7 @@ function matches(row: Row, filters: Filter[]): boolean {
 class FakeQuery implements PromiseLike<{ data: unknown; error: { message: string } | null }> {
   private filters: Filter[] = [];
   private columns: string[] | null = null;
-  private orderBy: string[] = [];
+  private orderBy: Array<{ column: string; ascending: boolean }> = [];
   private max: number | null = null;
   private single = false;
   private mode: 'select' | 'update' | 'upsert' = 'select';
@@ -105,8 +105,12 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: { message: string
     return this;
   }
 
-  order(column: string, _opts?: { ascending?: boolean }): this {
-    this.orderBy.push(column);
+  order(column: string, opts?: { ascending?: boolean }): this {
+    // Direction is honoured, not discarded. A fake that sorted ascending
+    // whatever it was told would make `.order(…, { ascending: true })`
+    // untestable — and it was: flipping BOTH order calls to descending, and
+    // deleting them outright, each left all fourteen tests in this file green.
+    this.orderBy.push({ column, ascending: opts?.ascending !== false });
     return this;
   }
 
@@ -137,9 +141,17 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: { message: string
     const rows = this.store[this.table] ?? (this.store[this.table] = []);
 
     if (this.mode === 'select') {
-      let out = rows.filter((r) => matches(r, this.filters));
-      for (const column of [...this.orderBy].reverse()) {
-        out = [...out].sort((a, b) => String(a[column]).localeCompare(String(b[column])));
+      // Reversed before sorting, on purpose. PostgREST without an ORDER BY
+      // returns rows in whatever order the planner produces — NOT insertion
+      // order — so a fake that handed back the seed order would let a query
+      // that forgot to order itself pass by luck. Reversal is the cheapest
+      // stand-in that is still deterministic enough to assert against.
+      let out = rows.filter((r) => matches(r, this.filters)).reverse();
+      for (const { column, ascending } of [...this.orderBy].reverse()) {
+        out = [...out].sort((a, b) => {
+          const cmp = String(a[column]).localeCompare(String(b[column]));
+          return ascending ? cmp : -cmp;
+        });
       }
       if (this.max !== null) out = out.slice(0, this.max);
       const projected = out.map((r) =>
@@ -336,6 +348,20 @@ describe('the enumeration', () => {
     expect(report.scanned).toBe(2);
     expect(report.truncated).toBe(true);
     expect((await replay({ limit: 3 })).truncated).toBe(false);
+  });
+
+  it('truncates at a point the ordering decides, not one the planner picks', async () => {
+    // Counts alone cannot see this: `scanned` is 2 whichever two rows come
+    // back. The claim in `replay.deno.ts` — "the order makes the truncation
+    // point deterministic" — was untested, and provably so: deleting both
+    // `.order()` calls left every test in this file passing.
+    //
+    // With the rows ordered by (user_id, local_date) ascending, a limit of 2
+    // must take the two EARLIEST dates and leave the latest behind. An
+    // unordered query gets the fake's reversed store instead and takes the
+    // wrong end.
+    const report = await replay({ limit: 2 });
+    expect(report.days.map((d) => d.localDate)).toEqual(['2026-08-14', '2026-08-16']);
   });
 
   it('returns early on an empty table instead of rendering .in.()', async () => {
