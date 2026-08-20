@@ -75,16 +75,37 @@
  * and this call passes `ds.normalization_factor`, which is numeric, into an
  * integer position — an assignment cast, not an implicit one, so overload
  * resolution fails outright; between steps 5 and 8 it holds the nine-argument
- * form and the arity is wrong.
+ * form and the arity is wrong. (Before step 2 you do not even reach that: the
+ * query also selects `ds.mind_points`, which the expand migration adds, so live
+ * today answers `42703: column ds.mind_points does not exist`. The overload
+ * failure is the operative one only between steps 2 and 5. Every point in the
+ * window fails; they just fail for two different reasons.)
  *
  * So the baseline is a **pre-flight artefact, taken before step 1**, with the
  * version of this file that predates Task 6, whose call matches the deployed
- * four-stat signature exactly:
+ * four-stat signature exactly.
  *
- *   git show 310695c:scripts/replay-dry-run.mjs > /tmp/replay-4stat.mjs
- *   KAIRO_REPLAY_CACHE=~/kairo-baseline-4stat.json node /tmp/replay-4stat.mjs
+ * **Write it inside the repo, not to `/tmp`.** That build resolves four
+ * `../packages/kairo-core/src/*.ts` imports and derives `REMOTE_SQL` from its
+ * own directory, so it only runs one level under the repo root; from `/tmp` it
+ * dies with `ERR_MODULE_NOT_FOUND` on `capability.ts` before its first query.
+ * `scripts/` is untracked-safe for this — delete the file afterwards.
  *
- * (Verified against the live project on 2026-08-20: all six queries resolve.)
+ *   git show 310695c:scripts/replay-dry-run.mjs > scripts/replay-4stat.mjs
+ *   KAIRO_REPLAY_CACHE=~/kairo-baseline-4stat.json node scripts/replay-4stat.mjs
+ *   rm scripts/replay-4stat.mjs
+ *
+ * The `KAIRO_REPLAY_CACHE` assignment is not optional decoration: `loadData()`
+ * writes the pull **only** when it is set, and the pull is the artefact. Without
+ * it you get a report on stdout and nothing you can re-read.
+ *
+ * (Executed against the live project on 2026-08-20, in this form, start to
+ * finish: all six queries resolve and the cache is written. An earlier draft of
+ * this section printed the `/tmp` form, which does not run.) If
+ * `feat/three-stat-phase-3` has been squash-merged by the time you need this,
+ * `310695c` will not resolve — take the file from the merge commit's first
+ * parent, or from any commit whose `scripts/replay-dry-run.mjs` still selects
+ * `end_points` and calls the seven-argument board function.
  * Keep the cache outside the repo — it is real user health data. Two things
  * about it. Its `scores` rows carry `end_points`/`vit_points`/`rec_points` and
  * no `mind_points`, so it is **not loadable by this version**: `num()` turns

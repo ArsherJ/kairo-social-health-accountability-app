@@ -927,7 +927,21 @@ The ordering below is the whole point of the task. Kairo's characteristic failur
 - [ ] Confirm with the owner that the one real user is not mid-session.
 - [ ] **Capture the four-stat baseline — here, before step 1. It is unobtainable
       later.** Run the *pre-Phase-3* dry run out of git history:
-      `git show 310695c:scripts/replay-dry-run.mjs > /tmp/replay-four-stat.mjs && node /tmp/replay-four-stat.mjs`.
+      ```
+      git show 310695c:scripts/replay-dry-run.mjs > scripts/replay-4stat.mjs
+      KAIRO_REPLAY_CACHE=~/kairo-baseline-4stat.json node scripts/replay-4stat.mjs
+      rm scripts/replay-4stat.mjs
+      ```
+      **Both details are load-bearing and an earlier draft of this step got both
+      wrong.** It must be written *inside the repo*, because that build resolves
+      four `../packages/kairo-core/src/*.ts` imports and derives `REMOTE_SQL`
+      from its own directory — from `/tmp` it dies with `ERR_MODULE_NOT_FOUND`
+      before its first query. And `KAIRO_REPLAY_CACHE` must be set, because
+      `loadData()` writes the pull only when it is: without it the step prints a
+      report and captures nothing, which is the one thing it exists to do. Keep
+      the cache outside the repo — it is real user health data. If the branch has
+      been squash-merged, `310695c` will not resolve; take the file from the
+      merge commit's first parent instead.
       Step 6's replay rewrites `daily_scores` into the three-stat model, and the
       stored four-stat totals are gone with it. Reconstructable in principle —
       `health_buckets` and `daily_sleep` are untouched by the replay, so the
