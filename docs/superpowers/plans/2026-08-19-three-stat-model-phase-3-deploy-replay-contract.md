@@ -908,17 +908,49 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Do not dispatch this to a subagent.** Every step touches the live project or is irreversible. Run it interactively with the owner, one step at a time, confirming each before the next.
 
+**The app build must not be cut until step 2 has applied `20260819130000`.** The branch
+already cannot run against pre-Phase-3 live — `character/queries.ts` has selected
+`daily_scores.mind_points` since `3c5fb80`, which is on `main`, and that column
+arrives in `20260819100000`. Task 5 added a second instance of the same
+dependency, and it is the one with the larger blast radius: `mind_points` failing
+degrades one query, but `profiles.mnd_total` failing breaks `useProfile`, which
+`app/_layout.tsx` feeds to `resolveRoute` — and `resolveRoute` reports a query
+with no data as `'loading'`, so a 400 there parks **every** user behind the
+profile gate with no error surface. That is the 2026-08-14 permanent-hold shape.
+Ship the schema first, then cut the build.
+
 The ordering below is the whole point of the task. Kairo's characteristic failure is a migration applied without its Edge Function redeploy: in August 2026 `remove_sabotage` dropped `daily_scores.sabotage_delta`, the deployed `sync-health` kept sending it, and because its bucket upsert commits *before* the score upsert, health data kept landing while nothing scored — for two days, with every test passing throughout.
 
 **Pre-flight:**
 - [ ] `npm test` green, `npm run typecheck` clean, working tree clean, on `main`.
 - [ ] `./supabase/scripts/remote-sql.sh "select max(version) from supabase_migrations.schema_migrations;"` reports `20260818130000`.
 - [ ] Confirm with the owner that the one real user is not mid-session.
+- [ ] **Capture the four-stat baseline — here, before step 1. It is unobtainable
+      later.** Run the *pre-Phase-3* dry run out of git history:
+      `git show 310695c:scripts/replay-dry-run.mjs > /tmp/replay-four-stat.mjs && node /tmp/replay-four-stat.mjs`.
+      Step 6's replay rewrites `daily_scores` into the three-stat model, and the
+      stored four-stat totals are gone with it. Reconstructable in principle —
+      `health_buckets` and `daily_sleep` are untouched by the replay, so the
+      four-stat engine out of history would regenerate them — but that is strictly
+      more work and not a thing to discover mid-window.
+      **Do not try to capture this at step 5, or anywhere else inside the window.**
+      Before step 5 the live `program_weighted_total` is the pre-Phase-3
+      `(text, int × 6)` form and the call passes a numeric `normalization_factor`
+      into an integer position; numeric→integer is an *assignment* cast, not
+      implicit, so it does not resolve. After step 5 live holds the nine-argument
+      form and the arity is wrong. The current script's `BOARD_TOTAL_SQL` first
+      resolves at step 8 — by which point the replay has already run.
+      Two caveats on that historical build, so its output is read for what it is:
+      its cache is **not loadable by the current version** (a missing `mind_points`
+      becomes 0 via `num()` rather than erroring — confidently wrong numbers, not
+      a failure), and its rank half carries the `normalizationFactor`-missing NaN
+      defect Task 6 fixed, so its printed *rank movement* is meaningless. The
+      **totals** are what you are capturing.
 
 **The window, in order:**
 
 - [ ] **1. Apply the expand migration** — `20260819100000_three_stat_expand.sql`. Additive only: `mind_points`, the `daily_sleep`/`workout_sessions` origin columns, widened checks. Safe while the old functions are still deployed, because nothing reads the new columns yet.
-- [ ] **2. Apply `20260819130000`** (`normalization_factor`, `mnd_total`) and **`20260819135000`** (rollup guard). Both additive. Still safe.
+- [ ] **2. Apply `20260819130000`** — `normalization_factor`, `mnd_total`, *and* the widened `daily_scores_xp_rollup()` skip guard, which lives in this same file rather than one of its own. Additive. Still safe. **This is the step the app build waits on** (see above).
 - [ ] **3. Redeploy the Edge Functions.** `supabase functions deploy sync-health --project-ref zniopywbwenrzxezolwv` and the same for `finalize-days`. **This is the step that must not be skipped or reordered** — from here the deployed code writes `mind_points` and `normalization_factor`.
 - [ ] **4. Smoke-test the deploy.** `node supabase/scripts/smoke-sync.mjs`. A real sync against the deployed function; this is the guard that catches source/artifact drift, which no test can. **If it fails, stop and fix before continuing** — do not proceed to the replay.
 - [ ] **5. Apply `20260819110000`** (contract checks, `not valid`) and **`20260819120000`** (walk reads unshifted AGI) and **`20260819140000`** (board counts MND). The board migration reads `normalization_factor`, which step 2 added and step 3's functions now populate.
@@ -926,7 +958,7 @@ The ordering below is the whole point of the task. Kairo's characteristic failur
 - [ ] **7. Verify the replay before dropping anything.** `select max(contributing_stats), count(*) filter (where contributing_stats > 3) from public.daily_scores;` — must report **3 and 0**. Two rows exceeded 3 before the replay. If either number is wrong, **stop**: step 8 validates that constraint and will abort, and the columns it drops are the evidence.
 - [ ] **8. Apply `20260819150000`** — the drops plus `validate constraint`. Irreversible. Confirm with the owner explicitly.
 - [ ] **9. Re-run the smoke test** and confirm the app still scores: `./supabase/scripts/remote-sql.sh "select local_date, agi_points, str_points, mind_points, normalization_factor, total, contributing_stats from public.daily_scores order by local_date;"`.
-- [ ] **10. Insert the `schema_migrations` rows** for all seven migrations, or the CLI re-applies them later.
+- [ ] **10. Insert the `schema_migrations` rows** for all **six** Phase 3 migrations — `20260819100000`, `110000`, `120000`, `130000`, `140000`, `150000` — or the CLI re-applies them later. There is no `20260819135000`; earlier drafts of this runbook named one.
 
 **Rollback position:** through step 7 everything is additive or replayable — the old columns still hold their values and `program_weighted_total` still sums them. Step 8 is the one-way door.
 
