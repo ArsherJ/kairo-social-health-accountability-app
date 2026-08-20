@@ -400,6 +400,7 @@ Every player's day runs midnight-to-midnight in **their own** timezone (§2), so
 
 - **`*.deno.ts`** marks a shared module that imports Deno-only specifiers (`npm:`, Deno globals). These are excluded from `tsc` and checked by `deno check` instead. Everything else under `supabase/functions/_shared/` stays pure so vitest can exercise it.
 - **Edge Function handlers stay thin.** Every decision lives in a `*-plan.ts` module tested in plain Node; `index.ts` only authenticates, reads, plans, writes. This is deliberate — Docker is unavailable, so anything untestable in Node is effectively untested.
+- **`*.deno.test.ts`** is the narrow exception: a Node test that drives a `*.deno.ts` module directly, against a fake PostgREST client. It works only where every `npm:` import on the path is `import type` and vanishes at transform time, so adding a value import from `npm:` breaks it loudly — which is the point. Reach for it only when the behaviour genuinely lives in a query or a call rather than in a pure function (whether an enumeration filters on `status`, say). It is excluded from `tsc` for the same reason its subject is, and `deno check` only follows `index.ts`, so **nothing typechecks it**; that is the price.
 - Imports use explicit `.ts` extensions, which Deno requires and Vite/Metro both accept.
 
 ## Testing

@@ -11,6 +11,14 @@ import {
   DAILY_SLEEP_COLUMNS,
   WORKOUT_SESSION_COLUMNS,
 } from '../functions/_shared/scoring-inputs.ts';
+import {
+  pairCandidates,
+  replayLifecycle,
+  REPLAY_PROFILE_SELECT,
+  REPLAY_SCORE_SELECT,
+  type ReplayProfileRow,
+  type ReplayScoreRow,
+} from '../functions/_shared/replay-plan.ts';
 import { planDay } from '../functions/_shared/sync-plan.ts';
 import { setupHarness, type Harness } from './harness.ts';
 // The replay dry run's own board query, imported rather than retyped: a copy
@@ -4872,4 +4880,267 @@ describe('three-stat expand migration', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.convalidated).toBe(true);
   });
+});
+
+describe('the history replay', () => {
+  /**
+   * What `replay-scores` does against real Postgres, and the two traps in the
+   * way of doing it by hand.
+   *
+   * "Replay all history" was a runbook line with no command under it. The two
+   * executions an operator reaches for both fail, and both fail *inside* the
+   * one-way deploy window:
+   *
+   *   - upserting `planDay`'s row straight back violates
+   *     `daily_scores_finalized_at_present`, because the planner always
+   *     returns `finalized_at: null` and a `final` row must carry one;
+   *   - `rescoreDay(…, { finalize: true })` computes the right numbers and
+   *     re-stamps `finalized_at` with the replay's own clock.
+   *
+   * The suite above notes that PGlite "starts empty and so cannot prove the
+   * replay worked". It can, given rows: this seeds the live shape — final days
+   * carrying `contributing_stats = 4` under a NOT VALID constraint — and runs
+   * the enumeration and the write against them.
+   *
+   * What it still cannot prove: that PostgREST renders the same query the
+   * handler builds. That half is `replay.deno.test.ts`, which drives the real
+   * module against a fake client.
+   */
+  const CS_CHECK = 'daily_scores_contributing_stats_check';
+  const STAMP = '2026-08-15T16:05:12.443Z';
+  let user: string;
+
+  /** Reproduce the live state: rows written before the check existed. */
+  async function withoutTheCheck(fn: () => Promise<void>) {
+    await h.asService(`alter table public.daily_scores drop constraint ${CS_CHECK}`);
+    try {
+      await fn();
+    } finally {
+      await h.asService(
+        `alter table public.daily_scores
+           add constraint ${CS_CHECK} check (contributing_stats between 0 and 3) not valid`,
+      );
+    }
+  }
+
+  beforeAll(async () => {
+    user = await h.createUser({ timezone: 'Asia/Manila' });
+    await withoutTheCheck(async () => {
+      await h.asService(
+        `insert into public.daily_scores
+           (user_id, local_date, status, finalized_at, agi_points, str_points,
+            mind_points, consistency_points, total, normalization_factor,
+            contributing_stats, xp_awarded)
+         values
+           ($1, '2026-08-14', 'final', $2, 900, 600, 0, 200, 2400, 1.000, 4, 240),
+           ($1, '2026-08-16', 'final', $2, 800, 400, 0, 200, 2000, 1.000, 4, 200),
+           ($1, '2026-08-20', 'provisional', null, 700, 300, 0, 0, 1600, 1.000, 3, 160)`,
+        [user, STAMP],
+      );
+    });
+  });
+
+  afterAll(async () => {
+    await h.asService('delete from public.daily_scores where user_id = $1', [user]);
+    // Back to the state 20260819150000 leaves behind, so the assertion on
+    // `convalidated` above still describes the schema whatever ran here.
+    await h.asService(`alter table public.daily_scores drop constraint if exists ${CS_CHECK}`);
+    await h.asService(
+      `alter table public.daily_scores
+         add constraint ${CS_CHECK} check (contributing_stats between 0 and 3)`,
+    );
+  });
+
+  /**
+   * PGlite's driver hands `date` and `timestamptz` back as JS `Date`; PostgREST
+   * hands them back as strings. The replay's pure half is written against the
+   * wire shape, so the rows are normalized here rather than the module being
+   * loosened to accept both — a module that accepted both would also accept a
+   * column that had quietly become a Date in production.
+   */
+  function asWireRow(row: ReplayScoreRow): ReplayScoreRow {
+    const date = row.local_date as unknown;
+    const stamp = row.finalized_at as unknown;
+    return {
+      ...row,
+      local_date: date instanceof Date ? date.toISOString().slice(0, 10) : date as string,
+      finalized_at: stamp instanceof Date ? stamp.toISOString() : (stamp as string | null),
+    };
+  }
+
+  it('the enumeration select returns every stored day, final ones included', async () => {
+    // `REPLAY_SCORE_SELECT` is the same string the handler hands PostgREST, so
+    // a column renamed on one side fails here rather than mid-window. Scoped
+    // to this user because the suite shares one database; the replay's own
+    // user filter is optional and the *status* filter is what must not exist.
+    const rows = await h.asService<ReplayScoreRow>(
+      `select ${REPLAY_SCORE_SELECT}
+         from public.daily_scores
+        where user_id = $1
+        order by user_id, local_date`,
+      [user],
+    );
+
+    expect(rows.map(asWireRow).map((r) => [r.local_date, r.status])).toEqual([
+      ['2026-08-14', 'final'],
+      ['2026-08-16', 'final'],
+      ['2026-08-20', 'provisional'],
+    ]);
+    // The rows the contract migration's `validate constraint` aborts on. A
+    // replay that cannot see them stalls the window at step 7.
+    expect(rows.filter((r) => Number(r.contributing_stats) > 3)).toHaveLength(2);
+  });
+
+  it('pairs each day with its own profile timezone', async () => {
+    const scoreRows = await h.asService<ReplayScoreRow>(
+      `select ${REPLAY_SCORE_SELECT} from public.daily_scores
+        where user_id = $1 order by local_date`,
+      [user],
+    );
+    const profileRows = await h.asService<ReplayProfileRow>(
+      `select ${REPLAY_PROFILE_SELECT} from public.profiles where id = $1`,
+      [user],
+    );
+
+    const { candidates, unresolved } = pairCandidates(
+      scoreRows.map(asWireRow),
+      profileRows,
+    );
+
+    expect(unresolved).toEqual([]);
+    expect(candidates.map((c) => [c.localDate, c.status, c.timeZone])).toEqual([
+      ['2026-08-14', 'final', 'Asia/Manila'],
+      ['2026-08-16', 'final', 'Asia/Manila'],
+      ['2026-08-20', 'provisional', 'Asia/Manila'],
+    ]);
+    expect(candidates[0]!.finalizedAt).not.toBeNull();
+    expect(candidates[2]!.finalizedAt).toBeNull();
+  });
+
+  it('the four-stat rows are what `validate constraint` aborts on', async () => {
+    // Step 8 of the runbook, run early on purpose: this is the failure the
+    // replay exists to prevent, reproduced rather than described.
+    await rejects(
+      h.asService(`alter table public.daily_scores validate constraint ${CS_CHECK}`),
+      /daily_scores_contributing_stats_check/,
+    );
+  });
+
+  it('a replayed row keeps its status and finalized_at, and validates', async () => {
+    // The write the replay actually performs, on the rows above. `planDay`
+    // supplies the scoring columns; `replayLifecycle` supplies the two the
+    // replay must not touch.
+    for (const [localDate, existingStatus] of [
+      ['2026-08-14', 'final'],
+      ['2026-08-16', 'final'],
+      ['2026-08-20', 'provisional'],
+    ] as const) {
+      const planned = planDay({
+        userId: user,
+        localDate,
+        timeZone: 'Asia/Manila',
+        now: new Date('2026-08-20T04:00:00Z'),
+        buckets: Array.from({ length: 24 }, (_, hour) => ({
+          hour,
+          steps: hour >= 8 && hour < 18 ? 1_100 : 0,
+          distanceM: hour >= 8 && hour < 18 ? 825 : 0,
+          activeKcal: hour >= 8 && hour < 18 ? 26 : 0,
+          activeMinutes: hour >= 8 && hour < 18 ? 6 : 0,
+        })),
+        hadWorkoutHours: new Set(),
+        elevatedHeartRateHours: new Set(),
+        sleepMinutes: 420,
+        earnableStats: 3,
+        verifiedWorkoutMinutes: 0,
+        existingStatus,
+      }).row;
+
+      const stored = await h.asService<{ finalized_at: Date | null }>(
+        `select finalized_at from public.daily_scores
+          where user_id = $1 and local_date = $2`,
+        [user, localDate],
+      );
+      const finalizedAt = stored[0]!.finalized_at;
+
+      await upsertScoreRow(
+        replayLifecycle(planned, {
+          status: existingStatus,
+          finalizedAt: finalizedAt === null ? null : new Date(finalizedAt).toISOString(),
+        }) as unknown as Record<string, unknown>,
+      );
+    }
+
+    const after = await h.asService<{
+      local_date: string;
+      status: string;
+      finalized_at: Date | null;
+      contributing_stats: number;
+      total: number;
+    }>(
+      `select local_date, status, finalized_at, contributing_stats, total
+         from public.daily_scores where user_id = $1 order by local_date`,
+      [user],
+    );
+
+    // The lifecycle is exactly where it was.
+    expect(after.map((r) => r.status)).toEqual(['final', 'final', 'provisional']);
+    expect(new Date(after[0]!.finalized_at!).toISOString()).toBe(STAMP);
+    expect(new Date(after[1]!.finalized_at!).toISOString()).toBe(STAMP);
+    expect(after[2]!.finalized_at).toBeNull();
+
+    // And the scoring is not: step 7's check now reads 3 and 0, so step 8's
+    // `validate constraint` succeeds where it aborted two tests ago.
+    expect(Math.max(...after.map((r) => Number(r.contributing_stats)))).toBe(3);
+    expect(after.every((r) => Number(r.total) > 0)).toBe(true);
+    await h.asService(`alter table public.daily_scores validate constraint ${CS_CHECK}`);
+  });
+
+  it("planDay's own row cannot be stored for a final day", async () => {
+    // The trap an operator hits first. `planDay` returns `status: 'final'`
+    // with `finalized_at: null` for a frozen day (sync-plan.ts), because on
+    // the two live write paths only finalize-days may stamp it — so the
+    // obvious "upsert plan.row" is rejected by the schema, and it is rejected
+    // partway through a one-way window.
+    const planned = planDay({
+      userId: user,
+      localDate: '2026-08-14',
+      timeZone: 'Asia/Manila',
+      now: new Date('2026-08-20T04:00:00Z'),
+      buckets: [{ hour: 9, steps: 1_100, distanceM: 825, activeKcal: 26, activeMinutes: 6 }],
+      hadWorkoutHours: new Set(),
+      elevatedHeartRateHours: new Set(),
+      sleepMinutes: 420,
+      earnableStats: 3,
+      verifiedWorkoutMinutes: 0,
+      existingStatus: 'final',
+    }).row;
+
+    expect(planned.status).toBe('final');
+    expect(planned.finalized_at).toBeNull();
+
+    await rejects(
+      upsertScoreRow(planned as unknown as Record<string, unknown>),
+      /daily_scores_finalized_at_present/,
+    );
+  });
+
+  /** What PostgREST's `.upsert(row, { onConflict: 'user_id,local_date' })` compiles to. */
+  async function upsertScoreRow(row: Record<string, unknown>): Promise<void> {
+    const columns = Object.keys(row);
+    const placeholders = columns.map((_, i) => `$${i + 1}`);
+    const values = columns.map((c) => {
+      const value = row[c];
+      return value !== null && typeof value === 'object' ? JSON.stringify(value) : value;
+    });
+    const updates = columns
+      .filter((c) => c !== 'user_id' && c !== 'local_date')
+      .map((c) => `${c} = excluded.${c}`);
+
+    await h.asService(
+      `insert into public.daily_scores (${columns.join(', ')})
+       values (${placeholders.join(', ')})
+       on conflict (user_id, local_date) do update set ${updates.join(', ')}`,
+      values,
+    );
+  }
 });

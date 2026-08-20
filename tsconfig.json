@@ -26,5 +26,12 @@
   // *.deno.ts modules import Deno-only specifiers (npm:, Deno globals) that tsc
   // cannot resolve. They are typechecked by `npm run check:functions` instead.
   // Everything else under _shared stays pure so vitest can exercise it.
-  "exclude": ["node_modules", "packages", "**/*.deno.ts"]
+  //
+  // *.deno.test.ts is a Node test that drives one of those modules — possible
+  // only where every `npm:` import on the path is `import type` and vanishes at
+  // transform time. It is excluded here for the same reason its subject is:
+  // pulling it into the program would pull the unresolvable specifier in with
+  // it. Vitest runs it; nothing typechecks it, which is the price of reaching
+  // behaviour that lives in a query rather than in a pure function.
+  "exclude": ["node_modules", "packages", "**/*.deno.ts", "**/*.deno.test.ts"]
 }

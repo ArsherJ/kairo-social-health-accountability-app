@@ -969,11 +969,91 @@ The ordering below is the whole point of the task. Kairo's characteristic failur
 - [ ] **3. Redeploy the Edge Functions.** `supabase functions deploy sync-health --project-ref zniopywbwenrzxezolwv` and the same for `finalize-days`. **This is the step that must not be skipped or reordered** — from here the deployed code writes `mind_points` and `normalization_factor`.
 - [ ] **4. Smoke-test the deploy.** `node supabase/scripts/smoke-sync.mjs`. A real sync against the deployed function; this is the guard that catches source/artifact drift, which no test can. **If it fails, stop and fix before continuing** — do not proceed to the replay.
 - [ ] **5. Apply `20260819110000`** (contract checks, `not valid`) and **`20260819140000`** (board counts MND). The board migration reads `normalization_factor`, which step 2 added and step 3's functions now populate.
-- [ ] **6. Replay all history.** Every `(user_id, local_date)` in `daily_scores` through `rescoreDay`. Verify first that the replay path carries Task 3's two fields — `earnableStats` omitted fails silently and moved p10 to −52.8% in the dry run. With one real user over 8 days this is seconds; still, run it and read the output rather than assuming.
+- [ ] **6. Replay all history.** Every `(user_id, local_date)` in `daily_scores`, recomputed through the same `rescoreDay` every other write path uses.
+
+      This step had **no executable mechanism** until Task 7a. `rescoreDay` had
+      exactly two callers and neither could reach the real player's history:
+      `finalize-days` only processes what `finalizable_days()` returns, which
+      filters `ds.status = 'provisional'`, and `seed-health` fabricates buckets
+      and is gated on `seed_test_users`. Running the replay "through
+      finalize-days" therefore rewrites **1 row of 9** and leaves both
+      `contributing_stats = 4` rows standing — which is what step 8 aborts on.
+      Two things an operator reaches for instead are also wrong, and both fail
+      *inside* this window: upserting `planDay`'s row violates
+      `daily_scores_finalized_at_present` (the planner always returns
+      `finalized_at: null`, and a `final` row must carry one), and
+      `rescoreDay(…, { finalize: true })` computes the right numbers while
+      re-stamping `finalized_at` on all eight historical days with the replay's
+      own clock. A replay changes what a day **scored**, never when its
+      competition ended.
+
+      What runs instead is the `replay-scores` Edge Function, driven by
+      `supabase/scripts/replay-scores.mjs`. Sub-steps:
+
+      **6a. Mint the secret and set it.** Its own, deliberately not
+      `CRON_SECRET` — a leaked cron secret must not be able to rewrite every
+      score row. The function **refuses to run when it is unset**; it does not
+      default open the way `finalize-days` does.
+      ```
+      export REPLAY_SECRET="$(openssl rand -hex 32)"
+      supabase secrets set REPLAY_SECRET="$REPLAY_SECRET" --project-ref zniopywbwenrzxezolwv
+      ```
+      Keep `REPLAY_SECRET` exported in the shell you run 6c and 6d from.
+
+      **6b. Deploy it.**
+      ```
+      supabase functions deploy replay-scores --project-ref zniopywbwenrzxezolwv
+      ```
+
+      **6c. Dry run, and read every row.** This writes nothing.
+      ```
+      node supabase/scripts/replay-scores.mjs --dry-run
+      ```
+      One row per stored day, `before→after` on each figure. Check all four:
+      - **`scanned` is 9**, not 1. One means the enumeration is filtering on
+        status, which is the defect this step exists to avoid.
+      - **`stats` ends at 3 on every row**, and the two rows that read `4→3`
+        are `2026-08-14` and `2026-08-16` — the pair step 7 checks for.
+      - **`finalized_at` is the original timestamp** on all eight `final` rows,
+        and `—` on the one `provisional` row. A column of identical
+        timestamps from today is the re-stamping failure; stop if you see it.
+      - **`norm` is 1.000 or 1.500 on every row, never 0 or blank.** A column of
+        `1.000→1.000` on a phone-only user means `earnableStats` is not
+        reaching `planDay` — the silent failure that moved p10 to −52.8% in
+        the dry run. Cross-check one date against
+        `select minutes, was_user_entered from public.daily_sleep order by local_date;`.
+
+      **6d. Commit it.**
+      ```
+      node supabase/scripts/replay-scores.mjs --commit
+      ```
+      Same table, headed `COMMITTED`. The script exits non-zero if any day
+      failed or the batch truncated; a non-zero exit here means **stop**, not
+      "re-run and hope" — though re-running is safe in itself, since a replay
+      is idempotent by construction (scores are replayed from stored buckets,
+      never adjusted in place). A second run prints `changed 0`.
+
+      `node supabase/scripts/replay-scores.mjs --help` documents the rest
+      (`--user`, `--limit`, `--json`). It is the same guard set: with no mode
+      flag, with both, or with `REPLAY_SECRET` unset, it refuses and sends
+      nothing — verified by running it on 2026-08-20.
 - [ ] **7. Verify the replay before dropping anything.** `select max(contributing_stats), count(*) filter (where contributing_stats > 3) from public.daily_scores;` — must report **3 and 0**. Two rows exceeded 3 before the replay. If either number is wrong, **stop**: step 8 validates that constraint and will abort, and the columns it drops are the evidence.
 - [ ] **8. Apply `20260819150000`** — the drops plus `validate constraint`. Irreversible. Confirm with the owner explicitly.
 - [ ] **9. Re-run the smoke test** and confirm the app still scores: `./supabase/scripts/remote-sql.sh "select local_date, agi_points, str_points, mind_points, normalization_factor, total, contributing_stats from public.daily_scores order by local_date;"`.
 - [ ] **10. Insert the `schema_migrations` rows** for all **six** Phase 3 migrations — `20260819100000`, `110000`, `120000`, `130000`, `140000`, `150000` — or the CLI re-applies them later. There is no `20260819135000`; earlier drafts of this runbook named one.
+- [ ] **11. Tear the replay down.** It is a one-off and an authenticated door
+      onto every score row in the project; leaving it standing for a reason
+      nobody remembers is how it gets used by accident.
+      ```
+      supabase functions delete replay-scores --project-ref zniopywbwenrzxezolwv
+      supabase secrets unset REPLAY_SECRET --project-ref zniopywbwenrzxezolwv
+      ```
+      Then delete `supabase/functions/replay-scores/`,
+      `supabase/functions/_shared/replay.deno.ts`, `replay-plan.ts`, their two
+      test files, `supabase/scripts/replay-scores.mjs`, and `replayFrozen` from
+      `rescoreDay` — the §19 freeze rule should have no exception in steady
+      state. Keep the `the history replay` block in `supabase/tests/schema.test.ts`
+      only if a future model migration is expected; otherwise it goes with them.
 
 **Rollback position:** through step 7 everything is additive or replayable — the old columns still hold their values and `program_weighted_total` still sums them. Step 8 is the one-way door.
 
