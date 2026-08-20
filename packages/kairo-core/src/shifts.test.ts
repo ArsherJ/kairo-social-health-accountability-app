@@ -91,10 +91,21 @@ describe('statShifts', () => {
   // exactly the duplication that drifts silently: the screen would keep
   // quoting the old ladder and nothing would fail.
 
+  // The inputs are chosen so the two shifts DIFFER, and that is the whole
+  // point of the case. An earlier version passed `activeHours: 8` against
+  // `verifiedWorkoutMinutes: 60`, where both curves are pinned at
+  // MAX_THRESHOLD_SHIFT — so swapping the two sources in `statShifts` left
+  // this test green and the transposition was caught nowhere here. Five hours
+  // (0.10) against sixty minutes (0.25) is the cheapest pair that separates
+  // them. Keep them apart, and keep the guard below.
   it('routes each signal to the stat that inherited it', () => {
-    const shifts = statShifts({ activeHours: 8, verifiedWorkoutMinutes: 60 });
-    expect(shifts.AGI).toBe(spreadShift(8));
+    const shifts = statShifts({ activeHours: 5, verifiedWorkoutMinutes: 60 });
+    expect(shifts.AGI).toBe(spreadShift(5));
     expect(shifts.STR).toBe(workoutShift(60));
+
+    // If a future curve change ever collapses these two onto the same value,
+    // the assertions above go blind again and nothing else here says so.
+    expect(spreadShift(5)).not.toBe(workoutShift(60));
   });
 
   // Not a formality: MND is the one stat whose tier is not a threshold
