@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DayTotals } from '@kairo/core';
-import { resolveStatDetail } from './stat-detail.ts';
+import { resolveStatDetail, workoutDaySignal } from './stat-detail.ts';
 
 const totals = (over: Partial<DayTotals> = {}): DayTotals => ({
   steps: 0,
@@ -234,6 +234,142 @@ describe('resolveStatDetail', () => {
         lane: 'AGI',
       });
       expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', gap: 1_240 });
+    });
+  });
+
+  // The defect: `verifiedWorkoutMinutes` was pinned at 0 on this screen, so a
+  // day with a workout was told the unshifted kcal target. 60 verified minutes
+  // put Gold at 300 and Silver at 150; the line went on saying 400 and 200.
+  // The screen cannot know the minutes — `useWorkoutSessions` does not read
+  // the trust columns and §5 has not been reopened — so it says no number.
+  describe('a day that carries a workout', () => {
+    // 250 kcal: unshifted the ladder says 150 more for Gold at 400. At the
+    // 25% cap Gold is 300 and the true answer is 50 — and at 0 verified
+    // minutes it is 150. Every reachable shift gives a *different* number
+    // here, so a branch that quotes any of them cannot pass by coincidence.
+    const workoutDayTotals = () => totals({ activeKcal: 250, steps: 10_000 });
+
+    it('says nothing about Strength\u2019s kcal when a session exists', () => {
+      const detail = resolveStatDetail({
+        totals: workoutDayTotals(),
+        sleepMinutes: 8 * 60,
+        workoutDay: 'session',
+        lane: 'STR',
+      });
+      expect(detail).toEqual({ kind: 'unquantified', stat: 'STR', lane: true });
+    });
+
+    // The negative control, and it carries as much weight as the case above:
+    // a suppression that fires on every day is a different bug wearing the
+    // same clothes. Identical inputs, one field changed.
+    it('quotes the unshifted band unchanged when the day carries none', () => {
+      const detail = resolveStatDetail({
+        totals: workoutDayTotals(),
+        sleepMinutes: 8 * 60,
+        workoutDay: 'none',
+        lane: 'STR',
+      });
+      expect(detail).toEqual({
+        kind: 'gap',
+        stat: 'STR',
+        lane: true,
+        points: 550,
+        gap: 150,
+        topsOut: true,
+        unit: 'kcal',
+      });
+    });
+
+    // In flight is not "no workout". Both silence STR, and they have to: the
+    // first paint of the home screen has no sessions yet, and that is exactly
+    // when a wrong number would be read.
+    it('stays silent while the sessions query is still in flight', () => {
+      expect(
+        resolveStatDetail({
+          totals: workoutDayTotals(),
+          sleepMinutes: 8 * 60,
+          workoutDay: 'unknown',
+          lane: 'STR',
+        }),
+      ).toEqual({ kind: 'unquantified', stat: 'STR', lane: true });
+    });
+
+    // Silencing STR must not silence the screen. A stat with a real number
+    // wins the line instead — including over the user's own lane, because a
+    // figure that is right beats a lane marker on one that cannot be given.
+    it('hands the line to a stat that still has a number', () => {
+      const detail = resolveStatDetail({
+        totals: totals({ steps: 8_000, activeKcal: 250 }),
+        workoutDay: 'session',
+        lane: 'STR',
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI', gap: 2_000, lane: false });
+    });
+
+    // Suppression is decided *after* the ladder, not before it. A shift only
+    // ever lowers a band, so 400 kcal is Gold however long the workout was —
+    // and calling that day "unquantified" would imply work left to do.
+    it('still reports every stat maxed when Strength is genuinely topped out', () => {
+      expect(
+        resolveStatDetail({
+          totals: totals({ steps: 10_000, activeKcal: 400 }),
+          sleepMinutes: 8 * 60,
+          workoutDay: 'session',
+          lane: 'STR',
+        }),
+      ).toEqual({ kind: 'maxed' });
+    });
+
+    // The day the trust columns are read, one call site passes the minutes and
+    // this branch goes quiet on its own: a known shift is not an unknown one.
+    it('quotes the shifted band once the caller has the minutes', () => {
+      const detail = resolveStatDetail({
+        totals: workoutDayTotals(),
+        verifiedWorkoutMinutes: 60,
+        workoutDay: 'session',
+        lane: 'STR',
+      });
+      expect(detail).toMatchObject({ kind: 'gap', stat: 'STR', gap: 50 });
+    });
+
+    it('marks the lane only when Strength is the lane', () => {
+      expect(
+        resolveStatDetail({
+          totals: workoutDayTotals(),
+          sleepMinutes: 8 * 60,
+          workoutDay: 'session',
+          lane: 'AGI',
+        }),
+      ).toEqual({ kind: 'unquantified', stat: 'STR', lane: false });
+    });
+  });
+
+  describe('workoutDaySignal', () => {
+    const sessions = [{ localDate: '2026-08-19' }, { localDate: '2026-08-20' }];
+
+    it('reads a session on the day being described', () => {
+      expect(workoutDaySignal(sessions, '2026-08-20')).toBe('session');
+    });
+
+    // The window covers a fortnight of days; only today's decides today's
+    // hint. A session on the 19th shifted the 19th's bands, not the 20th's.
+    it('ignores sessions on other days', () => {
+      expect(workoutDaySignal(sessions, '2026-08-18')).toBe('none');
+    });
+
+    it('is unknown before the query resolves', () => {
+      expect(workoutDaySignal(undefined, '2026-08-20')).toBe('unknown');
+    });
+
+    // No timezone yet means no local date, and a date-less comparison would
+    // match nothing and report 'none' — the confident answer this whole
+    // change exists to stop.
+    it('is unknown when the local date is not known yet', () => {
+      expect(workoutDaySignal(sessions, undefined)).toBe('unknown');
+    });
+
+    it('is none when the query resolves empty', () => {
+      expect(workoutDaySignal([], '2026-08-20')).toBe('none');
     });
   });
 
