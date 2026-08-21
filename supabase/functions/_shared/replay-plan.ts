@@ -7,6 +7,19 @@
  * handler does the reads and writes; everything that decides *what* a replay
  * touches, and what it leaves alone, lives here.
  *
+ * **DORMANT since 2026-08-21.** The Phase 3 window ran and closed: the
+ * function is deleted from the project and `REPLAY_SECRET` is unset, so an
+ * invocation returns `404`. This file and its siblings were kept on purpose
+ * rather than deleted with the deployment, because the next model migration
+ * needs exactly this and rebuilding it under deploy pressure is how its two
+ * hardest bugs come back — a lifecycle test that could not fail, and a fake
+ * client that was blind to ordering.
+ *
+ * Nothing here is reachable without deploying the function *and* minting a
+ * secret, both deliberate acts. Re-arming is steps 6a-6b of the Task 7
+ * runbook. Do not delete these files on the strength of that runbook's
+ * original step 11; it was superseded and says so.
+ *
  * The thing this module exists to get right is the distinction between
  * *scoring* and *lifecycle*. A replay recomputes the first and must not move
  * the second: a day that finalized on 2026-08-14 is still a day that finalized

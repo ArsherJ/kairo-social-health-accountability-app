@@ -1048,12 +1048,27 @@ The ordering below is the whole point of the task. Kairo's characteristic failur
       supabase functions delete replay-scores --project-ref zniopywbwenrzxezolwv
       supabase secrets unset REPLAY_SECRET --project-ref zniopywbwenrzxezolwv
       ```
-      Then delete `supabase/functions/replay-scores/`,
-      `supabase/functions/_shared/replay.deno.ts`, `replay-plan.ts`, their two
-      test files, `supabase/scripts/replay-scores.mjs`, and `replayFrozen` from
-      `rescoreDay` — the §19 freeze rule should have no exception in steady
-      state. Keep the `the history replay` block in `supabase/tests/schema.test.ts`
-      only if a future model migration is expected; otherwise it goes with them.
+      **DONE 2026-08-21.** Function deleted, `REPLAY_SECRET` unset, verified
+      shut: an invocation returns `404 NOT_FOUND`.
+
+      **The code was deliberately KEPT, and this instruction is superseded.**
+      The original text said to delete `supabase/functions/replay-scores/`,
+      both shared modules, their tests, the operator script and `replayFrozen`
+      from `rescoreDay`. The owner chose on 2026-08-21 to leave all of it in
+      the repo, dormant. The reasoning: with nothing deployed and no secret
+      set, the surface is inert — the only way to reach it is to deploy a
+      function and mint a secret, both deliberate acts — while the next model
+      migration inherits a reviewed, mutation-tested tool instead of rebuilding
+      one under deploy pressure. That tool cost two fix rounds and found the
+      ninth and tenth could-not-fail tests in this project; rebuilding it in a
+      hurry is how those come back.
+
+      So: **do not delete these files on the strength of an old runbook line.**
+      `replayFrozen` stays on `rescoreDay` as a documented, secret-guarded
+      exception to the §19 freeze rule that no deployed code can currently
+      invoke, and the `the history replay` block stays in
+      `supabase/tests/schema.test.ts` for the same reason. Re-arming is exactly
+      steps 6a and 6b.
 
 **Rollback position:** through step 7 everything is additive or replayable — the old columns still hold their values and `program_weighted_total` still sums them. Step 8 is the one-way door.
 
