@@ -20,6 +20,46 @@ figure the screen does not show describes a different product. A Goal keeps its
 points because the user typed that target. If you find a surface outside
 `src/features/goals/` rendering a score total, it is stale — fix it.
 
+**Kairo scores three stats as of 2026-08-20** (deviation #41). `CoreStat` is
+`'AGI' | 'STR' | 'MND'`: steps, active calories, sleep. END folded into STR and
+VIT into AGI as **threshold shifts** — never point multipliers, because a
+stored multiplier stacks with the squad program's read-time weight and that is
+deviation #10's trap — and sleep was promoted from the REC bonus to a full
+stat. A day's stat points scale by `3 / earnable stats`, so both ceilings are
+4,400 and a wearable buys a third route to the same ceiling rather than a
+higher one. Three things break easily:
+
+- **The Daily Walk reads `tiers->>'AGI_base'`, never `tiers->>'AGI'`.** The
+  spread shift lowers AGI's whole ladder, Gold included, and `tiers` stores the
+  **shifted** tier — so Gold arrives at 7,500 steps on an eight-active-hour day
+  and the baseline scales with the user, which is exactly what it must never
+  do. `sync-plan.ts` writes both keys; `goal_window_scores()` and the 90-day
+  streak in `train/queries.ts` read `AGI_base` and fall back to `AGI` for rows
+  written before the switch, for which the two agree. **A guard written through
+  `tierFor` cannot catch this**, and one was: `tierFor` *is*
+  `shiftedTierFor(stat, raw, 0)`, the single path where the shift is absent by
+  definition, so `scoring.test.ts`'s 10,000 literal passed throughout. Assert
+  through `computeDailyScore` — that is the only place the two ladders can
+  disagree.
+- **`planDay` requires `earnableStats` and `verifiedWorkoutMinutes`, and
+  neither is defaulted.** `DailyScoreInput` defaults both, which is right for a
+  pure function whose callers include tests. `planDay` has exactly two callers
+  and **both are write paths**, so a default there is the silent failure the
+  fields exist to prevent: every stored row scoring at factor 1.0 with nothing
+  anywhere to notice. `scoring-inputs.ts` derives them, against **the date being
+  scored** and never wall-clock today — identical on a live sync, wrong on a
+  replay, and the difference is a 6,200-point day against a 4,400 ceiling that
+  `contributing_stats` still passes.
+- **The board re-sums the per-stat columns; it does not read `total`.** That is
+  the only way `squad_leaderboard()` can apply the program weights at read time
+  (deviation #11), and it means a stat is competitively invisible until it is
+  added to `program_weighted_total` **and** `squad_leaderboard` **and**
+  `weightedBoardTotal` in `@kairo/core`. MND shipped missing from all three for
+  a day: 1,200 stored points the ranking number could not see, on every
+  program. Changing that function's signature is a **drop by exact argument
+  list**, never `create or replace` — the `create_goal` / `p_metric` trap, and a
+  surviving overload fails nothing until a call site resolves to it.
+
 **Solo mode gained a floor and a curve on 2026-08-15** (deviations #31–#33).
 Three things that are easy to break by accident:
 
@@ -27,8 +67,10 @@ Three things that are easy to break by accident:
   as a literal** — and `scoring.test.ts` *also* pins it at 10,000. Both halves
   matter and they guard opposite failures. The derivation stops a raised Gold
   leaving a second number describing the old one; it is what lets the walk
-  streak read `tiers->>'AGI' = 'gold'` out of `daily_scores`, which stores tiers
-  and never raw steps. The literal in the test stops the derivation being *too*
+  streak read a tier out of `daily_scores`, which stores tiers and never raw
+  steps — **`tiers->>'AGI_base'`, not `tiers->>'AGI'`**, since the three-stat
+  switch, for the reason in the block above. The literal in the test stops the
+  derivation being *too*
   obedient: the Daily Walk baseline is a public-health number that must never
   scale with the user, so a raised Gold silently dragging it upward would be
   exactly as wrong as it going stale. Raise Gold and the test fails, and a human
@@ -221,7 +263,7 @@ It is one flowing column now; do not reintroduce a `top` on any child. Third:
 **before adding an accessible name, read what is already spoken around it.** A
 label that repeats an adjacent line is noise; a label inside a control that
 already names itself is a bug — `StatCoin` got one inside `StatRail`, which is a
-single `Pressable` already speaking all four ratings, and it was reverted.
+single `Pressable` already speaking every rating on the rail, and it was reverted.
 
 **Accessibility structure is verified in Xcode's Accessibility Inspector on the
 simulator before a TestFlight build is cut.** This qualifies the "UI is verified
@@ -380,7 +422,7 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 - **`reject_mutation()` and the `kairo.allow_purge` flag are inert.** They enforced append-only on `sabotage_events`, which is dropped; the flag is still set by `handle_profile_deletion()` / `leave_squad()` and now guards nothing. Left in place on purpose — it is not worth reopening that path for a no-op. See `20260809120000_remove_sabotage.sql`. **History (2026-08-11):** that migration's comment and this line both used to say `delete_account()` when no such function existed; the correction is kept because it explains why the flag is inert. **`delete_account()` now does exist** — see below.
 - **Erasure is `delete_account()`, and most of it was already wired.** Migration `20260811140000` added the RPC and `app/delete-account.tsx`; the cascade underneath predates it. It takes **no argument** on purpose — the only account it can erase is `auth.uid()`, and a `p_user_id` parameter would make it one bug away from letting any signed-in user erase anybody. Three behaviours are deliberate and easy to "fix" wrongly: `profiles_handle_deletion` (BEFORE DELETE) hands squad leadership on *before* the FK cascade, so erasing a leader does not destroy the squad; `goals.created_by` is **SET NULL**, not CASCADE, so a shared goal survives its author — it confers only the `goals_update_own` title edit, so nulling it means nobody inherits the rename right; and `profiles_collect_orphaned_goals` (AFTER DELETE) sweeps goals left with neither creator nor participant. That sweep **must** stay AFTER: `goal_completions_xp_rollup` updates `profiles`, so reaching a completion from a BEFORE trigger modifies the row being deleted and Postgres aborts the statement.
 - **Account-scoped tables reference `auth.users`; character-scoped tables reference `profiles`.** `app_events` and `device_tokens` are the account's (2026-08-11) — a profile does not exist until onboarding commits it, and pointing them at `profiles` made every write between sign-in and profile creation fail `23503`. That did not just drop rows: it made the sign-in → abandon funnel unmeasurable, because a user who never names a character produced no events *by construction*. Before adding a table, ask which it belongs to. Erasure is unaffected either way, since `profiles.id` already cascades from `auth.users`.
-- **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` (plus `goal_completions.xp_awarded`) by trigger — never incremented, so nothing double-counts. The same function maintains `agi_total`/`str_total`/`end_total`/`vit_total`, which feed the ability ratings. Its trigger skips the recompute only when *every* column it reads is unchanged: a same-tier rescore (5,200 → 8,000 steps, both Silver) moves the raw points and not the XP, and a narrower skip loses it silently.
+- **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` (plus `goal_completions.xp_awarded`) by trigger — never incremented, so nothing double-counts. The same function maintains `agi_total`/`str_total`/`mnd_total`, which feed the ability ratings (three since deviation #41 — `end_total` and `vit_total` are dropped, and the skip guard described next had to shed them in the very migration that dropped the columns, or it names a column that no longer exists and fails on the next write). Its trigger skips the recompute only when *every* column it reads is unchanged: a same-tier rescore (5,200 → 8,000 steps, both Silver) moves the raw points and not the XP, and a narrower skip loses it silently.
 - **Strain is display-only.** `computeStrain()` runs on the client over `health_buckets.avg_heart_rate` and `daily_heart`. It never touches `daily_scores`, so score replay is unaffected. Heart rate is owner-readable only and absent from every projection — it is at least as revealing as the hourly movement §5 protects.
 - **Column-level grants:** `profiles` UPDATE is granted per-column. A column-level `REVOKE` against an existing table-level `GRANT` is silently a no-op in Postgres; revoke the table grant and re-grant the allowed columns.
 - **A migration touching a table an Edge Function writes ships with that function's redeploy.** Applying one without the other took scoring down for two days in August 2026: `remove_sabotage` dropped `daily_scores.sabotage_delta`, the deployed `sync-health` kept sending it, and because its bucket upsert commits *before* the score upsert, health data kept landing while nothing scored. Every test passed the whole time — they check the source, not the deployed artifact. Two guards now exist and both matter: the schema suite inserts `planDay`'s **real output** into `daily_scores` (so drift fails at commit time), and `supabase/scripts/smoke-sync.mjs` runs a real sync against the deployed function (so drift fails at deploy time). Run the latter after every deploy. Full post-mortem in `docs/qa/kairo-end-to-end-qa-report.md`.
