@@ -147,8 +147,9 @@ universal and unweighted. Onboarding gains a single-select, skippable
 (`has_wearable` set by `sync-health`), never asked. No manual logging, ever —
 device-tracked values are the single source of truth.
 
-> **Build note (2026-08-20, roadmap deviations #41 and #23).** Two of those
-> four names have moved since. `gym` was renamed `strength` on 2026-08-15, and
+> **Build note (2026-08-20, roadmap deviations #41, #31 and #22).** Two of
+> those four names have moved since. `gym` was renamed `strength` on 2026-08-15
+> (#31), and
 > **`walking` boosts `AGI`** now that deviation #41 retired VIT — which is what
 > walking always measured, since VIT's hourly-movement signal survives as AGI's
 > spread threshold shift. A fifth program, `recovery`, boosts `MND`; it is the
@@ -156,8 +157,8 @@ device-tracked values are the single source of truth.
 > become a stat before it could exist. The END warning below still applies, in
 > its new place: MND also needs a source most beta users may not have, and what
 > makes `recovery` defensible where an END program was not is normalization.
-> `profiles.focus` was dropped on 2026-08-10 — `squads.program` is the only
-> focus concept left, and the onboarding focus question no longer exists.
+> `profiles.focus` was dropped on 2026-08-10 (#22) — `squads.program` is the
+> only focus concept left, and the onboarding focus question no longer exists.
 
 Adds ~33–49h across Phases 1, 3, 4, 5, 7 and 8; items below are tagged
 **[SP]**. Deviations #10–12 above are this work.
