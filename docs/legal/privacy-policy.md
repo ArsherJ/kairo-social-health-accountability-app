@@ -43,29 +43,30 @@ We read the following, and only the following:
 | Apple Exercise Time | Shown to you in your own daily breakdown. Not scored. |
 | Hourly step distribution | How spread out your movement is across the day. Not scored on its own — it makes your AGI targets easier to reach. |
 | Sleep analysis | Your MND score. Only read if your device supplies it (typically an Apple Watch). |
+| Whether a sleep record was entered by hand | Apple marks a night you typed in yourself. We keep those out of scoring, so a typed-in figure cannot earn points. |
+| Heart rate — hourly average and resting rate | Your **Strain** figure. It is shown only to you, is never scored, and is never shown to a squadmate. |
+| Workouts | Your **Challenge** targets, and to confirm a hard session was real before it lowers the thresholds your Strength score is judged against. |
 
 This is **sensitive personal information** under the Data Privacy Act, and we
 treat it as such.
 
-`[[TODO: this table and the paragraph below are out of date and need a
-drafting decision, not a wording fix. Since it was written (2026-08-08) the
-app has begun reading and storing three further things, all of which are in
-the schema and in the in-app Apple Health disclosure sheet but not here:
-**heart rate** — hourly averages on `health_buckets.avg_heart_rate` and a
-daily resting rate on `daily_heart`, added 2026-08-10 for the display-only
-Strain figure, which directly contradicts "we do not store … heart rate"
-below; **workout sessions** — `workout_sessions` holds Apple's activity-type
-number, start and end times, duration, distance and calories per session,
-added 2026-08-15 for the Challenge targets; and **where a sleep record came
-from** — the recording app's bundle identifier and Apple's hand-typed flag on
-`daily_sleep`, added 2026-08-19, which is how a typed-in night is kept out of
-scoring. All three are owner-readable only and appear in no squad projection.
-Decide how each is described here before this document is shown to a tester.]]
+Three of these were added after this policy was first written, and each is
+named above rather than folded into a general description: the hand-entered
+sleep flag (August 2026), heart rate (August 2026) and workouts (August 2026).
 
-We store it as **hourly totals for your own local day** — for example, "412
-steps between 09:00 and 10:00 on 8 August". We do not store GPS locations,
-routes, workout names, heart rate, or anything else in Apple Health. Kairo never
-writes anything back to Apple Health.
+We store movement as **hourly totals for your own local day** — for example,
+"412 steps between 09:00 and 10:00 on 8 August". Heart rate is stored the same
+way: an hourly average, plus a single resting rate for the day. A workout is
+stored as one record per session — when it began and ended, how long it lasted,
+the distance and the calories, and Apple's **numeric code** for the kind of
+activity.
+
+We do not store GPS locations, routes, workout names, or anything else in
+Apple Health. Kairo never writes anything back to Apple Health.
+
+**Heart rate and workouts are readable only by you.** They are not part of any
+screen a squadmate can reach, and no function that serves squad data can return
+them. They exist for a figure and a target that are yours alone.
 
 ### 2.2 What you tell us
 
