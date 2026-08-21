@@ -122,7 +122,7 @@ const config: ExpoConfig = {
         // test-locked to the request list; this string cannot be, so it has to
         // be changed by hand whenever that list changes.
         NSHealthShareUsageDescription:
-          'Kairo reads steps, distance, active calories and active minutes to score your character; sleep, heart rate and resting heart rate to show your recovery and strain; and workouts to confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.',
+          'Kairo reads steps, active calories and sleep to score your character, with distance as an anti-cheat cross-check; active minutes appear in your daily breakdown; heart rate and resting heart rate show your strain; and workouts confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.',
         // Declared because iOS requires the string whenever the entitlement is
         // present. Shipped builds never request write access at all — only the
         // `__DEV__` simulator seeder in src/features/health/dev-seed.ts does,

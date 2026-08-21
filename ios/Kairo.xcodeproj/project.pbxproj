@@ -9,24 +9,24 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		44BF2053D18BD86B8D40B7DE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E85D5B63121E8A6C7AE5A4 /* ExpoModulesProvider.swift */; };
-		5814690E3043006DE5E6765E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C64413064704EEF91D7CF96E /* PrivacyInfo.xcprivacy */; };
+		407F7930907CBA9D35173BE0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 93A4E1C0776CE681406DC719 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E38A6E9944F0A2F03496EAD5 /* libPods-Kairo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 83420517252272628421EA6A /* libPods-Kairo.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		F5BC0B397C252CB4435DAAD6 /* libPods-Kairo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C880FD3659E40BDE13319DE /* libPods-Kairo.a */; };
+		FC2D98EF8643C3AD213C0FD6 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAE8C1EBF707E63E983D1A0 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* Kairo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kairo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Kairo/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Kairo/Info.plist; sourceTree = "<group>"; };
-		18E85D5B63121E8A6C7AE5A4 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Kairo/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		6C880FD3659E40BDE13319DE /* libPods-Kairo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Kairo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		86D68D7A10EBF3450ED08270 /* Pods-Kairo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairo.debug.xcconfig"; path = "Target Support Files/Pods-Kairo/Pods-Kairo.debug.xcconfig"; sourceTree = "<group>"; };
+		23783A8295B2300A37E2D63A /* Pods-Kairo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairo.debug.xcconfig"; path = "Target Support Files/Pods-Kairo/Pods-Kairo.debug.xcconfig"; sourceTree = "<group>"; };
+		3CAE8C1EBF707E63E983D1A0 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Kairo/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		627D99F675AA6330BAA8B00F /* Pods-Kairo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairo.release.xcconfig"; path = "Target Support Files/Pods-Kairo/Pods-Kairo.release.xcconfig"; sourceTree = "<group>"; };
+		83420517252272628421EA6A /* libPods-Kairo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Kairo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		93A4E1C0776CE681406DC719 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Kairo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Kairo/SplashScreen.storyboard; sourceTree = "<group>"; };
-		B69104C407BE14313AE21589 /* Pods-Kairo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairo.release.xcconfig"; path = "Target Support Files/Pods-Kairo/Pods-Kairo.release.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C64413064704EEF91D7CF96E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Kairo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Kairo/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Kairo-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Kairo-Bridging-Header.h"; path = "Kairo/Kairo-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F5BC0B397C252CB4435DAAD6 /* libPods-Kairo.a in Frameworks */,
+				E38A6E9944F0A2F03496EAD5 /* libPods-Kairo.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				C64413064704EEF91D7CF96E /* PrivacyInfo.xcprivacy */,
+				93A4E1C0776CE681406DC719 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Kairo;
 			sourceTree = "<group>";
@@ -62,35 +62,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				6C880FD3659E40BDE13319DE /* libPods-Kairo.a */,
+				83420517252272628421EA6A /* libPods-Kairo.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		33FBF25598E4C93FDBD7FE89 /* Kairo */ = {
+		67111FF53B56BF256FFE7CFC /* Kairo */ = {
 			isa = PBXGroup;
 			children = (
-				18E85D5B63121E8A6C7AE5A4 /* ExpoModulesProvider.swift */,
+				3CAE8C1EBF707E63E983D1A0 /* ExpoModulesProvider.swift */,
 			);
 			name = Kairo;
-			sourceTree = "<group>";
-		};
-		697CF62A598A7B47D2B0A0A5 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				33FBF25598E4C93FDBD7FE89 /* Kairo */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		7E1CA6B99969B15C6EA91DEC /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				86D68D7A10EBF3450ED08270 /* Pods-Kairo.debug.xcconfig */,
-				B69104C407BE14313AE21589 /* Pods-Kairo.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -107,8 +89,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				7E1CA6B99969B15C6EA91DEC /* Pods */,
-				697CF62A598A7B47D2B0A0A5 /* ExpoModulesProviders */,
+				F4C5070E109CED327609DDEE /* Pods */,
+				8E5710F9414AA3C5B4E02876 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -123,6 +105,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		8E5710F9414AA3C5B4E02876 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				67111FF53B56BF256FFE7CFC /* Kairo */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -130,6 +120,16 @@
 			);
 			name = Supporting;
 			path = Kairo/Supporting;
+			sourceTree = "<group>";
+		};
+		F4C5070E109CED327609DDEE /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				23783A8295B2300A37E2D63A /* Pods-Kairo.debug.xcconfig */,
+				627D99F675AA6330BAA8B00F /* Pods-Kairo.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Kairo" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				4A513E48F35E905606D8BCFC /* [Expo] Configure project */,
+				5EA2BAFC58F8BA333954D445 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				468F88D45BB58B343C483DF5 /* [CP] Embed Pods Frameworks */,
+				245676FD3A88F6EB4B825E99 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				5814690E3043006DE5E6765E /* PrivacyInfo.xcprivacy in Resources */,
+				407F7930907CBA9D35173BE0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,7 +242,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		468F88D45BB58B343C483DF5 /* [CP] Embed Pods Frameworks */ = {
+		245676FD3A88F6EB4B825E99 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -262,7 +262,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Kairo/Pods-Kairo-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		4A513E48F35E905606D8BCFC /* [Expo] Configure project */ = {
+		5EA2BAFC58F8BA333954D445 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -332,7 +332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				44BF2053D18BD86B8D40B7DE /* ExpoModulesProvider.swift in Sources */,
+				FC2D98EF8643C3AD213C0FD6 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,7 +341,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 86D68D7A10EBF3450ED08270 /* Pods-Kairo.debug.xcconfig */;
+			baseConfigurationReference = 23783A8295B2300A37E2D63A /* Pods-Kairo.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -379,7 +379,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B69104C407BE14313AE21589 /* Pods-Kairo.release.xcconfig */;
+			baseConfigurationReference = 627D99F675AA6330BAA8B00F /* Pods-Kairo.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

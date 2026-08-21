@@ -52,7 +52,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Kairo reads steps, distance, active calories and active minutes to score your character; sleep, heart rate and resting heart rate to show your recovery and strain; and workouts to confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.</string>
+	<string>Kairo reads steps, active calories and sleep to score your character, with distance as an anti-cheat cross-check; active minutes appear in your daily breakdown; heart rate and resting heart rate show your strain; and workouts confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Kairo does not write to Apple Health. Internal development builds write sample activity data for testing.</string>
 	<key>NSUserActivityTypes</key>
