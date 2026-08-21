@@ -40,12 +40,27 @@ We read the following, and only the following:
 | Step count | Your AGI score |
 | Walking + running distance | Anti-cheat only (a stride-length cross-check). Not scored. |
 | Active energy burned | Your STR score |
-| Apple Exercise Time | Your END score |
-| Hourly step distribution | Your VIT score — how spread out your movement is across the day |
-| Sleep analysis | Your REC score. Only read if your device supplies it (typically an Apple Watch). |
+| Apple Exercise Time | Shown to you in your own daily breakdown. Not scored. |
+| Hourly step distribution | How spread out your movement is across the day. Not scored on its own — it makes your AGI targets easier to reach. |
+| Sleep analysis | Your MND score. Only read if your device supplies it (typically an Apple Watch). |
 
 This is **sensitive personal information** under the Data Privacy Act, and we
 treat it as such.
+
+`[[TODO: this table and the paragraph below are out of date and need a
+drafting decision, not a wording fix. Since it was written (2026-08-08) the
+app has begun reading and storing three further things, all of which are in
+the schema and in the in-app Apple Health disclosure sheet but not here:
+**heart rate** — hourly averages on `health_buckets.avg_heart_rate` and a
+daily resting rate on `daily_heart`, added 2026-08-10 for the display-only
+Strain figure, which directly contradicts "we do not store … heart rate"
+below; **workout sessions** — `workout_sessions` holds Apple's activity-type
+number, start and end times, duration, distance and calories per session,
+added 2026-08-15 for the Challenge targets; and **where a sleep record came
+from** — the recording app's bundle identifier and Apple's hand-typed flag on
+`daily_sleep`, added 2026-08-19, which is how a typed-in night is kept out of
+scoring. All three are owner-readable only and appear in no squad projection.
+Decide how each is described here before this document is shown to a tester.]]
 
 We store it as **hourly totals for your own local day** — for example, "412
 steps between 09:00 and 10:00 on 8 August". We do not store GPS locations,
@@ -62,8 +77,9 @@ writes anything back to Apple Health.
   read them** — no squadmate, at any time, through any screen.
 - Your **time zone**, taken from your device, because your competitive day runs
   from midnight to midnight where *you* are.
-- Optionally, a **training focus**, which changes nothing about scoring and only
-  personalises the app's copy.
+- Optionally, **which animal your character is** — one of four Philippine
+  endemic species. It is cosmetic, changes nothing about scoring, and your
+  squadmates see it beside your name.
 
 ### 2.3 What the app generates
 
@@ -75,8 +91,8 @@ writes anything back to Apple Health.
 - **Streaks**, level and XP.
 - **A push notification token** for your device, if you turn notifications on.
 - **A small number of app events** — that you opened the app, that you chose a
-  focus, and when two specific operations fail (a time-zone update and an Apple
-  Health permission request). The failure events exist so that a bug which is
+  squad program, and when two specific operations fail (a time-zone update and
+  an Apple Health permission request). The failure events exist so that a bug which is
   invisible to you is at least visible to us. They contain no health data.
 
 ### 2.4 What we do not collect
@@ -94,8 +110,15 @@ they also see your progress toward it — which is a running total of those same
 daily scores, and nothing more.
 
 **Your squadmates never see:** your step count, your distance, your calories,
-your active minutes, your sleep, your hour-by-hour movement, any timestamp of
-when you moved, your height, your weight, your age, or your sex.
+your active minutes, **how long you slept**, your hour-by-hour movement, any
+timestamp of when you moved, your height, your weight, your age, or your sex.
+
+Sleep became one of the three scored stats on 2026-08-20, so the per-stat tier
+above now includes one for sleep — a Bronze/Silver/Gold band in the same
+vocabulary as the others, never a number of hours. Before that change your
+squadmates could already see *whether* a sleep record had reached the app,
+because a sleep bonus carried a visible icon; what is new is the band, not the
+fact.
 
 That separation is enforced by the database, not by the app. Squad data is
 served by a small number of read-only functions that have no ability to return
@@ -156,8 +179,8 @@ to data portability. In practice:
 
 - **Access and portability** — write to us at the address in §1 and we will send
   you your data in a machine-readable form.
-- **Correction** — your character name, body metrics and focus are editable in
-  the app.
+- **Correction** — your character name, your body metrics and your character's
+  species are editable in the app.
 - **Erasure** — delete your account in the app; it takes effect immediately.
 - **Withdrawing consent to health data** — revoke Kairo's access in iOS Settings
   → Privacy & Security → Health. New data stops arriving at once. Data already

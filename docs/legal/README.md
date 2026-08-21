@@ -30,6 +30,7 @@ leaving them visible.
 | 4 | **Whether a Data Protection Officer is designated** | The DPA requires one of PICs processing personal data; sensitive personal information raises the stakes. Likely you, at this scale. |
 | 5 | **Governing jurisdiction for the ToS** | Drafted as the Philippines. |
 | 6 | **Whether beta data survives into production** | Anonymous accounts are swapped for Sign in with Apple at E5, and the anonymous rows are not portable to the new identity. Say so before the beta, not after. |
+| 7 | **How heart rate, workout sessions and sleep provenance are described** | Added 2026-08-20. The drafts were written against the schema as it stood on 2026-08-08, and it has moved three times since: hourly average heart rate and a daily resting rate (2026-08-10, for Strain), whole workout sessions with activity type, times, distance and calories (2026-08-15, for Challenges), and where a sleep record came from — the recording app's identifier and Apple's hand-typed flag (2026-08-19, which is how a typed-in night is kept out of scoring). All three are owner-readable only and reach no squad projection, so the policy's central claim still holds; what does not hold is §2.1's "we read the following, and only the following" and its "we do not store … heart rate". Marked `[[TODO]]` in `privacy-policy.md`. |
 
 ## The one thing not to change without re-reading the schema
 
