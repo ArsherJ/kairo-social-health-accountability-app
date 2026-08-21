@@ -1,6 +1,6 @@
 import { normalizationFactor } from './capability.ts';
 import { mindTierFor, MIND_OVERSLEEP_HOURS, MIND_THRESHOLD_HOURS } from './mind.ts';
-import { shiftedThreshold, spreadShift, workoutShift } from './shifts.ts';
+import { shiftedThreshold, statShifts } from './shifts.ts';
 import {
   CORE_STATS,
   type CoreStat,
@@ -238,36 +238,50 @@ export interface NextTier {
  * `active_minutes numeric(6,2)`, and a gap of "0.4 more minutes" is not an
  * instruction, so the gap is rounded up to a whole unit.
  *
- * The bands here are **unshifted**. A shifted-band version is the hero copy's
- * problem ("Gold at 7,500 today, because you have been moving since 9am") and
- * is routed through the frontend-design pass in Phase 3 rather than guessed at
- * here — silent generosity reads as a bug, so the number and the sentence
- * explaining it have to land together.
+ * **`shift` is the day's own threshold shift, and passing it is not
+ * optional for a caller that has a day in hand.** Until deviation #41's Phase
+ * 3 this function read the unshifted ladder while `shiftedTierFor` scored the
+ * shifted one, so a well-spread day was told "1,240 more steps" and reached
+ * Gold at 7,500 — arriving early, which reads as a bug in the score rather
+ * than as a gift, on the one line whose whole job is to say what to do next.
+ * The default of 0 exists for tests and for callers with no day at all; a
+ * caller that has one and passes nothing is that bug.
+ *
+ * `bandLow` is shifted with the ceiling. A band whose top moves and whose
+ * floor does not is a wrong fraction on every progress bar computing
+ * `gap / (threshold - bandLow)`.
+ *
+ * MND takes no shift — the trust gate decides *whether* sleep scores, not how
+ * easily — so `statShifts` hands it 0 and the branch below is untouched by
+ * this parameter in practice.
  */
-export function nextTierFor(stat: CoreStat, raw: number): NextTier | null {
+export function nextTierFor(stat: CoreStat, raw: number, shift = 0): NextTier | null {
   const t = THRESHOLDS[stat];
+  const bronze = shiftedThreshold(t.bronze, shift);
+  const silver = shiftedThreshold(t.silver, shift);
+  const gold = shiftedThreshold(t.gold, shift);
   if (stat === 'MND' && raw / 60 > MIND_OVERSLEEP_HOURS) return null;
-  if (raw < t.bronze) {
+  if (raw < bronze) {
     return {
       tier: 'bronze',
-      gap: Math.ceil(t.bronze - raw),
+      gap: Math.ceil(bronze - raw),
       bandLow: 0,
       pointsGain: TIER_POINTS.bronze - TIER_POINTS.none,
     };
   }
-  if (raw < t.silver) {
+  if (raw < silver) {
     return {
       tier: 'silver',
-      gap: Math.ceil(t.silver - raw),
-      bandLow: t.bronze,
+      gap: Math.ceil(silver - raw),
+      bandLow: bronze,
       pointsGain: TIER_POINTS.silver - TIER_POINTS.bronze,
     };
   }
-  if (raw < t.gold) {
+  if (raw < gold) {
     return {
       tier: 'gold',
-      gap: Math.ceil(t.gold - raw),
-      bandLow: t.silver,
+      gap: Math.ceil(gold - raw),
+      bandLow: silver,
       pointsGain: TIER_POINTS.gold - TIER_POINTS.silver,
     };
   }
@@ -319,11 +333,15 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
 
   const totals = aggregateBuckets(buckets);
 
-  // END and VIT, spent as generosity instead of as points (spec §2). Both are
-  // computed once, outside the loop, because a shift is a property of the day
-  // rather than of the stat reading it.
-  const spread = spreadShift(totals.activeHours);
-  const workout = workoutShift(input.verifiedWorkoutMinutes ?? 0);
+  // END and VIT, spent as generosity instead of as points (spec §2). Computed
+  // once, outside the loop, because a shift is a property of the day rather
+  // than of the stat reading it — and through `statShifts` rather than
+  // inline, because the character sheet's guidance line has to read the same
+  // mapping to name the band the day will be judged against.
+  const shifts = statShifts({
+    activeHours: totals.activeHours,
+    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes ?? 0,
+  });
 
   const stats = {} as Record<CoreStat, StatResult>;
   let contributingStats = 0;
@@ -332,7 +350,7 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
 
   for (const stat of CORE_STATS) {
     const raw = rawFor(stat, totals, sleepMinutes);
-    const shift = stat === 'AGI' ? spread : stat === 'STR' ? workout : 0;
+    const shift = shifts[stat];
     // MND's tier is not a threshold comparison: above nine hours the night
     // flattens back to Bronze, which no ladder of minimums can express. It
     // also takes no shift — the trust gate decides *whether* sleep scores,

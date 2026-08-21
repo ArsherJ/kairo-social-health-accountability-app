@@ -3,8 +3,10 @@ import {
   MAX_THRESHOLD_SHIFT,
   shiftedThreshold,
   spreadShift,
+  statShifts,
   workoutShift,
 } from './shifts.ts';
+import { CORE_STATS } from './types.ts';
 
 describe('spreadShift', () => {
   // VIT's old bronze band was 3 active hours. Below it, nothing is earned —
@@ -79,5 +81,43 @@ describe('shiftedThreshold', () => {
   // every call site keeps the invariant in one place.
   it('never raises a band, whatever it is handed', () => {
     expect(shiftedThreshold(10_000, -1)).toBe(10_000);
+  });
+});
+
+describe('statShifts', () => {
+  // One table, because the mapping had to be read in two places the moment
+  // the character sheet's hint started naming the band the day is judged
+  // against. Two copies of "AGI takes the spread, STR takes the workout" is
+  // exactly the duplication that drifts silently: the screen would keep
+  // quoting the old ladder and nothing would fail.
+
+  // The inputs are chosen so the two shifts DIFFER, and that is the whole
+  // point of the case. An earlier version passed `activeHours: 8` against
+  // `verifiedWorkoutMinutes: 60`, where both curves are pinned at
+  // MAX_THRESHOLD_SHIFT — so swapping the two sources in `statShifts` left
+  // this test green and the transposition was caught nowhere here. Five hours
+  // (0.10) against sixty minutes (0.25) is the cheapest pair that separates
+  // them. Keep them apart, and keep the guard below.
+  it('routes each signal to the stat that inherited it', () => {
+    const shifts = statShifts({ activeHours: 5, verifiedWorkoutMinutes: 60 });
+    expect(shifts.AGI).toBe(spreadShift(5));
+    expect(shifts.STR).toBe(workoutShift(60));
+
+    // If a future curve change ever collapses these two onto the same value,
+    // the assertions above go blind again and nothing else here says so.
+    expect(spreadShift(5)).not.toBe(workoutShift(60));
+  });
+
+  // Not a formality: MND is the one stat whose tier is not a threshold
+  // comparison at all (mindTierFor flattens an oversleep back to Bronze), and
+  // handing it a shift would make the hint quote a ladder the scorer never
+  // reads.
+  it('gives MND no shift, however spread or exercised the day was', () => {
+    expect(statShifts({ activeHours: 24, verifiedWorkoutMinutes: 600 }).MND).toBe(0);
+  });
+
+  it('is total over CoreStat, so a new stat cannot arrive without a decision', () => {
+    const shifts = statShifts({ activeHours: 0, verifiedWorkoutMinutes: 0 });
+    for (const stat of CORE_STATS) expect(shifts[stat]).toBe(0);
   });
 });

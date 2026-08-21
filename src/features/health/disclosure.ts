@@ -44,12 +44,19 @@ export const HEALTH_DISCLOSURE: readonly DisclosureGroup[] = [
   {
     types: ['HKQuantityTypeIdentifierAppleExerciseTime'],
     label: 'Active minutes',
-    purpose: 'Score your END',
+    // END stopped being a stat on 2026-08-20 (deviation #41) and active
+    // minutes stopped being scored with it — they are shown back to you and
+    // nothing more. Saying "score" here would promise a number that no longer
+    // exists.
+    purpose: 'Show in your daily breakdown',
   },
   {
     types: ['HKCategoryTypeIdentifierSleepAnalysis'],
     label: 'Sleep',
-    purpose: 'Show your recovery',
+    // Promoted from the REC bonus to a full stat on 2026-08-20 (deviation
+    // #41). This is the one entry where the copy understated what happens to
+    // the data rather than overstating it: sleep is now scored.
+    purpose: 'Score your MND',
   },
   {
     types: [

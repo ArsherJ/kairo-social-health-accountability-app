@@ -38,6 +38,14 @@ export interface IncomingBucket {
 export interface IncomingSleep {
   localDate: string;
   minutes: number;
+  /**
+   * True when **every** asleep segment behind this date was hand-typed
+   * (`HKWasUserEntered`), per `sleep-attribution.ts`. Stored on
+   * `daily_sleep.was_user_entered`, and gated on server-side: a hand-typed
+   * night scores no MND and does not open §3's capability window. Both, or
+   * the day pays 6,200 against a 4,400 ceiling.
+   */
+  wasUserEntered: boolean;
 }
 
 /** Apple's own per-day resting rate. Wearable users only; absent is normal. */
@@ -62,6 +70,21 @@ export interface IncomingWorkoutSession {
   durationS: number;
   distanceM: number;
   activeKcal: number;
+  /**
+   * `sourceRevision.source.bundleIdentifier`, untranslated. **Evidence, never
+   * a verdict**: `WORKOUT_SOURCE_ALLOWLIST` lives server-side in
+   * `scoring-inputs.ts` so it can change without an app release and so a
+   * forged client cannot promote itself past a list it does not hold (§3).
+   */
+  sourceBundleId: string | null;
+  /** Apple's `HKWasUserEntered`. True makes the session `rejected`. */
+  wasUserEntered: boolean;
+  /**
+   * Whether the session carried heart-rate samples. Required for STR's
+   * threshold shift on top of an allowlisted source, because that shift is
+   * worth up to 25% of a band — see `workoutVerified`.
+   */
+  hasHeartRateEvidence: boolean;
 }
 
 export interface SyncRequest {
@@ -218,6 +241,31 @@ function parseSession(
     }
   }
 
+  // The three origin signals, and the one place in this file that refuses a
+  // value instead of defaulting it. `hadWorkout` and friends use `=== true`,
+  // which quietly reads the string "false" and the number 0 as false; that is
+  // right for a corroborating flag and wrong here, because these three decide
+  // whether a session may move a scoring band. **Absent is still absent**,
+  // though — every install in the field predates this field, and its sessions
+  // have to keep landing. Null and false are the honest reading of silence,
+  // and `workoutVerified` shifts nothing for them.
+  if (s['sourceBundleId'] !== undefined && s['sourceBundleId'] !== null) {
+    // Free text from a client, into a `text` column. Bundle identifiers are
+    // short; anything else is malformed rather than long.
+    if (typeof s['sourceBundleId'] !== 'string' || s['sourceBundleId'].length === 0 ||
+        s['sourceBundleId'].length > 255) {
+      return {
+        ok: false,
+        error: 'session.sourceBundleId must be a non-empty string under 256 characters',
+      };
+    }
+  }
+  for (const field of ['wasUserEntered', 'hasHeartRateEvidence']) {
+    if (s[field] !== undefined && typeof s[field] !== 'boolean') {
+      return { ok: false, error: `session.${field} must be a boolean` };
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -230,6 +278,9 @@ function parseSession(
       durationS: Math.round(s['durationS'] as number),
       distanceM: round2(s['distanceM'] as number),
       activeKcal: round2(s['activeKcal'] as number),
+      sourceBundleId: (s['sourceBundleId'] as string | undefined) ?? null,
+      wasUserEntered: s['wasUserEntered'] === true,
+      hasHeartRateEvidence: s['hasHeartRateEvidence'] === true,
     },
   };
 }
@@ -319,7 +370,21 @@ function parseSleep(
   ) {
     return { ok: false, error: 'sleep.minutes must be an integer 0-1440' };
   }
-  return { ok: true, value: { localDate: s['localDate'], minutes: s['minutes'] } };
+  // Refused rather than coerced, for the reason `parseSession` states: this
+  // flag decides whether the night scores at all, and `=== true` would read
+  // the string "false" as a measured night. Absent stays absent — an install
+  // that predates this field behaves exactly as it does today.
+  if (s['wasUserEntered'] !== undefined && typeof s['wasUserEntered'] !== 'boolean') {
+    return { ok: false, error: 'sleep.wasUserEntered must be a boolean' };
+  }
+  return {
+    ok: true,
+    value: {
+      localDate: s['localDate'],
+      minutes: s['minutes'],
+      wasUserEntered: s['wasUserEntered'] === true,
+    },
+  };
 }
 
 function parseRestingHeartRate(
@@ -391,6 +456,26 @@ export interface DayPlanInput {
   hadWorkoutHours: ReadonlySet<number>;
   elevatedHeartRateHours: ReadonlySet<number>;
   sleepMinutes: number | null;
+  /**
+   * How many of the three stats this user can earn on this date (§2). Two for
+   * a phone-only user, three once sleep is arriving.
+   *
+   * **Required, deliberately.** `DailyScoreInput` defaults it, which is right
+   * for a pure function whose callers include tests. Here it is not: `planDay`
+   * has exactly two callers and both are write paths, so a default is the
+   * silent failure this field exists to prevent — every stored row scoring at
+   * factor 1.0 with nothing to notice. Make the compiler ask.
+   *
+   * `scoring-inputs.ts` derives it, against **the date being scored** and
+   * never wall-clock today.
+   */
+  earnableStats: number;
+  /**
+   * Minutes of workout on this date that passed `workoutVerified` — an
+   * allowlisted source AND heart-rate evidence (§3). Drives STR's threshold
+   * shift. Zero is a real answer; absent is not, for the same reason as above.
+   */
+  verifiedWorkoutMinutes: number;
   /** Status already stored for this date, if any. */
   existingStatus: DayStatus | null;
 }
@@ -406,9 +491,16 @@ export interface DayPlanInput {
  * Zero minutes does not count. It is indistinguishable from no data, and the
  * flag is sticky — a false positive is permanent, and it would light the 🔗
  * icon on the leaderboard for someone who has no wearable at all.
+ *
+ * **Neither does a hand-typed night**, for exactly that reason. Typing eight
+ * hours into the Health app is the clearest possible evidence of *not* owning
+ * a wearable, and it is the one false positive this function could previously
+ * not see: `wasUserEntered` did not cross the wire until the three-stat
+ * switch. It reads the same flag §3's capability window does — a night that
+ * cannot make MND earnable cannot prove a wearable either.
  */
 export function observesWearable(request: SyncRequest): boolean {
-  return (request.sleep ?? []).some((s) => s.minutes > 0);
+  return (request.sleep ?? []).some((s) => s.minutes > 0 && !s.wasUserEntered);
 }
 
 /**
@@ -416,12 +508,15 @@ export function observesWearable(request: SyncRequest): boolean {
  *
  * `end_points`, `vit_points` and `rec_points` are gone from this shape as of
  * deviation #41's contract phase, while the columns themselves survive until
- * Phase 3 drops them. **That gap has a consequence worth stating**: an upsert
- * names only the columns it carries, so a rescored day keeps whatever those
- * three columns already held, and `squad_leaderboard()` still sums them. The
- * §4 deploy ordering is what closes it — the replay and the column drop land
- * together, before any board is read against a half-migrated row. Do not
- * deploy this shape ahead of that migration.
+ * `20260819150000` drops them. **That gap has a consequence worth stating**:
+ * an upsert names only the columns it carries, so a rescored day keeps
+ * whatever those three columns already held, `squad_leaderboard()` still sums
+ * them, and since `20260819140000` it also **multiplies them by the
+ * normalization factor** — so a stale 900 END counts as 1,350 on a phone-only
+ * day. Both are null today, because the replay and the drop land in the same
+ * window. The §4 deploy ordering is what closes it — the replay and the column
+ * drop land together, before any board is read against a half-migrated row.
+ * Do not deploy this shape ahead of that migration.
  */
 export interface DayScoreRow {
   user_id: string;
@@ -431,6 +526,7 @@ export interface DayScoreRow {
   mind_points: number;
   consistency_points: number;
   total: number;
+  normalization_factor: number;
   /**
    * Per-stat tiers, plus `AGI_base` — the unshifted AGI ladder the Daily Walk
    * reads. Not `Record<CoreStat, string>`: `AGI_base` is deliberately not a
@@ -473,6 +569,8 @@ export function planDay(input: DayPlanInput): DayPlan {
     now: input.now,
     buckets: input.buckets,
     sleepMinutes: input.sleepMinutes,
+    earnableStats: input.earnableStats,
+    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes,
     // Deviation #11: stored per-stat points are **base** — pre-multiplier and
     // program-independent. All weighting happens at read time in
     // squad_leaderboard(). Never pass a featuredStat from a write path.
@@ -497,6 +595,11 @@ export function planDay(input: DayPlanInput): DayPlan {
       mind_points: score.stats.MND.points,
       consistency_points: score.consistencyBonus,
       total: result.total,
+      // What stat points were multiplied by (§2). Stored rather than derived
+      // because squad_leaderboard() re-sums the per-stat columns and has no
+      // other way to reach it — and because the update note has to be able to
+      // say why two users with identical steps scored differently.
+      normalization_factor: score.normalizationFactor,
       tiers: {
         AGI: score.stats.AGI.tier,
         STR: score.stats.STR.tier,

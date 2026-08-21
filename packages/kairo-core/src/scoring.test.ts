@@ -13,6 +13,7 @@ import {
   shiftedTierFor,
   tierFor,
 } from './scoring.ts';
+import { spreadShift, workoutShift } from './shifts.ts';
 import { CORE_STATS, type CoreStat, type HourBucket } from './types.ts';
 
 /** Build a day of buckets. `perHour` is applied to each hour listed. */
@@ -367,6 +368,53 @@ describe('the 6,200 breach', () => {
     expect(supported.healthTotal).toBe(4_400);
   });
 
+  // This pair only proves the contract together. On its own, a call with the
+  // scored date on both sides of `hasSleepCapability` never diverges from the
+  // coincident case above — and coincident dates were never the risk. The
+  // second test is the discriminator: it passes a *different* date as
+  // `today` (wall-clock, as a caller narrowing "today" to `new Date()` would)
+  // while the sleep that scored stays on the original date, and the ceiling
+  // breaks exactly as the docstring says it does.
+  it('holds when the scored date is not today — the backfill case', () => {
+    // The breach that hides here: score 2026-08-01, where sleep exists ON that
+    // date (so MND scores) but no scoring sleep falls in the 14 days ending at
+    // wall-clock today. earnableStats reads 2, MND still scores, and the day
+    // pays 6,200 — with contributing_stats at 3, so the check constraint waves
+    // it through. The fix is contractual, not arithmetic: `today` must be the
+    // date being scored.
+    const scored = '2026-08-01';
+    const scoringSleepDates = [scored];
+
+    const day = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability(scoringSleepDates, scored)),
+    });
+
+    expect(day.healthTotal).toBe(MAX_DAILY_SCORE_WITH_WEARABLE);
+    expect(day.healthTotal).toBe(4_400);
+  });
+
+  // The negative control the positive case above cannot provide on its own:
+  // give `hasSleepCapability` a `today` that is not the scored date — the
+  // exact regression named in its docstring, a caller reaching for
+  // wall-clock "now" instead of threading through the date being scored.
+  // 6,200 is asserted here to document what an unsupported call shape pays,
+  // not to bless it: nothing in this package produces this call shape today,
+  // and nothing should.
+  it('would breach if a caller passed wall-clock today instead of the scored date', () => {
+    const scored = '2026-08-01';
+    const wallClockToday = '2026-08-19';
+
+    const day = computeDailyScore({
+      buckets: goldTwoStatDay(),
+      sleepMinutes: 7 * 60,
+      earnableStats: earnableStats(hasSleepCapability([scored], wallClockToday)),
+    });
+
+    expect(day.healthTotal).toBe(6_200);
+  });
+
   // The other direction of the same coupling: no sleep that scores means no
   // MND points, so two earnable stats and the ceiling still holds.
   it('is not reachable by a genuinely phone-only day either', () => {
@@ -663,6 +711,59 @@ describe('nextTierFor', () => {
     it('is moot at gold — nextTierFor returns null, there is nothing to band', () => {
       expect(nextTierFor('MND', 420)).toBeNull();
     });
+  });
+});
+
+describe('nextTierFor — the band the day is actually judged against', () => {
+  // The bug this closes: the hint read the unshifted ladder while the scorer
+  // read the shifted one, so a well-spread day was told "1,240 more steps"
+  // and hit Gold 2,500 steps early. Arriving early reads as a bug in the
+  // score, not as a gift — and it is the one line on the screen whose whole
+  // job is to say what to do next.
+
+  it('reports the distance to the shifted band on a well-spread day', () => {
+    // Eight active hours earns the 25% cap, so AGI Gold sits at 7,500.
+    const shift = spreadShift(8);
+    expect(nextTierFor('AGI', 7_000, shift)).toEqual({
+      tier: 'gold',
+      gap: 500,
+      // The floor moves with the ceiling: shifted Silver is 3,750. A band
+      // whose top is shifted and whose floor is not is a false fraction on
+      // every progress bar reading it.
+      bandLow: 3_750,
+      pointsGain: 550,
+    });
+  });
+
+  it('stops asking exactly where the scorer awards gold', () => {
+    const shift = spreadShift(8);
+    expect(shiftedTierFor('AGI', 7_500, shift)).toBe('gold');
+    expect(nextTierFor('AGI', 7_500, shift)).toBeNull();
+    // And one step below it, the two still agree there is something to ask
+    // for — a hint that goes quiet early is the same failure mirrored.
+    expect(shiftedTierFor('AGI', 7_499, shift)).toBe('silver');
+    expect(nextTierFor('AGI', 7_499, shift)).toMatchObject({ tier: 'gold', gap: 1 });
+  });
+
+  it("uses STR's own shift, which comes from verified workout minutes", () => {
+    // Sixty verified minutes is the cap, so STR Silver sits at 150 and Gold
+    // at 300. Unshifted, 200 kcal is exactly the Silver line and Gold is 200
+    // away; shifted, it is already inside Silver and Gold is 100 away.
+    const shift = workoutShift(60);
+    expect(nextTierFor('STR', 200)).toMatchObject({ tier: 'gold', gap: 200, bandLow: 200 });
+    expect(nextTierFor('STR', 200, shift)).toEqual({
+      tier: 'gold',
+      gap: 100,
+      bandLow: 150,
+      pointsGain: 550,
+    });
+  });
+
+  it('is the unshifted ladder when the day earned no shift', () => {
+    // The default and an explicit zero are the same answer, and both are the
+    // bands a user has learned.
+    expect(nextTierFor('AGI', 8_760, 0)).toEqual(nextTierFor('AGI', 8_760));
+    expect(nextTierFor('AGI', 8_760, spreadShift(2))).toEqual(nextTierFor('AGI', 8_760));
   });
 });
 

@@ -36,17 +36,13 @@ export type Profile = {
   agi_total: number;
   str_total: number;
   /**
-   * `end_total` and `vit_total` are gone from this shape (deviation #41).
-   * The columns survive until Phase 3 renames one of them to `mnd_total` and
-   * updates the rollup trigger in lockstep — that trigger skips recomputation
-   * when every column it reads is unchanged, and dropping two rollups while
-   * adding a third changes what "unchanged" means, so the two must ship
-   * together or every ability rating silently freezes.
-   *
-   * Nothing reads a lifetime Mind figure in the meantime: the character sheet
-   * and the solo board both render 0 for it, which is the same "unearned"
-   * reading an unstarted stat already gets.
+   * `mnd_total`, not `mind_total`. The rollup column is spelled to match the
+   * `CoreStat` id while the score column it sums is `daily_scores.mind_points`
+   * — a deliberate split that has already produced one live bug, so read the
+   * name rather than deriving it. `end_total` and `vit_total` were dropped
+   * with deviation #41's contract migration.
    */
+  mnd_total: number;
   /**
    * Observed by `sync-health` from the presence of sleep data, not claimed by
    * the client — the column has no client write grant.
@@ -85,7 +81,7 @@ export function useProfile(userId: string | undefined) {
         .from('profiles')
         .select(
           'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
-            'agi_total, str_total, ' +
+            'agi_total, str_total, mnd_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
             'trains_run, trains_strength, species',
         )

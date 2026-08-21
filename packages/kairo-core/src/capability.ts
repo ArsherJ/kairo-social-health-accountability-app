@@ -41,6 +41,14 @@ export const SLEEP_CAPABILITY_WINDOW_DAYS = 14;
  * (§20) it was always documented to be.
  *
  * Lexicographic comparison is exact for this format.
+ *
+ * `today` is **the date being scored**, not wall-clock today. On a live sync
+ * they are the same and the distinction is invisible; on a backfill or a
+ * replay they are not, and using wall-clock today is a real breach rather
+ * than an approximation: sleep on the scored date still makes MND score,
+ * while an empty recent window drops `earnableStats` to 2, and the day pays
+ * 6,200 against a 4,400 ceiling. `contributing_stats` is 3, so the check
+ * constraint passes it. Nothing downstream would notice.
  */
 export function hasSleepCapability(
   scoringSleepDates: readonly string[],

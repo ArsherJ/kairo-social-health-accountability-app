@@ -108,6 +108,23 @@ All four core competitive stats are phone-only, passive, and automatic.
 | Hourly Movement Consistency | VIT | Step pattern across day | ✅ Yes | 🟢 Hard |
 | Sleep Duration | REC | Wearable only (bonus) | ❌ Wearable needed | 🟢 Hard |
 
+> **Build note (2026-08-20, roadmap deviation #41). This table and the two
+> sections under it are superseded, and are kept because they are the record of
+> why the four-stat model existed.** Kairo scores **three** stats: `AGI`
+> (steps), `STR` (active calories) and `MND` (sleep). END folded into STR and
+> VIT into AGI as **threshold shifts** — active hours lower AGI's bands, verified
+> workout minutes lower STR's, 5% a step to a 25% cap — so both signals survive
+> as generosity rather than as points, and neither is measured any less:
+> `VIT_ACTIVE_HOUR_STEPS` (250) still decides an active hour. The fold is about
+> what the stats measured, not about the number four — `AppleExerciseTime` and
+> active calories are two readings of the same effort, and active hours are a
+> second pass over the step stream AGI already scores.
+>
+> **A shift is never a multiplier.** A stored multiplier stacks with the squad
+> program's read-time ×1.5, which is the trap deviation #10 already had to
+> retire the featured-stat rotation over. Making the *band* easier cannot
+> stack.
+
 ### Why VIT Became Hourly Movement (Not Sleep)
 
 VIT measures how consistently you moved throughout your waking hours — specifically how many hours in the day had at least 250 steps recorded. This is actually a stronger health signal than sleep duration: sedentary behavior across the day is one of the most significant predictors of long-term health decline, regardless of how much you exercise in one session.
@@ -115,6 +132,23 @@ VIT measures how consistently you moved throughout your waking hours — specifi
 A person who did a 2-hour gym session then sat for 10 hours scores lower VIT than someone who moved every hour consistently. This creates genuine behavioral change, not just workout logging.
 
 ### REC — Recovery (Wearable Bonus, Not Competitive Requirement)
+
+> **Build note (2026-08-20, roadmap deviation #41).** Sleep is a **stat**, not a
+> bonus: `MND`, scoring on the same Bronze/Silver/Gold ladder as the other two
+> at 5h / 6h / 7h, and paying **Bronze rather than nothing** above nine hours,
+> which preserves this section's "a bonus, never a penalty" reading of
+> oversleep. The wearable argument below is the one thing this promotion had to
+> answer, and the answer is **normalization**: a day's stat points scale by
+> `3 / earnable stats`, so a phone-only Gold + Gold equals a wearable user's
+> Gold + Gold + Gold and both ceilings are 4,400. Stated plainly, since it will
+> otherwise read as a nerf — the wearable ceiling *falls* from 4,900 to 4,400
+> and a wearable confers no raw scoring advantage. What it buys is a third
+> route to the same ceiling: a bad day for steps and burn can still be redeemed
+> by sleep. MND counts as earnable if sleep that scores arrived in the last 14
+> days — not today's data, which would reward not tracking, and not
+> `has_wearable`, which is sticky and would punish abandoning one twice. The 🔗
+> icon below is unaffected and stays exactly what it was, except that a
+> hand-typed night no longer lights it.
 
 Sleep is not removed from the app — it becomes an **optional bonus stat** for wearable users. Apple Watch, Xiaomi Smart Band (₱1,500–₱2,500 on Shopee/Lazada), Fitbit, and Samsung Galaxy Watch all sync sleep data to HealthKit/Health Connect.
 
@@ -178,12 +212,31 @@ Daily reset: 11:59 PM in the user's local timezone
 (not 9 PM like Stompers — that was their #1 reviewed complaint)
 ```
 
+> **Build note (2026-08-20, roadmap deviation #41).** The live formula is:
+>
+> ```
+> Daily Score = round((AGI + STR + MND) x 3 / earnable stats)
+>             + Consistency Bonus (every stat available to you, today)
+>
+> Maximum possible:
+>   Phone only:    (1,200 + 1,200) x 1.5 + 800 = 4,400 pts
+>   With wearable: (1,200 x 3)      x 1.0 + 800 = 4,400 pts
+> ```
+>
+> Tier points re-derived to 250 / 650 / 1,200 so that `4 × 900 = 3 × 1,200`, and
+> the breadth bonus re-indexed to `[0, 0, 400, 800]`. **The daily reset rule
+> below is untouched**, as is everything else in §2 about local days. The
+> scaling factor is stored on `daily_scores.normalization_factor`, because
+> `squad_leaderboard()` re-sums the per-stat columns to weight them and has no
+> other route to it — and because it is the one figure that explains why two
+> users with identical steps and calories scored differently.
+
 ### Squad Data Visibility (v1.3 decision)
 Squadmates see **aggregates and scores only** — never raw step counts, hourly movement patterns, or timestamps.
 
 > **Build note (2026-08-10, roadmap deviation #23).** The per-stat aggregate a squadmate sees is now a numeric **ability rating** rather than a Bronze/Silver/Gold tier. The tiers below still score every day exactly as this section specifies — they simply stopped being the vocabulary a user reads. The privacy rule is unchanged or stronger: a rating is a lifetime aggregate, so unlike a tier it cannot be inverted to a same-day step range.
 
-VIT's hour-by-hour data reveals when someone sleeps, works, or is sedentary; that stays private to the owner. Competitive information is fully preserved; surveillance vibes and Data Privacy Act exposure are removed.
+VIT's hour-by-hour data reveals when someone sleeps, works, or is sedentary; that stays private to the owner. (VIT stopped being a stat with deviation #41 and the hourly data did not stop being sensitive — it still decides AGI's threshold shift, and it is still owner-only.) Competitive information is fully preserved; surveillance vibes and Data Privacy Act exposure are removed.
 
 ---
 
@@ -213,10 +266,31 @@ Classes affect art only. No stat bonuses. Keeps the game fair.
 | VIT | Vitality | Hourly movement consistency (active hours) |
 | REC | Recovery | Sleep duration — **wearable users only, bonus** |
 
+> **Build note (2026-08-20, roadmap deviation #41).** Three stats: `AGI`
+> (Agility, steps and distance), `STR` (Strength, active calories) and `MND`
+> (Mind, sleep duration). The user-facing word is **Mind**; the code is `MND`
+> everywhere — schema, `tiers` keys, `kairo-core` — while the score column is
+> `daily_scores.mind_points` and the lifetime rollup is `profiles.mnd_total`,
+> a split that is deliberate and documented rather than a typo. END and VIT are
+> retired as stats and survive as threshold shifts; see the note in §5.
+
 ### Contribution Tiers Per Stat (Daily)
 No activity is required. Every stat contributes independently.
 
 > **Build note (2026-08-10, roadmap deviation #23).** These tables are the live scoring engine and are unchanged — `tierFor()` and `TIER_POINTS` implement them exactly, and `daily_scores.tiers` still records the result. **The tier names are internal to scoring and are shown nowhere in the app.** The character sheet and the leaderboard read a per-stat ability rating derived from lifetime points on the same curve as Level; the guidance line names raw units and points ("1,240 more steps for +400 AGI") rather than a rank. A medal describes one day, and the question a character sheet answers is cumulative.
+
+> **Build note (2026-08-20, roadmap deviation #41).** The **bands** below are
+> unchanged for AGI and STR — which is exactly what keeps replayed history
+> comparable — but the **points** are not: Bronze 250, Silver 650, Gold 1,200.
+> The END and VIT tables are retired; their ladders became the shift constants
+> (VIT's 3/6/9 is now AGI's 5%-per-active-hour-past-3, END's 60-minute Gold is
+> now STR's 25% cap at 60 verified minutes). `MND` joins them at 5h Bronze, 6h
+> Silver, 7h Gold, and pays **Bronze above nine hours** rather than nothing.
+> One thing the bands no longer tell you on their own: a shift can lower AGI's
+> and STR's whole ladder by up to a quarter for the day, so the tier stored in
+> `daily_scores.tiers` is the *shifted* one. The Daily Walk reads
+> `tiers->>'AGI_base'`, the unshifted ladder, because a public-health baseline
+> must not scale with the user.
 
 **AGI — Steps**
 | Tier | Steps | Score |
@@ -258,6 +332,13 @@ No activity is required. Every stat contributes independently.
 | 3 stats | +400 pts |
 | All 4 stats | +800 pts |
 
+> **Build note (2026-08-20, roadmap deviation #41).** `[0, 0, 400, 800]`, and
+> "full breadth" means **every stat available to you** — two without a sleep
+> source, three with — so a stat you cannot earn counts as covered rather than
+> being held against you. The scenarios below are arithmetic against the
+> retired table and are left as written; the shape of the argument they make is
+> what they are for.
+
 ### Real Scenarios
 **Gym day, low steps:**
 AGI Bronze (200) + STR Gold (900) + END Silver (500) + VIT Silver (500) + 4-stat bonus (800) = **2,900 pts**
@@ -285,9 +366,29 @@ AGI None (0) + STR None (0) + END None (0) + VIT None (0) = **0 pts** — a rest
 | VIT dominant | Recovery glow, healthier skin tone in Rive |
 | Balanced (all within 20% of each other) | Rare "All-Rounder" visual — cannot be bought, must be earned |
 
+> **Build note (2026-08-20, roadmap deviation #41).** Three rows now. AGI and
+> STR are as described; **MND inherits the VIT row's recovery build**, since
+> this table was written before sleep was a stat and "recovery glow" is the
+> nearest thing it describes. The END row is retired. The All-Rounder rule is
+> unchanged and is written over `CORE_STATS` in `dominance.ts`, so the count is
+> never restated in two places. What the app actually draws is the ground
+> shadow's tint and the build's proportions rather than an aura — see
+> `CharacterFigure.tsx` — and dominance is read over the last 14 days, not
+> lifetime.
+
 The All-Rounder visual is a permanent status flex that rewards consistency over specialization. Visible to entire squad. Creates a long-term goal visible on others' characters.
 
 ### Weekly Specialization Layer
+
+> **Build note (2026-08-20, roadmap deviations #10 and #41). This section
+> describes a mechanic Kairo does not have.** The featured-stat rotation was
+> pulled out of stored scoring by deviation #10 — a featured week stacked with
+> a squad program's ×1.5 and paid 2.25x — and the ×1.5 that survives is the
+> squad's own **program**, applied at read time only. With three stats those
+> programs are `all_around`, `running` and `walking` (both → AGI), `strength`
+> (→ STR) and `recovery` (→ MND, new with #41 and the first program a person
+> can play without moving). An END week is not merely retired but unbuildable.
+
 Each Monday, Kairo announces a **featured stat** earning 1.5× score for the full week:
 - Week 1: AGI Week — steps and distance worth more
 - Week 2: STR Week — calories worth more

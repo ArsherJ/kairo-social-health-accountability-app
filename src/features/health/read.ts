@@ -2,10 +2,15 @@ import {
   queryCategorySamples,
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
+  type WorkoutProxyTyped,
 } from '@kingstinct/react-native-healthkit';
 import { currentLocalDate, dayEndUtc, dayStartUtc } from '@kairo/core';
 import { hourlySampleInstants } from './intervals.ts';
-import { sleepMinutesByDate, type SleepSegment } from './sleep-attribution.ts';
+import {
+  sleepMinutesByDate,
+  type SleepNight,
+  type SleepSegment,
+} from './sleep-attribution.ts';
 import { kcalFrom, metresFrom, secondsFrom } from './workout-units.ts';
 import type { HealthMetric, HourlyReading } from './hourly-buckets.ts';
 import type { SyncWindow } from './sync-window.ts';
@@ -25,6 +30,12 @@ export interface WorkoutSessionReading {
   durationS: number;
   distanceM: number;
   activeKcal: number;
+  /** `sourceRevision.source.bundleIdentifier`, untranslated. The server holds the allowlist. */
+  sourceBundleId: string | null;
+  /** Apple's `HKWasUserEntered`. Undefined reads as false — absent is not a claim of manual entry. */
+  wasUserEntered: boolean;
+  /** Whether the session carried heart-rate samples. Manual entry never does. */
+  hasHeartRateEvidence: boolean;
 }
 
 /**
@@ -79,6 +90,31 @@ function finite(value: number | undefined): number {
   return value !== undefined && Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * Whether one workout carried heart-rate samples.
+ *
+ * Evidence is **presence**, not a value: a statistic that exists means the
+ * session was recorded by something measuring a wrist, and manual entry never
+ * produces one. Nothing here judges what that implies — §3's rule that a
+ * verified workout needs an allowlisted source *and* this flag is applied
+ * server-side in `scoring-inputs.ts`.
+ *
+ * Wrapped because this is the one per-session native round trip in the file
+ * and it is made once per workout: a single unreadable session must not fail
+ * the whole sync, which also carries the day's steps. An unreadable workout is
+ * **inert** — false, therefore unverified, therefore shifting nothing. Never
+ * trusted. Same posture as `workout-units.ts` meeting a unit it cannot convert:
+ * inert beats wrong.
+ */
+async function hasHeartRateSamples(workout: WorkoutProxyTyped): Promise<boolean> {
+  try {
+    const statistic = await workout.getStatistic('HKQuantityTypeIdentifierHeartRate');
+    return statistic != null;
+  } catch {
+    return false;
+  }
+}
+
 export interface HealthReadResult {
   readings: HourlyReading[];
   /**
@@ -87,7 +123,7 @@ export interface HealthReadResult {
    * anti-cheat uses is still in `readings` and is unaffected.
    */
   sessions: WorkoutSessionReading[];
-  sleep: Array<{ localDate: string; minutes: number }>;
+  sleep: SleepNight[];
   /** One per local day that had a reading. Wearable users only. */
   restingHeartRate: Array<{ localDate: string; bpm: number }>;
 }
@@ -273,6 +309,11 @@ export async function readHealthWindow(
     // see `workout-units.ts`. An unconvertible unit becomes 0, which makes the
     // session non-qualifying for a Challenge instead of feeding it a distance
     // in the wrong unit.
+    //
+    // The three origin fields are read the same way — flattened, never judged.
+    // The bundle identifier goes over the wire untranslated because the
+    // allowlist lives server-side (§3): a client that decided its own
+    // verification would be deciding its own score.
     sessions.push({
       hkUuid: workout.uuid,
       localDate: currentLocalDate(workout.startDate, timeZone),
@@ -282,6 +323,24 @@ export async function readHealthWindow(
       durationS: Math.round(secondsFrom(workout.duration) ?? 0),
       distanceM: metresFrom(workout.totalDistance) ?? 0,
       activeKcal: kcalFrom(workout.totalEnergyBurned) ?? 0,
+      // Optional-chained and coalesced although the typings promise both are
+      // present: this is a native boundary, and the whole sync — steps
+      // included — dies on a property read against an undefined object. Same
+      // reasoning as the try/catch above; the honest fallback is no evidence.
+      //
+      // `|| null` rather than `?? null`, so an **empty** identifier is inert
+      // too. The validator refuses `''` deliberately — a bundle id that is
+      // present and blank is malformed, and the client should stop producing
+      // it rather than the server start tolerating it — but the validator's
+      // refusal rejects the *whole request*, and this repo has already lost
+      // two days of scoring to a sync that failed after its bucket upsert had
+      // committed. An odd identifier costs a workout its STR shift; it must
+      // not cost the day its steps.
+      sourceBundleId: workout.sourceRevision?.source?.bundleIdentifier || null,
+      // `HKWasUserEntered` is `boolean | undefined`. Undefined is absence of a
+      // flag, not a flag set to false, and both mean the same thing here.
+      wasUserEntered: workout.metadata?.HKWasUserEntered === true,
+      hasHeartRateEvidence: await hasHeartRateSamples(workout),
     });
   }
 
@@ -302,6 +361,12 @@ export async function readHealthWindow(
     startMs: s.startDate.getTime(),
     endMs: s.endDate.getTime(),
     value: s.value as unknown as number,
+    // Carried per segment rather than per night, because attribution merges
+    // segments across sources and the verdict has to survive that merge —
+    // `sleep-attribution.ts` decides, this only reports. Optional-chained for
+    // the reason the workout loop is: a missing metadata map must not take
+    // down a sync that also carries the day's steps.
+    wasUserEntered: s.metadata?.HKWasUserEntered === true,
   }));
 
   // Resting heart rate is a per-day figure Apple derives itself from overnight

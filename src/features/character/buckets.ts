@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { aggregateBuckets, currentLocalDate, type DayTotals, type HourBucket } from '@kairo/core';
 import { supabase } from '@/lib/supabase.ts';
+import { scoredSleepMinutes, type DailySleepVitalsRow } from './sleep-vitals.ts';
 
 export function todayBucketsKey(
   userId: string | undefined,
@@ -92,6 +93,13 @@ export function todayVitalsKey(
 /** The two per-day wearable figures. Both absent is the phone-only case. */
 export interface TodayVitals {
   restingHr: number | null;
+  /**
+   * **Gated, not raw.** Null for a hand-typed night as well as for no night at
+   * all, because that is what the day scored — see `sleep-vitals.ts`. Both
+   * consumers on the home screen (`resolveStatDetail`'s Mind gap and
+   * `TodayPanel`'s sleep row) read this one field, which is why the gate is
+   * here and not on either of them.
+   */
   sleepMinutes: number | null;
 }
 
@@ -123,7 +131,12 @@ export function useTodayVitals(userId: string | undefined, timeZone: string | un
           .maybeSingle(),
         supabase
           .from('daily_sleep')
-          .select('minutes')
+          // `was_user_entered` is selected because the score reads it. A
+          // hand-typed night is stored with its minutes intact and scored at
+          // zero, so a client selecting `minutes` alone reports progress the
+          // day does not have — `scoredSleepMinutes` is the same gate the
+          // Edge Function applies.
+          .select('minutes, was_user_entered')
           .eq('user_id', userId as string)
           .eq('local_date', localDate as string)
           .maybeSingle(),
@@ -136,7 +149,7 @@ export function useTodayVitals(userId: string | undefined, timeZone: string | un
 
       return {
         restingHr: (heart.data as { resting_hr: number } | null)?.resting_hr ?? null,
-        sleepMinutes: (sleep.data as { minutes: number } | null)?.minutes ?? null,
+        sleepMinutes: scoredSleepMinutes(sleep.data as DailySleepVitalsRow | null),
       };
     },
   });

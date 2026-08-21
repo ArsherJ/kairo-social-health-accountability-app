@@ -90,6 +90,9 @@ export interface DailyScoreInput {
    * `daily_sleep` (`hasSleepCapability`), which is I/O and a clock — neither of
    * which may enter this package. `earnableStats()` in `capability.ts` is where
    * the number comes from.
+   *
+   * Derived from `hasSleepCapability` against **the date being scored** — see
+   * the note there.
    */
   earnableStats?: number;
   /**

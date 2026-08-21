@@ -11,6 +11,7 @@ import {
 } from '@kairo/core';
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { TrainEntry } from '@/features/train/TrainEntry.tsx';
+import { useWorkoutSessions } from '@/features/train/queries.ts';
 import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
@@ -27,7 +28,11 @@ import {
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { resolveStanding, type Standing } from '@/features/character/standing.ts';
-import { resolveStatDetail, type StatDetail } from '@/features/character/stat-detail.ts';
+import {
+  resolveStatDetail,
+  workoutDaySignal,
+  type StatDetail,
+} from '@/features/character/stat-detail.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -157,6 +162,18 @@ function detailCopy(detail: StatDetail): string | null {
       return null;
     case 'maxed':
       return 'Every stat is maxed for today.';
+    case 'unquantified': {
+      // Strength is the only thing left to ask for and today carries a
+      // workout, so the bands it will be judged against are lower than the
+      // ones this screen can compute — by up to a quarter. Naming the lever
+      // and no figure is the one honest sentence available: "150 more kcal"
+      // would be the unshifted number, and arriving early reads as a broken
+      // score. Same clause · clause shape as the lines around it.
+      const name = STAT_NAMES[detail.stat];
+      return detail.lane
+        ? `Your lane · active calories lift your ${name} today.`
+        : `Active calories lift your ${name} today.`;
+    }
     case 'gap': {
       // Named in raw units and in what the effort *achieves* — never in points
       // and never in tier names. This line has carried three vocabularies:
@@ -209,6 +226,16 @@ export default function Character() {
   // a user who just connected a watch would otherwise wait a render for it.
   const vitals = useTodayVitals(session?.user.id, profile.data?.timezone);
   const streak = useStreak(session?.user.id);
+  // Mounted here for the guidance line, not for the TRAIN card: whether today
+  // carries a workout decides whether Strength's gap can be quoted at all
+  // (`resolveStatDetail`), and that is true at every disclosure stage, while
+  // `TrainEntry` below only renders at `full`. TanStack shares the cache on
+  // `sessionsKey`, so the two mounts are one request.
+  //
+  // Existence only. Nothing here reads a column `useWorkoutSessions` does not
+  // already select — §5's owner-only posture on `workout_sessions` is why the
+  // fix is silence rather than a corrected number.
+  const sessions = useWorkoutSessions(session?.user.id, profile.data?.timezone);
 
   // What this account is allowed to see yet (§5). Everything gated below stays
   // built and reachable — this decides whether it is on screen, nothing more.
@@ -229,6 +256,11 @@ export default function Character() {
   const xp = xpProgress(totalXp);
   const today = score.data;
   const userId = session?.user.id;
+  // The user's own calendar date. One computation the cards below share —
+  // `today` above is already taken, and it is the score row, not a date.
+  const localToday = profile.data?.timezone
+    ? currentLocalDate(new Date(), profile.data.timezone)
+    : undefined;
 
   // Guarded on total > 0 so a day that synced as zeros — a rest day, a phone
   // left at home — does not count as having seen progress.
@@ -263,16 +295,16 @@ export default function Character() {
   // profile loads — `ratingForStatPoints` floors at 1, so an unloaded rail says
   // the same thing a brand-new character's does rather than flashing a dash.
   //
-  // MND reads 0 rather than a lifetime rollup: `profiles` has no `mind_total`
-  // column yet (only `daily_scores.mind_points` exists so far — the rollup
-  // column and its trigger are Phase 3, alongside retiring `end_total` and
-  // `vit_total`), so there is nothing real to read. 0 is the same "unearned"
-  // reading the coin already gives a stat with no lifetime points, and every
-  // Mind rating therefore sits at its floor until that migration lands.
+  // Three rollups, matching CoreStat. MND read a hardcoded 0 between the
+  // column landing and this wiring, which is the same figure a stat with no
+  // lifetime points shows — so the rail could not distinguish "never slept"
+  // from "never read", and the second failure looks exactly like the first.
+  // `mnd_total`, not `mind_total`: the rollup is spelled for the stat, the
+  // score column it sums is `mind_points`, and that split has cost a bug.
   const lifetime: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,
-    MND: 0,
+    MND: profile.data.mnd_total,
   };
 
   // No featured stat any more. The redesign branch still had §6's weekly ×1.5
@@ -302,6 +334,11 @@ export default function Character() {
     // keeps a third of the stat model from silently vanishing out of the one
     // line that tells someone what to do next.
     sleepMinutes: vitals.data?.sleepMinutes,
+    // Not the minutes — those need three trust columns this app deliberately
+    // does not read — but whether there is a workout at all, which is enough
+    // to know that Strength's bands may have moved and that quoting them
+    // would be a guess. In flight reads `'unknown'` and silences the same way.
+    workoutDay: workoutDaySignal(sessions.data, localToday),
     lane,
   });
 
@@ -558,11 +595,7 @@ export default function Character() {
             hasWearable={
               disclosure.stage === 'full' && (profile.data?.has_wearable ?? false)
             }
-            today={
-              profile.data?.timezone
-                ? currentLocalDate(new Date(), profile.data.timezone)
-                : undefined
-            }
+            today={localToday}
           />
 
           {/* Deliberately outside the panel's own null guard: an empty TODAY
@@ -613,11 +646,7 @@ export default function Character() {
           <DailyWalkCard
             userId={session?.user.id}
             timeZone={profile.data?.timezone}
-            today={
-              profile.data?.timezone
-                ? currentLocalDate(new Date(), profile.data.timezone)
-                : undefined
-            }
+            today={localToday}
             todaySteps={buckets.data?.totals?.steps}
           />
 
@@ -652,11 +681,7 @@ export default function Character() {
             <TrainEntry
               userId={session?.user.id}
               timeZone={profile.data?.timezone}
-              today={
-                profile.data?.timezone
-                  ? currentLocalDate(new Date(), profile.data.timezone)
-                  : undefined
-              }
+              today={localToday}
             />
           )}
 
@@ -666,11 +691,7 @@ export default function Character() {
           {disclosure.stage === 'full' && (
             <GoalCard
               userId={session?.user.id}
-              today={
-                profile.data?.timezone
-                  ? currentLocalDate(new Date(), profile.data.timezone)
-                  : undefined
-              }
+              today={localToday}
               onSetGoal={() => router.push('/goal/new')}
             />
           )}

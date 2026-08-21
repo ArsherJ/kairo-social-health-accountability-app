@@ -13,14 +13,6 @@
  * `squad.ts`). Both sides carry a cross-reference comment, and a differential
  * test in the schema suite asserts the two agree on fixture days, the same way
  * `finalizable_days()` and `isFinalizable()` are kept honest.
- *
- * **One half of that mirror is knowingly incomplete until Phase 3.**
- * `program_weighted_total()` takes `p_agi, p_str, p_end, p_vit, p_rec` and has
- * no `p_mind`, so the `recovery` program's MND boost cannot be expressed in
- * SQL yet — the parameter list changes with the column drop, and doing it here
- * would mean recreating `squad_leaderboard()` in a migration Phase 2 has
- * deliberately not applied. The differential test pins the two sides on
- * everything both can express and says so where it passes MND as 0.
  */
 
 import { CORE_STATS, type CoreStat } from './types.ts';
@@ -129,16 +121,31 @@ export interface WeightedBoardInput {
   statPoints: Record<CoreStat, number>;
   consistencyBonus: number;
   /**
-   * `daily_scores.rec_points`, which still exists.
+   * A universal bonus with no column behind it since deviation #41.
    *
-   * The REC *bonus* is gone from scoring — deviation #41 promoted sleep to
-   * MND, and nothing writes a non-zero value here any more. The field stays
-   * because the SQL mirror still sums the column and the differential test
-   * compares the two expressions: dropping it on one side only would be a
-   * divergence the test cannot see. Phase 3 drops the column, this field, and
-   * `program_weighted_total`'s `p_rec` together.
+   * The REC bonus is gone from scoring — sleep became the MND stat — and
+   * `daily_scores.rec_points` was dropped by `20260819150000`, so
+   * `squad_leaderboard()` passes a literal 0. The field stays, and so does
+   * `program_weighted_total`'s `p_rec`, because the two expressions are
+   * compared term by term by the differential test in
+   * `supabase/tests/schema.test.ts`: dropping it on one side only would be a
+   * divergence that test cannot see, and dropping it on both is another
+   * signature change — which, for a Postgres function, is a drop and a
+   * recreate of this function and of `squad_leaderboard()` on top of it.
+   * A term §5 can refill without any of that is worth its zero.
    */
   recBonus: number;
+  /**
+   * `daily_scores.normalization_factor` — §2's `3 / earnable stats`.
+   *
+   * An input rather than something derived here, because the board is read
+   * time: the row being ranked was scored under whatever capability its owner
+   * had that day, and recomputing the factor now would rescore history every
+   * time someone buys or abandons a wearable. `daily_scores` stores it for the
+   * same reason this function needs it — `squad_leaderboard()` re-sums the
+   * per-stat columns to weight them and has no other route to the figure.
+   */
+  normalizationFactor: number;
 }
 
 /**
@@ -159,7 +166,16 @@ export function weightedBoardTotal(input: WeightedBoardInput): number {
     weighted += input.statPoints[stat] * programWeight(input.program, stat);
   }
 
-  const total = Math.round(weighted) + input.consistencyBonus + input.recBonus;
+  // Normalization multiplies the weighted sum and is rounded once, at the
+  // end — the same shape as computeDailyScore, so the board and the stored
+  // total cannot drift by a rounding step. The consistency bonus is outside
+  // it for the same reason it is outside normalization in scoring:
+  // breadthBonus already accounts for earnable stats, and scaling it here
+  // would apply one correction twice.
+  const total =
+    Math.round(weighted * input.normalizationFactor) +
+    input.consistencyBonus +
+    input.recBonus;
 
   return Math.max(0, total);
 }
