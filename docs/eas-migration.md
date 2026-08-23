@@ -73,6 +73,9 @@ eas build:version:set --platform ios --profile ios-production
 
 ## 3. Gate A — build the committed iOS project
 
+**Passed 2026-08-23:** EAS build 20 was processed as valid in TestFlight, and
+the device checklist below passed in full.
+
 Leave `ios/` tracked and do not create `.easignore` yet. Build and submit:
 
 ```bash
@@ -91,6 +94,9 @@ push entitlement, and the universal invite link. A green cloud build alone is
 not this gate.
 
 ## 4. Gate B — prove CNG
+
+**In progress 2026-08-23:** Gate A passed and the reviewed `.easignore` is now
+active, so the next EAS build is generated from Expo config and config plugins.
 
 After Gate A passes, copy `docs/easignore-cng.template` to `.easignore`. Its
 `/ios/` and `/android/` entries make EAS generate both projects from

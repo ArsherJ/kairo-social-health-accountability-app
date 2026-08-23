@@ -46,4 +46,19 @@ describe('EAS migration profiles', () => {
       ios: { ascAppId: '6800990955' },
     });
   });
+
+  it('activates the reviewed CNG upload boundary after Gate A', () => {
+    const activeIgnore = readFileSync(
+      new URL('../../.easignore', import.meta.url),
+      'utf8',
+    );
+    const reviewedTemplate = readFileSync(
+      new URL('../../docs/easignore-cng.template', import.meta.url),
+      'utf8',
+    );
+
+    expect(activeIgnore).toBe(reviewedTemplate);
+    expect(activeIgnore).toContain('\n/ios/\n/android/\n');
+    expect(activeIgnore).toContain('\n.env\n.env.*\n');
+  });
 });
