@@ -354,7 +354,7 @@ npx vitest run --config vitest.config.ts -t "Streak Shield"
 
 # app
 npm run ios              # build + run on simulator (needs Xcode + CocoaPods)
-npm run prebuild         # regenerate ios/ from app.config.ts — then COMMIT ios/ (see below)
+npm run prebuild         # regenerate ignored native projects from app.config.ts/plugins; never commit them
 
 # backend
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project

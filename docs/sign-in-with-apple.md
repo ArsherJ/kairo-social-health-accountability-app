@@ -1,7 +1,9 @@
 # Sign in with Apple
 
-**Status (2026-08-12): app side built, App ID registered, client secret
-installed. What remains is the device test.**
+**Status (2026-08-23): complete.** The app side, App ID and client secret are
+configured, and Sign in with Apple passed on a real device in EAS iOS build 21
+(`7b0bd494-4a00-4c5e-b789-d4746c9b02f4`), submitted as
+`98475e53-dcf4-4b00-833a-086ded67c3d6`.
 
 Live configuration, for the record: App ID `com.arsherj.kairo`, Sign in with
 Apple key `2LBN6YJCCS`, team `8C53KVSFWK`, and the project's
@@ -9,8 +11,8 @@ Apple key `2LBN6YJCCS`, team `8C53KVSFWK`, and the project's
 client secret expires 2027-02-08.**
 
 Apple Developer Program enrolment came through, which was the blocker. This
-document was a plan; it is now a runbook, and the checklist at the bottom is the
-thing to work through.
+document was a plan; it is now the operating runbook, with a regression
+checklist at the bottom for future credential or provider changes.
 
 ## What is done
 
@@ -25,13 +27,14 @@ thing to work through.
 | Client-secret minting | `npm run apple-secret` |
 | App ID + capabilities registered | done 2026-08-12 |
 | Client secret installed on the project | done 2026-08-12, expires **2027-02-08** |
+| Real-device Sign in with Apple | passed 2026-08-23 in EAS iOS build 21 |
 | Account deletion, which Apple requires | `delete_account()`, `app/delete-account.tsx` |
 
-## The setup, and what is left
+## The setup, and how to repeat it
 
 Steps 1–3 were done on 2026-08-12 and are kept as the record of what was
-configured and why — you will need them again when the secret expires. **Step 5
-is the only one still open.**
+configured and why — the secret-minting step is needed again when the current
+secret expires. Steps 4–5 were verified through EAS/TestFlight on 2026-08-23.
 
 ### 1. Register the App ID, with all three capabilities ✅
 
@@ -129,8 +132,8 @@ for every user at once with no code change to blame — structurally the same
 silent failure as the August 2026 deployment gap, and just as hard to attribute
 after the fact. Re-running the script with the same key mints a fresh one.
 
-**Nothing here can be verified before the device test, and the check that looks
-like it would is a trap.** Posting a bogus authorization code to
+**The first complete verification required a device test, and the check that
+looks like a shortcut is a trap.** Posting a bogus authorization code to
 `https://appleid.apple.com/auth/token` appears to separate `invalid_client`
 (bad secret) from `invalid_grant` (secret fine, code refused). Measured on
 2026-08-12, it does not: a wrong Team ID, a wrong Key ID, a valid secret sent
@@ -145,21 +148,29 @@ the same warning so it does not get re-added.
 ### 4. Rebuild natively ✅
 
 ```bash
-npm run prebuild                # regenerates ios/, writes the entitlement
-npx expo run:ios --device       # not `npm run ios`, which targets the simulator
+npm run prebuild                       # optional local generation; native output stays ignored
+npm run eas:build:ios:production       # production build + TestFlight submission
 ```
 
-The entitlement is native. A JS reload will not pick it up.
+The entitlement is native. A JS reload will not pick it up. `app.config.ts` and
+the project-owned config plugins are the source of truth; local prebuild and EAS
+CNG regenerate the ignored native projects from those inputs.
 
-**Device builds need two things Xcode reports as one error.** The team is
-`ios.appleTeamId` in `app.config.ts` (`8C53KVSFWK`) — it lives there rather than
-in Xcode's UI because `prebuild --clean` deletes `ios/` and takes any UI setting
-with it. The signing certificate is per-machine and cannot live in config:
-Xcode → Settings → Accounts → `+` → Apple ID, then Manage Certificates… → `+`
-→ Apple Development. `security find-identity -v -p codesigning` says whether
-that half is done.
+**Local Xcode device builds need two things Xcode reports as one error.** The
+team is `ios.appleTeamId` in `app.config.ts` (`8C53KVSFWK`) — it lives there
+rather than in Xcode's UI because `prebuild --clean` deletes `ios/` and takes
+any UI setting with it. The signing certificate is per-machine and cannot live
+in config: Xcode → Settings → Accounts → `+` → Apple ID, then Manage
+Certificates… → `+` → Apple Development. `security find-identity -v -p
+codesigning` says whether that half is done. EAS manages the distribution
+credentials for the production TestFlight path.
 
-### 5. Verify on a real device ⬜ — the only step left
+### 5. Verify on a real device ✅
+
+Completed 2026-08-23 through TestFlight build 21. The device pass confirmed
+Sign in with Apple against the production provider configuration; the EAS build
+and submission IDs are recorded in the status above and in the
+[EAS migration runbook](./eas-migration.md).
 
 Sign in with Apple wants a device signed into an Apple ID; the simulator
 generally throws `ERR_REQUEST_UNKNOWN`, which `apple-error.ts` renders as
@@ -198,17 +209,19 @@ against Kairo's Supabase project.
   That half is done: `delete_account()` and `app/delete-account.tsx`, migration
   `20260811140000`.
 
-## Verify before calling it done
+## Regression checklist
 
-On a real device, in a Release build:
+Gate B completed the real-device release verification. After rotating auth
+credentials or changing the provider flow, exercise the relevant cases below
+on a real device in a Release build:
 
-- [ ] First sign-in, granting name and email.
-- [ ] Force-quit and relaunch — the session restores.
-- [ ] Token refresh across an expiry.
-- [ ] Sign out, then sign in again — the same `auth.users` row, the same character.
-- [ ] Cancel the Apple sheet — the screen is unchanged, with no error shown.
-- [ ] Revoke Kairo from the Apple ID settings, then sign in again.
-- [ ] Delete the account in-app, then sign in again — a *new* character, not the
-      old one resurrected.
-- [ ] Confirm the anonymous provider does not appear, and neither does the
-      "Development build" label above it.
+- First sign-in, granting name and email.
+- Force-quit and relaunch — the session restores.
+- Token refresh across an expiry.
+- Sign out, then sign in again — the same `auth.users` row, the same character.
+- Cancel the Apple sheet — the screen is unchanged, with no error shown.
+- Revoke Kairo from the Apple ID settings, then sign in again.
+- Delete the account in-app, then sign in again — a *new* character, not the old
+  one resurrected.
+- Confirm the anonymous provider does not appear, and neither does the
+  "Development build" label above it.
