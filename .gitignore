@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .expo/
+.worktrees/
 
 # ios/ is COMMITTED so Xcode Cloud can resolve a scheme — it configures a
 # workflow against a scheme in a project that exists in the repo, and cannot
