@@ -378,6 +378,8 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **`ios/` and `android/` are generated and ignored as of 2026-08-23** (roadmap deviation #42). `app.config.ts` and the project-owned config plugins are the only native source of truth. EAS uses Continuous Native Generation for remote builds; `npm run prebuild` materialises the same inputs for local simulator/Xcode work, and `postprebuild` restores the machine-local `ios/.xcode.env.local`. Never commit or depend on a hand-edit under a generated native directory — it disappears on the next clean generation. EAS environment variables supply the JS-side `extra` and `EXPO_PUBLIC_*` values during the remote build.
 
+**EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, and a generated target frameworks script embeds `ExpoModulesJSI.framework`. These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
+
 **React Native core is built from source as of 2026-08-13** (roadmap deviation #29),
 via `plugins/withReactNativeFromSource.js` → `ios.buildReactNativeFromSource`. This is
 not a preference: Meta's prebuilt `React.xcframework` is compiled against libc++ 19,
@@ -385,8 +387,9 @@ CocoaPods compiles `ExpoModulesCore` against the installed Xcode's libc++ 21, an
 two disagree about `sizeof(ShadowNodeFamily)` by 64 bytes — so every Expo view
 overflows its own heap block and the app dies before the first frame. Headers are
 byte-identical; nothing warns. **Do not re-enable prebuilts to speed up CI** —
-the config plugin is the durable CNG input and build 21 verified it on the
-generated native project.
+the config plugin is the durable CNG input, build 21 verified it on the generated
+native project, and the post-install outcome guard fails every later EAS iOS
+build if the prebuilt pod returns.
 The debugging lesson is the durable part: the crash surfaced as
 `-[RCTComponentViewFactory createComponentViewWithComponentHandle:]`, which reads as
 an unregistered Fabric component and is not one. A crash signature that **varies

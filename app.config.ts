@@ -8,10 +8,12 @@ import { INVITE_HOST } from './src/features/squad/invite-link.ts';
 /**
  * Kairo — Expo app config.
  *
- * The HealthKit plugin's `background: true` is load-bearing, not optional. It
- * adds the background-delivery entitlement and registers observer queries in
- * didFinishLaunchingWithOptions the way Apple requires. Background sync is free
- * for every user (spec §12), and the real-time leaderboard depends on it.
+ * The HealthKit plugin's `background: true` is load-bearing, not optional: it
+ * adds the background-delivery entitlement. The project-owned
+ * `withHealthKitBackgroundObservers` plugin separately injects observer
+ * registration into didFinishLaunchingWithOptions the way Apple requires.
+ * Background sync is free for every user (spec §12), and the real-time
+ * leaderboard depends on it.
  *
  * The matching capability must ALSO be enabled on the App ID in the Apple
  * Developer portal. Without it the build installs fine and silently returns no
@@ -138,8 +140,8 @@ const config: ExpoConfig = {
       // TestFlight is production distribution, so `production` is what it
       // should say. This does not by itself prove push works — Expo's service
       // relays to both APNs environments — which is why
-      // `NotificationSettingsCard` reads the value back off the running device
-      // rather than leaving it as an inference about the archive.
+      // `NotificationSettingsCard` reports whether push-token registration
+      // succeeded rather than trying to read `aps-environment` at runtime.
       'expo-notifications',
       { mode: 'production' },
     ],

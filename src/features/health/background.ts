@@ -7,27 +7,21 @@ import {
 /**
  * Observer queries and background delivery.
  *
- * ## Status: registration is written, delivery is NOT verified
+ * ## Status: generated and verified 2026-08-23
  *
  * Two separate things have to be true for a terminated app to be woken by
- * HealthKit, and only one of them currently is:
+ * HealthKit, and both now come from Expo config rather than native hand-edits:
  *
- * 1. **The entitlement.** Present — `app.config.ts` passes `background: true`
- *    and `ios/Kairo/Kairo.entitlements` carries
- *    `com.apple.developer.healthkit.background-delivery`.
- * 2. **Observer registration in `didFinishLaunchingWithOptions`.** *Missing.*
- *    The library's Expo plugin runs only `withEntitlementsPlist` and
- *    `withInfoPlist` — it does not patch the AppDelegate — and nothing in the
- *    pod self-registers. `BackgroundDeliveryManager.swift`'s own docstring says
- *    `setupBackgroundObservers()` must be called from the AppDelegate, and
- *    `ios/Kairo/AppDelegate.swift` contains no HealthKit reference at all.
+ * 1. **The entitlement.** `app.config.ts` passes `background: true` to the
+ *    HealthKit plugin.
+ * 2. **Observer registration in `didFinishLaunchingWithOptions`.** The
+ *    project-owned `withHealthKitBackgroundObservers` plugin injects
+ *    `setupBackgroundObservers()` into the generated AppDelegate.
  *
- * So today `configureBackgroundTypes` persists its configuration and registers
- * observers *for the running process*. Foreground and backgrounded-but-alive
- * sync work. Cold launch from a background delivery does not, until a
- * project-owned config plugin injects that call. Recorded in `docs/roadmap.md`
- * rather than fixed here, because it needs a device to verify and this machine
- * has none.
+ * EAS iOS build 21 was generated with CNG, and its 2026-08-23 device pass
+ * verified foreground and background delivery. `configureBackgroundTypes`
+ * persists the observed types while the injected launch call restores their
+ * native observers when iOS starts the app for a delivery.
  *
  * **Background delivery is best-effort regardless.** The native observer calls
  * iOS's completion handler as soon as JS is notified, not when the sync
