@@ -42,6 +42,8 @@ describe('EAS migration profiles', () => {
   });
 
   it('defines the submit profile used by the main-branch workflow', () => {
-    expect(readEasConfig().submit?.['ios-production']).toBeDefined();
+    expect(readEasConfig().submit?.['ios-production']).toEqual({
+      ios: { ascAppId: '6800990955' },
+    });
   });
 });
