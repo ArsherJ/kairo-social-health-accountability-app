@@ -19,19 +19,19 @@ These values stay unchanged across the account move:
 - Android package: `com.arsherj.kairo`
 - Apple team: `8C53KVSFWK`
 
-The target Expo organization is `kairo-health`, managed from the new Expo user
-`4r.sher`. At the time this runbook was written, `eddytion47` was an Admin of
-that organization but the project still resolved as `@eddytion47/kairo`.
+The EAS project was transferred to `kairo-health` on 2026-08-23 without changing
+its project ID. The organization is managed from the Expo user `4r.sher`, and
+`eddytion47` remains an Admin until both TestFlight gates pass.
 
-## 1. Transfer the existing EAS project
+## 1. Transfer the existing EAS project — completed 2026-08-23
 
 In the Expo dashboard, signed in as `eddytion47`, transfer `kairo` to
 `kairo-health`. Do not create or initialize another project. In the dashboard,
 confirm that the transferred project still has the project ID shown above.
 
 Next, change `owner` in `app.config.ts` from `eddytion47` to `kairo-health`.
-Only after the dashboard transfer and local owner change, sign the CLI in as
-`4r.sher` and verify:
+This repository now contains that change. Only after the dashboard transfer and
+local owner change, sign the CLI in as `4r.sher` and verify:
 
 ```bash
 eas whoami

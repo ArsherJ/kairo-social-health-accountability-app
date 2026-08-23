@@ -28,7 +28,7 @@ import { INVITE_HOST } from './src/features/squad/invite-link.ts';
 const config: ExpoConfig = {
   name: 'Kairo',
   slug: 'kairo',
-  owner: 'eddytion47',
+  owner: 'kairo-health',
   version: '0.1.0',
   orientation: 'portrait',
   // Deep-link scheme. §14 routes eight notification types straight to a screen.
