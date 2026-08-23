@@ -26,8 +26,12 @@ that organization but the project still resolved as `@eddytion47/kairo`.
 ## 1. Transfer the existing EAS project
 
 In the Expo dashboard, signed in as `eddytion47`, transfer `kairo` to
-`kairo-health`. Do not create or initialize another project. Then sign the CLI
-in as `4r.sher` and verify:
+`kairo-health`. Do not create or initialize another project. In the dashboard,
+confirm that the transferred project still has the project ID shown above.
+
+Next, change `owner` in `app.config.ts` from `eddytion47` to `kairo-health`.
+Only after the dashboard transfer and local owner change, sign the CLI in as
+`4r.sher` and verify:
 
 ```bash
 eas whoami
@@ -35,9 +39,9 @@ eas project:info
 ```
 
 The second command must report `@kairo-health/kairo` and the same project ID
-shown above. Only after that verification, change `owner` in `app.config.ts`
-from `eddytion47` to `kairo-health`. Keep `eddytion47` as an organization Admin
-until both TestFlight gates pass.
+shown above. A stale `owner` prevents the CLI from resolving the transferred
+project, which is why the local change comes before this CLI check. Keep
+`eddytion47` as an organization Admin until both TestFlight gates pass.
 
 ## 2. Configure EAS environments and credentials
 
@@ -73,8 +77,10 @@ Leave `ios/` tracked and do not create `.easignore` yet. Build and submit:
 
 ```bash
 npm run eas:build:ios:production
-npm run eas:submit:ios:production
 ```
+
+The command uses EAS auto-submit, so TestFlight receives the exact artifact
+produced by that build instead of whichever build happens to be latest.
 
 The workflow in `.eas/workflows/ios-production.yml` performs the same verified
 build and TestFlight submission on pushes to `main`.
