@@ -3,7 +3,7 @@ import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-
 import { Panel } from '@/ui/index.ts';
 import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
-import { readHealthPermissionState } from '@/features/health/permission.ts';
+import { healthSource } from '@/features/health/health-source.ts';
 import { track } from '@/features/telemetry/events.ts';
 import type { HealthPermissionState } from '@/features/health/permission-state.ts';
 import { NotificationAsk } from '@/features/notifications/NotificationPermissionSheet.tsx';
@@ -69,7 +69,7 @@ export function PermissionAsks({
 
   useEffect(() => {
     let cancelled = false;
-    void readHealthPermissionState().then((state) => {
+    void healthSource.readPermissionState().then((state) => {
       if (!cancelled) setHealth(state);
     });
     void readNotificationPermission().then((state) => {

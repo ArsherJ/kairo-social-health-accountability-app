@@ -1,4 +1,4 @@
-const { withPodfile } = require('@expo/config-plugins');
+const { withPodfile } = require('expo/config-plugins');
 
 // Two upstream CocoaPods podspec issues need a post_install fix rather than
 // `inhibit_all_warnings!` below, because they aren't compiler warnings — they're

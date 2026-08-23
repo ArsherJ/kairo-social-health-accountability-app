@@ -1,4 +1,4 @@
-const { withAppDelegate } = require('@expo/config-plugins');
+const { withAppDelegate } = require('expo/config-plugins');
 
 // Registers HealthKit observer queries at launch, which is the one thing
 // standing between Kairo and background delivery actually working.

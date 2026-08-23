@@ -12,7 +12,7 @@ import {
   markReached,
   markUnreached,
 } from '@/features/telemetry/milestone-store.ts';
-import { KAIRO_OBSERVED_TYPES, subscribeToHealthChanges } from './background.ts';
+import { healthSource } from './health-source.ts';
 import { onSyncRequested, resetSyncStatus, setSyncStatus } from './status-store.ts';
 import { loadSyncState } from './storage.ts';
 import { syncCarriedData } from './sync-state.ts';
@@ -96,7 +96,7 @@ export function useHealthSync(
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!userId || !timeZone) return;
+    if (!userId || !timeZone || !healthSource.policy.supportsServerSync) return;
 
     state.current = initialSyncPolicyState;
     let cancelled = false;
@@ -210,11 +210,9 @@ export function useHealthSync(
 
     dispatch({ kind: 'mount', at: Date.now() });
 
-    const subscriptions = KAIRO_OBSERVED_TYPES.map((identifier) =>
-      subscribeToHealthChanges(identifier, () => {
-        dispatch({ kind: 'observer', at: Date.now() });
-      }),
-    );
+    const subscriptions = healthSource.subscribeToChanges(() => {
+      dispatch({ kind: 'observer', at: Date.now() });
+    });
 
     const appState = AppState.addEventListener('change', (next) => {
       if (next === 'active') dispatch({ kind: 'foreground', at: Date.now() });

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
+import { healthSource } from '@/features/health/health-source.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
@@ -111,12 +112,16 @@ export default function ProfileTab() {
         // so without this a working ingest pipeline and a broken one both
         // render zero. Compiled out of release builds.
         <>
-          <Button
-            label="Seed Apple Health (dev)"
-            onPress={() => void seed()}
-            variant="secondary"
-          />
-          {seedStatus !== null && <Text style={styles.devStatus}>{seedStatus}</Text>}
+          {healthSource.policy.supportsReads && (
+            <>
+              <Button
+                label="Seed Apple Health (dev)"
+                onPress={() => void seed()}
+                variant="secondary"
+              />
+              {seedStatus !== null && <Text style={styles.devStatus}>{seedStatus}</Text>}
+            </>
+          )}
           <DemoToggle />
         </>
       )}

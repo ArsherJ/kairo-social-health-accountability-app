@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase.ts';
 import { toBuckets } from './hourly-buckets.ts';
-import { readHealthWindow } from './read.ts';
+import { healthSource } from './health-source.ts';
 import { loadSyncState, saveSyncState } from './storage.ts';
 import { markFailed, markSynced } from './sync-state.ts';
 import { resolveSyncWindow } from './sync-window.ts';
@@ -51,7 +51,7 @@ export async function runHealthSync(
   let restingHeartRate;
   let sessions;
   try {
-    const read = await readHealthWindow(window, timeZone);
+    const read = await healthSource.readWindow(window, timeZone);
     buckets = toBuckets(read.readings, window.dates, timeZone);
     sleep = read.sleep;
     restingHeartRate = read.restingHeartRate;

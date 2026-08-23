@@ -2,6 +2,13 @@
   "name": "kairo",
   "version": "0.0.1",
   "private": true,
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
   "workspaces": [
     "packages/*"
   ],
@@ -10,9 +17,14 @@
     "test:core": "npm run test --workspaces --if-present",
     "test:schema": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present && npm run check:functions",
+    "doctor": "expo-doctor",
     "start": "expo start --dev-client",
     "ios": "expo run:ios",
+    "android": "expo run:android",
     "prebuild": "expo prebuild --clean",
+    "eas:build:android:development": "eas build --platform android --profile development",
+    "eas:build:ios:production": "eas build --platform ios --profile ios-production",
+    "eas:submit:ios:production": "eas submit --platform ios --profile ios-production --latest",
     "postprebuild": "node scripts/write-xcode-env.mjs && node scripts/install-ci-scripts.mjs",
     "ci-scripts": "node scripts/install-ci-scripts.mjs",
     "xcode-env": "node scripts/write-xcode-env.mjs",
@@ -22,10 +34,10 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
-    "@expo/config-plugins": "~57.0.6",
     "@types/react": "~19.2.0",
     "babel-preset-expo": "~57.0.4",
     "deno": "^2.9.4",
+    "expo-doctor": "^1.20.2",
     "patch-package": "^8.0.1",
     "typescript": "~6.0.3",
     "vitest": "^3.0.5"
@@ -39,26 +51,28 @@
     "@react-native-community/netinfo": "12.0.1",
     "@supabase/supabase-js": "^2.110.9",
     "@tanstack/react-query": "^5.101.4",
-    "expo": "^57.0.8",
+    "expo": "~57.0.15",
     "expo-apple-authentication": "~57.0.1",
     "expo-application": "~57.0.2",
     "expo-asset": "~57.0.7",
     "expo-constants": "~57.0.7",
     "expo-crypto": "~57.0.1",
+    "expo-dev-client": "~57.0.14",
     "expo-file-system": "~57.0.1",
     "expo-font": "~57.0.1",
     "expo-keep-awake": "~57.0.1",
-    "expo-linking": "~57.0.4",
-    "expo-notifications": "~57.0.9",
-    "expo-router": "~57.0.8",
+    "expo-linking": "~57.0.7",
+    "expo-notifications": "~57.0.13",
+    "expo-router": "~57.0.15",
     "expo-secure-store": "~57.0.1",
     "expo-status-bar": "~57.0.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "expo-system-ui": "~57.0.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "^0.86.2",
     "react-native-mmkv": "^4.3.2",
     "react-native-nitro-modules": "^0.36.3",
-    "react-native-safe-area-context": "^5.8.0",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-web": "^0.21.2",
     "zustand": "^5.0.14"

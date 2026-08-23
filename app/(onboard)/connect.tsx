@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { connectHealth } from '@/features/health/connect-health.ts';
-import { readStepsToday } from '@/features/health/read.ts';
+import { healthSource } from '@/features/health/health-source.ts';
 import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
@@ -68,7 +68,7 @@ export default function Connect() {
       // below a successful connect — both mean "nothing to show yet", and
       // neither is a failure. That is only true because the failure case
       // returned above.
-      const today = await readStepsToday(deviceTimeZone()).catch(() => null);
+      const today = await healthSource.readStepsToday(deviceTimeZone()).catch(() => null);
       setSteps(today);
       setPhase('revealed');
     } finally {
@@ -79,11 +79,20 @@ export default function Connect() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + space.xl }]}>
       <ScrollView contentContainerStyle={styles.top}>
-        <Label>CONNECT APPLE HEALTH</Label>
-        <Text style={styles.title}>Your character levels from what you already do.</Text>
+        <Label>
+          {healthSource.policy.supportsPermission
+            ? 'CONNECT APPLE HEALTH'
+            : 'ANDROID DEVELOPMENT BUILD'}
+        </Label>
+        <Text style={styles.title}>
+          {healthSource.policy.supportsPermission
+            ? 'Your character levels from what you already do.'
+            : 'Health tracking is coming to Android.'}
+        </Text>
         <Text style={styles.help}>
-          Kairo reads your steps, active minutes and calories from Apple Health.
-          Your squad sees your progress — never the raw numbers.
+          {healthSource.policy.supportsPermission
+            ? 'Kairo reads your steps, active minutes and calories from Apple Health. Your squad sees your progress — never the raw numbers.'
+            : 'This build is for account, navigation and native-device smoke tests. It does not request health permissions, read device health data or sync health data.'}
         </Text>
 
         {phase === 'revealed' && steps !== null && steps > 0 && (
@@ -142,7 +151,13 @@ export default function Connect() {
       </ScrollView>
 
       <View style={{ paddingBottom: insets.bottom + space.xl }}>
-        {phase === 'asking' ? (
+        {!healthSource.policy.supportsPermission ? (
+          <Button
+            label="Continue"
+            variant="primary"
+            onPress={() => router.push('/character')}
+          />
+        ) : phase === 'asking' ? (
           <>
             <Button
               label="Connect Apple Health"

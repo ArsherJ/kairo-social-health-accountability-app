@@ -1,6 +1,5 @@
 import { track } from '@/features/telemetry/events.ts';
-import { configureHealthBackgroundDelivery } from './background.ts';
-import { readHealthPermissionState, requestHealthPermission } from './permission.ts';
+import { healthSource } from './health-source.ts';
 import type { HealthPermissionState } from './permission-state.ts';
 import { notifyHealthPermissionGranted } from './useHealthSync.ts';
 
@@ -34,9 +33,13 @@ export interface HealthConnectResult {
 export async function connectHealth(
   userId: string | undefined,
 ): Promise<HealthConnectResult> {
+  if (!healthSource.policy.supportsPermission) {
+    return { ok: false, state: 'unavailable' };
+  }
+
   try {
-    await requestHealthPermission();
-    await configureHealthBackgroundDelivery();
+    await healthSource.requestPermission();
+    await healthSource.configureBackgroundDelivery();
     // Sync straight away rather than waiting for the next foreground. The user
     // just connected Health and is looking at a screen showing zero.
     notifyHealthPermissionGranted();
@@ -50,7 +53,7 @@ export async function connectHealth(
     // background-delivery config and the sync kickoff — so a transient failure
     // *reading back* the state must not report the connect as failed,
     // re-present the sheet, or write a false `health_permission_failed`.
-    const state = await readHealthPermissionState().catch(() => null);
+    const state = await healthSource.readPermissionState().catch(() => null);
     void track(userId, 'health_ask_completed', { state });
     return { ok: true, state };
   } catch (error) {

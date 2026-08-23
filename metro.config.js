@@ -11,6 +11,9 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [path.resolve(projectRoot, 'packages')];
 
 config.resolver.nodeModulesPaths = [path.resolve(projectRoot, 'node_modules')];
-config.resolver.disableHierarchicalLookup = true;
+// Keep Metro's default hierarchical lookup. The workspace package is linked
+// from the root node_modules, while several dependencies resolve their own
+// nested peers; disabling the lookup prevents that normal Expo resolution and
+// is flagged by Expo Doctor.
 
 module.exports = config;

@@ -16,6 +16,10 @@ import { KAIRO_READ_TYPES } from './read-types.ts';
 // nothing importing this file can be loaded by root Vitest.
 export { KAIRO_READ_TYPES };
 
+export function isHealthAvailable(): boolean {
+  return isHealthDataAvailable();
+}
+
 function toRequestStatus(status: AuthorizationRequestStatus): RequestStatus {
   if (status === AuthorizationRequestStatus.unnecessary) return 'unnecessary';
   if (status === AuthorizationRequestStatus.shouldRequest) return 'should-request';
@@ -30,7 +34,7 @@ function toRequestStatus(status: AuthorizationRequestStatus): RequestStatus {
  * answer "have I asked yet" for read types. This call can.
  */
 export async function readHealthPermissionState(): Promise<HealthPermissionState> {
-  const available = isHealthDataAvailable();
+  const available = isHealthAvailable();
   if (!available) return permissionState({ available, requestStatus: 'unknown' });
 
   const status = await getRequestStatusForAuthorization({ toRead: KAIRO_READ_TYPES });

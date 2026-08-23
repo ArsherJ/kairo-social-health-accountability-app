@@ -1,7 +1,12 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { CryptoDigestAlgorithm, digestStringAsync, getRandomBytes } from 'expo-crypto';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase.ts';
 import { appleErrorMessage } from './apple-error.ts';
+import {
+  providerIdsForRuntime,
+  type SignInProviderId,
+} from './provider-policy.ts';
 
 /**
  * How a Supabase session is obtained.
@@ -16,8 +21,6 @@ import { appleErrorMessage } from './apple-error.ts';
  * still carried for every provider — the native button supplies its own text,
  * but the label is what accessibility and any future provider read.
  */
-export type SignInProviderId = 'apple' | 'anonymous';
-
 export type SignInProvider = {
   id: SignInProviderId;
   label: string;
@@ -103,17 +106,20 @@ export const anonymousProvider: SignInProvider = {
 };
 
 /**
- * Apple first, and anonymous only in development. The `__DEV__` guard — not
- * the project's anonymous-sign-in setting — is what guarantees an anonymous
- * path cannot reach TestFlight.
- *
- * Apple is listed unconditionally rather than behind
- * `AppleAuthentication.isAvailableAsync()`, which is async and would make this
- * a hook. `AppleAuthenticationButton` already renders nothing where the system
- * does not support Apple authentication, so the unsupported case is handled one
- * level down — and on iOS 13+, which is every device Kairo builds for, it is
- * always supported anyway.
+ * Apple is offered on iOS only; anonymous is offered in development only. The
+ * explicit platform policy matters for Android smoke tests: relying on Apple's
+ * native button to render nothing would still leave an unusable provider in the
+ * runtime model. `__DEV__` remains the boundary that keeps anonymous sessions
+ * out of TestFlight.
  */
 export function availableProviders(): SignInProvider[] {
-  return [appleProvider, ...(__DEV__ ? [anonymousProvider] : [])];
+  const providers: Record<SignInProviderId, SignInProvider> = {
+    apple: appleProvider,
+    anonymous: anonymousProvider,
+  };
+
+  return providerIdsForRuntime({
+    platform: Platform.OS,
+    development: __DEV__,
+  }).map((id) => providers[id]);
 }

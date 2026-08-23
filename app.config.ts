@@ -17,15 +17,12 @@ import { INVITE_HOST } from './src/features/squad/invite-link.ts';
  * Developer portal. Without it the build installs fine and silently returns no
  * health data — a genuinely miserable thing to debug.
  *
- * THIS FILE IS NO LONGER THE SOURCE OF TRUTH FOR NATIVE CONFIG. `ios/` is
- * committed so Xcode Cloud can resolve a scheme (roadmap deviation #28), and
- * prebuild does not run in CI — the committed `ios/Kairo/Info.plist` and
- * `Kairo.entitlements` are what ship. Changing anything native here
- * (`usesAppleSignIn`, `NSHealthShareUsageDescription`, the HealthKit plugin's
- * `background: true`, a new plugin) requires `npm run prebuild` AND a commit of
- * the regenerated `ios/`, or the change silently does not reach the build.
- * The JS side is unaffected: `extra` and `EXPO_PUBLIC_*` are evaluated during
- * the bundle phase of the Xcode build, so CI environment variables do land.
+ * This file is the durable source of truth for native config during the EAS
+ * migration. Gate A intentionally builds the committed `ios/` project as a
+ * rollback-safe proof. Gate B excludes native directories from the EAS upload,
+ * so Expo generates them from this config and the plugins below. A capability
+ * that exists only as a hand-edit under `ios/` will disappear at that gate.
+ * See `docs/eas-migration.md` for the two-gate cutover.
  */
 
 const config: ExpoConfig = {
@@ -64,19 +61,17 @@ const config: ExpoConfig = {
     // Apple's format is `applinks:<host>`, and including the scheme is the
     // documented mistake that makes links silently fall back to Safari.
     //
-    // Declaring it here is not sufficient. Because `ios/` is committed
-    // (deviation #28) Xcode Cloud ships the entitlements file as it finds it,
-    // so this needs `npm run prebuild` AND a commit of the regenerated `ios/`.
-    // And the Associated Domains capability must be enabled on the App ID in
-    // the Developer portal — without it the entitlement is present, the link
-    // resolves to Safari, and nothing reports an error.
+    // Gate A still ships the committed entitlement; Gate B regenerates it from
+    // this declaration. In both cases the Associated Domains capability must
+    // also be enabled on the App ID in the Developer portal — without it the
+    // entitlement is present, the link resolves to Safari, and nothing reports
+    // an error.
     associatedDomains: [`applinks:${INVITE_HOST}`],
-    // CFBundleVersion. Every TestFlight upload needs a unique one, and because
-    // `ios/` is committed (roadmap deviation #28) prebuild does not run in CI —
-    // so this value cannot be derived from `CI_BUILD_NUMBER` through the config.
-    // `ci_scripts/ci_pre_xcodebuild.sh` overwrites it in the built Info.plist
-    // with Xcode Cloud's monotonic build number. This literal is therefore the
-    // local-build value and the floor, not what ships.
+    // Local/prebuild floor. EAS uses remote app-version state and auto-increments
+    // this for `ios-production`, so every TestFlight upload stays unique. The
+    // existing Xcode Cloud script still overwrites the committed project's value
+    // during Gate A; the two systems therefore cannot collide by relying on this
+    // literal as their release counter.
     buildNumber: '1',
     config: {
       // Writes `ITSAppUsesNonExemptEncryption: false`. Without it App Store
@@ -140,14 +135,10 @@ const config: ExpoConfig = {
     // touch different mods, so the order is not load-bearing.
     './plugins/withHealthKitBackgroundObservers',
     [
-      // Declared for one reason: `mode` writes `aps-environment` into the
-      // entitlements, and Expo's default is `development` — the APNs *sandbox*.
-      // On an EAS build that value is rewritten to `production` for a
-      // distribution build, but this project archives through Xcode Cloud,
-      // which ships the committed `ios/` exactly as it finds it (deviation
-      // #28). Nothing else in the repo declared the intent, so the entitlement
-      // was arriving implicitly at Expo's default and no one had said whether
-      // that was meant.
+    // Declared for one reason: `mode` writes `aps-environment` into the
+    // entitlements, and Expo's default is `development` — the APNs *sandbox*.
+    // Both the committed-project gate and the later CNG gate must produce a
+    // production push entitlement for TestFlight.
       //
       // TestFlight is production distribution, so `production` is what it
       // should say. This does not by itself prove push works — Expo's service

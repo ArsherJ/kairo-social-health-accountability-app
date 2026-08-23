@@ -1,4 +1,4 @@
-const { withPodfileProperties } = require('@expo/config-plugins');
+const { withPodfileProperties } = require('expo/config-plugins');
 
 // Builds React Native's core from source instead of linking Meta's prebuilt
 // `React.xcframework`. Without this the app corrupts its own heap on launch and
@@ -56,11 +56,10 @@ const { withPodfileProperties } = require('@expo/config-plugins');
 // slower.
 //
 // This is a config plugin rather than a hand-edit of `ios/Podfile.properties.json`
-// because `expo prebuild --clean` regenerates that file — the same reason
-// withHealthKitBackgroundObservers and write-xcode-env.mjs exist. Note that the
-// committed `ios/` (roadmap deviation #28) means the generated file is what
-// actually ships, so changing this needs `npm run prebuild` AND a commit of the
-// regenerated `ios/`. `ci_post_clone.sh` asserts the prebuilt pod stayed gone.
+// because `expo prebuild --clean` and CNG regenerate that file — the same reason
+// withHealthKitBackgroundObservers exists. Gate A still reads the committed
+// value; Gate B has been explicitly verified to reproduce it from this plugin.
+// The legacy `ci_post_clone.sh` assertion remains until Xcode Cloud is retired.
 const KEY = 'ios.buildReactNativeFromSource';
 
 function withReactNativeFromSource(config) {
