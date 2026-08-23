@@ -16,9 +16,9 @@
  * already sent, and an old link has no way to find a new one — so moving off
  * `*.vercel.app` breaks every message already in somebody's chat history.
  * Decide on a real domain before a public launch, not after. What must move
- * with it: the deploy in `web/`, and a `prebuild` plus a commit of the
- * regenerated `ios/`, because `ios/` is committed and Xcode Cloud ships it as
- * it finds it (deviation #28).
+ * with it: the deploy in `web/` and this constant. EAS CNG generates the
+ * associated-domain entitlement from `app.config.ts`; never patch a generated
+ * native project instead.
  *
  * Zero imports, deliberately. `app.config.ts` is evaluated by Expo's config
  * loader in plain Node, long before Metro exists — anything this file pulled in

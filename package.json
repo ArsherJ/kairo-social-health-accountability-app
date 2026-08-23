@@ -2,13 +2,6 @@
   "name": "kairo",
   "version": "0.0.1",
   "private": true,
-  "expo": {
-    "doctor": {
-      "appConfigFieldsNotSyncedCheck": {
-        "enabled": false
-      }
-    }
-  },
   "workspaces": [
     "packages/*"
   ],
@@ -25,8 +18,7 @@
     "eas:build:android:development": "eas build --platform android --profile development",
     "eas:build:ios:production": "eas build --platform ios --profile ios-production --auto-submit",
     "eas-build-pre-install": "node scripts/guard-eas-build-platform.mjs",
-    "postprebuild": "node scripts/write-xcode-env.mjs && node scripts/install-ci-scripts.mjs",
-    "ci-scripts": "node scripts/install-ci-scripts.mjs",
+    "postprebuild": "node scripts/write-xcode-env.mjs",
     "xcode-env": "node scripts/write-xcode-env.mjs",
     "apple-secret": "node scripts/apple-client-secret.mjs",
     "check:functions": "deno check --config supabase/functions/deno.json supabase/functions/*/index.ts",

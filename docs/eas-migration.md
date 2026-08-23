@@ -1,13 +1,13 @@
 # EAS migration runbook
 
-Kairo uses a two-gate cutover so the EAS account move and Continuous Native
-Generation (CNG) are proven separately. Do not disable Xcode Cloud or remove the
-committed iOS project until both TestFlight gates pass.
+Kairo completed its two-gate EAS account and Continuous Native Generation (CNG)
+cutover on 2026-08-23. EAS now generates both native projects from
+`app.config.ts` and the project-owned config plugins; `ios/` and `android/` are
+ignored locally and excluded from EAS uploads.
 
-`package.json` disables Expo Doctor's generic "app config fields not synced"
-check while the native directories remain in Git for the two gates. The
-migration instead verifies CNG by generating fresh native projects and checking
-their capabilities explicitly; all other Doctor checks remain enabled in CI.
+The temporary Expo Doctor suppression used while native directories remained
+tracked has been removed. The ordinary Doctor checks now validate the active
+CNG repository shape in CI.
 
 ## Current project identity
 
@@ -20,8 +20,9 @@ These values stay unchanged across the account move:
 - Apple team: `8C53KVSFWK`
 
 The EAS project was transferred to `kairo-health` on 2026-08-23 without changing
-its project ID. The organization is managed from the Expo user `4r.sher`, and
-`eddytion47` remains an Admin until both TestFlight gates pass.
+its project ID. The organization is managed from the Expo user `4r.sher`.
+Removing `eddytion47` as an organization Admin is optional pending account
+cleanup; it is not part of the completed repository cutover.
 
 ## 1. Transfer the existing EAS project — completed 2026-08-23
 
@@ -40,8 +41,8 @@ eas project:info
 
 The second command must report `@kairo-health/kairo` and the same project ID
 shown above. A stale `owner` prevents the CLI from resolving the transferred
-project, which is why the local change comes before this CLI check. Keep
-`eddytion47` as an organization Admin until both TestFlight gates pass.
+project, which is why the local change comes before this CLI check.
+`eddytion47` remained an organization Admin through both TestFlight gates.
 
 ## 2. Configure EAS environments and credentials
 
@@ -76,7 +77,8 @@ eas build:version:set --platform ios --profile ios-production
 **Passed 2026-08-23:** EAS build 20 was processed as valid in TestFlight, and
 the device checklist below passed in full.
 
-Leave `ios/` tracked and do not create `.easignore` yet. Build and submit:
+During this historical gate, `ios/` remained tracked and `.easignore` did not
+exist. The build was submitted with:
 
 ```bash
 npm run eas:build:ios:production
@@ -88,24 +90,22 @@ produced by that build instead of whichever build happens to be latest.
 The workflow in `.eas/workflows/ios-production.yml` performs the same verified
 build and TestFlight submission on pushes to `main`.
 
-On the TestFlight build, verify launch, Sign in with Apple, the HealthKit
+The TestFlight checklist covered launch, Sign in with Apple, the HealthKit
 permission sheet, a foreground sync, background observer delivery, production
-push entitlement, and the universal invite link. A green cloud build alone is
-not this gate.
+push entitlement, and the universal invite link. A green cloud build alone was
+not sufficient for this gate.
 
-## 4. Gate B — prove CNG
+## 4. Gate B — prove CNG — passed 2026-08-23
 
-**In progress 2026-08-23:** Gate A passed and the reviewed `.easignore` is now
-active, so the next EAS build is generated from Expo config and config plugins.
+EAS iOS build 21 was generated from Expo config and config plugins, processed
+successfully in TestFlight, and passed the full device checklist.
 
-After Gate A passes, copy `docs/easignore-cng.template` to `.easignore`. Its
-`/ios/` and `/android/` entries make EAS generate both projects from
-`app.config.ts` and the project-owned config plugins. Keep the local committed
-`ios/` directory temporarily as rollback material; it is excluded from the EAS
-upload rather than deleted.
+- Build ID: `7b0bd494-4a00-4c5e-b789-d4746c9b02f4`
+- Submission ID: `98475e53-dcf4-4b00-833a-086ded67c3d6`
 
-Run another iOS production build and submit it to TestFlight. Repeat the Gate A
-device checks. In addition, compare the generated archive's capabilities:
+The device pass verified launch, Sign in with Apple, HealthKit system
+authorization, foreground and background sync, push delivery and tap routing,
+and the universal invite link. The generated archive also retained:
 
 - HealthKit and background-delivery entitlements
 - Sign in with Apple
@@ -130,15 +130,16 @@ create health observer subscriptions, or call the health-sync server path.
 Google sign-in, Health Connect, App Links and Play Store production are separate
 future gates.
 
-## 6. Retire Xcode Cloud only after both gates
+## 6. Repository retirement — completed 2026-08-23
 
-Once both TestFlight builds pass:
+After Gate B passed, the Xcode Cloud workflow was deactivated. The repository
+then stopped tracking `ios/`, kept both native directories ignored/generated,
+removed the Xcode Cloud-only scripts and active runbook, and restored the normal
+Expo Doctor native-config check. `app.config.ts` and config plugins are now the
+durable native source of truth for both local prebuilds and EAS CNG.
 
-1. Disable the Xcode Cloud workflow.
-2. Stop tracking `ios/` and keep both native directories ignored/generated.
-3. Remove the Xcode Cloud-only scripts and documentation after confirming no
-   EAS step references them.
-4. Remove `eddytion47` from `kairo-health` if it no longer needs access.
+Removing `eddytion47` from `kairo-health` remains optional account cleanup and
+is not recorded as completed here.
 
 OTA updates remain disabled until a separate runtime-version and rollback plan
 is approved.

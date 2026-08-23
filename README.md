@@ -11,8 +11,8 @@ iOS first via Expo; Supabase backend.
 - [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → daily loop → character → squad → goals.
 - [`docs/mvp-scope.md`](./docs/mvp-scope.md) — **what is in the MVP and what is not.** Cite it in any QA brief, test plan or store-facing copy; a brief describing something not listed there is stale.
 - [`docs/qa/kairo-end-to-end-qa-report.md`](./docs/qa/kairo-end-to-end-qa-report.md) — the August 2026 QA pass, with an addendum tracing its central finding to a stale Edge Function deployment.
-- [`docs/sign-in-with-apple.md`](./docs/sign-in-with-apple.md) — the runbook for the last release blocker: app side built, portal configuration and a device pass remaining.
-- [`docs/xcode-cloud.md`](./docs/xcode-cloud.md) — how to get a build onto a phone when USB pairing is blocked by this machine's endpoint security. Not yet executed.
+- [`docs/sign-in-with-apple.md`](./docs/sign-in-with-apple.md) — the runbook for rotating and installing the Apple client secret.
+- [`docs/eas-migration.md`](./docs/eas-migration.md) — the completed EAS/CNG cutover, build identities, and remaining account cleanup.
 - [`CLAUDE.md`](./CLAUDE.md) — architecture, invariants, and working conventions for anyone (human or agent) changing this codebase.
 
 ## Quick start
@@ -29,11 +29,13 @@ npm test                 # everything: kairo-core (node) + schema/planner suites
 npm run test:core        # packages/kairo-core only
 npm run test:schema      # schema (PGlite) + Edge Function planners
 npm run typecheck        # tsc + workspace tsc + deno check, all three
+npm run doctor           # Expo project/config diagnostics
 
 npm run ios              # build + run on simulator
-npm run prebuild         # regenerate ios/ from app.config.ts — COMMIT THE RESULT
+npm run prebuild         # regenerate ignored native projects from Expo config
 npm run xcode-env        # rewrite ios/.xcode.env.local (see below)
-npm run ci-scripts       # reinstall ios/ci_scripts/ from scripts/ci/ (postprebuild does this)
+npm run eas:build:ios:production      # EAS build + submit to TestFlight
+npm run eas:build:android:development # EAS development APK smoke build
 npm run apple-secret     # mint the Sign in with Apple client secret (see below)
 
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project
@@ -194,20 +196,17 @@ missing Developer Mode menu is a *symptom* of the above, not a separate problem
 to chase.
 
 **USB pairing is blocked on this machine and cannot be unblocked**, so the cable
-is skipped entirely: **Kairo builds on Xcode Cloud and installs through
-TestFlight.** Apple's machines archive the app and the App Store installs it —
-no step touches USB. Setup and the operating rules are in `docs/xcode-cloud.md`;
-EAS Build solves the same problem and was the alternative. Sign in with Apple
-and HealthKit both work in such a build, which is the only reason a physical
-device is needed here.
+is skipped entirely: physical-device builds go through **EAS Build → TestFlight**.
+EAS archives the app and App Store Connect distributes it over the air; no step
+touches USB. Sign in with Apple and HealthKit work in that build, which is why a
+physical device is still required for their system-level checks. The completed
+cutover and verified build IDs are in `docs/eas-migration.md`.
 
-**`ios/` is therefore a committed directory** (roadmap deviation #28), not a
-generated one — Xcode Cloud configures a workflow against a scheme that has to
-exist in the repo. The consequence that bites: `app.config.ts` is no longer the
-source of truth for native config. Changing `usesAppleSignIn`,
-`NSHealthShareUsageDescription`, a plugin, or anything else native now needs
-`npm run prebuild` **and a commit of the regenerated `ios/`**, or the change
-silently never reaches the build.
+**`ios/` and `android/` are generated and ignored.** `app.config.ts` plus the
+project-owned config plugins are the native source of truth, and EAS uses CNG to
+generate both projects. For local simulator/Xcode work, `npm run prebuild`
+materialises them; commit the config or plugin change, never the generated
+native output.
 
 After the first USB pairing, Xcode → Window → Devices and Simulators →
 **Connect via network** makes it wireless.
@@ -239,10 +238,9 @@ out empty and the Hermes phase dies. Command-line builds are unaffected, which
 makes it look like broken source rather than a broken environment.
 
 `npm run xcode-env` writes `ios/.xcode.env.local` with an absolute path. It
-runs automatically after `npm install` and `npm run prebuild`; run it by hand
-after changing node versions. This one file stays uncommitted even though the
-rest of `ios/` is now committed — it holds a machine-specific absolute path, so
-it is per-machine by definition. Xcode Cloud regenerates it in
-`ci_post_clone.sh`, which is why the Hermes phase does not fail there either.
+runs automatically after `npm run prebuild`; `postinstall` also invokes it and
+cleanly skips when a fresh clone has no generated `ios/` yet. Run it by hand
+after changing node versions. The generated file remains local because it holds
+a machine-specific absolute path.
 
 See `CLAUDE.md` for environment constraints (why `supabase db push` / `psql` / `supabase start` don't work on this dev machine), architecture, and testing conventions before making changes.

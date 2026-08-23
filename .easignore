@@ -1,5 +1,5 @@
-# Activate this file as .easignore only after Gate A passes in TestFlight.
-# Excluding both native projects makes EAS generate them from app.config.ts.
+# Native projects are generated from app.config.ts and config plugins by EAS.
+# Keep both out of the upload so generated local projects never become inputs.
 .git/
 node_modules/
 dist/

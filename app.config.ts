@@ -17,12 +17,11 @@ import { INVITE_HOST } from './src/features/squad/invite-link.ts';
  * Developer portal. Without it the build installs fine and silently returns no
  * health data — a genuinely miserable thing to debug.
  *
- * This file is the durable source of truth for native config during the EAS
- * migration. Gate A intentionally builds the committed `ios/` project as a
- * rollback-safe proof. Gate B excludes native directories from the EAS upload,
- * so Expo generates them from this config and the plugins below. A capability
- * that exists only as a hand-edit under `ios/` will disappear at that gate.
- * See `docs/eas-migration.md` for the two-gate cutover.
+ * This file and the project-owned config plugins are the source of truth for
+ * native config. Both native directories are generated and ignored: EAS uses
+ * Continuous Native Generation for remote builds, and `npm run prebuild`
+ * materialises the same inputs for local Xcode work. Never rely on a hand-edit
+ * under `ios/` or `android/`; it will disappear at the next generation.
  */
 
 const config: ExpoConfig = {
@@ -61,17 +60,14 @@ const config: ExpoConfig = {
     // Apple's format is `applinks:<host>`, and including the scheme is the
     // documented mistake that makes links silently fall back to Safari.
     //
-    // Gate A still ships the committed entitlement; Gate B regenerates it from
-    // this declaration. In both cases the Associated Domains capability must
-    // also be enabled on the App ID in the Developer portal — without it the
-    // entitlement is present, the link resolves to Safari, and nothing reports
-    // an error.
+    // CNG generates the entitlement from this declaration. The Associated
+    // Domains capability must also be enabled on the App ID in the Developer
+    // portal — without it the entitlement is present, the link resolves to
+    // Safari, and nothing reports an error.
     associatedDomains: [`applinks:${INVITE_HOST}`],
     // Local/prebuild floor. EAS uses remote app-version state and auto-increments
-    // this for `ios-production`, so every TestFlight upload stays unique. The
-    // existing Xcode Cloud script still overwrites the committed project's value
-    // during Gate A; the two systems therefore cannot collide by relying on this
-    // literal as their release counter.
+    // this for `ios-production`, so every TestFlight upload stays unique rather
+    // than relying on this literal as the release counter.
     buildNumber: '1',
     config: {
       // Writes `ITSAppUsesNonExemptEncryption: false`. Without it App Store
@@ -137,8 +133,7 @@ const config: ExpoConfig = {
     [
     // Declared for one reason: `mode` writes `aps-environment` into the
     // entitlements, and Expo's default is `development` — the APNs *sandbox*.
-    // Both the committed-project gate and the later CNG gate must produce a
-    // production push entitlement for TestFlight.
+    // CNG must produce a production push entitlement for TestFlight.
       //
       // TestFlight is production distribution, so `production` is what it
       // should say. This does not by itself prove push works — Expo's service

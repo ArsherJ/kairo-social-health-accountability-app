@@ -47,18 +47,18 @@ describe('EAS migration profiles', () => {
     });
   });
 
-  it('activates the reviewed CNG upload boundary after Gate A', () => {
+  it('keeps generated native projects out of Git and EAS uploads', () => {
     const activeIgnore = readFileSync(
       new URL('../../.easignore', import.meta.url),
       'utf8',
     );
-    const reviewedTemplate = readFileSync(
-      new URL('../../docs/easignore-cng.template', import.meta.url),
+    const gitIgnore = readFileSync(
+      new URL('../../.gitignore', import.meta.url),
       'utf8',
     );
 
-    expect(activeIgnore).toBe(reviewedTemplate);
     expect(activeIgnore).toContain('\n/ios/\n/android/\n');
     expect(activeIgnore).toContain('\n.env\n.env.*\n');
+    expect(gitIgnore).toContain('\n/ios/\n/android/\n');
   });
 });

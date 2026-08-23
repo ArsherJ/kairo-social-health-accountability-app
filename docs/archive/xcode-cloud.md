@@ -1,3 +1,7 @@
+> **Retired 2026-08-23.** This runbook is retained as a historical record only.
+> Kairo now uses EAS Build → TestFlight with Continuous Native Generation; see
+> [`docs/eas-migration.md`](../eas-migration.md) for the active path.
+
 # Xcode Cloud — building Kairo without a USB cable
 
 **Status as of 2026-08-13.** The pipeline works end to end: a push to

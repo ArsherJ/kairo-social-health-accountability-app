@@ -56,10 +56,9 @@ const { withPodfileProperties } = require('expo/config-plugins');
 // slower.
 //
 // This is a config plugin rather than a hand-edit of `ios/Podfile.properties.json`
-// because `expo prebuild --clean` and CNG regenerate that file — the same reason
-// withHealthKitBackgroundObservers exists. Gate A still reads the committed
-// value; Gate B has been explicitly verified to reproduce it from this plugin.
-// The legacy `ci_post_clone.sh` assertion remains until Xcode Cloud is retired.
+// because local prebuilds and EAS CNG regenerate that file — the same reason
+// withHealthKitBackgroundObservers exists. The CNG TestFlight build has
+// explicitly verified that this plugin reproduces the required value.
 const KEY = 'ios.buildReactNativeFromSource';
 
 function withReactNativeFromSource(config) {
