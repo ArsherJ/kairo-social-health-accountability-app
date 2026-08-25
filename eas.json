@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "channel": "development",
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
@@ -16,6 +17,7 @@
       }
     },
     "ios-production": {
+      "channel": "production",
       "distribution": "store",
       "environment": "production",
       "autoIncrement": true,

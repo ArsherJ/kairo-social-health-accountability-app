@@ -34,8 +34,12 @@ npm run doctor           # Expo project/config diagnostics
 npm run ios              # build + run on simulator
 npm run prebuild         # regenerate ignored native projects from Expo config
 npm run xcode-env        # rewrite ios/.xcode.env.local (see below)
-npm run eas:build:ios:production      # EAS build + submit to TestFlight
+npm run eas:build:ios:production      # EAS build + submit to TestFlight (spends quota)
+npm run eas:build:ios:local           # same pipeline on this Mac, no cloud build spent
 npm run eas:build:android:development # EAS development APK smoke build
+npm run eas:update:production         # OTA a JS/asset change to TestFlight — free
+npm run eas:update:development        # OTA to development-client builds
+npm run eas:fingerprint  # the current iOS runtime version (see below)
 npm run apple-secret     # mint the Sign in with Apple client secret (see below)
 
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project
@@ -83,6 +87,71 @@ manual steps in the entitlement chain and why GitHub Pages cannot host this.
 curl -I https://kairo-teal-nine.vercel.app/.well-known/apple-app-site-association
 # expect 200, content-type: application/json, and no redirect
 ```
+
+### Shipping a change: OTA or a build?
+
+EAS gives 15 builds a month, so the question worth asking before every release
+is which kind of change this is. **The answer is entirely mechanical: did the
+native side change?**
+
+```bash
+npm run eas:update:production        # JS, assets, copy, styles, logic — free, unlimited
+npm run eas:build:ios:production     # native anything — spends one build
+```
+
+**Goes over the air, costs nothing:** anything under `app/`, `src/` or
+`packages/kairo-core`, images and fonts, scoring constants, copy.
+
+**Needs a build, always:** app icons and any native field in `app.config.ts`,
+entitlements (`aps-environment`, Associated Domains, HealthKit), config plugins
+under `plugins/`, adding or upgrading a native module, an Expo SDK bump. No OTA
+mechanism can ship these — they are compiled into the binary. **Batch them**:
+an icon change and an entitlement change are one build, not two.
+
+Verify without spending anything first. `npm run ios` is a full native build on
+the simulator, free and unlimited, and it exercises the real native project —
+it is how the Liquid Glass icon was checked. Anything you can see or tap belongs
+there. What genuinely needs a device: APNs push, real HealthKit data, universal
+links, and Sign in with Apple end-to-end.
+
+`npm run eas:build:ios:local` runs the identical EAS pipeline on this Mac
+without spending a cloud build (EAS is contacted only for credentials and
+project metadata). It needs `fastlane`, which is installed here. Note that a
+local `.ipa` still has to go through `eas submit` to reach a phone — this
+machine cannot pair one over USB, for the reasons in the next section.
+
+#### When an update does not arrive
+
+Updates are matched by **runtime version**, and under the `fingerprint` policy
+that is a hash of the native inputs rather than a version string you can read
+off. So the first question is never the network:
+
+```bash
+npm run eas:fingerprint   # what this working tree resolves to
+```
+
+Compare it against the runtime version `eas update` reported when it published,
+and against the build you are testing on. If they differ, the working tree has
+native changes the installed build does not have — which is the policy working
+correctly, and the fix is a build, not a retry.
+
+Two invariants keep those two numbers comparable, both pinned by tests in
+`src/config/eas-config.test.ts`:
+
+- **Every build profile in `eas.json` declares a `channel`.** A build without
+  one is subscribed to nothing: it installs, runs, and ignores every update ever
+  published to it, which looks exactly like OTA being broken.
+- **`/ios/` and `/android/` stay Git-ignored.** `@expo/fingerprint` decides the
+  project workflow by whether the native project marker is Git-ignored —
+  ignored is `managed`, tracked is `generic`, and they hash differently. EAS
+  builds with no `ios/` at all; your working tree has one after
+  `npm run prebuild`. They agree only because of those ignore entries. Commit
+  the native directories and every update published from this machine silently
+  targets a runtime version no build has.
+
+An update applies on the **next** launch, not the one that downloads it:
+`fallbackToCacheTimeout` is 0 so launch is never blocked on the network. So
+"open the app twice" is the normal way to see an OTA change.
 
 ### Building onto a physical device
 
