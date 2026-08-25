@@ -18,7 +18,7 @@ export * from './anticheat.ts';
 export * from './progression.ts';
 export * from './dominance.ts';
 export * from './compute.ts';
-export * from './goal.ts';
+export * from './event.ts';
 export * from './challenge.ts';
 export * from './race.ts';
 export * from './disclosure.ts';
