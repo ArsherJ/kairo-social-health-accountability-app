@@ -1112,7 +1112,10 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    expect(rows[0]!.count).toBe(17);
+    // 18 as of 20260829090000_quests.sql. A number that moves without a
+    // migration in the same commit is a table somebody added without deciding
+    // whether it needs RLS — which is what the next case asks about.
+    expect(rows[0]!.count).toBe(18);
   });
 
   it('enable row level security on every public table', async () => {
@@ -2173,6 +2176,7 @@ describe('profiles.focus is gone', () => {
       'class',
       'exclude_from_recap',
       'height_cm',
+      'quest_tier_override',
       'sex',
       'species',
       'squad_data_consent_at',
@@ -4079,6 +4083,7 @@ describe('profiles.species', () => {
       'class',
       'exclude_from_recap',
       'height_cm',
+      'quest_tier_override',
       'sex',
       'species',
       'squad_data_consent_at',
@@ -4734,4 +4739,209 @@ describe('the history replay', () => {
       values,
     );
   }
+});
+
+describe('quest_completions (deviation #50)', () => {
+  /**
+   * Quests themselves are never stored — `pickQuests()` derives them from
+   * (user, local date, tier). Only the completion lands here, because it pays
+   * XP and must fire exactly once.
+   */
+  async function clearQuest(
+    user: string,
+    overrides: { questId?: string; localDate?: string; xp?: number } = {},
+  ) {
+    await h.asService(
+      `insert into public.quest_completions (user_id, local_date, quest_id, xp_awarded)
+       values ($1, $2, $3, $4)
+       on conflict (user_id, local_date, quest_id) do nothing`,
+      [
+        user,
+        overrides.localDate ?? '2026-07-27',
+        overrides.questId ?? 'steady-steps-7000',
+        overrides.xp ?? 15,
+      ],
+    );
+  }
+
+  it('is readable by its owner and by nobody else', async () => {
+    const owner = await h.createUser();
+    const stranger = await h.createUser();
+    await clearQuest(owner);
+
+    expect(await h.asUser(owner, 'select quest_id from public.quest_completions')).toHaveLength(
+      1,
+    );
+    expect(
+      await h.asUser(stranger, 'select quest_id from public.quest_completions'),
+    ).toHaveLength(0);
+  });
+
+  it('refuses a client write, because XP is server-authoritative', async () => {
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(
+        user,
+        `insert into public.quest_completions (user_id, local_date, quest_id, xp_awarded)
+         values ($1, '2026-07-28', 'strong-steps-15000', 500)`,
+        [user],
+      ),
+      /permission denied/i,
+    );
+  });
+
+  it('grants authenticated nothing beyond SELECT', async () => {
+    // `revoke all` then re-grant, not a revoke of the four DML verbs:
+    // Supabase's ALTER DEFAULT PRIVILEGES grants ALL on a new public table,
+    // and ALL includes TRUNCATE, which RLS does not restrict.
+    const rows = await h.asService<{ privs: string }>(
+      `select string_agg(distinct privilege_type, ',' order by privilege_type) as privs
+       from information_schema.table_privileges
+       where table_name = 'quest_completions' and grantee = 'authenticated'`,
+    );
+    expect(rows[0]!.privs).toBe('SELECT');
+  });
+
+  it('latches once per quest per day, so cron overlap cannot double-pay', async () => {
+    const user = await h.createUser();
+    await clearQuest(user, { xp: 15 });
+    await clearQuest(user, { xp: 999 });
+
+    const rows = await h.asService<{ xp_awarded: number }>(
+      'select xp_awarded from public.quest_completions where user_id = $1',
+      [user],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.xp_awarded).toBe(15);
+  });
+
+  it('lets three quests latch independently on one day', async () => {
+    const user = await h.createUser();
+    await clearQuest(user, { questId: 'steady-steps-7000' });
+    await clearQuest(user, { questId: 'steady-kcal-400' });
+    await clearQuest(user, { questId: 'steady-sleep-420' });
+    expect(
+      await h.asService('select 1 from public.quest_completions where user_id = $1', [user]),
+    ).toHaveLength(3);
+  });
+
+  it('rolls quest XP into profiles.total_xp as a FOURTH source', async () => {
+    // Never into daily_scores.xp_awarded: a rescore replays that column from
+    // tier points and would silently wipe it — deviation #19's trap, third
+    // time it applies.
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, xp_awarded)
+       values ($1, '2026-07-27', 900, 100)`,
+      [user],
+    );
+    await clearQuest(user, { xp: 20 });
+
+    const rows = await h.asService<{ total_xp: number }>(
+      'select total_xp from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.total_xp).toBe(120);
+  });
+
+  it('recomputes rather than increments, so a re-run cannot double-pay', async () => {
+    const user = await h.createUser();
+    await clearQuest(user, { xp: 20 });
+    await h.asService(
+      `update public.quest_completions set xp_awarded = 20 where user_id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ total_xp: number }>(
+      'select total_xp from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.total_xp).toBe(20);
+  });
+
+  it('does not fold quest XP into any ability rating', async () => {
+    // A cleared quest is not activity in a stat. Folding it into one would
+    // inflate an ability the user never trained — the same posture events and
+    // challenges take.
+    const user = await h.createUser();
+    await clearQuest(user, { xp: 20 });
+    const rows = await h.asService<{ agi_total: number; str_total: number; mnd_total: number }>(
+      'select agi_total, str_total, mnd_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]).toEqual({ agi_total: 0, str_total: 0, mnd_total: 0 });
+  });
+
+  it('keeps every other XP source intact — the recompute is never an increment', async () => {
+    // `recalculate_user_xp` is written out whole every time it changes, so the
+    // failure mode of this migration is silently DROPPING a source. Plans 3
+    // and 4 both rewrite it; whichever landed second had to carry the other's
+    // sources forward, and this is what says so.
+    const rows = await h.asService<{ prosrc: string }>(
+      `select prosrc from pg_proc where proname = 'recalculate_user_xp'`,
+    );
+    expect(rows).toHaveLength(1);
+    const body = rows[0]!.prosrc;
+    expect(body).toMatch(/daily_scores/);
+    expect(body).toMatch(/event_completions/);
+    expect(body).toMatch(/challenge_completions/);
+    expect(body).toMatch(/quest_completions/);
+    // The stat rollups ride in the same function. A rebuild that forgot them
+    // would drop every account's ability ratings to zero on the next sync.
+    expect(body).toMatch(/agi_total/);
+    expect(body).toMatch(/str_total/);
+    expect(body).toMatch(/mnd_total/);
+  });
+
+  it('vanishes with the account it belongs to', async () => {
+    const user = await h.createUser();
+    await clearQuest(user);
+    await h.asService('delete from auth.users where id = $1', [user]);
+    expect(
+      await h.asService('select 1 from public.quest_completions where user_id = $1', [user]),
+    ).toHaveLength(0);
+  });
+});
+
+describe('profiles.quest_tier_override', () => {
+  it('starts null, which means the automatic rule', async () => {
+    const user = await h.createUser();
+    const rows = await h.asService<{ quest_tier_override: string | null }>(
+      'select quest_tier_override from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.quest_tier_override).toBeNull();
+  });
+
+  it('lets the owner set their own tier and rejects an unknown one', async () => {
+    const user = await h.createUser();
+    await h.asUser(
+      user,
+      `update public.profiles set quest_tier_override = 'starter' where id = $1`,
+      [user],
+    );
+    const rows = await h.asService<{ quest_tier_override: string }>(
+      'select quest_tier_override from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.quest_tier_override).toBe('starter');
+
+    await rejects(
+      h.asUser(
+        user,
+        `update public.profiles set quest_tier_override = 'godlike' where id = $1`,
+        [user],
+      ),
+      /check constraint/i,
+    );
+  });
+
+  it('did not widen the column-scoped UPDATE grant past itself', async () => {
+    // The table-level revoke that precedes the column grant must not have
+    // widened anything: a server-awarded column stays unwritable.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'update public.profiles set total_xp = 999999 where id = $1', [user]),
+      /permission denied/i,
+    );
+  });
 });
