@@ -58,7 +58,11 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: colors.bg },
         }}
       >
+        {/* This order is the navigator's; `TabPill`'s own `order` array is the
+            bar's. They are allowed to differ and already do — the bar puts
+            Squad ahead of the character. */}
         <Tabs.Screen name="index" options={{ title: 'Character' }} />
+        <Tabs.Screen name="today" options={{ title: 'Today' }} />
         <Tabs.Screen name="squad" options={{ title: 'Squad' }} />
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       </Tabs>
