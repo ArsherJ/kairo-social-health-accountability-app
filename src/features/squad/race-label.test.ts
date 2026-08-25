@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { raceLaneLabel } from './race-label.ts';
+import { raceCardLine, raceLaneLabel } from './race-label.ts';
 
 const base = {
   rank: 2,
@@ -56,6 +56,34 @@ describe('raceLaneLabel', () => {
     // that they did nothing today rather than that they are not sharing.
     expect(raceLaneLabel({ ...base, progressPercent: 0 })).toBe(
       '2nd, Bayani, 0% to the finish line',
+    );
+  });
+});
+
+describe('raceCardLine', () => {
+  it('leads with position and says how far the flag still is', () => {
+    expect(raceCardLine({ rank: 3, racers: 6, stepsToFinish: 2_400, finished: false })).toBe(
+      '3rd of 6 · 2,400 steps to the flag',
+    );
+  });
+
+  it('says finished rather than a distance of zero', () => {
+    expect(raceCardLine({ rank: 1, racers: 6, stepsToFinish: 0, finished: true })).toBe(
+      '1st of 6 · finished',
+    );
+  });
+
+  it('speaks a solo race as a race, not as a rank of one', () => {
+    // With no squad the rivals are the player's own past days, so a "1st of 1"
+    // would be both true and absurd. The count includes ghosts.
+    expect(raceCardLine({ rank: 2, racers: 4, stepsToFinish: 900, finished: false })).toBe(
+      '2nd of 4 · 900 steps to the flag',
+    );
+  });
+
+  it('says one step, singular, at exactly one', () => {
+    expect(raceCardLine({ rank: 2, racers: 3, stepsToFinish: 1, finished: false })).toBe(
+      '2nd of 3 · 1 step to the flag',
     );
   });
 });

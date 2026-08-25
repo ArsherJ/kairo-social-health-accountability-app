@@ -9,8 +9,6 @@ import {
   levelForXp,
   type CoreStat,
 } from '@kairo/core';
-import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
-import { TrainEntry } from '@/features/train/TrainEntry.tsx';
 import { useWorkoutSessions } from '@/features/train/queries.ts';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
@@ -636,25 +634,21 @@ export default function Character() {
             </View>
           )}
 
-          {/* The one number in Kairo that never moves, and the run of days
-              against it. The walk is the floor everyone shares, and it sits
-              above Challenges for that reason: baseline first, then the thing
-              this particular user chose.
+          {/* The Daily Walk and the Challenge door moved to the Today tab on
+              2026-08-25 (deviation #50). This screen's subject is the
+              character; everything below the hero was a different subject
+              sharing a scroll, and that scroll had no room left. **The `full`
+              wrapper moved with `TrainEntry`** — it is reproduced on the Today
+              tab, not dropped, and the disclosure gate's subject list is
+              unchanged by the move. */}
 
-              It does not restate today's steps. The hero already sets them at
-              64pt and `detailCopy` already names the gap; see the card. */}
-          <DailyWalkCard
-            userId={session?.user.id}
-            timeZone={profile.data?.timezone}
-            today={localToday}
-            todaySteps={buckets.data?.totals?.steps}
-          />
-
-          {/* What the walk above is building toward. An empty space where two
-              cards used to be reads as a missing feature, so `core` says what
-              is coming — named against the Daily Walk directly above it rather
-              than as a bare countdown, because "active day" is the thing the
-              gate actually counts and the card is where you earn one.
+          {/* What the gate is building toward. An empty space where a card
+              used to be reads as a missing feature, so `core` says what is
+              coming — counted in "active days" rather than as a bare
+              countdown, because that is the thing the gate actually counts.
+              The card where you earn one is the Daily Walk, which now lives on
+              the Today tab; the sentence stays true either way, because it
+              names the day and not the card.
 
               No accessibilityLabel: it is already text, and a label would
               duplicate it. */}
@@ -677,18 +671,6 @@ export default function Character() {
                 : `${countWord(disclosure.daysToGo)} more active days and challenges ` +
                   'and your full stat breakdown open up.'}
             </Text>
-          )}
-
-          {/* The door to Challenges, below the floor everyone shares. It shows
-              the live target as text so
-              the mechanic is legible without navigating — for a new user that
-              reads as "Log one run of 1 km", which is an invitation. */}
-          {disclosure.stage === 'full' && (
-            <TrainEntry
-              userId={session?.user.id}
-              timeZone={profile.data?.timezone}
-              today={localToday}
-            />
           )}
 
           {/* `/progress` is reached through the expanded stat block in `full`,
