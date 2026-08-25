@@ -3,8 +3,11 @@ import { fail, json } from '../_shared/http.ts';
 import {
   addDays,
   advanceStreak,
+  aggregateBuckets,
   CHALLENGE_WINDOW_DAYS,
   type ChallengeArea,
+  type HourBucket,
+  type QuestTier,
   type StreakState,
   type WorkoutSession,
 } from '../_shared/core.ts';
@@ -14,6 +17,12 @@ import {
   type EventRow,
 } from '../_shared/event-plan.ts';
 import { planChallengeCompletions } from '../_shared/challenge-plan.ts';
+import { planQuestCompletions } from '../_shared/quest-plan.ts';
+import {
+  DAILY_SLEEP_SELECT,
+  scoringSleepMinutes,
+  type DailySleepRow,
+} from '../_shared/scoring-inputs.ts';
 import {
   challengeClearedCopy,
   eventCompletedCopy,
@@ -358,6 +367,123 @@ async function settleChallenges(
   }
 }
 
+/**
+ * Latch any quests this user's newly-final day cleared (deviation #50).
+ *
+ * **Before the Event and Challenge passes**, because quest XP lands in
+ * `profiles.total_xp` through `recalculate_user_xp` and both of those pay into
+ * the same figure — running quests first means their recomputes already include
+ * whatever quests paid, rather than needing another one after.
+ *
+ * The day's raw totals are summed here rather than read from `daily_scores`,
+ * because a quest counts raw units and `daily_scores` stores points and tiers.
+ * `aggregateBuckets` does the summing rather than four `reduce`s written out
+ * here: an "active hour" is a bucket clearing `VIT_ACTIVE_HOUR_STEPS`, and a
+ * local count of buckets-with-any-movement would quietly clear every hours
+ * quest on a day of nothing but standing up.
+ *
+ * The service role bypasses RLS, so these are plain selects rather than another
+ * security-definer function to review.
+ */
+async function settleQuests(candidate: Candidate): Promise<void> {
+  const [{ data: bucketRows, error: bucketError }, { data: sleepRows, error: sleepError }] =
+    await Promise.all([
+      admin
+        .from('health_buckets')
+        .select('hour, steps, distance_m, active_kcal, active_minutes')
+        .eq('user_id', candidate.user_id)
+        .eq('local_date', candidate.local_date),
+      admin
+        .from('daily_sleep')
+        .select(DAILY_SLEEP_SELECT)
+        .eq('user_id', candidate.user_id)
+        .eq('local_date', candidate.local_date),
+    ]);
+
+  if (bucketError) throw new Error(`quest bucket read failed: ${bucketError.message}`);
+  if (sleepError) throw new Error(`quest sleep read failed: ${sleepError.message}`);
+
+  const rows = (bucketRows ?? []) as Array<Record<string, unknown>>;
+  // No buckets is a day with nothing to grade. Returning here keeps the
+  // remaining three reads off every user whose day never synced.
+  if (rows.length === 0) return;
+
+  // numeric columns arrive as strings over PostgREST, exactly as everywhere
+  // else that reads this table.
+  const buckets: HourBucket[] = rows.map((b) => ({
+    hour: Number(b.hour),
+    steps: Number(b.steps ?? 0),
+    distanceM: Number(b.distance_m ?? 0),
+    activeKcal: Number(b.active_kcal ?? 0),
+    activeMinutes: Number(b.active_minutes ?? 0),
+  }));
+  const totals = aggregateBuckets(buckets);
+
+  const day = {
+    steps: totals.steps,
+    activeKcal: totals.activeKcal,
+    activeHours: totals.activeHours,
+    distanceM: totals.distanceM,
+    // Null, never 0, and gated rather than raw. `scoringSleepMinutes` is the
+    // same predicate the score itself applies, so a hand-typed night — which
+    // scores no MND at all — cannot clear a sleep quest either. The client
+    // reads the same night through `scoredSleepMinutes`, which is the identical
+    // rule; a raw read here would pay XP for a bar the card never showed met.
+    // `DAILY_SLEEP_SELECT` is joined at runtime, so supabase-js cannot infer
+    // the row shape from it and widens to its error union — hence the cast
+    // through `unknown`. `DAILY_SLEEP_COLUMNS` is what actually keeps the
+    // select and `DailySleepRow` in step, at compile time.
+    sleepMinutes: scoringSleepMinutes(
+      (sleepRows ?? []) as unknown as DailySleepRow[],
+      candidate.local_date,
+    ),
+  };
+
+  const { data: profileRow, error: profileError } = await admin
+    .from('profiles')
+    .select('quest_tier_override')
+    .eq('id', candidate.user_id)
+    .maybeSingle();
+  if (profileError) throw new Error(`quest tier read failed: ${profileError.message}`);
+
+  // Lifetime scored days, filtered on `total > 0` — the identical count
+  // `useScoredDayCount` makes on the client. The two must agree or the server
+  // grades quests the user never saw, and the completion latches.
+  const { count: scoredDays, error: countError } = await admin
+    .from('daily_scores')
+    .select('local_date', { count: 'exact', head: true })
+    .eq('user_id', candidate.user_id)
+    .gt('total', 0);
+  if (countError) throw new Error(`scored day count failed: ${countError.message}`);
+
+  const { data: doneRows, error: doneError } = await admin
+    .from('quest_completions')
+    .select('quest_id')
+    .eq('user_id', candidate.user_id)
+    .eq('local_date', candidate.local_date);
+  if (doneError) throw new Error(`quest completion lookup failed: ${doneError.message}`);
+
+  const planned = planQuestCompletions({
+    userId: candidate.user_id,
+    localDate: candidate.local_date,
+    trailingScoredDays: scoredDays ?? 0,
+    tierOverride: (profileRow?.quest_tier_override ?? null) as QuestTier | null,
+    day,
+    alreadyCompleted: new Set(
+      (doneRows ?? []).map((r: { quest_id: string }) => r.quest_id),
+    ),
+  });
+
+  if (planned.length === 0) return;
+
+  // `ignoreDuplicates` is the one-way latch, exactly as for Events and
+  // Challenges: two overlapping cron runs must pay once.
+  const { error } = await admin
+    .from('quest_completions')
+    .upsert(planned, { onConflict: 'user_id,local_date,quest_id', ignoreDuplicates: true });
+  if (error) throw new Error(`quest latch failed: ${error.message}`);
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   // Scheduled invocation only. Without this, any caller could force days to
   // finalize early and freeze rankings mid-competition.
@@ -460,6 +586,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
       milestones.push({
         userId: candidate.user_id,
         milestone: transition.milestoneReached,
+      });
+    }
+
+    // ---- quests ----------------------------------------------------------
+    //
+    // Before the Event and Challenge passes, so their XP recomputes already
+    // include whatever quests just paid rather than needing another.
+    //
+    // No notification: quests are three small things, and one push per cleared
+    // quest is precisely the volume the digest work exists to remove.
+    //
+    // Wrapped separately, for the Events reason: a failed quest latch must
+    // never stop a day from becoming final. The day is the durable thing.
+    try {
+      await settleQuests(candidate);
+    } catch (questError) {
+      await admin.from('app_events').insert({
+        user_id: candidate.user_id,
+        type: 'quest_settle_failed',
+        payload: {
+          localDate: candidate.local_date,
+          error: (questError as Error).message,
+        },
       });
     }
 
