@@ -75,8 +75,16 @@ squad is a layer on top.
 
 ### Squads
 - Create or join by six-character code, up to 6 members on the free tier.
-- **Daily leaderboard**, Today and Yesterday, weighted at read time by the
-  squad's fixed **program** (deviation #11/#12).
+- **The Race** — the day drawn as a track, six characters running horizontal
+  lanes at one shared finish line, which is `DAILY_STEP_BASELINE` and therefore
+  the same 10,000 steps as the Daily Walk (deviation #46). Always on: there is
+  no creation flow and nothing is stored. Ranked by **capped** steps, and the
+  cap is the anti-cheat — past the line, extra steps buy nothing.
+- With no squad, you race **your own recent days** as ghost figures. Days that
+  scored nothing are dropped rather than raced.
+- The **board** survives underneath the track, Today and Yesterday, weighted at
+  read time by the squad's fixed **program** (deviation #11/#12). The race and
+  the board are two orderings over one payload.
 - Share the invite via the system share sheet; empty seats are the affordance.
 - **Invite links** — `https://kairo-teal-nine.vercel.app/join/<code>` opens the app with the code
   filled in (deviation #36). The code is seeded, never auto-submitted, and
@@ -126,9 +134,25 @@ squad is a layer on top.
 - Notification permission asked in context, with a status row in Profile.
 
 ### Privacy, which is a design constraint rather than a feature
-Squadmates see scores, ability ratings and streaks. They can never reach raw
-steps, hourly movement, heart rate or timestamps — `squad_leaderboard()` has no
-argument that returns them, and `profiles` is owner-readable only.
+Squadmates see scores, ability ratings and streaks. **As of deviation #47 they
+also see four daily totals — steps, distance, active calories and sleep
+duration — and only behind an explicit consent gate that is per row and
+reciprocal:** a member's totals are visible when that member has consented
+*and* the viewer has. Consent is asked at squad create and join, with a decline
+path, and existing members are asked once per launch because they joined under
+the previous model.
+
+What squadmates still can never reach: **hourly movement, heart rate, workout
+sessions, pace, routes and timestamps.** `squad_leaderboard()` sums a day and
+never selects or groups by the hour column — the difference between a total and
+a movement pattern — and `profiles` is owner-readable only.
+
+This paragraph used to say squadmates "can never reach raw steps". That is no
+longer true, and a stale privacy claim is the worst kind, so the line is
+rewritten rather than annotated. **Still outstanding and blocking launch:** the
+privacy policy and the App Store privacy answers are updated in the same pass
+before any outsider joins a squad. HealthKit data disclosed to other users
+engages App Review guideline 5.1.3.
 
 ---
 
@@ -156,6 +180,7 @@ Getting these wrong in a brief produces findings about things that do not exist.
 
 | Say | Not |
 |---|---|
+| Race | daily leaderboard *(the track is the surface; the board is what it re-ranks)* |
 | your character | Hunter, avatar |
 | squad | barkada, party, clan |
 | ability rating | tier, Bronze/Silver/Gold *(internal to scoring; no surface renders them)* |

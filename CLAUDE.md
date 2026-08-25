@@ -386,6 +386,50 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
+**The squad board is a race as of 2026-08-26** (roadmap deviations #46, #47).
+The daily leaderboard became a track: six characters running horizontal lanes
+at one shared flag, drawn over the same payload the board already fetched.
+Nothing about the scoring engine changed. Five things break easily:
+
+- **`RACE_FINISH_LINE` is `DAILY_STEP_BASELINE`, derived and never a literal**,
+  so crossing the line *is* clearing the Daily Walk — one number, two readings,
+  social here and personal in the streak. `10_000` must not appear in
+  `packages/kairo-core/src/race.ts` or in `src/features/squad/Race*.tsx`. The
+  race is clear of the `AGI`/`AGI_base` trap **only because it never reads a
+  tier**: it takes raw steps from the widened projection. Anything that later
+  decides "did they cross the line" from `daily_scores.tiers` must read
+  `tiers->>'AGI_base'`, or the flag moves with the user's active hours.
+- **The cap *is* the anti-cheat.** `cappedSteps` stops at the line, so past it
+  extra steps buy nothing — which restores the resistance the tier ladder
+  already had and a raw-step race would have given away. It also means two
+  active people are tied on the primary key **by construction**, so the
+  tie-break through daily score and then `user_id` is the common path, not an
+  edge case. Drop the `user_id` key and the board twitches on every poll.
+- **`squad_leaderboard()` orders by the weighted total, not by steps.** The
+  race re-ranks on the client — two orderings, one payload, and a schema test
+  pins it on a fixture where the two genuinely disagree. Ranking once in SQL is
+  the obvious "improvement" and it silently deletes the program feature
+  (deviation #11).
+- **The consent gate is reciprocal and per row**, refining the parent spec's
+  whole-squad rule: whole-squad gating leaks the holdout's decision to the five
+  people who agreed. `useSquadDataConsent` exposes **`isSuccess`** and callers
+  must use it — a query in flight reads `false`, indistinguishable from a
+  refusal (deviation #37's lesson again). Gate on `isSuccess && !consented`,
+  and put the early return **below every hook**: above one it is a conditional
+  hook and the count changes the frame consent lands. A row whose `steps` is
+  null keeps its lane with no position; dropping it looks like the member left,
+  and drawing it at zero invents a bad day. **The privacy policy and the App
+  Store privacy answers are not yet updated, and that is a launch blocker** —
+  guideline 5.1.3.
+- **A lane is one accessibility element and needs both halves** of the
+  2026-08-14 grouping fix, and the whole track is **flow-based** — the figure
+  is placed by two flex spacers, and `flex: 0` on either is the bug (it refuses
+  to shrink as well as to grow, so the figure is squeezed at 0% and 100%). The
+  finish line is drawn per lane as a right-edge rule with **no vertical gap
+  between lanes**, so the segments abut into one continuous line; adding a
+  `gap` or a `marginBottom` there breaks the one picture that makes this a race
+  rather than six bars.
+
 **JS ships over the air as of 2026-08-25** (roadmap deviation #43). EAS Update
 is installed, so a change under `app/`, `src/` or `packages/kairo-core` reaches
 installed builds with `npm run eas:update:production` and costs nothing; only a
