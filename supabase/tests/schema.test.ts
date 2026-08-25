@@ -1584,7 +1584,16 @@ describe('squad_leaderboard', () => {
     expect(rows[0]!.total).toBe(2900);
   });
 
-  it('exposes tiers and totals but no raw health columns', async () => {
+  it('exposes tiers, totals and the four gated daily sums — but nothing hourly', async () => {
+    // **This assertion was reversed by deviation #47 and that is deliberate.**
+    // It used to list `steps`, `distance_m` and `active_kcal` as forbidden
+    // columns. The race needs each member's daily total in raw units, so those
+    // three plus `sleep_minutes` are now projected — behind the reciprocal
+    // consent gate asserted in its own describe block below.
+    //
+    // What did NOT change is the line the projection actually defends:
+    // `active_minutes` and `hour` are still absent, because the difference
+    // between a day's total and a movement pattern is the whole of §5.
     const { leader, squadId } = await seedSquad();
     const rows = await h.asUser<Record<string, unknown>>(
       leader,
@@ -1592,11 +1601,13 @@ describe('squad_leaderboard', () => {
       [squadId],
     );
     const columns = Object.keys(rows[0]!);
-    for (const forbidden of ['steps', 'distance_m', 'active_kcal', 'active_minutes', 'hour']) {
+    for (const forbidden of ['active_minutes', 'hour', 'avg_heart_rate']) {
       expect(columns).not.toContain(forbidden);
     }
     expect(columns).toContain('tiers');
     expect(columns).toContain('total');
+    expect(columns).toContain('steps');
+    expect(columns).toContain('sleep_minutes');
   });
 
   it('marks which row is the caller', async () => {
@@ -1653,6 +1664,212 @@ describe('squad_leaderboard', () => {
     // Same instant, and the two members can legitimately be on different dates.
     expect(byName['Cebu']).toBeTruthy();
     expect(byName['Dubai']).toBeTruthy();
+  });
+});
+
+/**
+ * The widened projection and its reciprocal, per-row consent gate.
+ *
+ * Spec §4.5 of the parent design gated per *squad*: nobody sees anything until
+ * everybody has agreed. This is per row and reciprocal instead — a member's
+ * totals are visible only when that member has consented AND the viewer has —
+ * because whole-squad gating leaks the holdout's decision to the five people
+ * who agreed and can see that something is missing.
+ */
+describe('squad_leaderboard raw totals (deviation #47)', () => {
+  async function seedPair() {
+    const alice = await h.createUser({ characterName: 'Alice' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      alice,
+      `select id, invite_code from public.create_squad('Race')`,
+    );
+    const bob = await h.createUser({ characterName: 'Bob' });
+    await h.asUser(bob, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+    return { alice, bob, squadId: squad[0]!.id };
+  }
+
+  const consent = (userId: string) =>
+    h.asService(
+      `update public.profiles set squad_data_consent_at = now() where id = $1`,
+      [userId],
+    );
+
+  /**
+   * Service-role, because `health_buckets` has no client write grant at all —
+   * Edge Functions own every mutation (§12), and the harness has to stand in
+   * for one.
+   */
+  const insertBuckets = (
+    userId: string,
+    localDate: string,
+    rows: { hour: number; steps: number; distance_m: number; active_kcal: number }[],
+  ) =>
+    Promise.all(
+      rows.map((r) =>
+        h.asService(
+          `insert into public.health_buckets
+             (user_id, local_date, hour, steps, distance_m, active_kcal)
+           values ($1, $2, $3, $4, $5, $6)
+           on conflict (user_id, local_date, hour) do update
+             set steps = excluded.steps,
+                 distance_m = excluded.distance_m,
+                 active_kcal = excluded.active_kcal`,
+          [userId, localDate, r.hour, r.steps, r.distance_m, r.active_kcal],
+        ),
+      ),
+    );
+
+  const insertSleep = (userId: string, localDate: string, minutes: number) =>
+    h.asService(
+      `insert into public.daily_sleep (user_id, local_date, minutes)
+       values ($1, $2, $3)
+       on conflict (user_id, local_date) do update set minutes = excluded.minutes`,
+      [userId, localDate, minutes],
+    );
+
+  const board = (viewer: string, squadId: string, day: string) =>
+    h.asUser<Record<string, unknown>>(
+      viewer,
+      'select * from public.squad_leaderboard($1, $2)',
+      [squadId, day],
+    );
+
+  const DAY = '2026-08-21';
+
+  it('returns the four new columns in the contracted order', async () => {
+    // The RPC is a set-returning function, so the row shape is pinned by
+    // selecting from it rather than by reading a catalog table.
+    const { alice, squadId } = await seedPair();
+    const rows = await board(alice, squadId, DAY);
+    expect(Object.keys(rows[0]!)).toEqual([
+      'rank', 'user_id', 'character_name', 'class', 'level', 'local_date',
+      'total', 'tiers', 'ratings', 'contributing_stats', 'has_rec', 'flagged',
+      'status', 'current_streak', 'is_self', 'program', 'species',
+      'steps', 'distance_m', 'active_kcal', 'sleep_minutes',
+    ]);
+  });
+
+  it('withholds raw totals when the viewed member has not consented', async () => {
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice); // viewer consents; bob does not
+    await insertBuckets(bob, DAY, [
+      { hour: 8, steps: 3_000, distance_m: 2_100, active_kcal: 90 },
+    ]);
+
+    const rows = await board(alice, squadId, DAY);
+    const bobRow = rows.find((r) => r.user_id === bob)!;
+    expect(bobRow.steps).toBeNull();
+    expect(bobRow.distance_m).toBeNull();
+    expect(bobRow.active_kcal).toBeNull();
+    expect(bobRow.sleep_minutes).toBeNull();
+  });
+
+  it('withholds raw totals from a viewer who has not consented, however many others have', async () => {
+    // Reciprocity. Without it, declining is strictly dominant: you see six
+    // people's figures and show none of your own.
+    const { alice, bob, squadId } = await seedPair();
+    await consent(bob); // the viewed member consents; alice does not
+    await insertBuckets(bob, DAY, [
+      { hour: 8, steps: 3_000, distance_m: 2_100, active_kcal: 90 },
+    ]);
+
+    const rows = await board(alice, squadId, DAY);
+    const bobRow = rows.find((r) => r.user_id === bob)!;
+    expect(bobRow.steps).toBeNull();
+  });
+
+  it("returns the day's summed totals when both sides have consented", async () => {
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice);
+    await consent(bob);
+    await insertBuckets(bob, DAY, [
+      { hour: 8, steps: 3_000, distance_m: 2_100, active_kcal: 90 },
+      { hour: 9, steps: 2_500, distance_m: 1_800, active_kcal: 70 },
+    ]);
+    await insertSleep(bob, DAY, 421);
+
+    const rows = await board(alice, squadId, DAY);
+    const bobRow = rows.find((r) => r.user_id === bob)!;
+    expect(bobRow.steps).toBe(5_500);
+    expect(Number(bobRow.distance_m)).toBe(3_900);
+    expect(Number(bobRow.active_kcal)).toBe(160);
+    expect(bobRow.sleep_minutes).toBe(421);
+  });
+
+  it('reports zero rather than null for a consenting member who has not moved', async () => {
+    // Null and zero mean different things on the track: null is "not sharing"
+    // and keeps the lane without a position, zero is a real day at the start
+    // line. Collapsing them would make a consenting member look like a holdout.
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice);
+    await consent(bob);
+
+    const rows = await board(alice, squadId, DAY);
+    const bobRow = rows.find((r) => r.user_id === bob)!;
+    expect(bobRow.steps).toBe(0);
+    // Sleep is the exception and stays null: no wearable reported a night, and
+    // "0 minutes" would be a claim about sleep that was never measured.
+    expect(bobRow.sleep_minutes).toBeNull();
+  });
+
+  it('still ranks by the program-weighted total, not by steps', async () => {
+    // The race re-ranks on the client. The RPC's ordering must not change,
+    // or the weighted board silently becomes a step board.
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice);
+    await consent(bob);
+    // Bob walks far and scores little; Alice scores well on breadth. Ranking
+    // by steps would put Bob first, ranking by the weighted total puts Alice.
+    await h.asService(
+      `insert into public.daily_scores
+         (user_id, local_date, agi_points, str_points, consistency_points, total, tiers)
+       values ($1, $2, 900, 1200, 800, 2900, '{"AGI":"silver"}'),
+              ($3, $2, 1200, 0, 0, 1200, '{"AGI":"gold"}')`,
+      [alice, DAY, bob],
+    );
+    await insertBuckets(bob, DAY, [
+      { hour: 8, steps: 24_000, distance_m: 18_000, active_kcal: 300 },
+    ]);
+
+    const rows = await h.asUser<{ rank: string; total: number; steps: number }>(
+      alice,
+      'select rank, total, steps from public.squad_leaderboard($1, $2)',
+      [squadId, DAY],
+    );
+    const totals = rows.map((r) => r.total);
+    expect([...totals].sort((a, b) => b - a)).toEqual(totals);
+    // And the ordering is genuinely not the step ordering — otherwise this
+    // test would pass on a board that had been quietly reordered.
+    expect(rows[0]!.steps).toBeLessThan(rows[1]!.steps);
+  });
+
+  it('exposes no hourly movement, heart rate or workout data', async () => {
+    const rows = await h.asService<{ prosrc: string }>(
+      `select prosrc from pg_proc where proname = 'squad_leaderboard'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.prosrc).not.toMatch(/workout_sessions/);
+    expect(rows[0]!.prosrc).not.toMatch(/avg_heart_rate/);
+    // The hour column is never selected and never grouped by, which is the
+    // difference between a total and a movement pattern.
+    expect(rows[0]!.prosrc).not.toMatch(/\bb\.hour\b/);
+  });
+
+  it('grants UPDATE on the consent column and on nothing new besides', async () => {
+    const { alice } = await seedPair();
+    await h.asUser(
+      alice,
+      `update public.profiles set squad_data_consent_at = now() where id = $1`,
+      [alice],
+    );
+    // The table-level revoke that precedes the column grant must not have
+    // widened anything: a rollup stays unwritable from the client.
+    await rejects(
+      h.asUser(alice, 'update public.profiles set agi_total = 999999 where id = $1', [
+        alice,
+      ]),
+      /permission denied/,
+    );
   });
 });
 
@@ -1958,6 +2175,7 @@ describe('profiles.focus is gone', () => {
       'height_cm',
       'sex',
       'species',
+      'squad_data_consent_at',
       'timezone',
       'trains_run',
       'trains_strength',
@@ -4507,6 +4725,7 @@ describe('profiles.species', () => {
       'height_cm',
       'sex',
       'species',
+      'squad_data_consent_at',
       'timezone',
       'trains_run',
       'trains_strength',
@@ -4611,6 +4830,13 @@ describe('squad_leaderboard projects species', () => {
       'is_self',
       'program',
       'species',
+      // Deviation #47. Appended, never interleaved: every consumer reads by
+      // name, but the plpgsql `return query` is positional and a column
+      // inserted mid-list would silently shift four others.
+      'steps',
+      'distance_m',
+      'active_kcal',
+      'sleep_minutes',
     ]);
   });
 
