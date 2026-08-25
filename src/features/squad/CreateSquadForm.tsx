@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { DEFAULT_SQUAD_PROGRAM, type SquadProgram } from '@kairo/core';
 import { useCreateSquad } from './mutations.ts';
+import { useSquadDataConsent } from './consent.ts';
+import { SquadDataConsentSheet } from './SquadDataConsentSheet.tsx';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
 import { isValidSquadName, SQUAD_NAME_MAX, squadNameHint } from './squad-name.ts';
 import { track } from '@/features/telemetry/events.ts';
@@ -16,6 +18,9 @@ export function CreateSquadForm({
   onCancel: () => void;
 }) {
   const createSquad = useCreateSquad(userId);
+  const { consented, isSuccess } = useSquadDataConsent(userId);
+
+
   const [name, setName] = useState('');
   const [program, setProgram] = useState<SquadProgram>(DEFAULT_SQUAD_PROGRAM);
 
@@ -45,6 +50,23 @@ export function CreateSquadForm({
   }
 
   const busy = createSquad.isPending;
+
+  // **The decision comes first, and it replaces the form rather than covering
+  // it.** Racing is the reason to have a squad, and racing discloses health
+  // data (deviation #47) — so agreeing is part of joining, exactly as
+  // consenting to the squad's program already is. A modal over a half-filled
+  // form would make it look like an interruption to dismiss.
+  //
+  // `isSuccess &&`, never `!consented` alone: while the query is in flight
+  // `consented` reads false, which is indistinguishable from a refusal, and a
+  // sheet that flashes over the form on every mount reads as a bug.
+  //
+  // **Below every hook, deliberately.** An early return above one of them is a
+  // conditional hook: the count changes the frame consent lands, and React
+  // throws rather than re-rendering.
+  if (isSuccess && !consented) {
+    return <SquadDataConsentSheet userId={userId} onDecline={onCancel} />;
+  }
 
   return (
     <KeyboardAvoidingView
