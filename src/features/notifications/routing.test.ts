@@ -4,7 +4,7 @@ import { notificationTarget } from './routing.ts';
 /**
  * The payloads under test are copied from the two senders rather than invented:
  * `dispatch-notifications/index.ts` sends the three scheduled triggers, and
- * `finalize-days/index.ts` sends `goal_completed`. If either changes shape,
+ * `finalize-days/index.ts` sends `event_completed`. If either changes shape,
  * these tests are where it should hurt.
  */
 
@@ -34,21 +34,34 @@ describe('where a notification tap lands', () => {
     ).toBe('/');
   });
 
-  it('sends a completed goal to that goal, not to a list', () => {
+  it('sends a completed event to that event, not to a list', () => {
     // `finalize-days` is the only sender that carries an id, and it is the
-    // most specific destination the product has: the thing you just finished.
+    // most specific destination the product has: the boss you just beat.
     expect(
       notificationTarget({
-        trigger: 'goal_completed',
-        screen: 'goals',
-        goalId: '7f3c1e2a-0000-4000-8000-000000000001',
+        trigger: 'event_completed',
+        screen: 'events',
+        eventId: '7f3c1e2a-0000-4000-8000-000000000001',
       }),
-    ).toBe('/goal/7f3c1e2a-0000-4000-8000-000000000001');
+    ).toBe('/event/7f3c1e2a-0000-4000-8000-000000000001');
   });
 
-  it('falls back to the character tab when a goal push has lost its id', () => {
+  it('falls back to the character tab when an event push has lost its id', () => {
     // Rather than null. The push already told the user something happened; the
-    // honest failure is landing them somewhere real, not swallowing the tap.
+    // honest failure is landing them somewhere real, not swallowing the tap —
+    // and `/event/undefined` renders an error, which is a fabricated screen.
+    expect(notificationTarget({ trigger: 'event_completed', screen: 'events' })).toBe('/');
+  });
+
+  it('still lands a goal push sent before the 2026-08-25 rename', () => {
+    // `notification_log.kind` is free text with no check constraint, so
+    // historical rows say this and a push sent minutes before the deploy can be
+    // tapped minutes after it. The goal routes are gone, so it lands on the
+    // character tab — a tap that goes nowhere is indistinguishable from push
+    // being broken.
+    expect(
+      notificationTarget({ trigger: 'goal_completed', screen: 'goals', goalId: 'g1' }),
+    ).toBe('/');
     expect(notificationTarget({ trigger: 'goal_completed', screen: 'goals' })).toBe('/');
   });
 

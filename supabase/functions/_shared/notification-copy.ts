@@ -40,21 +40,37 @@ function points(total: number): string {
 }
 
 /**
- * §14 (v1.4): "You hit it. [title] — done. 🎯"
+ * A squad beat their boss.
  *
- * Its own function rather than a case in `notificationCopy`, because it needs the
- * goal's title and that signature does not carry one. The old `sabotaged` case
- * solved the same problem by throwing for an unreachable branch; `ScheduledTrigger`
- * makes it unrepresentable instead.
+ * Its own function rather than a case in `notificationCopy`, because it needs
+ * the Event's title and that signature does not carry one. The old `sabotaged`
+ * case solved the same problem by throwing for an unreachable branch;
+ * `ScheduledTrigger` makes it unrepresentable instead.
+ *
+ * Named for the **kind**, not for "event": nobody set out to complete an event,
+ * they set out to beat the Carabao. `adventure` ships later (spec §11) and its
+ * branch is written now because the alternative is a `default` that says
+ * "Event complete", which is the sentence this function exists to avoid.
+ *
+ * Said in the plural throughout — "your squad" — because an Event is pooled and
+ * every member on the frozen roster is paid, including one who contributed
+ * nothing (deviation #48). "You hit it", the Goal copy this replaces, would be
+ * a small lie to exactly the member the mechanic exists for.
  */
-export function goalCompletedCopy(input: {
+export function eventCompletedCopy(input: {
   title: string;
+  kind: 'battle' | 'adventure';
   xpAwarded: number;
 }): PushMessage {
-  return {
-    title: 'You hit it. 🎯',
-    body: `${input.title} — done. +${points(input.xpAwarded)} XP.`,
-  };
+  return input.kind === 'adventure'
+    ? {
+        title: 'You made it. 🏕',
+        body: `${input.title} — your squad reached the end. +${points(input.xpAwarded)} XP.`,
+      }
+    : {
+        title: 'Boss down. ⚔️',
+        body: `${input.title} — your squad finished it off. +${points(input.xpAwarded)} XP.`,
+      };
 }
 
 /**

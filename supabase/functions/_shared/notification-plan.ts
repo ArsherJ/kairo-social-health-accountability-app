@@ -13,8 +13,8 @@ import { previousDay, type Candidate, type NotificationTrigger } from './core.ts
 /**
  * The triggers a clock can produce.
  *
- * Narrower than `NotificationTrigger` on purpose: `goal_completed` fires from
- * `finalize-days` when a goal latches, so it can never come out of
+ * Narrower than `NotificationTrigger` on purpose: `event_completed` fires from
+ * `finalize-days` when an Event latches, so it can never come out of
  * DISPATCH_HOURS. Expressing that in the type is what lets `notificationCopy()`
  * be exhaustive without a throw for a case that cannot happen.
  */
@@ -58,7 +58,7 @@ export type DispatchData = {
 
 export interface DispatchCandidate extends Candidate {
   // Narrowed from Candidate's `NotificationTrigger`: everything this planner can
-  // emit came out of DISPATCH_HOURS, so `goal_completed` is not reachable here.
+  // emit came out of DISPATCH_HOURS, so `event_completed` is not reachable here.
   // Stating it lets the dispatcher call `notificationCopy()` without a cast.
   trigger: ScheduledTrigger;
   data: DispatchData;

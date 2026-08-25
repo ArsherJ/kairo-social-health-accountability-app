@@ -307,3 +307,68 @@ export function eventCompletionXp(event: KairoEvent, _completedOn: string): numb
   const scaled = BASE_EVENT_COMPLETION_XP * Math.sqrt(eventWindowDays(event));
   return Math.min(MAX_EVENT_COMPLETION_XP, Math.round(scaled));
 }
+
+/**
+ * One row of `event_progress()`, as PostgREST hands it over.
+ *
+ * Numeric columns arrive as strings, and `value` arrives as null behind the
+ * reciprocal consent gate — which is why both are widened here rather than
+ * asserted away at the call site.
+ */
+export interface EventProgressRow {
+  user_id: string;
+  character_name: string;
+  species: string | null;
+  local_date: string;
+  /** This member's own contribution, or null behind the consent gate. */
+  value: number | string | null;
+  /** The whole squad's figure for that date. Never withheld. */
+  pooled_value: number | string;
+  status: string;
+}
+
+/**
+ * The squad's day list, from the RPC's per-participant rows.
+ *
+ * Lives here, in the keystone, rather than beside either caller: the client's
+ * bar and `finalize-days`' grading must agree exactly, and a second copy is a
+ * second chance to get the two rules below wrong.
+ *
+ * **Take each date once.** `event_progress()` repeats `pooled_value` on every
+ * participant's row — it is a window function over the date — so summing it
+ * naively multiplies every day by the squad size and reports a six-person squad
+ * as six times fitter than it is. That is the single easiest mistake to make
+ * against this RPC.
+ *
+ * **Read the pooled column, never `value`.** `value` is behind the consent
+ * gate, and the gate keys off the *viewer's* profile rather than off their
+ * role — so `finalize-days`, which is service-role but passes a candidate who
+ * may never have consented, would see null on every row, pool the whole fight
+ * to zero and silently never complete anything.
+ *
+ * **A date is final only when every participant's day is.** The pooled figure
+ * for a date mixes contributions whose statuses can differ — a squad spans
+ * timezones, so one member's day finalizes hours before another's. Taking the
+ * first row's status would let a still-revisable contribution pay XP, which is
+ * the one thing `met`'s final-days-only rule exists to prevent. Conservative in
+ * the safe direction: the date resolves when the last member's does.
+ */
+export function pooledDays(rows: readonly EventProgressRow[]): EventDay[] {
+  const byDate = new Map<string, EventDay>();
+
+  for (const row of rows) {
+    const isFinal = row.status === 'final';
+    const seen = byDate.get(row.local_date);
+    if (seen === undefined) {
+      byDate.set(row.local_date, {
+        localDate: row.local_date,
+        value: Number(row.pooled_value ?? 0),
+        status: isFinal ? 'final' : 'provisional',
+      });
+      continue;
+    }
+    if (!isFinal) seen.status = 'provisional';
+  }
+
+  return [...byDate.values()];
+}

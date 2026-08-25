@@ -15,8 +15,8 @@ import {
  * The handler reads the user's opt-ins and their trailing window of sessions;
  * this module decides which areas just cleared. Nothing here writes, and
  * nothing here computes a target itself — `resolveChallenge()` in `@kairo/core`
- * is the single implementation of that arithmetic, exactly as `evaluateGoal()`
- * is for goals.
+ * is the single implementation of that arithmetic, exactly as
+ * `evaluateEvent()` is for Events.
  */
 
 /** Which areas this user has opted into (§7.9). Both default false. */

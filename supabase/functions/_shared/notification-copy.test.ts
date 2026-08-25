@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { challengeClearedCopy, notificationCopy, ordinal } from './notification-copy.ts';
+import {
+  challengeClearedCopy,
+  eventCompletedCopy,
+  notificationCopy,
+  ordinal,
+} from './notification-copy.ts';
 
 describe('ordinal', () => {
   it('uses the ordinary suffixes', () => {
@@ -102,5 +107,40 @@ describe('challengeClearedCopy', () => {
     for (const message of messages) {
       expect(`${message.title} ${message.body}`).not.toMatch(/\bpoints?\b/i);
     }
+  });
+});
+
+describe('eventCompletedCopy', () => {
+  it('says a Battle was beaten, not that an event completed', () => {
+    // Nobody set out to complete an event; they set out to beat the Carabao.
+    const message = eventCompletedCopy({
+      title: 'The Carabao',
+      kind: 'battle',
+      xpAwarded: 79,
+    });
+    expect(message.title).toBe('Boss down. ⚔️');
+    expect(message.body).toContain('The Carabao');
+    expect(message.body).toContain('+79 XP');
+  });
+
+  it('speaks to the squad, because an Event is pooled', () => {
+    // Every member on the frozen roster is paid, contributor or not
+    // (deviation #48) — "you hit it" would be a lie to the member the mechanic
+    // exists for.
+    expect(
+      eventCompletedCopy({ title: 'The Carabao', kind: 'battle', xpAwarded: 30 }).body,
+    ).toContain('your squad');
+  });
+
+  it('has its own sentence for an Adventure rather than a generic default', () => {
+    const message = eventCompletedCopy({ title: 'To Baguio', kind: 'adventure', xpAwarded: 164 });
+    expect(message.title).toBe('You made it. 🏕');
+    expect(message.body).toContain('reached the end');
+  });
+
+  it('separates thousands, matching the rest of the push copy', () => {
+    expect(
+      eventCompletedCopy({ title: 'Big', kind: 'battle', xpAwarded: 1_200 }).body,
+    ).toContain('+1,200 XP');
   });
 });

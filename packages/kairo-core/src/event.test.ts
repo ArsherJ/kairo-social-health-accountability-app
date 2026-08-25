@@ -6,8 +6,10 @@ import {
   bossHp,
   evaluateEvent,
   eventCompletionXp,
+  pooledDays,
   trailingMedian,
   type EventDay,
+  type EventProgressRow,
   type KairoEvent,
 } from './index.ts';
 
@@ -195,5 +197,68 @@ describe('eventCompletionXp', () => {
     const early = eventCompletionXp(battle, '2026-09-02');
     const late = eventCompletionXp(battle, '2026-09-07');
     expect(early).toBe(late);
+  });
+});
+
+describe('pooledDays', () => {
+  const row = (over: Partial<EventProgressRow>): EventProgressRow => ({
+    user_id: 'u1',
+    character_name: 'Bayani',
+    species: null,
+    local_date: '2026-09-01',
+    value: 100,
+    pooled_value: 100,
+    status: 'final',
+    ...over,
+  });
+
+  it('takes each date once, from the pooled column', () => {
+    // The RPC repeats the pooled figure on every participant's row, so summing
+    // `pooled_value` naively multiplies the day by the squad size.
+    const days = pooledDays([
+      row({ user_id: 'a', value: 400, pooled_value: 1_000 }),
+      row({ user_id: 'b', value: 600, pooled_value: 1_000 }),
+    ]);
+    expect(days).toHaveLength(1);
+    expect(days[0]!.value).toBe(1_000);
+  });
+
+  it('keeps a day with a withheld breakdown, because pooled is never withheld', () => {
+    // This is what finalize-days sees for a candidate who never consented, and
+    // reading `value` there would pool the whole fight to zero.
+    const days = pooledDays([row({ value: null, pooled_value: 800 })]);
+    expect(days[0]!.value).toBe(800);
+  });
+
+  it('reads a numeric column arriving as a string', () => {
+    expect(pooledDays([row({ pooled_value: '1250.50' })])[0]!.value).toBe(1_250.5);
+  });
+
+  it('holds a date provisional until every participant has finalized', () => {
+    // A squad spans timezones, so one member's day finalizes hours before
+    // another's. Counting the mixed date as final would let a still-revisable
+    // contribution pay XP.
+    const days = pooledDays([
+      row({ user_id: 'a', status: 'final', pooled_value: 900 }),
+      row({ user_id: 'b', status: 'provisional', pooled_value: 900 }),
+    ]);
+    expect(days[0]!.status).toBe('provisional');
+  });
+
+  it('is final once every participant is, whatever order they arrive in', () => {
+    const days = pooledDays([
+      row({ user_id: 'a', status: 'provisional', pooled_value: 900 }),
+      row({ user_id: 'b', status: 'final', pooled_value: 900 }),
+    ]);
+    expect(days[0]!.status).toBe('provisional');
+    const allFinal = pooledDays([
+      row({ user_id: 'a', status: 'final', pooled_value: 900 }),
+      row({ user_id: 'b', status: 'final', pooled_value: 900 }),
+    ]);
+    expect(allFinal[0]!.status).toBe('final');
+  });
+
+  it('returns nothing for no rows rather than a zero day', () => {
+    expect(pooledDays([])).toEqual([]);
   });
 });
