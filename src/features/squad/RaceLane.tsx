@@ -113,9 +113,11 @@ export function RaceLane({ racer }: { racer: Racer }) {
             Flow-based placement: two spacers push the figure along the lane.
             Never a `left` or a `top`.
 
-            Both floors are load-bearing. `flex: 0` on a spacer makes it take no
-            space at all *and* refuse to shrink, so at progress 0 and progress 1
-            the figure was being squeezed rather than parked at one end.
+            The floors keep both spacers as *flexible* children at the extremes.
+            `flex: 0` is a different box — no growth and no shrink — and mixing
+            one of those into a flex row makes the remaining space resolve
+            against a different rule at 0% and 100% than it does everywhere in
+            between. A tiny positive flex keeps one rule for every position.
           */}
           <View style={{ flex: Math.max(racer.progress, 0.0001) }} />
           <Figure racer={racer} />
@@ -215,10 +217,12 @@ export function QuietLane({
 }
 
 const styles = StyleSheet.create({
-  // **No vertical margin or gap.** The finish-line segments have to abut, and
-  // a gap here is what breaks the one continuous rule into six dashes. The
-  // breathing room is `paddingVertical` inside the lane instead.
-  lane: { paddingVertical: space.xs },
+  // **No vertical padding, margin or gap, on the lane or between lanes.** The
+  // finish-line segments have to abut into one rule, and *any* vertical space
+  // here breaks it into six dashes. The breathing room lives inside the track
+  // instead, as `paddingTop` — which the finish rule then spans, because it
+  // stretches to the row rather than declaring a height of its own.
+  lane: {},
   row: { flexDirection: 'row', alignItems: 'flex-end' },
 
   name: {
@@ -238,6 +242,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
+    // The lane's whole vertical rhythm, and it is here rather than on `lane`
+    // so the finish rule can span it — see `lane` above.
+    paddingTop: space.sm,
     // The ground the figure runs on. A rule, not a fill — see the note above.
     borderBottomWidth: RULE,
     borderBottomColor: ramp.neutral[300],
@@ -261,12 +268,13 @@ const styles = StyleSheet.create({
     paddingBottom: space.xs,
   },
 
-  // The flag. One rule per lane, stacked into one line down the track.
-  finish: {
-    width: RULE,
-    // Taller than the rule it meets, so the corner reads as a post standing on
-    // the ground rather than as two lines that happen to touch.
-    height: FIGURE + space.xs * 2,
-    backgroundColor: colors.accent,
-  },
+  // The flag. One rule per lane, stacked into one line down the whole track.
+  //
+  // **`alignSelf: 'stretch'` and no `height`, deliberately.** A declared height
+  // is the bug: anything taller than the row stretches the row to fit it, and
+  // anything shorter leaves a gap — either way the segments stop abutting and
+  // the one continuous line becomes six dashes, which is the picture that makes
+  // this a race rather than six bars. Stretching means the rule is exactly as
+  // tall as its lane, whatever Dynamic Type does to that lane's height.
+  finish: { width: RULE, alignSelf: 'stretch', backgroundColor: colors.accent },
 });
