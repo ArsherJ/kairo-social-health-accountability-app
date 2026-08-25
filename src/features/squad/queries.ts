@@ -56,6 +56,24 @@ export type LeaderboardRow = {
    */
   species: SpeciesId | null;
   /**
+   * The day's raw totals, or null when either side has not consented
+   * (deviation #47). Null is the normal case, not an error case — every
+   * consumer renders the row without them, and the track keeps the lane
+   * without a position rather than dropping it or drawing it at zero.
+   *
+   * `sleep_minutes` is null for a second reason too, independent of consent:
+   * no wearable reported a night. "0 minutes" would be a claim about sleep
+   * that was never measured.
+   *
+   * `distance_m` and `active_kcal` are Postgres numerics, which supabase-js
+   * hands back as strings — `Number()` them at the point of use, as
+   * `useTodayBuckets` already does.
+   */
+  steps: number | null;
+  distance_m: number | null;
+  active_kcal: number | null;
+  sleep_minutes: number | null;
+  /**
    * The squad's program, repeated on every row. `total` above is already
    * weighted by it (deviation #11) — the row carries the program so the UI can
    * explain *why* the number differs from the unweighted one on the character

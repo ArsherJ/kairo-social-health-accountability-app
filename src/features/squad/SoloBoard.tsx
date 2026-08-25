@@ -1,5 +1,6 @@
 import { RefreshControl, StyleSheet, View } from 'react-native';
 import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
+import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, space } from '@/theme.ts';
@@ -38,8 +39,14 @@ export function SoloBoard({
 }) {
   const profile = useProfile(userId);
   const score = useTodayScore(userId, profile.data?.timezone);
+  // The day in raw units. `daily_scores` stores points and tiers, never steps,
+  // so the race needs its own source — and solo is the one board the RPC does
+  // not build, so this is it. No consent gate: consent governs what squadmates
+  // see, never what you see of yourself.
+  const raw = useTodayBuckets(userId, profile.data?.timezone);
 
   const today = score.data;
+  const totals = raw.data?.totals;
 
   /**
    * `LeaderboardRow` rather than a parallel self-row component: the shape is
@@ -85,6 +92,13 @@ export function SoloBoard({
     // above is the stored, unweighted one — which is exactly what all_around
     // means.
     program: DEFAULT_SQUAD_PROGRAM,
+    // Your own day, always visible to you (deviation #47). Sleep is not read
+    // here: the solo row does not draw it, and inventing a figure for a column
+    // nothing renders is how the two sources start disagreeing.
+    steps: totals?.steps ?? 0,
+    distance_m: totals?.distanceM ?? 0,
+    active_kcal: totals?.activeKcal ?? 0,
+    sleep_minutes: null,
   };
 
   return (
