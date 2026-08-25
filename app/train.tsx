@@ -64,6 +64,13 @@ export default function Train() {
   // no cached count — redirecting on that frame would send a `full` user home
   // and read exactly like Challenges having been removed. The screen below
   // already renders its own pending states, so waiting costs nothing.
+  //
+  // Unchanged by the Today tab (deviation #50). Quests left the gate;
+  // Challenges did not, and the parent spec's §4.4 list is read as
+  // illustrative rather than exhaustive — its own §5.3 says Challenges keep
+  // their behaviour unchanged, and the redirect is part of that behaviour. A
+  // Challenge target is a trailing median over workout sessions a `core`
+  // account may have none of, where a quest is the thing that teaches the loop.
   if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
 
   const today = profile.data?.timezone
