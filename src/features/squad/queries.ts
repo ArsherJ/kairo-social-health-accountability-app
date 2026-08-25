@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SquadProgram } from '@kairo/core';
+import { addDays, currentLocalDate, type GhostDay, type SquadProgram } from '@kairo/core';
 import {
   DEMO_LEADERBOARD,
   DEMO_LEADERBOARD_COMPLETED,
@@ -247,6 +247,52 @@ export function useSquadPreview(rawCode: string, enabled: boolean) {
       if (error) throw new Error(error.message);
       const rows = (data ?? []) as SquadPreview[];
       return rows[0] ?? null;
+    },
+  });
+}
+
+/** How many days back the ghost race looks for a rival. */
+export const GHOST_HISTORY_DAYS = 14;
+
+export const ownRecentDaysKey = (userId: string | undefined, since: string | undefined) =>
+  ['own-recent-days', userId ?? 'none', since ?? 'none'] as const;
+
+/**
+ * The player's own recent local dates and their step totals.
+ *
+ * A plain SELECT under existing RLS — `health_buckets_select_own` is the whole
+ * grant and the player owns these rows. **No RPC and no consent gate:** consent
+ * governs what squadmates see, never what you see of yourself.
+ *
+ * Bounded by a **date range, not a row limit**. `.limit(14 * 24)` looks
+ * equivalent and is not: a day with fewer than 24 stored hours shifts the
+ * window, so the oldest date in the page comes back truncated and that ghost
+ * races on a fraction of its real steps. A range cannot half-include a day.
+ */
+export function useOwnRecentDays(userId: string | undefined, timeZone: string | undefined) {
+  const today = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
+  const since = today ? addDays(today, -GHOST_HISTORY_DAYS) : undefined;
+
+  return useQuery({
+    queryKey: ownRecentDaysKey(userId, since),
+    enabled: Boolean(userId && since),
+    queryFn: async (): Promise<GhostDay[]> => {
+      const { data, error } = await supabase
+        .from('health_buckets')
+        .select('local_date, steps')
+        .eq('user_id', userId as string)
+        .gte('local_date', since as string)
+        .lt('local_date', today as string);
+      if (error) throw new Error(error.message);
+
+      // PostgREST cannot group, so the hourly rows are summed here. Cheap at
+      // this size, and it keeps the query a plain owner-scoped SELECT rather
+      // than another security-definer function to review.
+      const byDate = new Map<string, number>();
+      for (const row of (data ?? []) as { local_date: string; steps: number }[]) {
+        byDate.set(row.local_date, (byDate.get(row.local_date) ?? 0) + row.steps);
+      }
+      return [...byDate].map(([localDate, steps]) => ({ localDate, steps }));
     },
   });
 }
