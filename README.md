@@ -243,4 +243,90 @@ cleanly skips when a fresh clone has no generated `ios/` yet. Run it by hand
 after changing node versions. The generated file remains local because it holds
 a machine-specific absolute path.
 
+### The app icon is two assets, and only one of them is checked at build time
+
+iOS 26 draws the icon with Liquid Glass, which needs a layered source rather
+than a picture of an icon. So there are two:
+
+| File | Used by | Shape |
+| --- | --- | --- |
+| `assets/Kairo.icon/` | iOS (`ios.icon`) | Icon Composer bundle — a **transparent** terracotta symbol plus `icon.json`, which declares the cream ground as `fill`. iOS renders the light, dark and tinted appearances from it. |
+| `assets/icon.png` | Android, web, pre-iOS-26 (root `icon`) | Flat 1024×1024, ground baked in, square corners, **no alpha channel**. |
+
+Four things about the bundle fail quietly:
+
+- **The `.icon` path belongs on `ios.icon`, as a plain string.** Expo warns and
+  falls back if it is given to the root `icon` field, or nested in the
+  light/dark/tinted object form.
+- **Nothing in the JS toolchain reads `icon.json`.** `prebuild` copies the
+  directory verbatim into `ios/Kairo/Kairo.icon` and sets
+  `ASSETCATALOG_COMPILER_APPICON_NAME`. The schema is Apple's, and only
+  `actool` checks it — at Xcode/EAS build time. A malformed edit therefore
+  survives `npm run prebuild`, `npm run typecheck` and `expo config`, then
+  fails in CI. Validate it in a couple of seconds instead:
+
+  ```bash
+  mkdir -p /tmp/iconcheck   # actool errors out rather than creating it
+  xcrun actool --compile /tmp/iconcheck --platform iphoneos \
+    --minimum-deployment-target 26.0 --target-device iphone \
+    --app-icon Kairo --output-partial-info-plist /tmp/iconcheck/p.plist \
+    assets/Kairo.icon
+  ```
+
+  Non-zero exit means a bad schema. On success it writes the actual rendered
+  icons to `/tmp/iconcheck/` — the only way to *see* the glass treatment
+  without a device. `xcrun assetutil --info /tmp/iconcheck/Assets.car` lists
+  the appearance variants that were generated.
+- **`fill` colours are `<colour-space>:r,g,b,a` floats, not hex.**
+  `extended-srgb:0.96078,0.91765,0.84706,1.00000` is `colors.bg` (`#f5ead8`)
+  from `src/theme.ts`. A hex string is silently wrong.
+- **The directory basename is the icon name**, so renaming `Kairo.icon`
+  renames the build setting too.
+- **Editing the artwork without editing `app.config.ts` leaves the native copy
+  stale, silently.** `prebuild` copies the bundle into `ios/Kairo/Kairo.icon`;
+  `npm run ios` does *not* re-sync it, because the config *value*
+  (`'./assets/Kairo.icon'`) has not changed — only the bytes it points at have.
+  The build then succeeds against the previous icon. After changing any icon
+  asset, run `npx expo prebuild -p ios` (add `--no-install` to keep `Pods/`),
+  and `xcrun simctl uninstall booted com.arsherj.kairo` before reinstalling,
+  since SpringBoard caches icons across reinstalls. Confirm the native copy
+  really changed rather than trusting the build:
+
+  ```bash
+  # first strongly-opaque pixel of each; they must match
+  sips -g all assets/Kairo.icon/Assets/icon.png ios/Kairo/Kairo.icon/Assets/icon.png
+  ```
+
+**The Dark appearance is auto-derived, which constrains the symbol colour.**
+iOS 26 lets people set Home Screen icons to Dark (Home Screen → Customize →
+Dark). With only one layer declared, the system darkens the cream ground but
+keeps the symbol unchanged, so the symbol has to work on both grounds. That is why the symbol is terracotta (`colors.accent`) rather than
+ink (`colors.text`): ink measured 13.95:1 on cream but **1.00:1** on the
+darkened ground — invisible, and confirmed that way on the simulator.
+Terracotta reads 3.03:1 and 4.60:1 respectively, which is the only split a
+single-layer icon can reach, and the Dark appearance was checked by hand and
+reads correctly (2026-08-25). Changing the symbol to a darker, higher-contrast
+colour silently breaks the Dark appearance again.
+
+Overriding a single appearance is what the `*-specializations` keys in
+`icon.json` are for (`fill-specializations`, `image-name-specializations`,
+`glass-specializations` …, keyed by `light-color` / `dark-color` / `dark-tint` /
+`dark-clear`). **Do not hand-write them from that vocabulary alone.** An
+invented nesting was tried and is a silent no-op: `actool` exits 0 while
+ignoring it, proven by pointing a specialization at a file that does not exist —
+it still succeeded, where the same trick on the *primary* `image-name` fails the
+build outright. Author appearance overrides in Apple's Icon Composer
+(`/Applications/Xcode.app/Contents/Applications/Icon Composer.app`), which
+writes canonical JSON, or change the symbol to a mid-tone that survives both
+grounds. Note also that `actool` output is **nondeterministic** — the same input
+compiles to different digests — so diffing `Assets.car` cannot tell you whether
+an edit took effect.
+
+The PNG has one trap of its own: it must carry **no alpha channel at all**.
+Apple rejects an App Store icon that has one even when every pixel is opaque
+(ITMS-90717), and that is raised at upload, not at build — so a
+flattened-but-still-RGBA file passes everything local and fails submission.
+Most export paths add the channel back; confirm with `sips -g hasAlpha
+assets/icon.png`.
+
 See `CLAUDE.md` for environment constraints (why `supabase db push` / `psql` / `supabase start` don't work on this dev machine), architecture, and testing conventions before making changes.
