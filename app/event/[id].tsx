@@ -119,6 +119,7 @@ export default function EventDetail() {
         progress={progress}
         windowDays={eventWindowDays(event)}
         today={today ?? event.startsOn}
+        showTitle={false}
       />
 
       {shares.length > 0 && (

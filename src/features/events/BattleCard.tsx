@@ -31,6 +31,7 @@ export function BattleCard({
   windowDays,
   today,
   onPress,
+  showTitle = true,
 }: {
   title: string;
   event: KairoEvent;
@@ -39,6 +40,13 @@ export function BattleCard({
   /** The reader's own local date. Passed in; this component reads no clock. */
   today: string;
   onPress?: () => void;
+  /**
+   * False on the detail screen, which sets the name as its page heading — the
+   * card would otherwise print it a second line below. The spoken label still
+   * carries it either way: a screen reader arriving at this element out of
+   * context needs to know which fight it is.
+   */
+  showTitle?: boolean;
 }) {
   // `accessible` alone should collapse this on iOS and did not, on the
   // 2026-08-14 build — so each direct child is hidden explicitly rather than
@@ -60,9 +68,11 @@ export function BattleCard({
         </Text>
       </View>
 
-      <Text {...hidden} style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
+      {showTitle && (
+        <Text {...hidden} style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+      )}
 
       <View {...hidden} style={styles.numbers}>
         <Text scale="chrome" style={styles.headline}>

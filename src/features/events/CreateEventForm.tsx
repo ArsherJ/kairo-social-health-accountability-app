@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -91,6 +92,12 @@ export function CreateEventForm({
 }) {
   const createEvent = useCreateEvent(userId);
   const history = useSquadKcalHistory(squadId);
+  // The same ~1.3x threshold `HealthPermissionSheet` and `RaceLane` use: past
+  // it, three window chips across a row break "2 weeks" mid-word into "2 week"
+  // / "s". One per row costs vertical space in a view that already scrolls,
+  // which is the trade the disclosure schedule makes everywhere else.
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [difficulty, setDifficulty] = useState<EventDifficulty>('standard');
@@ -224,7 +231,7 @@ export function CreateEventForm({
         />
 
         <Text style={styles.section}>How long</Text>
-        <View style={styles.row}>
+        <View style={stacked ? styles.column : styles.row}>
           {WINDOWS.map((w) => (
             <Choice
               key={w.days}
@@ -340,8 +347,22 @@ export function CreateEventForm({
         {createEvent.isError && <Text style={styles.error}>{createEvent.error.message}</Text>}
       </ScrollView>
 
-      {/* Pinned. Everything above scrolls; the one action does not. */}
+      {/* Pinned. Everything above scrolls; the one action does not — and neither
+          does the boss's HP.
+
+          That figure was in the scroll at first, below the difficulty choices,
+          which is where it belongs by reading order: it is the *result* of the
+          three questions above it. On a standard iPhone at default text size
+          that put it below the fold, so the number the whole screen exists to
+          show could be committed to without ever being seen. It is repeated
+          here instead of moved, because both readings are true — the card below
+          explains where it came from, and this line is what you check with your
+          thumb already on the button. Both render the same `target`, so they
+          cannot drift. */}
       <View style={styles.footer}>
+        {target !== undefined && (
+          <Text style={styles.footerHp}>{`${num(target)} kcal to beat`}</Text>
+        )}
         {blocker !== null && <Text style={styles.blocker}>{blocker}</Text>}
         <Button
           label="Start the battle"
@@ -406,6 +427,8 @@ const styles = StyleSheet.create({
   column: { gap: space.sm },
   choice: {
     flexGrow: 1,
+    // Only binds inside `styles.row`; `styles.column` lays these out full
+    // width, which is what stops a chip breaking a word past ~1.3x.
     flexBasis: '30%',
     paddingVertical: 12,
     paddingHorizontal: space.md,
@@ -446,6 +469,13 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: ramp.neutral[200],
+  },
+  footerHp: {
+    ...font.display.small,
+    fontSize: 17,
+    color: ramp.sage[900],
+    textAlign: 'center',
+    marginBottom: 2,
   },
   blocker: {
     ...font.body.strong,
