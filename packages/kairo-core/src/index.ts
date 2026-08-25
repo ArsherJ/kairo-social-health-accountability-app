@@ -20,6 +20,7 @@ export * from './dominance.ts';
 export * from './compute.ts';
 export * from './goal.ts';
 export * from './challenge.ts';
+export * from './race.ts';
 export * from './disclosure.ts';
 export * from './strain.ts';
 export * from './mind.ts';
