@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Label, Panel, Text } from '@/ui/index.ts';
+import { Button, Label, Panel, STAT_NAMES, Text } from '@/ui/index.ts';
 import {
   BODY_METRIC_LIMITS,
   parseBodyMetric,
@@ -152,7 +152,10 @@ export function BodyMetricsCard({
 
       {missingBodyMetrics && (
         <Text style={styles.prompt}>
-          Add your height and weight for more accurate STR tracking.
+          {/* The stat's name, not `STR` — one table of stat words
+              (deviation #51), and this prompt was the other surface printing an
+              engine key straight into a sentence. */}
+          Add your height and weight for more accurate {STAT_NAMES.STR} tracking.
         </Text>
       )}
 

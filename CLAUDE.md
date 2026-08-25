@@ -60,6 +60,40 @@ higher one. Three things break easily:
   list**, never `create or replace` — the `create_goal` / `p_metric` trap, and a
   surviving overload fails nothing until a call site resolves to it.
 
+**Stat surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`) as of
+2026-08-25** (deviation #51). The engine keys above are unchanged and must stay
+so — this is deviation #23's move in a second place, the engine keeping its
+vocabulary while the surface gets the player's. **Mind did not move**; two words
+changed, not three. Three things break easily:
+
+- **`src/ui/stat-names.ts` is the single source, and it is zero-runtime-import
+  on purpose.** `STAT_NAMES` lived in `StatIcon.tsx`, which reaches
+  `@expo/vector-icons` and therefore React Native's Flow syntax that root Vitest
+  cannot parse — so the stat words were untestable while seven call sites read
+  them. `StatIcon.tsx` re-exports the table so no call site changed. **Do not
+  import `@/ui/index.ts` from a module root Vitest tests**: the barrel
+  re-exports every component *and* the `@/` alias does not resolve there, which
+  is why `program-copy.ts` reaches `stat-names.ts` by relative path exactly as
+  `goal-copy.ts` reaches `kairo-core`.
+- **`dominanceName()` replaced `DOMINANCE_LABELS`, and a parallel table of stat
+  words anywhere is stale by construction.** Two copies existed before this and
+  neither contained a stat word to grep for in the obvious way — the home
+  screen's own `Record<CoreStat | 'balanced', string>`, and `boostChipLabel`,
+  which printed the raw `CoreStat` key (`AGI ×1.5`) and was the last surface in
+  the app showing an engine name to a player. The guard is a test in
+  `stat-names.test.ts` that scans every non-test file under `src` and `app` for
+  the word **Agility**; it immediately caught two stale doc comments quoting
+  rendered copy back at the reader.
+- **"Strength" is deliberately not guarded, and squad programs and Challenge
+  areas keep their names.** `squads.program`'s `strength` and `ChallengeArea`'s
+  `strength` name a *game*, not a stat, and members consented to a squad under
+  that name; "Strength" also survives in `STRENGTH_ACCURACY_NOTE` and in the two
+  `HKWorkoutActivityType` identifiers, so a guard on it would be noise, and a
+  noisy guard gets deleted. What each program's **blurb** must do is name the
+  stat it weights in the current vocabulary — hence "Body counts for more". A
+  member of a Strength squad therefore reads "Body counts for more", which is
+  correct and briefly confusing; that trade was taken knowingly.
+
 **Solo mode gained a floor and a curve on 2026-08-15** (deviations #31–#33).
 Three things that are easy to break by accident:
 
@@ -238,9 +272,10 @@ stat is a glyph with no letters beside it; the character's level band, dominant
 stat and ability rating are shape, shadow and ring. The pattern, set by
 `StatIcon`, is: **a decorative or duplicative element is hidden**
 (`accessibilityElementsHidden`), and **the group that means something is one
-element with a composed label**. `STAT_NAMES` is the single source for stat
-words — `Dominance` is `CoreStat | 'balanced' | null`, so it covers the figure
-too and a parallel table would drift. Where composition has real edges it gets a
+element with a composed label**. `src/ui/stat-names.ts` is the single source for
+stat words — it also exports `dominanceName()`, since `Dominance` is
+`CoreStat | 'balanced' | null` and so the figure needs naming too, and a
+parallel table would drift. Where composition has real edges it gets a
 tested pure module: `src/features/squad/row-label.ts` exists because a
 leaderboard row was twelve separate stops (a six-person board took seventy-odd
 swipes), and because "1-day streak" is right on screen and wrong out loud.

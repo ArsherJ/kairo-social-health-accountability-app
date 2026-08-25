@@ -108,10 +108,16 @@ All four core competitive stats are phone-only, passive, and automatic.
 | Hourly Movement Consistency | VIT | Step pattern across day | ✅ Yes | 🟢 Hard |
 | Sleep Duration | REC | Wearable only (bonus) | ❌ Wearable needed | 🟢 Hard |
 
-> **Build note (2026-08-20, roadmap deviation #41). This table and the two
-> sections under it are superseded, and are kept because they are the record of
-> why the four-stat model existed.** Kairo scores **three** stats: `AGI`
-> (steps), `STR` (active calories) and `MND` (sleep). END folded into STR and
+> **Build note (2026-08-20, roadmap deviation #41; extended 2026-08-25,
+> deviation #51). This table and the two sections under it are superseded, and
+> are kept because they are the record of why the four-stat model existed.**
+> Kairo scores **three** stats: `AGI` (steps), `STR` (active calories) and `MND`
+> (sleep). **The names in this table are superseded too, and separately.** Those
+> keys are the *engine's* and have not moved anywhere — not in `CoreStat`, not
+> in the `daily_scores` columns, not in the `profiles` rollups, not in the
+> `tiers` JSON. What a player reads is **Motion** (`AGI`), **Body** (`STR`) and
+> **Mind** (`MND`); "Agility" and "Strength" appear on no surface of the app.
+> Take the vocabulary from deviation #51, not from the tables below. END folded into STR and
 > VIT into AGI as **threshold shifts** — active hours lower AGI's bands, verified
 > workout minutes lower STR's, 5% a step to a 25% cap — so both signals survive
 > as generosity rather than as points, and neither is measured any less:
@@ -266,12 +272,15 @@ Classes affect art only. No stat bonuses. Keeps the game fair.
 | VIT | Vitality | Hourly movement consistency (active hours) |
 | REC | Recovery | Sleep duration — **wearable users only, bonus** |
 
-> **Build note (2026-08-20, roadmap deviation #41).** Three stats: `AGI`
-> (Agility, steps and distance), `STR` (Strength, active calories) and `MND`
-> (Mind, sleep duration). The user-facing word is **Mind**; the code is `MND`
-> everywhere — schema, `tiers` keys, `kairo-core` — while the score column is
-> `daily_scores.mind_points` and the lifetime rollup is `profiles.mnd_total`,
-> a split that is deliberate and documented rather than a typo. END and VIT are
+> **Build note (2026-08-20, roadmap deviation #41; extended 2026-08-25,
+> deviation #51).** Three stats: `AGI` (**Motion**, steps and distance), `STR`
+> (**Body**, active calories) and `MND` (**Mind**, sleep duration) — the player
+> words as of #51, where this note first read "Agility" and "Strength". The
+> pattern `MND`/Mind already set is now the rule for all three: the code is the
+> key everywhere — schema, `tiers` keys, `kairo-core` — and the surface is the
+> word. The score column is `daily_scores.mind_points` while the lifetime rollup
+> is `profiles.mnd_total`, a split that is deliberate and documented rather than
+> a typo. END and VIT are
 > retired as stats and survive as threshold shifts; see the note in §5.
 
 ### Contribution Tiers Per Stat (Daily)

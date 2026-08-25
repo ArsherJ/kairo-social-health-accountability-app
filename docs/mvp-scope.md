@@ -56,15 +56,19 @@ squad is a layer on top.
   "affinity" names the stat it is *about*, never a bonus. Squadmates see it on
   the leaderboard and on shared goal rosters. It has **no in-app noun**: it is
   "your character", never a Hunter (deviation #26).
-- **Three stats from HealthKit** — AGI (steps, distance), STR (active
-  calories) and **MND** (sleep), since deviation #41. END (active minutes) and
-  VIT (hourly movement) are still measured and no longer scored: they survive
-  as **threshold shifts**, lowering STR's and AGI's bands by up to 25%. MND
-  needs a sleep source, so it is the one stat that can be unreachable — a day's
-  stat points scale by `3 / earnable stats` for that reason, and **both daily
-  ceilings are 4,400**. A wearable buys a third route to the ceiling, not a
-  higher one. §5 and §6 of the spec still describe the four-stat model and are
-  superseded here.
+- **Three stats from HealthKit** — **Motion** (`AGI`: steps, distance), **Body**
+  (`STR`: active calories) and **Mind** (`MND`: sleep), since deviations #41 and
+  #51. **Say the words, never the keys.** Body, Motion and Mind are what a
+  player reads and what any brief, test plan or store-facing copy must use;
+  `AGI`/`STR`/`MND` are engine names that appear in the database and nowhere on
+  a screen. END (active minutes) and VIT (hourly movement) are still measured
+  and no longer scored: they survive as **threshold shifts**, lowering Body's
+  and Motion's bands by up to 25%. Mind needs a sleep source, so it is the one
+  stat that can be unreachable — a day's stat points scale by
+  `3 / earnable stats` for that reason, and **both daily ceilings are 4,400**. A
+  wearable buys a third route to the ceiling, not a higher one. §5 and §6 of the
+  spec still describe the four-stat model under its old names and are superseded
+  here.
 - **Ability ratings** — a numeric rating per stat from lifetime points
   (deviation #23). **Bronze/Silver/Gold still decide every day inside the
   scoring engine and are shown nowhere.**
@@ -118,10 +122,10 @@ squad is a layer on top.
 - Clearing one pays a flat 40 XP, once per area per day, and sends one push.
 - **Pace and session calories never touch scoring**, and a Challenge pays no
   points — they are display-and-challenge signals only, the same posture strain
-  takes (deviation #24), and a run still earns AGI through its steps. One
+  takes (deviation #24), and a run still earns Motion through its steps. One
   qualification since deviation #41: a workout **session** is no longer inert.
   Minutes from a session whose source is allowlisted *and* which carries
-  heart-rate evidence lower STR's bands. The pace and the calories still do
+  heart-rate evidence lower Body's bands. The pace and the calories still do
   not.
 
 ### Account
