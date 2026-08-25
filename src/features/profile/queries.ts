@@ -66,6 +66,16 @@ export type Profile = {
    */
   trains_run: boolean;
   trains_strength: boolean;
+  /**
+   * The player's chosen quest difficulty, or null to let `questTier()` decide
+   * from trailing scored days. **Null is the normal case, not an error case.**
+   *
+   * `finalize-days` reads the same column and grades against the same
+   * `questTier()`, override precedence included. If the two ever resolve
+   * different tiers the server pays XP for quests that were never on screen,
+   * and a completion latches.
+   */
+  quest_tier_override: 'starter' | 'steady' | 'strong' | null;
 };
 
 export function profileKey(userId: string | undefined) {
@@ -83,7 +93,7 @@ export function useProfile(userId: string | undefined) {
           'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
             'agi_total, str_total, mnd_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
-            'trains_run, trains_strength, species',
+            'trains_run, trains_strength, species, quest_tier_override',
         )
         .eq('id', userId as string)
         .maybeSingle();

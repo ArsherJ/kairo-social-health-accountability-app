@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { healthSource } from '@/features/health/health-source.ts';
@@ -12,8 +12,30 @@ import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { SPECIES_NAMES } from '@/features/character/species.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
+import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
-import { colors, font, ramp, space } from '@/theme.ts';
+import { colors, font, radius, ramp, space } from '@/theme.ts';
+import type { QuestTier } from '@kairo/core';
+
+/**
+ * The four choices, in ascending order with the automatic rule first.
+ *
+ * `null` is a real value, not an absent one — it means "use `questTier()`'s
+ * trailing-scored-days rule", which is what every account starts on. Sending it
+ * through the mutation is how somebody gets *back* to automatic.
+ */
+const QUEST_TIER_CHOICES: readonly [QuestTier | null, string][] = [
+  [null, 'Automatic'],
+  ['starter', 'Starter'],
+  ['steady', 'Steady'],
+  ['strong', 'Strong'],
+];
+
+const QUEST_TIER_NAMES: Record<QuestTier, string> = {
+  starter: 'Starter',
+  steady: 'Steady',
+  strong: 'Strong',
+};
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -21,6 +43,7 @@ export default function ProfileTab() {
   const userId = session?.user.id;
   const profile = useProfile(userId);
   const streak = useStreak(userId);
+  const update = useUpdateProfile(userId);
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
 
   async function seed() {
@@ -93,6 +116,58 @@ export default function ProfileTab() {
             />
           </Panel>
 
+          {/* Above Timezone for the Companion reason: this one is a choice and
+              that one is an observation.
+
+              The copy names the automatic rule's *actual* input, and that
+              sentence is doing real work. `questTier()` keys off how many days
+              have scored, which measures engagement rather than fitness — so it
+              is wrong by construction for a long-standing gentle user and for a
+              brand-new athlete alike. A user who finds their quests too easy
+              needs to understand why, rather than assume the app measured them
+              and got it wrong. That is also why the override **wins outright**
+              (see `questTier`): a rule that could veto it would make it a hint.
+          */}
+          <Panel>
+            <Label>Quest difficulty</Label>
+            <Text style={styles.value}>
+              {profile.data.quest_tier_override === null
+                ? 'Automatic'
+                : QUEST_TIER_NAMES[profile.data.quest_tier_override]}
+            </Text>
+            <Text style={styles.help}>
+              Kairo picks a difficulty from how long you have been here. If the
+              quests feel wrong, choose your own.
+            </Text>
+            {/* Wraps, because four chips do not fit one line past about 1.3x
+                Dynamic Type and a row that cannot fit is the permission
+                sheet's 2026-08-17 failure in a new place. */}
+            <View style={styles.chips}>
+              {QUEST_TIER_CHOICES.map(([value, label]) => {
+                const current = (profile.data?.quest_tier_override ?? null) === value;
+                return (
+                  <Pressable
+                    key={label}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: current }}
+                    accessibilityLabel={`Quest difficulty: ${label}`}
+                    disabled={update.isPending}
+                    onPress={() => update.mutate({ quest_tier_override: value })}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      current && styles.chipOn,
+                      pressed && styles.chipPressed,
+                    ]}
+                  >
+                    <Text scale="chrome" style={[styles.chipLabel, current && styles.chipLabelOn]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Panel>
+
           <Panel>
             <Label>Timezone</Label>
             <Text style={styles.value}>{profile.data.timezone}</Text>
@@ -150,4 +225,17 @@ const styles = StyleSheet.create({
   value: { color: colors.text, ...font.display.minor, fontSize: 19, marginTop: space.xs },
   help: { ...font.body.body, fontSize: 12, color: ramp.neutral[600], marginTop: space.sm, lineHeight: 18 },
   devStatus: { ...font.body.body, fontSize: 13, color: colors.subtle, marginTop: space.sm },
+  // `flexWrap` rather than a fixed four-across row: at large Dynamic Type the
+  // chips need two lines, and a row that cannot fit clips mid-word.
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
+  chip: {
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.neutral[200],
+  },
+  chipOn: { backgroundColor: colors.accent },
+  chipPressed: { opacity: 0.7 },
+  chipLabel: { color: colors.subtle, ...font.body.strong },
+  chipLabelOn: { color: colors.bg },
 });

@@ -1,9 +1,11 @@
 import { currentLocalDate, ghostRivals, type RacerInput } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
-import { useTodayBuckets } from '@/features/character/buckets.ts';
-import { useTodayScore } from '@/features/character/queries.ts';
+import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
+import { useScoredDayCount, useTodayScore } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile } from '@/features/profile/queries.ts';
+import { QuestList } from '@/features/quests/QuestList.tsx';
+import { todayQuests, useQuestCompletions } from '@/features/quests/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { RaceCard } from '@/features/squad/RaceCard.tsx';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
@@ -48,10 +50,40 @@ export default function Today() {
   const board = useSquadLeaderboard(squad.data?.id, 'current');
   const days = useOwnRecentDays(userId, timeZone);
   const disclosure = useDisclosure(userId);
+  // The same query the character screen mounts, on the same key — one request,
+  // and the sleep quests read the night the score actually saw rather than the
+  // raw column. `scoredSleepMinutes` gates a hand-typed night to null there,
+  // which is the identical rule `finalize-days` applies when it grades.
+  const vitals = useTodayVitals(userId, timeZone);
+  const scoredDays = useScoredDayCount(userId);
 
   // The user's own calendar date. One computation the cards below share; none
   // of them reads the clock itself.
   const localToday = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
+
+  const completions = useQuestCompletions(userId, localToday);
+
+  const totals = buckets.data?.totals;
+  const quests = todayQuests({
+    userId,
+    localDate: localToday,
+    // `?? 0` while the count is in flight puts a first-frame account on the
+    // starter tier, which is the safe direction: showing an easy quest and
+    // then a harder one is a correction, where the reverse is a bar
+    // disappearing out from under someone mid-walk.
+    scoredDays: scoredDays.data ?? 0,
+    tierOverride: profile.data?.quest_tier_override ?? null,
+    day: totals && {
+      steps: totals.steps,
+      activeKcal: totals.activeKcal,
+      activeHours: totals.activeHours,
+      distanceM: totals.distanceM,
+      // Null, never 0, and never the raw column: an unknown night must read
+      // "No reading yet" rather than accuse somebody of not sleeping.
+      sleepMinutes: vitals.data?.sleepMinutes ?? null,
+    },
+    completedIds: completions.data ?? [],
+  });
 
   const racers = buildRacers({
     inSquad: Boolean(squad.data),
@@ -59,7 +91,7 @@ export default function Today() {
     userId,
     characterName: profile.data?.character_name,
     species: profile.data?.species ?? null,
-    steps: buckets.data?.totals?.steps ?? 0,
+    steps: totals?.steps ?? 0,
     total: score.data?.total ?? 0,
     recentDays: days.data ?? [],
     localToday,
@@ -73,7 +105,12 @@ export default function Today() {
           Squad tab and reads this same payload. */}
       {racers.length > 1 && <RaceCard racers={racers} />}
 
-      {/* Quests go here — Task 7. */}
+      {/* Three small things, reset at the player's own local midnight.
+          **Derived, never stored** — `pickQuests()` hashes (account, date,
+          tier), so tomorrow simply hashes to a different three and there is no
+          job, no row and nothing for a retroactive Apple revision to
+          invalidate. Ungated on purpose: this is what teaches the loop. */}
+      <QuestList quests={quests} />
 
       {/* The one number in Kairo that never moves, and the run of days against
           it. It moved tabs; the number did not change and never scales with
@@ -83,7 +120,7 @@ export default function Today() {
         userId={userId}
         timeZone={timeZone}
         today={localToday}
-        todaySteps={buckets.data?.totals?.steps}
+        todaySteps={totals?.steps}
       />
 
       {/* The door to Challenges — **the one gated thing on this tab**, and it
