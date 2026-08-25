@@ -5,6 +5,7 @@ import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
+import { RaceTrack } from './RaceTrack.tsx';
 import { resolveSquadStanding, type SquadStanding } from './standing.ts';
 import {
   useSquadLeaderboard,
@@ -21,6 +22,8 @@ import { SquadGoalPanel } from '@/features/goals/SquadGoalPanel.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
+import { describeAge } from '@/features/health/sync-status.ts';
+import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
 
@@ -165,6 +168,15 @@ export function Leaderboard({
 
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
+
+  // How old *your own* numbers are. Squadmates' freshness is not knowable from
+  // here — the RPC projects totals, not sync times — so the line says what it
+  // can honestly say rather than implying the whole track is live.
+  const { lastSyncedAt } = useSyncStatusStore();
+  const syncedLabel =
+    lastSyncedAt === null
+      ? 'Your numbers have not synced yet'
+      : `Your numbers: ${describeAge(Date.now() - lastSyncedAt)}`;
 
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);
@@ -316,6 +328,18 @@ export function Leaderboard({
           <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
           <InviteCode code={squad.invite_code} squadName={squad.name} />
         </View>
+      )}
+
+      {/* The race and the board are two readings of one payload — the track
+          re-ranks by capped steps, the rows below stay in the program-weighted
+          order the RPC returned. One query, deliberately: a second fetch here
+          would let the two disagree about the same day.
+
+          Only in `current` mode. "Yesterday" is a finished day and a race
+          nobody is still running; drawing a live track over it would invite
+          the reading that there is still time. */}
+      {mode === 'current' && board.isSuccess && rows.length > 0 && (
+        <RaceTrack rows={rows} syncedLabel={syncedLabel} />
       )}
 
       {rows.map((row) => (
