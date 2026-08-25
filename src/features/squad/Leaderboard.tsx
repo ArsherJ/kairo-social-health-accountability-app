@@ -169,14 +169,17 @@ export function Leaderboard({
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
 
-  // How old *your own* numbers are. Squadmates' freshness is not knowable from
-  // here — the RPC projects totals, not sync times — so the line says what it
-  // can honestly say rather than implying the whole track is live.
+  // How old *your own* numbers are, and the line says "your" for a reason.
+  //
+  // Squadmates' freshness is not knowable from here — the RPC projects totals,
+  // not sync times — so this claims only what it can actually check. HealthKit
+  // background delivery is opportunistic, and a track that reads as live while
+  // it is hours old is the app making a promise it has no way to keep.
   const { lastSyncedAt } = useSyncStatusStore();
   const syncedLabel =
     lastSyncedAt === null
-      ? 'Your numbers have not synced yet'
-      : `Your numbers: ${describeAge(Date.now() - lastSyncedAt)}`;
+      ? "Your numbers haven't synced yet"
+      : `Your numbers updated ${describeAge(Date.now() - lastSyncedAt)}`;
 
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);

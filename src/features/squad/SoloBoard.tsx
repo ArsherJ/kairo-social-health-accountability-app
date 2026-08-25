@@ -100,8 +100,8 @@ export function SoloBoard({
 
   const syncedLabel =
     lastSyncedAt === null
-      ? 'Your numbers have not synced yet'
-      : `Your numbers: ${describeAge(Date.now() - lastSyncedAt)}`;
+      ? "Your numbers haven't synced yet"
+      : `Your numbers updated ${describeAge(Date.now() - lastSyncedAt)}`;
 
   /**
    * `LeaderboardRow` rather than a parallel self-row component: the shape is
