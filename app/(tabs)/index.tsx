@@ -160,7 +160,7 @@ function detailCopy(detail: StatDetail): string | null {
     case 'maxed':
       return 'Every stat is maxed for today.';
     case 'unquantified': {
-      // Strength is the only thing left to ask for and today carries a
+      // Body (`STR`) is the only thing left to ask for and today carries a
       // workout, so the bands it will be judged against are lower than the
       // ones this screen can compute — by up to a quarter. Naming the lever
       // and no figure is the one honest sentence available: "150 more kcal"
@@ -224,7 +224,7 @@ export default function Character() {
   const vitals = useTodayVitals(session?.user.id, profile.data?.timezone);
   const streak = useStreak(session?.user.id);
   // Mounted here for the guidance line, not for the TRAIN card: whether today
-  // carries a workout decides whether Strength's gap can be quoted at all
+  // carries a workout decides whether Body's gap can be quoted at all
   // (`resolveStatDetail`), and that is true at every disclosure stage, while
   // `TrainEntry` below only renders at `full`. TanStack shares the cache on
   // `sessionsKey`, so the two mounts are one request.
@@ -333,7 +333,7 @@ export default function Character() {
     sleepMinutes: vitals.data?.sleepMinutes,
     // Not the minutes — those need three trust columns this app deliberately
     // does not read — but whether there is a workout at all, which is enough
-    // to know that Strength's bands may have moved and that quoting them
+    // to know that Body's bands may have moved and that quoting them
     // would be a guess. In flight reads `'unknown'` and silences the same way.
     workoutDay: workoutDaySignal(sessions.data, localToday),
     lane,

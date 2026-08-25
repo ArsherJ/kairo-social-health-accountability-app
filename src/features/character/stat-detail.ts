@@ -99,7 +99,7 @@ export type StatDetail =
   | { kind: 'maxed' }
   | {
       /**
-       * Strength is open and is the only thing left to ask for, but the day
+       * Body (`STR`) is open and is the only thing left to ask for, but the day
        * carries a workout — so the number is not the screen's to name.
        *
        * A `gap` here would be the unshifted one, and `workoutShift()` can put
@@ -182,8 +182,8 @@ function rawFor(
  * mention. Its input is now observed dominance rather than a declared focus,
  * which changes where the preference comes from and nothing about this rule.
  *
- * **Strength can be silenced.** The bands the day is judged against move with
- * the day (`statShifts`), and this screen can see the input to AGI's shift but
+ * **Body (`STR`) can be silenced.** The bands the day is judged against move
+ * with the day (`statShifts`), and this screen can see the input to AGI's shift but
  * not to STR's — so on a day carrying a workout, STR is dropped from the
  * ranking rather than quoted from the unshifted ladder. Another stat with a
  * real number wins the line; when none is left, `kind: 'unquantified'` says the
@@ -311,7 +311,7 @@ export function resolveStatDetail({
 
   if (open.length === 0) {
     // Silence, not a lie in either direction: "every stat is maxed" would be
-    // false while Strength is still open, and a kcal figure would be the
+    // false while Body is still open, and a kcal figure would be the
     // unshifted one. The line names the lever and no number.
     if (strSilenced) return { kind: 'unquantified', stat: 'STR', lane: lane === 'STR' };
     return { kind: 'maxed' };
