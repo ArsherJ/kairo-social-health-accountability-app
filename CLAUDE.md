@@ -445,6 +445,66 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
+**Kairo has four tabs as of 2026-08-25** (deviation #50) — Character · Today ·
+Squad · You. The Today tab is the present moment: a race summary card, three
+quests, the Daily Walk and the Challenge door, in that order. The character
+screen kept its hero, `TodayPanel`, `SyncStatus` and the disclosure note and
+shed the other two. Six things break easily:
+
+- **`TabPill` is hand-built and its geometry is load-bearing.** Orbits are 52,
+  the centre is 68, the bar gap is `space.md`: `3 × 52 + 68 + 3 × 16 = 272`
+  against 320pt on the narrowest supported screen. `NAV_HEIGHT` stays 96, so
+  `TAB_PILL_CLEARANCE` is unchanged — the discs got smaller, not the bar. Order
+  is `['squad', 'index', 'today', 'profile']` so Squad stays leftmost and You
+  stays rightmost and **no existing thumb target moved to the other end**.
+  **The character keeps the raised disc and is no longer geometrically
+  centred**: raised means *anchor*, not *middle*, a raised third-of-four would
+  be arbitrary, and two raised discs is no anchor at all. Do not add a second.
+- **A quest is derived, never stored.** `pickQuests()` is a pure hash of
+  `(userId, localDate, tier)` — no table, no midnight job, no cron, and nothing
+  stateful for a retroactive Apple revision to invalidate, exactly as a
+  Challenge. Only `quest_completions` is stored, because it pays XP and must
+  fire once. **A `quest_id` is permanent**: it is opaque `text` so a new quest
+  costs no migration, and renaming one orphans every completion banked against
+  it. Retire a quest by deleting the row and leaving the id unused.
+  `pickQuests`'s rotation is **bounded and followed by a linear sweep** — the
+  stride only visits every slot while it is co-prime with the tier's pool size,
+  and one hand-edited quest makes a seven-entry tier composite; an unbounded
+  loop would spin on a render thread rather than fail.
+- **The client and `finalize-days` must resolve the same quest tier.** Both
+  call `questTier()` with the same lifetime scored-day count — `total > 0` on
+  both sides — and the same `profiles.quest_tier_override`, and the override
+  wins outright with the precedence inside that function rather than at either
+  call site. A disagreement pays XP for a quest that was never on screen, and
+  the completion latches. **Sleep is the same rule in miniature**:
+  `finalize-days` reads through `scoringSleepMinutes` and the client through
+  `scoredSleepMinutes`, so a hand-typed night — which scores no MND at all —
+  reads "No reading yet" and clears nothing. A raw `daily_sleep.minutes` read
+  on either side pays XP for a bar the card never showed met.
+- **`recalculate_user_xp` is a full recompute written out whole** and now sums
+  four sources. Read the deployed body before editing it — a migration that
+  omits a source drops it silently and every affected account's level falls on
+  the next write. **And number the migration after any sibling that rewrites
+  the same function**: migrations apply in filename order, so an earlier
+  timestamp has its whole change overwritten on every fresh apply while the
+  deployed database stays correct, which no test in this repo would catch.
+  Quest XP never touches `daily_scores.xp_awarded` (a rescore replays it) or
+  the three stat rollups (a cleared quest is not activity in a stat).
+- **The disclosure gate keeps the stat rail, the Strain/Sleep rows,
+  `TrainEntry` and `/train`'s redirect** — the list is now written down in
+  `useDisclosure`'s doc comment, because it never was, and that is what let a
+  wider reading look plausible. Quests are built outside it; **nothing was
+  taken out of it**. The constant, the `total > 0` filter, the
+  `resolved && stage` navigation rule and the retention measurement are all
+  unchanged. The Challenge door is last on the tab deliberately: a hidden card
+  at the bottom leaves no hole, where one removed from the middle would.
+- **The Today tab adds no requests.** Every hook on it resolves to a key the
+  character or squad screen already uses, so the two cannot disagree in one
+  frame. `RaceCard` re-ranks the board payload by capped steps on the client,
+  exactly as `RaceTrack` does — `squad_leaderboard()` orders by the
+  program-weighted total, and ranking once in SQL silently deletes the program
+  feature (deviation #11).
+
 **The squad board is a race as of 2026-08-26** (roadmap deviations #46, #47).
 The daily leaderboard became a track: six characters running horizontal lanes
 at one shared flag, drawn over the same payload the board already fetched.

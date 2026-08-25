@@ -41,8 +41,10 @@ change `DISCLOSURE_THRESHOLD_DAYS`, which is one constant precisely so this
 stays cheap to verify and cheap to reverse.
 
 What a `core` account *does* see is the whole of `### Solo, and first-class`
-below minus those four rows: the day in real units, the character, its level,
-the squad gap, the Daily Walk and its streak.
+below minus those rows: the day in real units, the character, its level, the
+squad gap, the Daily Walk and its streak — **and, since deviation #50, the
+Today tab's race card and its three quests**. Quests were built outside the
+gate rather than taken out of it; nothing on the table above moved.
 
 ### Solo, and first-class
 Kairo is **solo-first**. Everything below works with zero friends, and the
@@ -122,9 +124,42 @@ product that no longer exists.
 - **Personal Events are OUT and will stay out.** `events_need_squad` rejects
   them. A personal fight is a Challenge, which already exists on `/train`.
 
+### Today — the tab, and quests
+
+Since 2026-08-25 (deviation #50) Kairo has **four tabs — Character · Today ·
+Squad · You** — and the daily loop lives on the second. The Today tab is, in
+order: a **race summary card**, **three quests**, the **Daily Walk**, and the
+**Challenge door**. The character screen kept its hero, the TODAY panel, the
+sync status and the disclosure note, and shed the last two.
+
+- **Three quests a day**, from a hand-authored catalogue at three difficulty
+  tiers. They are **derived, never stored**: a pure hash of (account, local
+  date, tier), so the local-midnight reset needs no job and no row, and only
+  the *completion* is stored. Metrics are steps, active calories, active hours,
+  distance and sleep minutes — all figures the app already reads, so **no quest
+  widens what Kairo collects**.
+- **XP is deliberately small**: three quests cap at 60 together against a
+  `MAX_REALISTIC_DAILY_XP` of 200. A quest is a garnish on the loop, never a
+  cheaper route through it.
+- **Difficulty is auto-assigned from how long the account has been here** — a
+  count of days that scored, which measures engagement rather than fitness —
+  with a **manual override in Profile that wins outright**. The override is in
+  Phase 1 rather than deferred precisely because the automatic rule is wrong by
+  construction for part of the cohort.
+- **Quests are outside the disclosure gate**, and are the only thing that is. A
+  brand-new account with zero scored days sees the race card, three quests and
+  the Daily Walk on day one. **The gate's own subject list did not shrink** —
+  Challenges, the stat rail and Strain/Sleep all stay in it.
+- **No coins.** A currency with no sink is a countdown to disappointment.
+  Quest completion pays XP.
+
+Quest XP is a **fourth source** on `profiles.total_xp`, alongside daily scores,
+Event completions and Challenge completions. Any brief describing XP as coming
+from days and Events alone is stale.
+
 ### Train — the Daily Walk and Challenges
-- **Daily Walk** — 10,000 steps a day, on the home shelf, with a streak of days
-  cleared. **Flat and permanent**: it never scales up as the user improves,
+- **Daily Walk** — 10,000 steps a day, **on the Today tab** since deviation #50
+  (it was on the home shelf before), with a streak of days cleared. **Flat and permanent**: it never scales up as the user improves,
   because it is a public-health number rather than a personal-progress one. A
   missed day breaks the streak and costs nothing else — there is no penalty.
 - **Challenges** — one live target per opted-in area, on `/train`
@@ -210,6 +245,8 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | ability rating | tier, Bronze/Silver/Gold *(internal to scoring; no surface renders them)* |
 | daily score | points, today's XP |
 | program | focus *(`profiles.focus` was dropped; `squads.program` is the only focus concept)* |
+| **Today** | the fourth tab. Not "home", not "daily" — the character screen is where the app opens |
+| quest | daily task, mission, chore *(three a day, on the Today tab, derived and never stored)* |
 
 The one exception used to be the **art-direction prompts** in
 `scripts/generate_swap_assets*.py` and §20's "dark fantasy hunter aesthetic"
