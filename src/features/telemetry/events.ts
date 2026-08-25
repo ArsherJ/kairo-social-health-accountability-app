@@ -52,6 +52,11 @@ export type AppEventType =
   | 'first_score_seen'
   | 'squad_created'
   | 'squad_joined'
+  | 'event_created'
+  // **Historical.** Retired on 2026-08-25 when Goals became Events
+  // (deviation #45). Nothing emits it any more; the name stays because
+  // `app_events` already holds rows saying it, and `kairo_retention()`
+  // reads that table over a trailing window that still spans the change.
   | 'goal_created'
   // Fired by `useDisclosure` the first time an account crosses
   // `DISCLOSURE_THRESHOLD_DAYS` scored days. Once-ever, marked in MMKV: the
