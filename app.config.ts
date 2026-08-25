@@ -32,6 +32,39 @@ const config: ExpoConfig = {
   owner: 'kairo-health',
   version: '0.1.0',
   orientation: 'portrait',
+  // App icon: the terracotta mark on the cream ground — `colors.accent` on
+  // `colors.bg` from `src/theme.ts`, rather than a second palette invented for
+  // the icon.
+  //
+  // Terracotta rather than the far higher-contrast `colors.text`, because the
+  // mark has to survive **two** grounds and only one of them is designed here.
+  // iOS 26 derives the Dark appearance automatically by darkening the fill and
+  // keeping the symbol, so ink scored 1.00:1 against that darkened ground —
+  // literally invisible, confirmed on the simulator — while reading 13.95:1 in
+  // Default. Terracotta gives up some of that (3.03:1 on cream) to get 4.60:1
+  // on the dark ground. That is the trade a single-layer icon has to make; the
+  // alternative is a per-appearance override, which cannot currently be
+  // hand-authored — see the `ios.icon` note below.
+  //
+  // Three properties of this file are load-bearing and easy to undo by
+  // "improving" it:
+  //
+  // - **It carries no alpha channel** (PNG colour type 2, not 6). Apple
+  //   rejects an App Store icon that has one *even when every pixel is
+  //   opaque* — ITMS-90717, raised at upload rather than at build, so a
+  //   flattened-but-still-RGBA file passes everything local and fails the
+  //   submission. Re-exporting through most tools silently adds the channel
+  //   back; check with `sips -g hasAlpha`.
+  // - **The ground is baked in and the corners are square.** iOS applies its
+  //   own squircle mask, so pre-rounding double-masks the artwork.
+  // - **The mark fills ~76% of the canvas and is centred on the mark's own
+  //   bounding box**, not on the artboard it was drawn in — those differ, and
+  //   centring on the latter is what left it visibly off-axis.
+  //
+  // This flat PNG is the **non-iOS** icon and the pre-iOS-26 fallback. iOS
+  // itself uses the Icon Composer bundle declared at `ios.icon` below; see
+  // the note there, which is where the interesting constraints live.
+  icon: './assets/icon.png',
   // Deep-link scheme. §14 routes eight notification types straight to a screen.
   scheme: 'kairo',
   userInterfaceStyle: 'dark',
@@ -41,6 +74,43 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.arsherj.kairo',
     supportsTablet: false,
+    // iOS 26 Liquid Glass icon — an Apple Icon Composer bundle, not a PNG.
+    // `assets/Kairo.icon/` holds a *transparent* terracotta symbol plus an
+    // `icon.json` declaring the cream ground as `fill`. Keeping the ground out
+    // of the pixels is the whole point: the system renders light, dark and
+    // tinted appearances from that one layered source, which a flat PNG cannot
+    // express. Verified with `xcrun assetutil --info` — the compiled catalog
+    // carries `UIAppearanceLight`, `UIAppearanceDark` and `ISAppearanceTintable`
+    // stacks.
+    //
+    // Four things break this quietly:
+    //
+    // - **It must live on `ios.icon`, as a plain string.** `@expo/prebuild-config`
+    //   warns (and falls back) if a `.icon` path is set on the *root* `icon`
+    //   field, or passed inside the light/dark/tinted object form. The root
+    //   `icon` above stays a PNG on purpose — it serves Android and web.
+    // - **Nothing in the JS toolchain validates `icon.json`.** Expo copies the
+    //   directory verbatim into `ios/<App>/Kairo.icon` and sets
+    //   `ASSETCATALOG_COMPILER_APPICON_NAME`; the schema is Apple's and is only
+    //   ever checked by `actool` at Xcode/EAS build time. A malformed file
+    //   therefore passes `prebuild` and every local check, then fails in CI —
+    //   the same shape as the `aps-environment` and Associated Domains traps.
+    //   Validate changes locally instead of guessing (the `mkdir` is
+    //   load-bearing — `actool` errors rather than creating the directory):
+    //     `mkdir -p /tmp/out && xcrun actool --compile /tmp/out \
+    //        --platform iphoneos --minimum-deployment-target 26.0 \
+    //        --target-device iphone --app-icon Kairo \
+    //        --output-partial-info-plist /tmp/out/p.plist assets/Kairo.icon`
+    //   It exits non-zero on a bad schema and, on success, writes the actual
+    //   rendered icon PNGs — which is also the only way to *see* the glass
+    //   treatment without a device.
+    // - **`fill` colours are `<colour-space>:r,g,b,a` floats**, not hex —
+    //   `extended-srgb:0.96078,0.91765,0.84706,1.00000` is `colors.bg`
+    //   (`#f5ead8`). A hex string here is silently wrong.
+    // - **The basename is the icon name.** `Kairo.icon` becomes
+    //   `ASSETCATALOG_COMPILER_APPICON_NAME = Kairo`; renaming the directory
+    //   renames the build setting, so do not rename it casually.
+    icon: './assets/Kairo.icon',
     // Xcode refuses to sign for a physical device without a team, and
     // `expo prebuild --clean` deletes `ios/` — so setting it in Xcode's UI
     // survives exactly until the next prebuild. Declaring it here is what makes
