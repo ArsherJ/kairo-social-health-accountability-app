@@ -44,7 +44,16 @@ import {
   markUnreached,
 } from '@/features/telemetry/milestone-store.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
-import { Avatar, Label, Meter, Numeral, STAT_NAMES, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
+import {
+  Avatar,
+  Label,
+  Meter,
+  Numeral,
+  STAT_NAMES,
+  TAB_PILL_CLEARANCE,
+  Text,
+  dominanceName,
+} from '@/ui/index.ts';
 
 /**
  * Distinct from `first_sync_seen` (`markFirstSyncSeen` in `useHealthSync.ts`,
@@ -86,18 +95,6 @@ function markFirstScoreSeen(userId: string): void {
     }
   });
 }
-
-/**
- * §6's evolution table, said out loud. The silhouette differences are real but
- * subtle on placeholder art, and a character that quietly changes shape reads
- * as a rendering glitch rather than as a reward.
- */
-const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
-  AGI: 'Agility build',
-  STR: 'Strength build',
-  MND: 'Mind build',
-  balanced: 'All-Rounder',
-};
 
 /** The human-readable line under each bar, once the rail is expanded. */
 const STAT_LABELS: Record<CoreStat, string> = {
@@ -492,12 +489,15 @@ export default function Character() {
         <View style={styles.shelf}>
           <View style={styles.todayHead}>
             <Label>Today</Label>
-            {/* Null means an unstarted character, which has no build to name —
-                and saying "All-Rounder" to someone who has done nothing would
-                cheapen the one visual §6 says must be earned. */}
-            {dominance.data != null && (
+            {/* `dominanceName` returns null for an unstarted character *and*
+                for a query still in flight, which is the same guard the
+                `!= null` check was making by hand — so the name is what the
+                condition now reads. One table, not two: the old
+                `DOMINANCE_LABELS` held its own copy of the three stat words,
+                which is exactly the drift `STAT_NAMES` exists to stop. */}
+            {dominanceName(dominance.data) != null && (
               <Text style={styles.build}>
-                {DOMINANCE_LABELS[dominance.data]} · last {DOMINANCE_WINDOW_DAYS} days
+                {dominanceName(dominance.data)} build · last {DOMINANCE_WINDOW_DAYS} days
               </Text>
             )}
           </View>

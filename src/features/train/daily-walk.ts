@@ -84,7 +84,7 @@ export function dailyWalkState({
  * It deliberately **never states today's step count or the gap to the
  * baseline**. The home hero already sets today's steps at 64pt, and
  * `detailCopy` on the same screen already says "1,588 more steps tops out your
- * Agility today" — which is the *same number*, because AGI Gold and
+ * Motion today" — which is the *same number*, because AGI Gold and
  * `DAILY_STEP_BASELINE` are the same threshold by construction. A third
  * rendering of one figure is what the "read what is already spoken" rule exists
  * to stop. What nothing else on that screen says is the run of days and the

@@ -24,7 +24,7 @@ export const STAT_UNITS: Record<CoreStat, string> = {
  * already explained there.
  *
  * AGI's carries what VIT's used to, and it has to: spreading movement across
- * the day is now the thing that makes Agility's bands easier rather than a
+ * the day is now the thing that makes Motion's bands easier rather than a
  * stat of its own (deviation #41), and it is the claim the app most
  * conspicuously never made — a single long workout does not buy off a day
  * spent sitting.
