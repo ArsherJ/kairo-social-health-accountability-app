@@ -29,7 +29,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
     term: 'Daily score',
     scope: 'Today only',
-    body: 'Steps, calories, active minutes and how many hours you moved each earn points behind the scenes. Together they are today’s score — you won’t see the number, but it is what ranks you on the squad board and what your goals are measured against. It resets at midnight in your own timezone — not the squad’s.',
+    body: 'Steps, calories, active minutes and how many hours you moved each earn points behind the scenes. Together they are today’s score — you won’t see the number, but it is what ranks you on the squad board and what your squad’s battles are measured against. It resets at midnight in your own timezone — not the squad’s.',
   },
   {
     term: 'Ability ratings',
@@ -39,7 +39,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
     term: 'Level and XP',
     scope: 'All-time total',
-    body: 'Finishing a day earns XP, and so does completing a goal. Enough XP is the next level. Unlike ability ratings, XP does not care which stat it came from.',
+    body: 'Finishing a day earns XP, and so does beating your squad’s boss. Enough XP is the next level. Unlike ability ratings, XP does not care which stat it came from.',
   },
   {
     term: 'Streak',
@@ -51,7 +51,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
 export default function ProgressHelp() {
   const router = useRouter();
 
-  // Same shape as the goal routes: this is a card over the tab shell, so the
+  // Same shape as the event routes: this is a card over the tab shell, so the
   // orbit nav is covered rather than absent and `Screen` must not reserve room
   // for it. The cleanup is the load-bearing half.
   useFocusEffect(

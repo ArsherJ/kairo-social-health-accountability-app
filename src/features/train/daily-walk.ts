@@ -3,7 +3,7 @@ import { DAILY_STEP_BASELINE, previousDay } from '@kairo/core';
 /**
  * The Daily Walk — 10,000 steps, every day, forever.
  *
- * Deliberately **not** a Challenge and **not** a `goals` row.
+ * Deliberately **not** a Challenge and **not** a `challenge_events` row.
  *
  * Not a Challenge because a Challenge's target moves with the user, and this
  * one must not: 10,000 is a public-health number, not a personal-progress one,
@@ -11,9 +11,11 @@ import { DAILY_STEP_BASELINE, previousDay } from '@kairo/core';
  * specific error the solo-mode design names — the target that grows until it is
  * unreachable is how a health baseline turns into a treadmill.
  *
- * Not a `goals` row because the Goal shape cannot express "every day, forever,
- * resets daily": open-ended goals are cumulative-only
- * (`goals_consistency_needs_end`) and accumulate rather than reset.
+ * Not a `challenge_events` row because the Event shape cannot express "every
+ * day, forever, resets daily": an Event needs a deadline (`events_need_end`)
+ * and a squad (`events_need_squad`), and it accumulates toward one bar rather
+ * than resetting. The Daily Walk is personal, endless, and starts again every
+ * midnight — three properties the Event shape rules out on purpose.
  *
  * The streak is here because the target cannot grow, so the run of days is the
  * only thing that *can*. A missed day breaks it and costs nothing else — there

@@ -7,7 +7,7 @@ const base: PermissionAskInput = {
   notification: 'undetermined',
   notificationDismissed: false,
   hasSquad: true,
-  hasGoal: false,
+  hasEvent: false,
   answeredAnAskThisSession: false,
 };
 
@@ -43,9 +43,9 @@ describe('which permission Kairo asks for', () => {
   });
 
   it('asks for nothing when Health is answered and the user has no why yet', () => {
-    // §5: every ask has a visible why. No squad and no goal — nothing to ask.
+    // §5: every ask has a visible why. No squad and no battle — nothing to ask.
     expect(
-      nextPermissionAsk({ ...base, health: 'asked', hasSquad: false, hasGoal: false }),
+      nextPermissionAsk({ ...base, health: 'asked', hasSquad: false, hasEvent: false }),
     ).toBe(null);
   });
 

@@ -61,7 +61,7 @@ export { STAT_NAMES, dominanceName } from './stat-names.ts';
  * Colour is always the caller's — there is no per-stat hue and there should not
  * be one. Four colours competing is what buried the tier coins this rail
  * replaced, and the system reserves its three hues for other jobs entirely
- * (terracotta = you, sage = your lane, burnt = a goal slipping).
+ * (terracotta = you, sage = your lane, burnt = a battle slipping).
  */
 export function StatIcon({
   stat,

@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   quiet: { ...font.body.body, fontSize: 14, color: colors.muted, marginTop: space.xl },
-  // `colors.text`, not `damage` — that is reserved for a goal slipping away and
+  // `colors.text`, not `damage` — that is reserved for a battle slipping away and
   // nothing else, and a permission that did not connect is not that. The system
   // builds emphasis from presence and legibility, the same call `sign-in.tsx`'s
   // notice makes.

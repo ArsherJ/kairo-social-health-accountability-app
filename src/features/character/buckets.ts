@@ -113,7 +113,7 @@ export interface TodayVitals {
  *
  * Owner-readable only, like the buckets above. Neither reaches any projection —
  * `daily_heart` in particular is deliberately absent from `squad_leaderboard()`
- * and `goal_window_scores()`.
+ * and `event_progress()`.
  */
 export function useTodayVitals(userId: string | undefined, timeZone: string | undefined) {
   const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;

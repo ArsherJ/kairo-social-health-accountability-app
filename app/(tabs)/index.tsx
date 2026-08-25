@@ -12,7 +12,6 @@ import {
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { TrainEntry } from '@/features/train/TrainEntry.tsx';
 import { useWorkoutSessions } from '@/features/train/queries.ts';
-import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
@@ -438,9 +437,9 @@ export default function Character() {
                 </View>
               </View>
 
-              {/* The streak is the only persistent pill. A goal in flight
-                  belongs on the shelf below, where it has room for a target
-                  and a date — not squeezed into a second pill up here.
+              {/* The streak is the only persistent pill. A squad's Battle
+                  belongs on the squad tab, where the squad is — not squeezed
+                  into a second pill up here.
 
                   "3 day streak", not "3-day": the hyphenated form is right on
                   screen and wrong out loud, the same rule `row-label.ts`
@@ -506,8 +505,9 @@ export default function Character() {
 
               This slot held `daily_scores.total` until 2026-08-15: a four-digit
               integer with no unit, no label and no target, in 64pt type. The
-              engine still computes it — it ranks the board and scores every
-              Goal — it is simply not something a first-time user can read.
+              engine still computes it — it ranks the board and feeds XP and
+              the ability ratings — it is simply not something a first-time
+              user can read.
               Steps lead because they are the figure the most users earn.
 
               Guarded on the buckets query, not the score query: this reads
@@ -637,9 +637,9 @@ export default function Character() {
           )}
 
           {/* The one number in Kairo that never moves, and the run of days
-              against it. Above the goal deliberately: the walk is the floor
-              everyone shares, and a goal is the thing this particular user
-              chose — baseline first, then commitment.
+              against it. The walk is the floor everyone shares, and it sits
+              above Challenges for that reason: baseline first, then the thing
+              this particular user chose.
 
               It does not restate today's steps. The hero already sets them at
               64pt and `detailCopy` already names the gap; see the card. */}
@@ -666,15 +666,21 @@ export default function Character() {
               if the count query errors while the profile query succeeded. */}
           {disclosure.resolved && disclosure.stage === 'core' && (
             <Text style={styles.disclosureNote}>
+              {/* Names only what this gate still holds back. Goals were on this
+                  list until 2026-08-25; a Battle replaced them and is ungated,
+                  because it is the squad's shared thing and hiding it from one
+                  new member would hide something the rest are already looking
+                  at. A promise of a feature that has since become visible
+                  reads as the app losing track of itself. */}
               {disclosure.daysToGo === 1
-                ? 'One more active day and goals, challenges and your full stat breakdown open up.'
-                : `${countWord(disclosure.daysToGo)} more active days and goals, ` +
-                  'challenges and your full stat breakdown open up.'}
+                ? 'One more active day and challenges and your full stat breakdown open up.'
+                : `${countWord(disclosure.daysToGo)} more active days and challenges ` +
+                  'and your full stat breakdown open up.'}
             </Text>
           )}
 
-          {/* The door to Challenges, between the floor everyone shares and the
-              commitment this user chose. It shows the live target as text so
+          {/* The door to Challenges, below the floor everyone shares. It shows
+              the live target as text so
               the mechanic is legible without navigating — for a new user that
               reads as "Log one run of 1 km", which is an invitation. */}
           {disclosure.stage === 'full' && (
@@ -682,17 +688,6 @@ export default function Character() {
               userId={session?.user.id}
               timeZone={profile.data?.timezone}
               today={localToday}
-            />
-          )}
-
-          {/* The slot the sabotage callout left. A commitment belongs below the
-              day's numbers, not among them: today's score is a fact, and this is
-              a promise measured against it. */}
-          {disclosure.stage === 'full' && (
-            <GoalCard
-              userId={session?.user.id}
-              today={localToday}
-              onSetGoal={() => router.push('/goal/new')}
             />
           )}
 

@@ -104,7 +104,7 @@ export function TrainEntry({
 }
 
 const styles = StyleSheet.create({
-  // Matches `GoalCard` and `DailyWalkCard`: three cards adjacent on one shelf,
+  // Matches `DailyWalkCard` and the squad tab's `BattleCard`: cards on one shelf,
   // and a different ground between them would read as one having failed rather
   // than as a distinction.
   card: {

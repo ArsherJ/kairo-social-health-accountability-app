@@ -1,35 +1,38 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
-import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { CreateGoalForm } from '@/features/goals/CreateGoalForm.tsx';
+import { CreateEventForm } from '@/features/events/CreateEventForm.tsx';
+import { useSquadMemberCount } from '@/features/squad/queries.ts';
 import { colors } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
 import { Screen } from '@/ui/index.ts';
 
 /**
- * Set a target.
+ * Start a battle.
  *
- * A route rather than a sheet: the form has five decisions in it, and a sheet
- * that tall is a screen wearing a costume. `squadId` arrives as a query param
- * from the squad panel — its presence is the only difference between a personal
- * goal and one the whole squad is frozen onto.
+ * A route rather than a sheet: the form has four decisions in it and a date
+ * picker, and a sheet that tall is a screen wearing a costume. `squadId`
+ * arrives as a query param from the squad panel — an Event always belongs to a
+ * squad (`events_need_squad`), so without one there is nothing to create.
+ *
+ * **No disclosure gate**, unlike `/goal/new` before it. An Event is a squad's
+ * shared thing, and a member who just joined a squad with a fight running has
+ * as much business starting the next one as anybody else.
  */
-export default function NewGoal() {
+export default function NewEvent() {
   const { squadId } = useLocalSearchParams<{ squadId?: string }>();
   const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const profile = useProfile(session?.user.id);
-  const disclosure = useDisclosure(session?.user.id);
+  const members = useSquadMemberCount(squadId);
 
   // The orbit nav is a tab-shell thing, and this route is a card *over* the
   // tab shell — so it is covered, not absent, and `Screen` would otherwise
-  // reserve `TAB_PILL_CLEARANCE` for a nav that is not on screen. Same
-  // `useFocusEffect` shape as the squad create pane: the cleanup is the
-  // load-bearing half.
+  // reserve `TAB_PILL_CLEARANCE` for a nav that is not on screen. The cleanup
+  // is the load-bearing half.
   useFocusEffect(
     useCallback(() => {
       setNavHidden(true);
@@ -39,18 +42,11 @@ export default function NewGoal() {
 
   // The window starts on the user's OWN local date (§2). Without a timezone
   // there is no honest start date, so the form waits rather than guessing UTC
-  // and setting a goal that begins yesterday for somebody in Manila.
-  // The other half of hiding GoalCard: this route is reachable by deep link and
-  // from `SquadGoalPanel`'s empty state regardless of what the home screen
-  // shows, and a goal set on day one has no baseline behind the number.
-  // `resolved` for the same reason `/train` needs it — 'core' while the count
-  // is in flight would bounce a `full` user off their own goal form.
-  if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
-
+  // and starting a fight that began yesterday for somebody in Manila.
   const timeZone = profile.data?.timezone;
   const today = timeZone ? currentLocalDate(new Date(), timeZone) : null;
 
-  if (!today) {
+  if (!today || !squadId || members.data === undefined) {
     return (
       <Screen scroll={false}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -65,10 +61,11 @@ export default function NewGoal() {
   // itself, so Screen must not.
   return (
     <Screen scroll={false}>
-      <CreateGoalForm
+      <CreateEventForm
         userId={session?.user.id}
         today={today}
-        squadId={squadId ?? null}
+        squadId={squadId}
+        memberCount={members.data}
         onDone={() => router.back()}
         onCancel={() => router.back()}
       />

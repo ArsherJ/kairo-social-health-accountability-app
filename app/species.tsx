@@ -20,7 +20,7 @@ import { BackRow } from '@/ui/index.ts';
  * `/connect`. So no single route can serve both onboarding and an existing
  * user — `app/(onboard)/character.tsx` mounts the same picker for onboarding,
  * and this route serves everyone past it. Groupless is what the `ready` case's
- * denylist explicitly permits, the same as `/goal/new` and `/delete-account`.
+ * denylist explicitly permits, the same as `/event/new` and `/delete-account`.
  *
  * Unlike the onboarding mount, this one **writes**: the profile row already
  * exists, so there is no INSERT to defer to and deviation #22's ordering rule

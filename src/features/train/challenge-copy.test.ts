@@ -32,7 +32,7 @@ describe('challengeHeadline', () => {
   });
 
   it('never states a point total', () => {
-    // Points are spoken only inside Goals, and a challenge target is a pace or
+    // Points are spoken nowhere ambient, and a challenge target is a pace or
     // a calorie count in the first place.
     for (const challenge of ALL) {
       expect(challengeHeadline(challenge)).not.toMatch(/\bpoints?\b/i);

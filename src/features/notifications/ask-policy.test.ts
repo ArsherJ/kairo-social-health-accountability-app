@@ -4,7 +4,7 @@ import { shouldAskForNotifications, type NotificationPermission } from './ask-po
 const base = {
   permission: 'undetermined' as NotificationPermission,
   hasSquad: true,
-  hasGoal: false,
+  hasEvent: false,
   dismissedThisSession: false,
 };
 
@@ -13,12 +13,16 @@ describe('when Kairo asks for notification permission', () => {
     expect(shouldAskForNotifications(base)).toBe(true);
   });
 
-  it('asks a solo user with a goal in flight, squad or not', () => {
-    // The one ask a solo user can earn. `goal_completed` is the only
-    // budget-exempt trigger, and a solo-first app cannot gate its only
-    // notification ask on having friends.
+  it('asks anyone with a battle running, squad flag or not', () => {
+    // **Currently subsumed by `hasSquad`, and kept deliberately.** A Goal could
+    // be personal, so this was once the only ask a solo user could earn; an
+    // Event cannot be (`events_need_squad`, deviation #45), so today nobody
+    // reaches this branch without the first one already being true. It stays
+    // because the policy states two independent reasons a user has earned the
+    // ask, and collapsing them would silently re-couple the ask to squad
+    // membership the moment an Event no longer needs a squad.
     expect(
-      shouldAskForNotifications({ ...base, hasSquad: false, hasGoal: true }),
+      shouldAskForNotifications({ ...base, hasSquad: false, hasEvent: true }),
     ).toBe(true);
   });
 
@@ -26,7 +30,7 @@ describe('when Kairo asks for notification permission', () => {
     // §5: every ask has a visible why. During onboarding there is no why yet,
     // and a permission denied there is denied for the life of the install.
     expect(
-      shouldAskForNotifications({ ...base, hasSquad: false, hasGoal: false }),
+      shouldAskForNotifications({ ...base, hasSquad: false, hasEvent: false }),
     ).toBe(false);
   });
 

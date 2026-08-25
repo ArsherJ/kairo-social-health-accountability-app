@@ -49,7 +49,7 @@ export function useDeviceTokenRegistration(userId: string | undefined): void {
  * Takes the user where a tapped notification promised to take them.
  *
  * Every push carries a destination — `dispatch-notifications` sends
- * `{ trigger, localDate, screen }` and `finalize-days` adds `goalId` — and
+ * `{ trigger, localDate, screen }` and `finalize-days` adds `eventId` — and
  * until this existed nothing read any of it. §14 specifies the deep link; the
  * server half has been sending it correctly the whole time.
  *

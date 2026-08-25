@@ -167,7 +167,7 @@ export function LeaderboardRow({
             {CORE_STATS.map((stat) => {
               // The RPC returns lifetime POINTS; the curve lives in
               // @kairo/core and is applied here, never in SQL. Same rule
-              // deviation #18 applies to goal arithmetic — one implementation.
+              // deviation #18 applies to event arithmetic — one implementation.
               const rating = ratingForStatPoints(row.ratings?.[stat] ?? 0);
               return (
                 // No `accessible` of its own any more: the row above is the

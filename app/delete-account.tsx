@@ -16,7 +16,7 @@ import { BackRow, Button, Screen, Text } from '@/ui/index.ts';
  * the person who had not.
  *
  * Deliberately plain about what survives. Saying "everything is deleted" would
- * be simpler and false — squad leadership passes on, goals other people are
+ * be simpler and false — squad leadership passes on, battles other people are
  * running keep going without your name on them, and behavioural telemetry stays
  * as anonymous rows. Someone erasing an account to get out of a squad deserves
  * to know the squad continues.
@@ -73,9 +73,8 @@ export default function DeleteAccount() {
         <Text style={styles.survivesLabel}>WHAT DOES NOT GO WITH YOU</Text>
         <Text style={styles.survivesBody}>
           If you lead a squad, it carries on under its longest-standing member —
-          unless you are the only one left, in which case it goes too. Goals you
-          set for a squad keep running for everyone else, without your name on
-          them.
+          unless you are the only one left, in which case it goes too. A battle
+          you started keeps running for everyone else, without your name on it.
         </Text>
       </View>
 

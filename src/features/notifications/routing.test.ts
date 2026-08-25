@@ -97,7 +97,7 @@ describe('notificationTarget — challenges', () => {
     ).toBe('/train');
   });
 
-  it('needs no id, unlike a goal', () => {
+  it('needs no id, unlike an event', () => {
     // There is one live challenge per area, so the route itself is the whole
     // address — nothing to interpolate and nothing to validate.
     expect(notificationTarget({ screen: 'train' })).toBe('/train');

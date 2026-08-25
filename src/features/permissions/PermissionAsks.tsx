@@ -34,11 +34,11 @@ import { nextPermissionAsk } from './ask-order.ts';
 export function PermissionAsks({
   userId,
   hasSquad,
-  hasGoal,
+  hasEvent,
 }: {
   userId: string | undefined;
   hasSquad: boolean;
-  hasGoal: boolean;
+  hasEvent: boolean;
 }) {
   const [health, setHealth] = useState<HealthPermissionState | null>(null);
   const [notification, setNotification] = useState<NotificationPermission | null>(null);
@@ -98,7 +98,7 @@ export function PermissionAsks({
           notification,
           notificationDismissed,
           hasSquad,
-          hasGoal,
+          hasEvent,
           answeredAnAskThisSession,
         });
 

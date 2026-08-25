@@ -2,7 +2,7 @@
  * Cardiovascular strain from hourly average heart rate.
  *
  * **Display only.** Strain is never written to `daily_scores`, never ranks
- * anybody, and never enters a goal. §12's server-authoritative rule is about
+ * anybody, and never enters an Event. §12's server-authoritative rule is about
  * the numbers that decide standings; this is a read of the user's own data,
  * shown on their own screen, so it stays a client-side projection and score
  * replay is untouched by it.

@@ -30,8 +30,8 @@ import { useScoredDayCount } from './queries.ts';
  * indistinguishable from the feature being gone. Hide on `stage`, navigate on
  * `resolved && stage`.
  *
- * Called from several surfaces at once (the home screen, `/train`, `/goal/new`,
- * `SquadGoalPanel`). That costs one request, not four: every call resolves to
+ * Called from several surfaces at once (the home screen and `/train`). That
+ * costs one request, not two: every call resolves to
  * the same TanStack key, so the query is shared and the gate cannot disagree
  * with itself between two screens in the same frame.
  */

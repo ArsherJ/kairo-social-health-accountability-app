@@ -136,11 +136,11 @@ describe('redirectTarget', () => {
 describe('a ready user may stand outside the tabs', () => {
   // The bug this covers: `ready` used to allowlist `(tabs)` and redirect
   // everything else to '/'. A stacked route belongs to no group, so pushing
-  // /goal/[id] bounced back to home before it rendered.
+  // /event/[id] bounced back to home before it rendered.
   const ready = { route: 'ready' as const };
 
   it('leaves a stacked route alone', () => {
-    expect(redirectTarget({ ...ready, group: 'goal' })).toBe(null);
+    expect(redirectTarget({ ...ready, group: 'event' })).toBe(null);
   });
 
   it('leaves an ungrouped root alone', () => {

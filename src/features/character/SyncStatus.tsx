@@ -18,7 +18,7 @@ import { colors, font, space } from '@/theme.ts';
  * climbing step counts that the server had already refused to score, and said
  * nothing at all.
  *
- * **No alarm colour.** `damage` is reserved for a goal slipping away and
+ * **No alarm colour.** `damage` is reserved for a battle slipping away and
  * nothing else, and inventing a red here would be the system's first exception.
  * A problem announces itself by being *present and legible* — a rule, an icon,
  * and a terracotta action, terracotta being what the system already means by

@@ -220,7 +220,7 @@ export function BodyMetricsCard({
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   // A pill, not a bare word: on cream a coloured word alone does not read as a
-  // control. Same treatment the squad and goal cards use for their one action.
+  // control. Same treatment the squad and battle cards use for their one action.
   edit: {
     marginLeft: 'auto',
     paddingVertical: 7,

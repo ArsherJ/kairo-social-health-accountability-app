@@ -77,7 +77,7 @@ export function redirectTarget(input: {
     case 'ready':
       // Anywhere except the two shells a ready user has finished with. Written
       // as a denylist rather than `group === '(tabs)'` on purpose: stacked
-      // routes outside any group — `/goal/[id]`, `/goal/new` — are legitimate
+      // routes outside any group — `/event/[id]`, `/event/new` — are legitimate
       // destinations for a signed-in user, and an allowlist of one bounced them
       // straight back to the home tab the instant they were pushed.
       if (input.group === '(auth)') return '/';

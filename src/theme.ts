@@ -13,7 +13,7 @@
  *
  * - **terracotta** (`accent`) — you, your score, the primary action.
  * - **sage** (`sage`) — your lane, and squad warmth. Never a call to action.
- * - **burnt** (`damage`) — a goal slipping away, and only that.
+ * - **burnt** (`damage`) — a battle slipping away, and only that.
  */
 
 import type { TextStyle } from 'react-native';
@@ -81,7 +81,7 @@ export const colors = {
   /** Sage. Your lane, and squad warmth. Never a call to action. */
   sage: '#7a8a5e',
   /**
-   * Behind pace on a goal, and only that. Deep burnt rather than a red: a true
+   * Behind pace on a battle, and only that. Deep burnt rather than a red: a true
    * red would be the only hue in the app outside the terracotta/sage families
    * and would read as a system error rather than as a target slipping away.
    *
