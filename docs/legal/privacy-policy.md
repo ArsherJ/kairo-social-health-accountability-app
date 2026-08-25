@@ -10,8 +10,11 @@ Applies to: Kairo for iOS, including the TestFlight beta.
 ## In one paragraph
 
 Kairo reads your movement data from Apple Health, turns it into a daily score,
-and shows that score to the people in your squad. Your squad sees **tiers and
-totals only** — never your step counts, never your hour-by-hour movement, never
+and shows that score to the people in your squad. Your squad sees your score and
+your tiers. It sees your **daily totals** — steps, distance, calories, minutes
+slept — only if you and they have each agreed to share them, and it sees the
+**squad's pooled calorie total** during a battle whether or not you have. It
+**never** sees your hour-by-hour movement, your heart rate, your workouts or
 when you were active. We do not sell your data, we do not use it for
 advertising, and we do not use it to train anything. You can delete your account
 and everything in it from inside the app.
@@ -86,9 +89,9 @@ them. They exist for a figure and a target that are yours alone.
 
 - **Daily scores** — per-stat points, tiers, and a total.
 - **Squad membership**, invite codes, and squad names.
-- **Goals** — a title you write, a target, and the dates it runs between; plus
-  which goals you joined and which you completed. Deleted when an account or
-  squad is deleted.
+- **Battles** — a name and a description you write, a target in calories, and
+  the dates it runs between; plus which battles you are on and which your squad
+  finished. Deleted when an account or squad is deleted.
 - **Streaks**, level and XP.
 - **A push notification token** for your device, if you turn notifications on.
 - **A small number of app events** — that you opened the app, that you chose a
@@ -105,26 +108,48 @@ advertising SDK, no third-party tracker of any kind is present in the app.
 
 This is the part most worth reading.
 
-**Your squadmates see:** your character name, your level, your total score for
-the day, and a Bronze/Silver/Gold tier per stat. On a goal you share with them,
-they also see your progress toward it — which is a running total of those same
-daily scores, and nothing more.
+**Your squadmates always see:** your character name, your level, your total
+score for the day, and a Bronze/Silver/Gold tier per stat.
 
-**Your squadmates never see:** your step count, your distance, your calories,
-your active minutes, **how long you slept**, your hour-by-hour movement, any
-timestamp of when you moved, your height, your weight, your age, or your sex.
+**Your squadmates see your daily totals only if you and they have both agreed
+to share them.** Since 2026-08-26 the squad screen can show each member's
+**steps, distance, calories and minutes slept for the day** — but only for a
+member who has turned that sharing on, and only to a viewer who has turned it
+on themselves. If you have not agreed, your squadmates see your lane on the
+race with no position and the words "not sharing", and you see the same of
+everyone else. You are asked when you create or join a squad, and existing
+members are asked again. There is no way to see other people's totals without
+sharing your own.
+
+**One figure is shared without that agreement, and it is worth understanding.**
+When your squad is fighting a Battle, everyone on it sees the **squad's pooled
+total** — one number, the sum of everybody's calories for the day. Your own
+share of it stays behind the agreement above. We do this because a shared fight
+you cannot see the state of is not a shared fight, and because joining one is
+itself a decision to take part.
+
+**In a two-person squad, that pooled number can be worked backwards.** If there
+are only two of you, subtracting your own contribution leaves your partner's.
+There is no version of a shared total that avoids this, so we are naming it
+rather than implying otherwise: in a squad of two, your daily calorie total is
+effectively visible to the other person while a Battle is running.
+
+**Your squadmates never see:** your hour-by-hour movement, any timestamp of
+when you moved, your heart rate, your workouts, your pace, your height, your
+weight, your age, or your sex. None of these is behind an agreement — they are
+not shared at all, and no setting turns them on.
 
 Sleep became one of the three scored stats on 2026-08-20, so the per-stat tier
-above now includes one for sleep — a Bronze/Silver/Gold band in the same
-vocabulary as the others, never a number of hours. Before that change your
-squadmates could already see *whether* a sleep record had reached the app,
-because a sleep bonus carried a visible icon; what is new is the band, not the
-fact.
+above includes one for sleep — a Bronze/Silver/Gold band in the same vocabulary
+as the others. The **number** of minutes is one of the daily totals covered by
+the sharing agreement.
 
 That separation is enforced by the database, not by the app. Squad data is
-served by a small number of read-only functions that have no ability to return
-raw measurements — so a modified or malicious copy of the app cannot obtain them
-either.
+served by a small number of read-only functions, each of which decides for
+itself what it may return and to whom — the sharing agreement is applied inside
+them, per row. A modified or malicious copy of the app cannot obtain anything
+those functions will not hand over, and the things listed as never shared have
+no code path that returns them to anyone but you.
 
 Hourly movement is treated as the most sensitive thing here on purpose: it
 reveals when you sleep, when you work and when you are away, which is a great
@@ -165,7 +190,7 @@ For as long as your account exists. `[[TODO: confirm — see README decision #3]
 
 When you delete your account, we erase your profile, your health buckets, your
 scores, your streaks, your squad memberships, your device tokens and your
-goals and goal completions. If you were the leader of a squad,
+battles and battle completions. If you were the leader of a squad,
 leadership passes to another member first, so we do not delete other people's
 squad along with your account. If you were its last member, the squad goes too.
 
@@ -199,7 +224,7 @@ account, contact us and we will delete it.
 ## 9. Security
 
 Access is enforced at the database row level: your rows are readable by you.
-Clients hold **no write permission at all** on health data, scores or goal
+Clients hold **no write permission at all** on health data, scores or battle
 completions — every write goes through a server function that checks who you are
 first. Data is encrypted in transit, and encrypted at rest by our host.
 

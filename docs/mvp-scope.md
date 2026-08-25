@@ -26,17 +26,16 @@ deliberately diverges, and this file for what that adds up to today.
 below `DISCLOSURE_THRESHOLD_DAYS` (**3**) the stage is `core`, at or above it
 `full`.
 
-Four surfaces are **built, tested, reachable and hidden** until then:
+Three surfaces are **built, tested, reachable and hidden** until then:
 
 | Surface | Where |
 |---|---|
-| Goals — the home card, `/goal/new`, `SquadGoalPanel` | `src/features/goals/` |
 | Challenges — `TrainEntry` and the `/train` route | `src/features/train/` |
 | Per-stat ability detail — `StatRail` and the bars it expands | `src/features/character/` |
 | Strain and Sleep | `TodayPanel` |
 
-They are **not out of scope, and not deferred.** A QA pass that reports Goals
-or Challenges missing on a fresh install is describing the design working, and
+They are **not out of scope, and not deferred.** A QA pass that reports
+Challenges missing on a fresh install is describing the design working, and
 the correct test is to check them on an account with three scored days — or to
 change `DISCLOSURE_THRESHOLD_DAYS`, which is one constant precisely so this
 stays cheap to verify and cheap to reverse.
@@ -54,7 +53,7 @@ squad is a layer on top.
   time from Profile → Companion: Pilandok, Tamaraw, Carabao, Philippine Eagle.
   **Cosmetic only** — the choice reaches nothing in scoring, and each species'
   "affinity" names the stat it is *about*, never a bonus. Squadmates see it on
-  the leaderboard and on shared goal rosters. It has **no in-app noun**: it is
+  the leaderboard and on an Event roster. It has **no in-app noun**: it is
   "your character", never a Hunter (deviation #26).
 - **Three stats from HealthKit** — **Motion** (`AGI`: steps, distance), **Body**
   (`STR`: active calories) and **Mind** (`MND`: sleep), since deviations #41 and
@@ -95,15 +94,33 @@ squad is a layer on top.
   manual entry stays for anyone whose chat client mangles the link.
 - Leave, with succession — the squad outlives its leader.
 
-### Goals — what replaced sabotage
-- Measured in **Daily Walks by default**, with points as the advanced path
-  (deviation #35). A walk goal counts days that cleared 10,000 steps and
-  ignores the score, so its target is answerable from the streak already on
-  the home shelf.
-- Cumulative or consistency, personal or squad-wide, over a fixed window,
-  a date you pick, or open-ended (deviation #21).
-- Squad goals are **per-member N-of-M**: each member must hit the target
-  individually. Not a pooled total.
+### Events — the Battle, which replaced Goals
+
+**Goals are OUT as of 2026-08-25** (deviation #45). Nothing renders one, no
+route reaches one, and the `goals` table is now `challenge_events`. A brief
+describing a goal card, `/goal/new` or a squad goal panel is describing a
+product that no longer exists.
+
+- **Battle is IN.** One pooled fight per squad, measured in **active
+  calories**, over a window the squad picks. One bar, everybody's effort in
+  it — the reversal of squad goals' per-member N-of-M (deviation #48), and the
+  reason the mechanic exists: the strong member carries, and being carried is a
+  reason to be in a squad.
+- **Every member on the frozen roster is paid when the bar fills**, including
+  one who contributed nothing. That is the mechanic, not a bug to report.
+- The boss's HP is **derived from the squad's own trailing fortnight and then
+  fixed** (deviation #49). It does not move mid-fight, unlike a Challenge
+  target, which is re-derived on every read. Both behaviours are correct; a
+  brief that expects one from the other will file the wrong finding.
+- Lives on the **Squad tab**, not the character screen, and is **not
+  disclosure-gated** — a new member sees the fight their squad is already in.
+- **Adventure is OUT**, with a stated reason: it is the same engine with
+  `distance_m` instead of calories, and it ships once the engine is proven
+  live. The schema carries the kind and the metric already, so the migration
+  happened once rather than twice — but nothing can create one, so nothing
+  tests one.
+- **Personal Events are OUT and will stay out.** `events_need_squad` rejects
+  them. A personal fight is a Challenge, which already exists on `/train`.
 
 ### Train — the Daily Walk and Challenges
 - **Daily Walk** — 10,000 steps a day, on the home shelf, with a streak of days
@@ -167,12 +184,12 @@ a regression.
 
 | Not built | Why | Where it is recorded |
 |---|---|---|
-| **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it. | Deviation #17 |
+| **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it, and the Battle replaced Goals in turn on 2026-08-25. | Deviation #17 |
 | **Character morphing, gear slots, Rive animation** | V1. The art is not commissioned; §15 scopes the MVP to *static* placeholder art, and pulling in an animation runtime for a placeholder is the wrong trade. The three responses listed above are what exists. | §15, `CharacterFigure.tsx` |
 | **Anything the species choice is not** — per-species evolution art, skins, battle frames, a roster past four, a *mechanical* affinity bonus, and animation beyond React Native `Animated` | Deliberate, and each one for its own reason. One artwork per species is what makes four species affordable, and it works because the figure's three responses are already code — a per-stage or per-dominance set is ~96 assets nobody will maintain. A mechanical affinity would rescore history, since `daily_scores` is replayed from stored buckets, so it is a migration rather than a tweak. No new dependency was added for motion: `react-native-svg`, Rive and Reanimated all stay uninstalled. | Deviation #40, spec §13 |
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
-| **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It is a third mechanic beside Goals and Challenges, and three questions are open on purpose: how a Routine-level shield and Challenge-level ease coordinate on one missed week, where it surfaces relative to `SquadGoalPanel` and `GoalCard`, and the squad-level `required_members` default. | Deviation #33, spec §9 |
+| **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It was a third mechanic beside Goals and Challenges; Goals have since become the pooled Battle, so two of its three open questions have moved rather than closed — how a Routine-level shield and Challenge-level ease coordinate on one missed week, and where it would surface relative to `SquadEventPanel`. The third, a squad-level `required_members` default, is **gone with N-of-M**. | Deviation #33, spec §9 |
 | **Android App Links** | iOS first. An `assetlinks.json` would sit beside the association file in `web/` when Android arrives. | Deviation #36 |
 | **Android** | iOS first. | §15 |
 
@@ -185,6 +202,9 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | Say | Not |
 |---|---|
 | Race | daily leaderboard *(the track is the surface; the board is what it re-ranks)* |
+| Event, and **Battle** for the one kind that ships | goal, squad goal, target |
+| Challenge | *(only on `/train`, and only for the personal one — never for a squad's Battle)* |
+| boss, its HP | goal target, required points |
 | your character | Hunter, avatar |
 | squad | barkada, party, clan |
 | ability rating | tier, Bronze/Silver/Gold *(internal to scoring; no surface renders them)* |
@@ -214,7 +234,7 @@ Readiness is not a score out of ten; it is this list. Open items as of
       dispatch → APNs receipt → banner → tap routing in all three app states,
       plus a real `dispatch-notifications` run returning
       `{"candidates":1,"sent":1,"failures":[]}`. The client half was **missing
-      entirely** until that day — the server had been sending `screen`/`goalId`
+      entirely** until that day — the server had been sending `screen`/`eventId`
       in every push since the engine shipped and nothing read it. Built as
       `src/features/notifications/routing.ts`; the APNs key is uploaded to
       Expo; re-runnable via `supabase/scripts/send-test-push.mjs`. Full account

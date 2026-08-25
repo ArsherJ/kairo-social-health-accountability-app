@@ -4,21 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily leaderboard, plus shared goals over a span of days, weeks or years. iOS first via Expo; Supabase backend.
+Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together. iOS first via Expo; Supabase backend.
 
 **Sabotage was removed on 2026-08-09.** It was the original premise (§8, and §20's principle #4 called it "the soul of the product"), so a lot of prose still assumes it. Nothing in the code does. If you find a reference, it is stale — fix it.
 
 **Bronze/Silver/Gold are internal to scoring as of 2026-08-10.** `tierFor()`, `TIER_POINTS` and `daily_scores.tiers` still decide every day exactly as §5/§6 specify — nothing about the engine changed. But no surface renders a tier name or colour any more: the character sheet and the leaderboard both show a numeric **ability rating** from `ratingForStatPoints()` over lifetime per-stat rollups on `profiles`. If you find UI naming a tier, it is stale. **`profiles.focus` was dropped the same day** — `squads.program` is the only focus concept, and the character screen's "lane" reads observed dominance instead.
 
-**Points are spoken only inside Goals, as of 2026-08-15.** `daily_scores.total`
-still ranks the board, scores every Goal, and feeds XP and ratings — nothing
+**Points are spoken nowhere, as of 2026-08-15 and more so since.** `daily_scores.total`
+still ranks the board and feeds XP and ratings — nothing
 about the engine changed, exactly as with tiers in deviation #23. But no ambient
 surface prints it: the home hero is the day in real units, a leaderboard row is
 rank and the gap to the row above, and `src/features/squad/row-label.ts` speaks
 that gap rather than a total — deliberately, because a screen reader naming a
-figure the screen does not show describes a different product. A Goal keeps its
-points because the user typed that target. If you find a surface outside
-`src/features/goals/` rendering a score total, it is stale — fix it.
+figure the screen does not show describes a different product. The last exception
+went with Goals on 2026-08-25: an Event's target is a number of **calories**,
+which the squad produces rather than accrues. If you find any surface rendering
+a score total, it is stale — fix it.
 
 **Kairo scores three stats as of 2026-08-20** (deviation #41). `CoreStat` is
 `'AGI' | 'STR' | 'MND'`: steps, active calories, sleep. END folded into STR and
@@ -33,9 +34,9 @@ higher one. Three things break easily:
   spread shift lowers AGI's whole ladder, Gold included, and `tiers` stores the
   **shifted** tier — so Gold arrives at 7,500 steps on an eight-active-hour day
   and the baseline scales with the user, which is exactly what it must never
-  do. `sync-plan.ts` writes both keys; `goal_window_scores()` and the 90-day
-  streak in `train/queries.ts` read `AGI_base` and fall back to `AGI` for rows
-  written before the switch, for which the two agree. **A guard written through
+  do. `sync-plan.ts` writes both keys; the 90-day streak in `train/queries.ts`
+  reads `AGI_base` and falls back to `AGI` for rows written before the switch,
+  for which the two agree. **A guard written through
   `tierFor` cannot catch this**, and one was: `tierFor` *is*
   `shiftedTierFor(stat, raw, 0)`, the single path where the shift is absent by
   definition, so `scoring.test.ts`'s 10,000 literal passed throughout. Assert
@@ -74,7 +75,7 @@ changed, not three. Three things break easily:
   import `@/ui/index.ts` from a module root Vitest tests**: the barrel
   re-exports every component *and* the `@/` alias does not resolve there, which
   is why `program-copy.ts` reaches `stat-names.ts` by relative path exactly as
-  `goal-copy.ts` reaches `kairo-core`.
+  `event-copy.ts` reaches `kairo-core`.
 - **`dominanceName()` replaced `DOMINANCE_LABELS`, and a parallel table of stat
   words anywhere is stale by construction.** Two copies existed before this and
   neither contained a stat word to grep for in the obvious way — the home
@@ -113,7 +114,7 @@ Three things that are easy to break by accident:
   function of qualifying sessions **strictly before** the day being judged, and
   "strictly before" is load-bearing twice: the session being judged cannot move
   its own bar, and nothing stateful exists for a retroactive Apple revision to
-  invalidate — the read-time projection property goal progress already has.
+  invalidate — the read-time projection property Event progress already has.
   Only the *completion* is stored, with the target snapshotted, because the
   trailing median can no longer answer "what did I clear in March". Do not add
   a stored level counter; clearing already makes the next one harder, because
@@ -133,51 +134,74 @@ Three things that are easy to break by accident:
   becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
   run stored as 5,000 metres would quietly corrupt every pace after it.
 
-**Goals gained a second metric on 2026-08-17, and invites gained a link**
-(deviations #35–#36). Six things that are easy to get wrong:
+**Goals became Events on 2026-08-25** (deviations #45, #48, #49). `goals` is
+`challenge_events`, `goal_participants` is `event_participants`,
+`goal_completions` is `event_completions`. `create_goal()`, `abandon_goal()`,
+`goal_window_scores()` and `can_see_goal()` are dropped; `create_event()`,
+`abandon_event()`, `event_progress()` and `can_see_event()` replace them.
+`src/features/goals/` and both `/goal` routes are gone. Seven things break
+easily:
 
-- **`goals.metric` was widened, not added.** It already existed as
-  `check (metric = 'daily_score')`, documented as widenable — and the existing
-  value is `'daily_score'`, the *value* name, not `'points'`. Match the
-  database.
-- **`create_goal` had to learn `p_metric`, or the widened check is
-  unreachable.** `authenticated` holds only SELECT and UPDATE(title,
-  description) on `goals`, so that function is the only way a row is ever
-  written. Adding a defaulted parameter to a function that already has defaults
-  is an *ambiguous overload* PostgREST cannot resolve — drop and recreate, as
-  `p_description` already did. The same trap waits for the next parameter.
-- **`walk_cleared` comes from `daily_scores.tiers`, never `health_buckets`.**
-  The tier is already projected to squadmates by `squad_leaderboard()`; the
-  buckets are not, and both produce an identical screen. A schema test pins the
-  RPC's exact row shape for that reason.
-- **A `daily_walk` consistency goal stores `target: 1` as a sentinel**, because
-  the column requires a positive value and the bar is a boolean. Two places
-  keep it off screens: `contribution()` checks `metric` **before** `kind` (the
-  other order reads the sentinel as a points bar and counts every scoring day),
-  and `windowLine()` drops its "· N a day" clause for the metric. And
-  `finalize-days` **must select `metric`** — it has its own `GoalRow` and
-  `toGoal`, so a walk goal graded without it latches off any day that scored,
-  pays XP and pushes a notification saying so. A wrong card re-renders; a latch
-  is permanent.
-- **`stillPossible` keys off whether a day's contribution is capped, not off
-  `kind`.** A points day has no ceiling, so a cumulative points goal lives while
-  any day is unresolved. A *walk* day is worth at most 1 whichever kind it is,
-  so a cumulative walk goal can die before its window closes. A test pins that
-  points goals are unaffected — do not collapse the two branches back.
-- **The universal-links chain has three sources and every failure is silent:**
-  `ios.associatedDomains` in `app.config.ts`, the extensionless AASA file's
-  `Content-Type` (`web/vercel.json`), and the **Associated Domains capability on
-  the App ID** in Apple's portal. EAS CNG generates the native entitlement from
-  config; never hand-edit the ignored `ios/` project. Same failure class as
-  `aps-environment`. The domain is a one-way door —
-  `INVITE_HOST` is one constant that both `app.config.ts` and
-  `invite-message.ts` read, and changing it breaks every link already shared.
-  Runbook: `web/README.md`.
+- **`closed_at is null` is not optional on any read.** The table still holds
+  every pre-pivot Goal row so banked XP does not vanish, so the `kind`,
+  `metric`, `events_need_end` and `events_need_squad` checks are all written
+  `check (closed_at is not null or …)` — validated constraints, never
+  `NOT VALID`. Omitting the filter renders a points goal as a Battle.
+  `challenge_events_one_live_per_kind` keys off the same column, which is why
+  `abandon_event()` **closes** rather than deletes.
+- **An Event's target is snapshotted at creation; a Challenge's is derived on
+  every read.** `bossHp()` computes it once on the client and `create_event()`
+  stores `p_target` verbatim — the one place a client decides a number the
+  server keeps, accepted because reimplementing the median in plpgsql is
+  deviation #18's differential-test tax again, and because the exposure is a
+  squad setting an easy boss for itself. Progress stays a read-time projection,
+  so revisions still replay: **the target is fixed, the progress is replayed.**
+  Both modules carry a comment saying so.
+- **Pooled means every roster member is paid**, contributor or not. Paying only
+  contributors rebuilds the per-member N-of-M rule the pivot removed.
+- **`pooledDays()` in `@kairo/core` holds three rules and all three fail
+  silently.** Take each date **once** — `event_progress()` repeats the pooled
+  figure on every participant's row. Read `pooled_value`, **never** `value`:
+  that column is behind deviation #47's consent gate, which keys off the
+  *viewer's profile* and not their role, so `finalize-days` grading from it
+  pools a whole fight to zero for any candidate who never consented, completes
+  nothing, and logs nothing. And a date is final **only when every
+  participant's is**, since a squad spans timezones and a mixed date would let
+  a still-revisable contribution pay XP. It lives in the keystone precisely so
+  the client's bar and the server's grading cannot disagree.
+- **`recalculate_user_xp` is a full recompute written out whole**, and the
+  deployed body names `challenge_completions` as a third XP source *and* writes
+  `agi_total`/`str_total`/`mnd_total`. Read it before editing — a source
+  omitted is a source dropped, and every account's ratings fall on the next
+  sync. The quests plan rewrites the same function.
+- **An erasure function had to be recreated, not renamed.** A plpgsql body is
+  text resolved at execution, so `alter table … rename` does not rewrite the
+  table names inside it — `collect_orphaned_goals()` would have raised
+  `relation "public.goals" does not exist` on the first account deletion and
+  nowhere else. It is `collect_orphaned_events()` now and still **AFTER
+  DELETE**.
+- **`goal_completed` survives as a notification trigger and routes to `/`.**
+  `notification_log.kind` is free text, historical rows say it, and a push sent
+  before the deploy can be tapped after it. A tap that goes nowhere is
+  indistinguishable from push being broken.
+
+**The invite link is unchanged by the above.** The universal-links chain has
+three sources and every failure is silent: `ios.associatedDomains` in
+`app.config.ts`, the extensionless AASA file's `Content-Type`
+(`web/vercel.json`), and the **Associated Domains capability on the App ID** in
+Apple's portal. EAS CNG generates the native entitlement from config; never
+hand-edit the ignored `ios/` project. Same failure class as `aps-environment`.
+The domain is a one-way door — `INVITE_HOST` is one constant that both
+`app.config.ts` and `invite-message.ts` read, and changing it breaks every link
+already shared. Runbook: `web/README.md`.
 
 **A new account does not see the whole app, as of 2026-08-17** (deviations
 #37–#39). `disclosureStage()` in `@kairo/core` returns `core` below
-`DISCLOSURE_THRESHOLD_DAYS` and `full` at or above it; `TrainEntry`, `GoalCard`,
-`StatRail` and the Strain/Sleep rows are hidden in `core`. Nothing is deleted —
+`DISCLOSURE_THRESHOLD_DAYS` and `full` at or above it; `TrainEntry`, `StatRail`
+and the Strain/Sleep rows are hidden in `core`. **The Battle is not gated** —
+`SquadEventPanel` and both `/event` routes check nothing, because an Event is a
+squad's shared thing and gating it on one member's scored-day count would hide
+from a new member what the rest are already looking at. Nothing is deleted —
 every gated surface stays built and reachable, which is what makes this cheap to
 reverse. Four things break easily:
 
@@ -189,14 +213,14 @@ reverse. Four things break easily:
   payload whether or not it scored and `resolveSyncWindow` always sends today
   *and* yesterday, so a bare row count reads 2 on install and would open the
   gate on day 1 for someone who has done nothing.
-- **Hiding an entry point is not closing a door.** `/train`, `/goal/new` and
-  `SquadGoalPanel` check the stage themselves, because push routing and deep
-  links reach all three regardless of the home screen. **The two routes gate on
-  `resolved && stage === 'core'`, not on the stage alone** — the stage reads
-  `core` while the count is in flight, which is correct for hiding a card and
-  wrong for a redirect: a Challenge push that cold-launches into `/train` has no
-  cached count, and bouncing a `full` user home on that frame reads exactly like
-  the feature being removed. Hide on `stage`, navigate on `resolved && stage`.
+- **Hiding an entry point is not closing a door.** `/train` checks the stage
+  itself, because push routing and deep links reach it regardless of the home
+  screen. **It gates on `resolved && stage === 'core'`, not on the stage
+  alone** — the stage reads `core` while the count is in flight, which is
+  correct for hiding a card and wrong for a redirect: a Challenge push that
+  cold-launches into `/train` has no cached count, and bouncing a `full` user
+  home on that frame reads exactly like the feature being removed. Hide on
+  `stage`, navigate on `resolved && stage`.
 - **Onboarding is `/connect` → `/character` → `/name`**, and the profile row
   still commits exactly once, on the last screen. Add steps *before* the name,
   never after — that is still deviation #22's deleted flag. `/connect` reads
@@ -279,8 +303,8 @@ parallel table would drift. Where composition has real edges it gets a
 tested pure module: `src/features/squad/row-label.ts` exists because a
 leaderboard row was twelve separate stops (a six-person board took seventy-odd
 swipes), and because "1-day streak" is right on screen and wrong out loud.
-Before adding a label, check the text already beside it — `GoalBar`'s pace
-marker needed nothing, since `statusLine()` already says "behind pace".
+Before adding a label, check the text already beside it — `BattleCard`'s pace
+marker needs nothing, since `eventStatusLine()` already says "behind pace".
 
 **Three rules the 2026-08-14 device pass added.** First: **grouping is
 explicit.** `accessible` + `accessibilityLabel` on a parent is documented to
@@ -334,7 +358,7 @@ stored buckets. Five things break easily:
   can serve both. `app/(onboard)/character.tsx` is the onboarding mount and
   writes nothing; the groupless `app/species.tsx` serves everyone past it and
   writes directly under the column-scoped UPDATE grant. Groupless is what the
-  `ready` denylist permits, the same as `/goal/new`.
+  `ready` denylist permits, the same as `/event/new`.
 - **Onboarding is still `/connect` → `/character` → `/name`, and the profile
   row still commits exactly once**, on the name screen — unchanged by #40 and
   still load-bearing. Deviation #22 deleted the `finishingOnboarding` flag when
@@ -360,7 +384,7 @@ stored buckets. Five things break easily:
 - `docs/Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here. §5's and §6's stat tables are superseded by deviation #41 and marked as such in place; the section numbering does not move.
 - `docs/roadmap.md` — build sequencing, phase status, and an **approved-deviations table**. Deviations from the spec are deliberate and recorded; propose changes against that table rather than "fixing" them.
 
-`docs/user-journey.md` walks the end-to-end user flow (onboarding → daily loop → character → squad → goals) grounded in what's actually built, not just spec'd. Update it whenever a flow changes.
+`docs/user-journey.md` walks the end-to-end user flow (onboarding → daily loop → character → squad → battles) grounded in what's actually built, not just spec'd. Update it whenever a flow changes.
 
 **`docs/mvp-scope.md` is the IN/OUT contract.** Cite it in any QA brief, test plan or store-facing copy. It exists because the August 2026 QA pass graded Kairo against a v1.3-era brief and scored four sections 1/10 for features that were deliberately removed (sabotage) or deliberately deferred (gear, referrals, monetization) — burying the findings that mattered under findings about a product that no longer exists. If a brief describes something not listed there, the brief is stale.
 
@@ -544,7 +568,7 @@ build-path account remains in `docs/archive/xcode-cloud.md` for history.
 
 ### `packages/kairo-core` is the keystone
 
-Pure, zero-dependency TypeScript: scoring, local-day math, goal evaluation, anti-cheat, progression, streaks. **No I/O, no clock reads, no randomness** — every function takes what it needs as an argument, which is why timezone and DST behaviour is testable without mocking.
+Pure, zero-dependency TypeScript: scoring, local-day math, Event evaluation and pooling, anti-cheat, progression, streaks. **No I/O, no clock reads, no randomness** — every function takes what it needs as an argument, which is why timezone and DST behaviour is testable without mocking.
 
 Both consumers import the same files:
 - Expo app → `@kairo/core` (tsconfig path + Metro `watchFolders`)
@@ -559,7 +583,7 @@ Clients have `SELECT` on their own rows and **zero write grants** on `health_buc
 - **`sync-health`** — the only door health data enters. Upserts hourly buckets, then re-reads the *whole* day before rescoring (a partial payload must not collapse the day's total).
 - **`finalize-days`** — hourly `pg_cron`, the only place a day becomes `final`. Guarded by `CRON_SECRET`.
 
-Scores are always *replayed* from stored buckets, never adjusted in place. That is what makes retries, Apple's retroactive step revisions, and cron overlap all safe. Preserve this property — goal progress is a read-time projection over `daily_scores` for the same reason, and stores no number of its own.
+Scores are always *replayed* from stored buckets, never adjusted in place. That is what makes retries, Apple's retroactive step revisions, and cron overlap all safe. Preserve this property — Event progress is a read-time projection over `health_buckets` for the same reason, and stores no number of its own.
 
 ### Structural invariants worth not breaking
 
@@ -567,14 +591,14 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 - **`reject_mutation()` and the `kairo.allow_purge` flag are inert.** They enforced append-only on `sabotage_events`, which is dropped; the flag is still set by `handle_profile_deletion()` / `leave_squad()` and now guards nothing. Left in place on purpose — it is not worth reopening that path for a no-op. See `20260809120000_remove_sabotage.sql`. **History (2026-08-11):** that migration's comment and this line both used to say `delete_account()` when no such function existed; the correction is kept because it explains why the flag is inert. **`delete_account()` now does exist** — see below.
 - **Erasure is `delete_account()`, and most of it was already wired.** Migration `20260811140000` added the RPC and `app/delete-account.tsx`; the cascade underneath predates it. It takes **no argument** on purpose — the only account it can erase is `auth.uid()`, and a `p_user_id` parameter would make it one bug away from letting any signed-in user erase anybody. Three behaviours are deliberate and easy to "fix" wrongly: `profiles_handle_deletion` (BEFORE DELETE) hands squad leadership on *before* the FK cascade, so erasing a leader does not destroy the squad; `goals.created_by` is **SET NULL**, not CASCADE, so a shared goal survives its author — it confers only the `goals_update_own` title edit, so nulling it means nobody inherits the rename right; and `profiles_collect_orphaned_goals` (AFTER DELETE) sweeps goals left with neither creator nor participant. That sweep **must** stay AFTER: `goal_completions_xp_rollup` updates `profiles`, so reaching a completion from a BEFORE trigger modifies the row being deleted and Postgres aborts the statement.
 - **Account-scoped tables reference `auth.users`; character-scoped tables reference `profiles`.** `app_events` and `device_tokens` are the account's (2026-08-11) — a profile does not exist until onboarding commits it, and pointing them at `profiles` made every write between sign-in and profile creation fail `23503`. That did not just drop rows: it made the sign-in → abandon funnel unmeasurable, because a user who never names a character produced no events *by construction*. Before adding a table, ask which it belongs to. Erasure is unaffected either way, since `profiles.id` already cascades from `auth.users`.
-- **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` (plus `goal_completions.xp_awarded`) by trigger — never incremented, so nothing double-counts. The same function maintains `agi_total`/`str_total`/`mnd_total`, which feed the ability ratings (three since deviation #41 — `end_total` and `vit_total` are dropped, and the skip guard described next had to shed them in the very migration that dropped the columns, or it names a column that no longer exists and fails on the next write). Its trigger skips the recompute only when *every* column it reads is unchanged: a same-tier rescore (5,200 → 8,000 steps, both Silver) moves the raw points and not the XP, and a narrower skip loses it silently.
+- **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` (plus `event_completions.xp_awarded` and `challenge_completions.xp_awarded`) by trigger — never incremented, so nothing double-counts. The same function maintains `agi_total`/`str_total`/`mnd_total`, which feed the ability ratings (three since deviation #41 — `end_total` and `vit_total` are dropped, and the skip guard described next had to shed them in the very migration that dropped the columns, or it names a column that no longer exists and fails on the next write). Its trigger skips the recompute only when *every* column it reads is unchanged: a same-tier rescore (5,200 → 8,000 steps, both Silver) moves the raw points and not the XP, and a narrower skip loses it silently.
 - **Strain is display-only.** `computeStrain()` runs on the client over `health_buckets.avg_heart_rate` and `daily_heart`. It never touches `daily_scores`, so score replay is unaffected. Heart rate is owner-readable only and absent from every projection — it is at least as revealing as the hourly movement §5 protects.
 - **Column-level grants:** `profiles` UPDATE is granted per-column. A column-level `REVOKE` against an existing table-level `GRANT` is silently a no-op in Postgres; revoke the table grant and re-grant the allowed columns.
 - **A migration touching a table an Edge Function writes ships with that function's redeploy.** Applying one without the other took scoring down for two days in August 2026: `remove_sabotage` dropped `daily_scores.sabotage_delta`, the deployed `sync-health` kept sending it, and because its bucket upsert commits *before* the score upsert, health data kept landing while nothing scored. Every test passed the whole time — they check the source, not the deployed artifact. Two guards now exist and both matter: the schema suite inserts `planDay`'s **real output** into `daily_scores` (so drift fails at commit time), and `supabase/scripts/smoke-sync.mjs` runs a real sync against the deployed function (so drift fails at deploy time). Run the latter after every deploy. Full post-mortem in `docs/qa/kairo-end-to-end-qa-report.md`.
 - **Sign in with Apple has two halves the repo cannot see.** The app side landed 2026-08-12 (`appleProvider` in `src/features/auth/providers.ts`, `usesAppleSignIn` in `app.config.ts`, Apple's branded button on `app/(auth)/sign-in.tsx` — required by their HIG, so do not swap it for Kairo's `Button`). The other two halves live outside git and fail silently: the **Sign in with Apple capability on the App ID**, whose absence is indistinguishable from a device not signed into an Apple ID, and the **client secret**, an ES256 JWT that Apple caps at ~182 days and that takes sign-in down for every user at once when it lapses. `npm run apple-secret` mints and installs it and prints the expiry — diary that date. The nonce is load-bearing: `signInAsync` gets the SHA-256 hash, `signInWithIdToken` gets the raw value, and sending the hash to both makes gotrue hash a hash. Runbook in `docs/sign-in-with-apple.md`. `external_anonymous_users_enabled` stays `true` on the project on purpose — the `__DEV__` guard in `availableProviders()`, not the project setting, is what keeps anonymous out of TestFlight.
 - **Every request has a deadline, because a hung request is worse than a failed one.** `supabase-js` sets no timeout and neither does `fetch`, so a **black-holed** host — DNS resolves, the TCP connection never completes — yields a promise that never settles. On 2026-08-14 a WiFi network began blocking `*.supabase.co` that way and the app sat on the KAIRO hold overlay permanently, surviving relaunches *and* a reinstall from TestFlight: `resolveRoute` reports a query with no data as `'loading'`, so the `'profile-error'` cover with its "Try again" button was already built and unreachable, because nothing ever errored. `src/lib/fetch-timeout.ts` is wired into `createClient`'s `global.fetch`. It **races** a deadline against the request rather than only aborting, since aborting merely asks the transport to reject and this exists for the case where the network layer is misbehaving; the abort still fires, to free the socket. Diagnostic worth reusing: `curl -w 'connect=%{time_connect}s'` showing DNS resolved but `connect=0.000000s` is a block, not an outage — and check the Management API separately, since `api.supabase.com` is a different host and stays up while the project's own subdomain is unreachable.
 - **TanStack Query does not know what offline means on a phone unless told.** Its default online detection is the browser's `online`/`offline` events, which React Native does not have — so without wiring it believes it is permanently online, and a query fired with no signal spends `retry: 2` immediately and lands in an error state instead of pausing. `src/lib/query-client.ts` wires `onlineManager` to NetInfo using **TanStack's documented recipe unmodified** — `Boolean(state.isConnected)`. It briefly read `isInternetReachable` instead, on the reasoning that a captive-portal wifi is "connected" and cannot reach Supabase. True, but the wrong trade: that field is NetInfo's own probe against an unrelated third-party endpoint, so a network blocking *the probe* while Supabase works reports offline forever, and paused queries never error — the same endless spinner as above. Prefer the false positive that fails loudly over the false negative that hangs; `fetch-timeout.ts` covers the captive-portal case. Do not "improve" on the documented recipe here again.
-- **Push has a client half that was missing until 2026-08-14, and a credential the repo cannot see.** The server had been sending a deep-link payload — `{trigger, localDate, screen}` from `dispatch-notifications`, plus `goalId` from `finalize-days` — since the notification engine shipped, and **nothing read it**: no `setNotificationHandler` (so a foreground push displayed nothing at all, which reads exactly like push being broken) and no response listener (so a tap went nowhere). `src/features/notifications/routing.ts` is the fix and follows the house split — `notificationTarget()` decides and is tested in Node, `useNotificationRouting()` performs. Three things there are load-bearing: `screen: 'character'` maps to **`/`**, not `/character`, which is the *onboarding* body picker; the hook is mounted in `app/(tabs)/_layout.tsx` because that layout only exists for a `'ready'` user, so mounting **is** the gate; and both `useLastNotificationResponse()` and the response listener are wired, because a tap that launches the app from terminated is retained by the former and never emitted to the latter. The credential is the **APNs key uploaded to Expo** (`eas credentials`) — same failure shape as the Apple client secret, invisible in git, and a send without it returns a ticket error rather than doing nothing.
+- **Push has a client half that was missing until 2026-08-14, and a credential the repo cannot see.** The server had been sending a deep-link payload — `{trigger, localDate, screen}` from `dispatch-notifications`, plus `eventId` from `finalize-days` — since the notification engine shipped, and **nothing read it**: no `setNotificationHandler` (so a foreground push displayed nothing at all, which reads exactly like push being broken) and no response listener (so a tap went nowhere). `src/features/notifications/routing.ts` is the fix and follows the house split — `notificationTarget()` decides and is tested in Node, `useNotificationRouting()` performs. Three things there are load-bearing: `screen: 'character'` maps to **`/`**, not `/character`, which is the *onboarding* body picker; the hook is mounted in `app/(tabs)/_layout.tsx` because that layout only exists for a `'ready'` user, so mounting **is** the gate; and both `useLastNotificationResponse()` and the response listener are wired, because a tap that launches the app from terminated is retained by the former and never emitted to the latter. The credential is the **APNs key uploaded to Expo** (`eas credentials`) — same failure shape as the Apple client secret, invisible in git, and a send without it returns a ticket error rather than doing nothing.
 - **`aps-environment` is generated from Expo config.** Expo's notifications plugin defaults it to `development` (the APNs sandbox), so `app.config.ts` declares `['expo-notifications', { mode: 'production' }]` explicitly and EAS CNG carries that into the distribution entitlement. Never patch the ignored generated entitlements. Do not treat the declaration as proof push works: Expo's service relays to both environments. **And do not try to read the value back on TestFlight** — `expo-application` parses `embedded.mobileprovision`, App Store distribution strips that file from the bundle, and the answer is `null` there structurally (the library's own `appReleaseType` has an explicit branch for the file's absence). A diagnostic built on it shipped on 2026-08-14 and told a healthy TestFlight device it was a simulator. What `NotificationSettingsCard` reports instead is **registration**, which is knowable everywhere and the stronger signal anyway: `getExpoPushTokenAsync` fails with *"no valid aps-environment entitlement string found"* when the entitlement is wrong, so a token that exists is evidence the entitlement is right. Simulator is decided by the release type, never by a null environment. The line ships in **Release** on purpose — `__DEV__` would hide it from TestFlight.
 - **The app icon is an Icon Composer bundle, and nothing in JS validates it.** `assets/Kairo.icon/` holds a *transparent* terracotta symbol plus an `icon.json` declaring the cream ground as `fill`; iOS renders the light, dark and tinted appearances from that one layered source, which is what a flat PNG cannot do. Four things break it silently. **It must sit on `ios.icon` as a plain string** — `@expo/prebuild-config` warns and falls back if a `.icon` path is given to the *root* `icon` field or to the light/dark/tinted object form, so the root `icon` stays a PNG serving Android, web and pre-iOS-26. **Expo copies the directory verbatim** into `ios/<App>/Kairo.icon` and sets `ASSETCATALOG_COMPILER_APPICON_NAME`; the schema is Apple's and is only ever checked by `actool` at Xcode/EAS build time, so a malformed edit passes `prebuild` and every local check and fails in CI — the `aps-environment` failure shape again. Validate locally instead of guessing, with `mkdir -p /tmp/out && xcrun actool --compile /tmp/out --platform iphoneos --minimum-deployment-target 26.0 --target-device iphone --app-icon Kairo --output-partial-info-plist /tmp/out/p.plist assets/Kairo.icon` (the `mkdir` is load-bearing — `actool` errors rather than creating the output directory), which exits non-zero on a bad schema and otherwise writes the real rendered PNGs — the only way to *see* the glass treatment without a device. **`fill` colours are `<colour-space>:r,g,b,a` floats, not hex** (`extended-srgb:0.96078,0.91765,0.84706,1.00000` is `colors.bg`). And **the basename is the icon name**, so renaming the directory renames the build setting. **Editing the artwork without editing `app.config.ts` leaves the native copy stale and silent** — `npm run ios` does not re-sync `ios/Kairo/Kairo.icon`, because the config *value* is unchanged and only the bytes it points at moved, so the build succeeds against the previous icon (hit on 2026-08-25: the simulator kept rendering the ink mark after the terracotta one was installed). After changing icon artwork run `npx expo prebuild -p ios --no-install`, then `xcrun simctl uninstall` before reinstalling, since SpringBoard caches icons across reinstalls — and diff the native copy rather than trusting the build. **The Dark appearance is auto-derived, which constrains the symbol colour** — with one layer declared, iOS darkens the cream ground and keeps the symbol unchanged, so the symbol has to work on both. That is why it is terracotta (`colors.accent`) and not the far higher-contrast ink (`colors.text`): ink measured 13.95:1 on cream but **1.00:1** on the darkened ground, invisible, confirmed on the simulator 2026-08-25; terracotta reads 3.03:1 and 4.60:1, and Dark was then checked by hand and reads correctly. Darkening the symbol for a punchier Default silently destroys the Dark appearance. The override mechanism is the `*-specializations` family (`fill-specializations`, `image-name-specializations`, `glass-specializations`, …) keyed by `light-color` / `dark-color` / `dark-tint` / `dark-clear`, but **do not hand-write it from that vocabulary**: an invented nesting is a silent no-op, proven by pointing a specialization at a nonexistent file and still getting exit 0, where the same trick on the *primary* `image-name` fails the build. Author it in Apple's Icon Composer, which writes canonical JSON, or pick a mid-tone symbol that survives both grounds. And note `actool` is **nondeterministic** — identical input yields different `Assets.car` digests — so diffing the compiled output cannot tell you whether an edit landed. The fallback `assets/icon.png` has its own trap: it carries **no alpha channel** (PNG colour type 2), because Apple rejects an App Store icon that has one even when every pixel is opaque (ITMS-90717, raised at upload rather than at build) — most re-exports silently add it back, so check with `sips -g hasAlpha`.
 - **The HealthKit disclosure is derived, not written.** `src/features/health/read-types.ts` is the single list of requested types; `disclosure.ts` maps each to user-facing copy, and `disclosure.test.ts` fails if either side names something the other does not. That list lives apart from `permission.ts` because anything importing `@kingstinct/react-native-healthkit` drags in React Native's Flow syntax that root Vitest cannot parse — the same constraint `sync-state.ts` records. The `NSHealthShareUsageDescription` string in `app.config.ts` covers the same types and is the one half no test can lock; update it by hand when the list changes.
@@ -582,7 +606,7 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 
 ### Per-user local days
 
-Every player's day runs midnight-to-midnight in **their own** timezone (§2), so a squad spans multiple calendar dates at any instant. Health buckets, scores, and goal windows are keyed by local date. `finalizable_days()` in SQL and `isFinalizable()` in `kairo-core` implement the same ~2h grace window and are kept honest by a differential test.
+Every player's day runs midnight-to-midnight in **their own** timezone (§2), so a squad spans multiple calendar dates at any instant. Health buckets, scores, and Event windows are keyed by local date. `finalizable_days()` in SQL and `isFinalizable()` in `kairo-core` implement the same ~2h grace window and are kept honest by a differential test.
 
 ## Conventions
 
@@ -593,7 +617,7 @@ Every player's day runs midnight-to-midnight in **their own** timezone (§2), so
 
 ## Testing
 
-Strict TDD on scoring, day boundaries, goals, streaks and anti-cheat — the logic where a bug corrupts real leaderboards. UI is verified by hand on device.
+Strict TDD on scoring, day boundaries, Events, streaks and anti-cheat — the logic where a bug corrupts real leaderboards. UI is verified by hand on device.
 
 `supabase/tests/harness.ts` applies every migration to **PGlite** (real Postgres in WASM) with stubbed `auth` and `realtime` schemas, then asserts behaviour under the non-owner `authenticated` role. Runs in ~1.5s with no Docker.
 
