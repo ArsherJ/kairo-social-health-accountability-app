@@ -297,14 +297,15 @@ Four things about the bundle fail quietly:
   sips -g all assets/Kairo.icon/Assets/icon.png ios/Kairo/Kairo.icon/Assets/icon.png
   ```
 
-**The Dark appearance is auto-derived, and currently reads poorly.** iOS 26 lets
-people set Home Screen icons to Dark (Home Screen → Customize → Dark). With only
-one layer declared, the system darkens the cream ground but keeps the symbol
-unchanged. That is why the symbol is terracotta (`colors.accent`) rather than
+**The Dark appearance is auto-derived, which constrains the symbol colour.**
+iOS 26 lets people set Home Screen icons to Dark (Home Screen → Customize →
+Dark). With only one layer declared, the system darkens the cream ground but
+keeps the symbol unchanged, so the symbol has to work on both grounds. That is why the symbol is terracotta (`colors.accent`) rather than
 ink (`colors.text`): ink measured 13.95:1 on cream but **1.00:1** on the
 darkened ground — invisible, and confirmed that way on the simulator.
 Terracotta reads 3.03:1 and 4.60:1 respectively, which is the only split a
-single-layer icon can reach. Changing the symbol to a darker, higher-contrast
+single-layer icon can reach, and the Dark appearance was checked by hand and
+reads correctly (2026-08-25). Changing the symbol to a darker, higher-contrast
 colour silently breaks the Dark appearance again.
 
 Overriding a single appearance is what the `*-specializations` keys in

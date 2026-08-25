@@ -42,7 +42,8 @@ const config: ExpoConfig = {
   // keeping the symbol, so ink scored 1.00:1 against that darkened ground —
   // literally invisible, confirmed on the simulator — while reading 13.95:1 in
   // Default. Terracotta gives up some of that (3.03:1 on cream) to get 4.60:1
-  // on the dark ground. That is the trade a single-layer icon has to make; the
+  // on the dark ground, which was checked by hand on a device and reads
+  // correctly. That is the trade a single-layer icon has to make; the
   // alternative is a per-appearance override, which cannot currently be
   // hand-authored — see the `ios.icon` note below.
   //
