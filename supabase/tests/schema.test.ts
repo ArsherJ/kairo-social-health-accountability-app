@@ -5116,3 +5116,124 @@ describe('race_results (deviation #46)', () => {
     void alice;
   });
 });
+
+/**
+ * The digest ledger (deviation #52).
+ *
+ * One digest per recipient per local day, and the rule lives in two places
+ * because both are load-bearing: `users_needing_digest()`'s exclusion is the
+ * *behaviour* — the ordinary path never attempts the second send — and the
+ * partial unique index is the *guarantee*, which holds even if the selection
+ * query is wrong. A client-side cap is not a cap; it is a race between the
+ * same account's phone and tablet.
+ */
+describe('the digest ledger (deviation #52)', () => {
+  const log = (userId: string, kind: string, localDate: string) =>
+    h.asService(
+      `insert into public.notification_log (user_id, kind, local_date) values ($1, $2, $3)`,
+      [userId, kind, localDate],
+    );
+
+  it('refuses a second digest for the same user on the same local date', async () => {
+    const user = await h.createUser();
+    await log(user, 'daily_digest', '2026-08-26');
+    await rejects(log(user, 'daily_digest', '2026-08-26'), /duplicate key/i);
+  });
+
+  it('lets the same user have a digest on the next local date', async () => {
+    const user = await h.createUser();
+    await log(user, 'daily_digest', '2026-08-26');
+    await log(user, 'daily_digest', '2026-08-27');
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.notification_log
+        where user_id = $1 and kind = 'daily_digest'`,
+      [user],
+    );
+    expect(rows[0]!.n).toBe(2);
+  });
+
+  it('leaves every other kind free to repeat', async () => {
+    // MAX_NOTIFICATIONS_PER_DAY in kairo-core bounds those. This index is only
+    // about the one scheduled push, and constraining the rest here would move a
+    // rule out of the module that owns it and tests it.
+    const user = await h.createUser();
+    await log(user, 'event_completed', '2026-08-26');
+    await log(user, 'event_completed', '2026-08-26');
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.notification_log
+        where user_id = $1 and kind = 'event_completed'`,
+      [user],
+    );
+    expect(rows[0]!.n).toBe(2);
+  });
+
+  it('selects a user living at the given local hour', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const hour = await h.asService<{ h: number }>(
+      `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
+    );
+    const rows = await h.asService<{ user_id: string; local_date: string; timezone: string }>(
+      'select * from public.users_needing_digest($1)',
+      [hour[0]!.h],
+    );
+    const mine = rows.find((r) => r.user_id === user);
+    expect(mine).toBeDefined();
+    expect(mine!.timezone).toBe('Asia/Manila');
+  });
+
+  it('excludes anyone already sent from the selection query', async () => {
+    // The exclusion IS the cap. The index behind it only ever fires when this
+    // has already gone wrong.
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const hour = await h.asService<{ h: number }>(
+      `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
+    );
+    await h.asService(
+      `insert into public.notification_log (user_id, kind, local_date)
+       values ($1, 'daily_digest', (now() at time zone 'Asia/Manila')::date)`,
+      [user],
+    );
+    const rows = await h.asService<{ user_id: string }>(
+      'select * from public.users_needing_digest($1)',
+      [hour[0]!.h],
+    );
+    expect(rows.find((r) => r.user_id === user)).toBeUndefined();
+  });
+
+  it('does not exclude somebody whose only digest was yesterday', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    const hour = await h.asService<{ h: number }>(
+      `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
+    );
+    await h.asService(
+      `insert into public.notification_log (user_id, kind, local_date)
+       values ($1, 'daily_digest', (now() at time zone 'Asia/Manila')::date - 1)`,
+      [user],
+    );
+    const rows = await h.asService<{ user_id: string }>(
+      'select * from public.users_needing_digest($1)',
+      [hour[0]!.h],
+    );
+    expect(rows.find((r) => r.user_id === user)).toBeDefined();
+  });
+
+  it('is not reachable from a client session', async () => {
+    // It enumerates every user in the system — the same posture
+    // kairo_retention() and users_at_local_hour() take.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'select * from public.users_needing_digest(8)'),
+      /permission denied/i,
+    );
+  });
+
+  it('did not drop users_at_local_hour', async () => {
+    // Deliberately kept: replay-scores and any future scheduled push still want
+    // it, and dropping a general helper because one caller stopped using it is
+    // how the next feature reimplements it.
+    const rows = await h.asService<{ n: number }>(
+      `select count(*)::int as n from pg_proc where proname = 'users_at_local_hour'`,
+    );
+    expect(rows[0]!.n).toBeGreaterThan(0);
+  });
+});
