@@ -63,20 +63,55 @@ A QA pass that reports Challenges missing on a fresh install is describing the d
 Throughout day  →  HealthKit background delivery syncs automatically, free and paid users alike.
 Anytime         →  Open the app: Character tab, Today tab, Squad tab, /train, or the squad's battle.
 Any workout     →  Logged on the watch or phone, it syncs as a session and can clear a Challenge.
-11:00 PM local  →  Push: "1 hour left. You're in [rank] place."
-11:59 PM local  →  Day ends; provisional results shown.
-~2:00 AM local  →  Day finalizes (grace window for late phone syncs) — coins + XP land.
+11:59 PM local  →  Day ends; provisional results shown. No push — see below.
+~2:00 AM local  →  Day finalizes (grace window for late phone syncs) — XP lands, and once
+                   EVERY member of the squad has finalized that date, the race result is
+                   snapshotted into `race_results` and never changes again.
+ 8:00 AM local  →  The one push of the day: yesterday's result, today's standing, the boss.
 Sunday 10 PM    →  AI weekly recap card pushed to all squads (V1+).
 ```
+
+### One push a day, in the morning (deviation #52)
+
+**Three scheduled pushes became one on 2026-08-25.** The evening pair — "1 hour
+left" at 11 PM and "Day ends" at midnight — and the mid-morning "Day starts" are
+all retired. What replaces them is a **digest at 08:00 in the recipient's own
+timezone**, carrying yesterday's *finished* race result, today's live standing,
+and a live Battle's pooled progress.
+
+**08:00, and deliberately not the finalization moment.** A day finalizes about
+two hours after the player's local midnight, so a push carrying the finalized
+result would arrive at 2am. The two are decoupled: `finalize-days` writes the
+result when the day closes, and the dispatcher sends it when its reader is
+awake. The cron still fires hourly and twenty-three of those runs send nothing —
+every hour of the day is somebody's 08:00.
+
+**It is capped in the database, not on the phone.** `users_needing_digest()`
+excludes anyone already sent today in the same query that works out whose local
+clock reads 08:00, and a partial unique index on `notification_log` refuses a
+second row even if that query is wrong. A client-side cap would be a race
+between the same account's phone and tablet.
+
+Four sentences, not one template with holes: you won yesterday; you placed
+yesterday; yesterday is not final yet but here is where you stand today; you
+have no squad. **A solo player gets a digest too and it never mentions rank** —
+they are racing their own past days, and "1st of 4" against three ghosts would
+be a claim about other people that is not true.
+
+Two pushes still fire from something the user did — a Battle completing and a
+Challenge clearing — and the max of 3 a day still bounds those.
 
 ### Tapping a push lands somewhere specific
 
 Every notification carries a destination, and as of 2026-08-14 the app acts on
-it. `dispatch-notifications` sends `screen: 'squad'` or `'character'` with the
-three scheduled triggers; `finalize-days` sends `screen: 'events'` with the
-`eventId` that just went down, and — as of 2026-08-15 — `screen: 'train'` when a
-Challenge clears. A tap goes to the squad tab, the character tab, `/train`, or
-**that battle's own screen** — the most specific destination the product has. A push sent before the 2026-08-25 rename still lands, on the character tab: a tap that goes nowhere is indistinguishable from push being broken.
+it. `dispatch-notifications` sends `screen: 'today'` with the digest;
+`finalize-days` sends `screen: 'events'` with the `eventId` that just went down,
+and — as of 2026-08-15 — `screen: 'train'` when a Challenge clears. A tap goes
+to the Today tab, `/train`, or **that battle's own screen** — the most specific
+destination the product has. Pushes sent before a deploy still land: the
+pre-rename `goals` payloads and the retired `squad` and `character` ones all
+still route, because a tap that goes nowhere is indistinguishable from push
+being broken.
 
 Three details are load-bearing rather than incidental:
 
@@ -88,8 +123,9 @@ Three details are load-bearing rather than incidental:
   routing hook reads it when the tabs shell finally mounts, seconds later.
 - A push arriving while the app is already open now shows a banner. Before
   `setNotificationHandler`, iOS displayed nothing at all in the foreground —
-  which reads exactly like push being broken, and 11 PM is precisely when
-  someone is likely to have the app in hand.
+  which reads exactly like push being broken. That matters more since the
+  digest, not less: it is worth showing to somebody already looking at the
+  screen, because it carries yesterday's *result*, which the screen does not.
 
 An unrecognised payload is ignored rather than acted on, so a push from a newer
 server than the installed build cannot send anyone somewhere that does not exist.
@@ -120,9 +156,9 @@ What it cannot say is that the user declined. HealthKit deliberately never repor
 Because each player's day runs midnight-to-midnight in *their own* timezone, a squad spans multiple calendar dates at any instant — this is what makes the OFW-in-Dubai-vs-family-in-Cebu use case work at all, and it's why every score, bucket, and battle window is keyed by local date, never server time (see `CLAUDE.md` → Per-user local days).
 
 ### Engagement hooks, and how many survive with zero friends (§2)
-1. **Morning FOMO** — who's ahead while you slept (solo: how long is the streak now).
+1. **Morning FOMO** — who's ahead while you slept (solo: how long is the streak now). Since deviation #52 this is the *only* scheduled push, and it now carries a result rather than a provisional standing: yesterday's race is finished and snapshotted by the time it arrives.
 2. **The commitment** — a Challenge on `/train`, or the squad's battle with a visible days-remaining count. Only the first works with no squad at all.
-3. **Night urgency** — real-time rank notification with a countdown.
+3. ~~**Night urgency** — real-time rank notification with a countdown.~~ **Retired 2026-08-25** with the evening pair. Three pushes a day was volume, not urgency; the hook it was meant to be is now the morning digest's, once.
 4. **The floor and the curve** (2026-08-15) — the Daily Walk is the same 10,000 steps for everyone, every day, forever; a Challenge is a target set from your own recent sessions that moves as you do. Both are entirely solo, which is the point: three of these four now work with no squad at all.
 5. **Three quests, reset every local midnight** (2026-08-25, deviation #50) — the smallest hook in the app and the first one a brand-new account meets, because it is the only one outside the disclosure gate. Entirely solo, and deliberately cheap: three of them together pay less than a third of a strong day.
 
@@ -152,6 +188,7 @@ The character itself: who you are playing as, and what the days have added up to
   picker once per launch until they choose.
 
 - **Three things move the figure, and they are independent.** `stage` (level bands) widens and deepens the ground shadow, so levelling shows whatever you grind; `dominance` changes the build's proportions and the shadow's tint per §6; and the **presence ring** carries the ability rating (`src/features/character/aura.ts`) — present from rating 5, stronger at 10, and still always on for the balanced All-Rounder, whose ring means *shape* rather than magnitude. The August QA pass reported the character as static: the first two already existed and were invisible because nothing had scored since the 9th, so level sat at 1 and dominance was null. The ring is the only genuinely new one, and it reuses an element already on screen rather than inventing a third visual language.
+- **It answers at every level now, not only at three boundaries (2026-08-25).** The QA finding survived the ring, and only half of it was the missing data: the arithmetic was also almost invisible — 146 points of shadow at level 1 against 200 at level 21, a 37% span across the entire game — and `stage` moves at levels 6, 11 and 21 and nowhere else, so levelling 12 → 13 genuinely changed nothing. `figureResponse()` in `src/features/character/level-response.ts` widens the span past 1.7× and adds a within-band term, with the band boundary still much the bigger jump so the four artworks stay the milestone. It is a tested pure module rather than three expressions inline, precisely so the bands could be widened against assertions rather than by eye — and it grows to a ceiling at level 40, because unbounded growth eventually pushes the figure out of the diorama. **With no cosmetics and no coins in Phase 1, the figure is the reward**, which is what makes this worth doing before any of them.
 - A rest day scores 0 and still costs the streak, but the battle card always says how many days are left to make it up (§6) — the app is designed to still be worth opening on a bad day.
 - **"How progress works"** (`app/progress.tsx`), linked from the foot of the expanded stat rail, explains the four numbers by the one thing that actually separates them — their timescale: daily score is today, ability ratings are lifetime per stat, level and XP are all-time, streak is the run of days. A route rather than a modal, because `PermissionAsks` owns the single modal the app may present. Offered at the point of expansion rather than beside the hero: expanding the rail *is* the question being asked.
 
@@ -172,7 +209,9 @@ The optional social layer (§7).
 
 **Then the tab leads with the Race (deviation #46).** Six characters running horizontal lanes at one shared flag, which sits at `DAILY_STEP_BASELINE` — the same 10,000 steps as the Daily Walk, deliberately, so crossing the line and clearing the walk are one event. It is always on: there is no creation flow, nothing is stored, and a retroactive Apple revision moves the standings the same way it moves everything else, by being replayed. Ranking is by **capped** steps, so past the flag extra steps buy nothing at all — the cap *is* the anti-cheat, and it needs no fraud detection and no accusation. The board survives underneath it, still in the program-weighted order: two orderings over one payload, one fetch. A squadmate who is not sharing keeps their lane, labelled "not sharing" and drawn without a position — dropping them would look like they left the squad, and drawing them at zero would invent a bad day.
 
-- **Solo Mode is not a degraded state** — it's a first-class mode. **With no squad you race your own recent days as ghost figures** (deviation #46), which is the narrow, deliberate exception to the source design's warning against solo challenge modes: it exists so nobody ever meets an empty tab, and so the mechanic teaches itself before a friend arrives. Days that scored nothing are dropped rather than raced — a new account otherwise lines up against three zeroes, which reads as the feature being broken rather than as an easy win — and with no qualifying history at all you run one lane beside the invite affordance. Never an empty track, and never a fabricated rival. Character progression, coins, and shop all work with zero squadmates. **The solo board sells possibility rather than absence, as of 2026-08-17:** the title, the one-sentence explanation of what a squad is, then **Create a squad** / **Have an invite code?**, then your own real row, then **one** empty seat. It previously opened on `1st` at 64pt over `of 1` — an ordinal whose only possible meaning is that you beat nobody — above five empty seats, which is a picture of loneliness drawn five times. One seat is a picture of what a squad looks like, and the actions sit above the board because inviting somebody is the thing to do here, not admiring a rank.
+- **Solo Mode is not a degraded state** — it's a first-class mode. **With no squad you race your own recent days as ghost figures** (deviation #46), which is the narrow, deliberate exception to the source design's warning against solo challenge modes: it exists so nobody ever meets an empty tab, and so the mechanic teaches itself before a friend arrives. Days that scored nothing are dropped rather than raced — a new account otherwise lines up against three zeroes, which reads as the feature being broken rather than as an easy win — and with no qualifying history at all you run one lane beside the invite affordance. Never an empty track, and never a fabricated rival. Character progression works with zero squadmates; coins and the shop are V1+ and this beta ships neither (`docs/mvp-scope.md`). **The solo board sells possibility rather than absence, as of 2026-08-17:** the title, the one-sentence explanation of what a squad is, then **Create a squad** / **Have an invite code?**, then your own real row, then **one** empty seat. It previously opened on `1st` at 64pt over `of 1` — an ordinal whose only possible meaning is that you beat nobody — above five empty seats, which is a picture of loneliness drawn five times. One seat is a picture of what a squad looks like, and the actions sit above the board because inviting somebody is the thing to do here, not admiring a rank.
+**And the day's race is kept.** When the **last** member of a squad finalizes a date — not the first, because days are per-user local and a squad's race for a date is not over until every member's is — `finalize-days` snapshots the standing into `race_results` and never touches it again. That is the §19 rule the completions already follow: a later Apple revision does not retract anyone's win, and it is why the standing is stored at all, since the projection behind it can no longer answer "who won on 14 March" once the buckets have been revised. The table has **no client grant whatsoever**; `race_result()` reads it under exactly the consent gate above, returning rank and species to anyone in the squad and capped steps only when both sides have agreed. A member who was not sharing is still stored with a real rank, because dropping them would make the history disagree with the board their squad watched all day.
+
 - Joining a squad: an invite link or the 6-character code, typed. Leader can rename, remove members, transfer leadership. Free tier: 6 members / 1 squad; Legendary: 15 members / 3 squads.
 - **Inviting is an action, not a code to read aloud.** The invite card has a Share row, and every empty seat is itself the button — the `+` disc and "Invite your squad" were already drawn and did nothing, which is where the social loop stopped. `shareInvite()` uses React Native's own `Share`, deliberately with no clipboard dependency: the iOS sheet already contains Copy, and it puts Messenger and Viber one tap from the code, which matters more here than a "copied" toast. The message names the squad and says what Kairo is, because the recipient is not a user yet — **since 2026-08-17 by naming what they are being asked into** ("we keep each other to a daily walk. It counts steps, never your Health data") rather than describing the leaderboard to somebody with no reason to care about it yet. It is the only Kairo copy a non-user ever reads, which makes it the only place the privacy promise reaches them. Every word is spent against a hard budget: the link and the code line are 84 characters between them and a test holds the whole message under 200, so adding a clause means removing one. **Universal links landed 2026-08-17** (deviation #36). The message now carries `https://kairo-teal-nine.vercel.app/join/<CODE>` *and* the bare code, because a client that mangles the link must still leave six characters to type.
 

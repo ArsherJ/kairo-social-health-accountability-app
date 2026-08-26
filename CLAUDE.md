@@ -6,6 +6,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together. iOS first via Expo; Supabase backend.
 
+**Kairo is a race as of 2026-08-25** (roadmap deviation #44) — the pivot, now
+complete across all five sub-projects. Your real life powers your character;
+your character races your friends. **The scoring engine is untouched** and still
+decides every day exactly as §5/§6 specify — `tierFor`, `TIER_POINTS`,
+`THRESHOLDS`, `computeDailyScore`, `planDay`, `finalizable_days()` and the
+streak all behave as before, and the race reads **raw units alongside them**,
+never instead of them. No user data was destroyed: scores, XP, ratings,
+streaks, species, invites and completions all survive, and banked Goal XP is
+kept by #45's `closed_at` mechanism. If a doc outside `docs/archive/` describes
+the app as a leaderboard with goals, it is stale — fix it.
+
+- **One push a day** (deviation #52): `daily_digest` at `DIGEST_HOUR` (08:00
+  local), and **08:00 rather than finalization** because days finalize about
+  two hours after local midnight, so a digest carrying the result would fire at
+  2am. The cap is `users_needing_digest()`'s exclusion **and**
+  `notification_log_one_digest_per_day` — both halves, because the first is the
+  behaviour and the second is the guarantee, and a client-side cap is a race
+  between the same account's devices. `MAX_NOTIFICATIONS_PER_DAY` **stays 3**:
+  it bounds the event-driven pushes, which #52 did not touch. The three retired
+  triggers stay in `NotificationTrigger` (free-text `kind`, and a push sent
+  before the deploy can be tapped after it), and `users_at_local_hour()` was
+  deliberately not dropped.
+- **`race_results` has no client grant at all.** Read it through
+  `race_result()`, which returns rank and species to anyone in the squad and
+  gates capped steps reciprocally (#47). Written **once**, by the **last**
+  member of a squad to finalize that date — `squadDayIsComplete()` returns
+  false for an empty roster on purpose, because `every` over an empty list is
+  true and would occupy a write-once key forever. The one exception to reading
+  through the RPC is `dispatch-notifications`, which has no JWT and reads the
+  table with the service role — which is exactly why the table has no grant
+  rather than an RLS policy.
+- **`figureResponse()` owns how loudly the character answers to progress**
+  (`src/features/character/level-response.ts`). It is tested, and the test pins
+  a 1.7× span across the level range **and** a visible change at every single
+  level — the old inline arithmetic moved only at levels 6, 11 and 21, which is
+  why the QA pass said the character did not morph. Tune the constants there,
+  never inline in `CharacterFigure.tsx`.
+- **`kairo_retention()` is deliberately unchanged across the pivot.** The
+  definition of an active day did not move; only the funnel vocabulary did —
+  `squad_data_consent_granted`, `race_seen`, `quest_cleared`, `event_created`,
+  with `goal_created` kept as a historical value. `race_seen` and
+  `quest_cleared` fire once per **local day** via
+  `src/features/telemetry/daily-marker.ts`, which is neither the once-ever
+  milestone store nor the per-session `app_open` marker; confusing the three is
+  how a count becomes a launch counter or a scroll counter.
+
 **Sabotage was removed on 2026-08-09.** It was the original premise (§8, and §20's principle #4 called it "the soul of the product"), so a lot of prose still assumes it. Nothing in the code does. If you find a reference, it is stale — fix it.
 
 **Bronze/Silver/Gold are internal to scoring as of 2026-08-10.** `tierFor()`, `TIER_POINTS` and `daily_scores.tiers` still decide every day exactly as §5/§6 specify — nothing about the engine changed. But no surface renders a tier name or colour any more: the character sheet and the leaderboard both show a numeric **ability rating** from `ratingForStatPoints()` over lifetime per-stat rollups on `profiles`. If you find UI naming a tier, it is stale. **`profiles.focus` was dropped the same day** — `squads.program` is the only focus concept, and the character screen's "lane" reads observed dominance instead.

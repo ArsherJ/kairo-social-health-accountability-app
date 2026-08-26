@@ -76,7 +76,13 @@ squad is a layer on top.
 - **Level and XP**, **streaks** with a shield, and a **strain** figure for
   wearable users that is display-only and never scored (deviation #24).
 - **Three visual responses on the figure**: ground shadow by level band, build
-  proportions by dominant stat, presence ring by ability rating.
+  proportions by dominant stat, presence ring by ability rating. Since
+  2026-08-25 the shadow **also moves at every single level**, not only at the
+  three band boundaries — `figureResponse()` in
+  `src/features/character/level-response.ts` owns the arithmetic and a test
+  pins both the span and the per-level step. With no cosmetics and no coins,
+  the figure *is* the reward, so "the character does not morph" is a finding
+  worth filing — against those constants, and nowhere else.
 
 ### Squads
 - Create or join by six-character code, up to 6 members on the free tier.
@@ -180,6 +186,29 @@ from days and Events alone is stale.
   heart-rate evidence lower Body's bands. The pace and the calories still do
   not.
 
+### Notifications — one push a day
+
+Since 2026-08-25 (deviation #52) Kairo sends **one scheduled push per user per
+local day**, at 08:00 in their own timezone. §14's three — "1 hour left",
+"Day ends" and a mid-morning "Day starts" — are retired. A brief describing an
+evening or midnight push is describing a product that no longer exists.
+
+- The digest carries **yesterday's finished race result**, today's live
+  standing, and a live Battle's pooled progress. It deep-links to the Today tab.
+- **08:00 rather than the finalization moment**, deliberately: days finalize
+  about two hours after local midnight, so a digest carrying the result would
+  arrive at 2am.
+- **The cap is enforced in the database**, in the same query that selects
+  recipients, with a partial unique index behind it. A second push in one local
+  day is a bug worth filing; a *first* push arriving while the app is open is
+  not, because the digest carries a result the screen does not show.
+- Two pushes still fire from something the user did — a Battle completing and a
+  Challenge clearing — and those are bounded by the **max of 3 a day**, which
+  #52 did not change.
+- A solo user gets a digest too, and it **never mentions rank**: they are racing
+  their own past days, and "1st of 4" against three ghosts would be a claim
+  about other people that is not true.
+
 ### Account
 - **Sign in with Apple** — the only provider a Release build offers. Moved in
   scope on 2026-08-12, when Developer Program enrolment came through; the app
@@ -225,6 +254,10 @@ a regression.
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
 | **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It was a third mechanic beside Goals and Challenges; Goals have since become the pooled Battle, so two of its three open questions have moved rather than closed — how a Routine-level shield and Challenge-level ease coordinate on one missed week, and where it would surface relative to `SquadEventPanel`. The third, a squad-level `required_members` default, is **gone with N-of-M**. | Deviation #33, spec §9 |
+| **The solo world map** | Replaced rather than deferred: the character *is* the world (source doc §26). Nothing should be filed against a map. | Parent spec §11 |
+| **Species past four, unlockable species** | The onboarding choice is the emotional hook, and a roster you unlock makes the first pick provisional. | Parent spec §11, deviation #40 |
+| **Squad size past six** | **Six lanes is the design**, not a free-tier limit waiting to be raised — the race is drawn as a track and a seventh lane is a different picture. | Parent spec §11 |
+| **Public or stranger racing** | Needs moderation and a public identity surface, neither of which exists. Racing is squad-only, or against your own past days. | Parent spec §11 |
 | **Android App Links** | iOS first. An `assetlinks.json` would sit beside the association file in `web/` when Android arrives. | Deviation #36 |
 | **Android** | iOS first. | §15 |
 
@@ -246,6 +279,7 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | daily score | points, today's XP |
 | program | focus *(`profiles.focus` was dropped; `squads.program` is the only focus concept)* |
 | **Today** | the fourth tab. Not "home", not "daily" — the character screen is where the app opens |
+| digest | daily summary, morning notification *(one a day, 08:00 local, and the only scheduled push)* |
 | quest | daily task, mission, chore *(three a day, on the Today tab, derived and never stored)* |
 
 The one exception used to be the **art-direction prompts** in

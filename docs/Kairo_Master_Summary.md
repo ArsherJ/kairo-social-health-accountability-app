@@ -441,6 +441,23 @@ Unlike Stompers and Charlie, requiring a squad creates a cold start problem — 
 
 Sabotage stood here through v1.3. It is removed; §1 records why. This section is what took its place in the design: the thing that makes the app matter for longer than a week.
 
+> **Build note (2026-08-25, roadmap deviations #45, #48, #49). This whole
+> section is superseded and is kept as the record of why Goals existed.** A Goal
+> is now an **Event**, and one kind ships: the **Battle**. The table is
+> `challenge_events`; `create_goal()`, `abandon_goal()`, `goal_window_scores()`
+> and `can_see_goal()` are dropped for `create_event()`, `abandon_event()`,
+> `event_progress()` and `can_see_event()`; `src/features/goals/` and both
+> `/goal` routes are gone. Two of the changes below are reversals rather than
+> renames, and reading this section as current would get both backwards.
+> **An Event is pooled, not N-of-M** (#48): every participant's contribution
+> lands in one bar, and every member of the frozen roster is paid when it fills,
+> including one who contributed nothing — the strong member carries, which is
+> the reason the mechanic exists. And **an Event's target is a number of
+> calories the squad produces, snapshotted at creation** (#49), not a points
+> total accrued; a Challenge's target, by contrast, is re-derived on every read.
+> Pre-pivot Goal rows survive in the table so their banked XP does not vanish,
+> which is why every read of it is written `closed_at is null`.
+
 ### How It Works
 A **goal** is a target you commit to over a window of days. It has a start date, an end date, and a number to reach. It is scored off `daily_scores.total` — the same canonical number the leaderboard ranks on — and progress is projected from your stored days rather than tracked separately, so a day Apple revises after the fact flows through for free.
 
@@ -746,6 +763,27 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 - Max 3 push notifications/day (configurable) — a completed goal always sends regardless. It is once per commitment and the user asked for it, which is a better claim on the exemption than sabotage had.
 - No notifications between 10 PM and 7 AM local, **except the two that close out the day** — "day ending soon" (11 PM) and "day ends" (midnight) are scheduled inside the window by design, and they are the core evening loop rather than discretionary. Recorded as deviation #14.
 - All notifications deep-link to relevant screen
+
+> **Build note (2026-08-25, roadmap deviation #52). The schedule in this table
+> is superseded; the rules under it mostly survive.** Kairo sends **one**
+> scheduled push per user per local day — `daily_digest`, at 08:00 in the
+> recipient's own timezone — carrying yesterday's finished race result, today's
+> live standing, and a live Battle's pooled progress, and deep-linking to the
+> Today tab. "Day starts", "Day ending soon" and "Day ends" are retired and
+> nothing emits them; they survive as values in `NotificationTrigger` only
+> because `notification_log.kind` is free text and a push sent before the deploy
+> can be tapped after it. **08:00 rather than the finalization moment** because a
+> day finalizes about two hours after local midnight, so a push carrying the
+> result would arrive at 2am — the digest is decoupled from finalization on
+> purpose. What survives: the **max of 3 a day**, which now bounds the
+> event-driven pushes (a Battle completing, a Challenge clearing) rather than
+> the scheduled ones; quiet hours, which the digest never needs an exemption
+> from because 08:00 is outside them, unlike the pair that did; and the
+> deep-link rule. What is new: the cap is enforced **server-side**, by an
+> exclusion inside `users_needing_digest()` and a partial unique index on
+> `notification_log` — a client-side cap is a race between the same account's
+> devices. "Goal completed" is now "Boss down" (#45). Podium drop, the overtake
+> digest, the weekly recap and streak-at-risk were never built and remain V1.
 
 ---
 
