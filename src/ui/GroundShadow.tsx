@@ -39,11 +39,23 @@ export function GroundShadow({
  * A ring rather than more shadow, so it survives being screenshotted next to
  * a heavy STR figure, and because a ring is the one device this app reserves
  * for something earned (see `earnedColor`).
+ *
+ * `width` defaults to 2, the value it was fixed at before `figureResponse()`
+ * began thickening it by level band — so nothing else that draws a ring
+ * changed when that arrived.
  */
-export function PresenceRing({ size, color }: { size: number; color: string }) {
+export function PresenceRing({
+  size,
+  color,
+  width = 2,
+}: {
+  size: number;
+  color: string;
+  width?: number;
+}) {
   return (
     <View
-      style={[styles.ring, { width: size, height: size, borderColor: color }]}
+      style={[styles.ring, { width: size, height: size, borderColor: color, borderWidth: width }]}
     />
   );
 }

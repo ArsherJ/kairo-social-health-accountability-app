@@ -145,6 +145,7 @@ export function Diorama({
             reason, as `LeaderboardRow`. */}
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <CharacterFigure
+            level={level}
             stage={stage}
             dominance={dominance}
             species={species}

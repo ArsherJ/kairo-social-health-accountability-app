@@ -6,6 +6,7 @@ import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
 import { auraStrength } from './aura.ts';
+import { figureResponse } from './level-response.ts';
 
 /**
  * The character. Static placeholder art where an asset exists for the
@@ -16,9 +17,12 @@ import { auraStrength } from './aura.ts';
  *
  * Two things drive it, and they are independent:
  *
- * - `stage` (1–4, from the level bands in §6) is *presence*: the ground
- *   shadow widens and deepens, so levelling visibly does something
- *   whatever you grind.
+ * - `level` and its `stage` (1–4, from the level bands in §6) are *presence*:
+ *   the ground shadow widens and deepens, so levelling visibly does something
+ *   whatever you grind. **How loudly it answers is decided in
+ *   `level-response.ts`**, which is tested — the arithmetic used to be three
+ *   expressions inline here, and it was correct, tasteful and almost
+ *   invisible. Tune the constants there, never here.
  * - `dominance` is *shape*, following §6's table — AGI leaner, STR broader,
  *   END a planted stance, VIT a recovery glow, balanced the All-Rounder.
  *
@@ -77,12 +81,20 @@ const BASE_TORSO_WIDTH = 104;
 const BASE_TORSO_HEIGHT = 96;
 
 export function CharacterFigure({
+  level,
   stage,
   dominance,
   species,
   height = 220,
   lifetimePoints,
 }: {
+  /**
+   * `profiles.level`. Passed rather than derived here, so the figure stays a
+   * pure function of what it is given like everything else in this file — and
+   * so the within-band response has a level to read at all. `stage` moves at 6,
+   * 11 and 21 only.
+   */
+  level: number;
   stage: 1 | 2 | 3 | 4;
   /** Undefined while the query is in flight; null for an unstarted character. */
   dominance?: Dominance;
@@ -104,17 +116,24 @@ export function CharacterFigure({
   const art = species ? SPECIES_FIGURES[species] : undefined;
 
   const scale = height / 220;
-  const shadowWidth = (128 + stage * 18) * scale;
-  const shadowOpacity = 0.14 + stage * 0.03 + build.weight;
 
   const aura = auraStrength({ lifetimePoints, balanced: dominance === 'balanced' });
+
+  // One place decides how loudly the figure answers to progress, and it is
+  // tested (spec §5.4). The three expressions this replaced were inline,
+  // correct, and almost invisible.
+  const response = figureResponse({ level, stage, aura, shadowWeight: build.weight, height });
 
   const float = useFloat();
   const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
   return (
     <View style={[styles.frame, { height }]}>
-      <GroundShadow width={shadowWidth} color={build.shade} opacity={shadowOpacity} />
+      <GroundShadow
+        width={response.shadowWidth}
+        color={build.shade}
+        opacity={response.shadowOpacity}
+      />
 
       {/* The ring used to fire only for the All-Rounder. It now also carries
           the ability rating — the number the character sheet leads with and the
@@ -122,9 +141,12 @@ export function CharacterFigure({
           `dominance` above were already responding; they were invisible during
           the QA session because nothing had scored since 9 August, not because
           they were missing. */}
-      {aura !== 'none' && (
+      {/* Rendered on `ringSize !== null` rather than on `aura !== 'none'`: one
+          condition, in the module that decides it. */}
+      {response.ringSize !== null && (
         <PresenceRing
-          size={shadowWidth * (aura === 'strong' ? 1.5 : 1.35)}
+          size={response.ringSize}
+          width={response.ringWidth}
           color={aura === 'strong' ? colors.accent : earnedColor}
         />
       )}
