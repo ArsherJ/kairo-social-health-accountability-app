@@ -1112,10 +1112,10 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    // 18 as of 20260829090000_quests.sql. A number that moves without a
+    // 19 as of 20260830090000_race_results.sql. A number that moves without a
     // migration in the same commit is a table somebody added without deciding
     // whether it needs RLS — which is what the next case asks about.
-    expect(rows[0]!.count).toBe(18);
+    expect(rows[0]!.count).toBe(19);
   });
 
   it('enable row level security on every public table', async () => {
@@ -4943,5 +4943,176 @@ describe('profiles.quest_tier_override', () => {
       h.asUser(user, 'update public.profiles set total_xp = 999999 where id = $1', [user]),
       /permission denied/i,
     );
+  });
+});
+
+/**
+ * The race, snapshotted (deviation #46, spec §7.3).
+ *
+ * A stored squad-day is read by every member of the squad, so it cannot carry
+ * the per-viewer consent gate deviation #47 put on raw steps. The table
+ * therefore stores everything and grants no client role anything at all;
+ * `race_result()` applies the gate on the way out. The absent grant is a
+ * stronger invariant than a policy and it is what the first case below pins —
+ * a policy can be subtly wrong, a missing grant cannot be subtly present.
+ */
+describe('race_results (deviation #46)', () => {
+  const DAY = '2026-08-24';
+
+  async function seedPair() {
+    const alice = await h.createUser({ characterName: 'Alice' });
+    const squad = await h.asUser<{ id: string; invite_code: string }>(
+      alice,
+      `select id, invite_code from public.create_squad('Snapshot')`,
+    );
+    const bob = await h.createUser({ characterName: 'Bob' });
+    await h.asUser(bob, 'select public.join_squad($1)', [squad[0]!.invite_code]);
+    return { alice, bob, squadId: squad[0]!.id };
+  }
+
+  const consent = (userId: string) =>
+    h.asService(`update public.profiles set squad_data_consent_at = now() where id = $1`, [
+      userId,
+    ]);
+
+  /** Service-role, because no client role may write this table at all. */
+  const store = (squadId: string, localDate: string, standings: unknown[]) =>
+    h.asService(
+      `insert into public.race_results (squad_id, local_date, standings)
+       values ($1, $2, $3::jsonb)`,
+      [squadId, localDate, JSON.stringify(standings)],
+    );
+
+  const read = (viewer: string, squadId: string, localDate: string) =>
+    h.asUser<Record<string, unknown>>(
+      viewer,
+      'select * from public.race_result($1, $2)',
+      [squadId, localDate],
+    );
+
+  it('grants no client role anything — the row is read through race_result()', async () => {
+    // Supabase's ALTER DEFAULT PRIVILEGES grants ALL on a new public table to
+    // `authenticated`, and ALL includes TRUNCATE, which RLS does not restrict.
+    // So the revoke is not decorative and this listing must be empty.
+    const rows = await h.asService<{ grantee: string; privilege_type: string }>(
+      `select grantee, privilege_type from information_schema.role_table_grants
+        where table_schema = 'public'
+          and table_name = 'race_results'
+          and grantee in ('anon', 'authenticated')`,
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('refuses a direct select from a member of the squad', async () => {
+    const { alice, squadId } = await seedPair();
+    await store(squadId, DAY, []);
+    await rejects(
+      h.asUser(alice, 'select standings from public.race_results where squad_id = $1', [squadId]),
+      /permission denied/i,
+    );
+  });
+
+  it('is written once per squad per date', async () => {
+    // Write-once is the §19 rule: a later Apple revision never retracts a win.
+    const { squadId } = await seedPair();
+    await store(squadId, DAY, [{ user_id: null, rank: 1, capped_steps: 10_000, species: 'eagle' }]);
+    await rejects(
+      store(squadId, DAY, [{ user_id: null, rank: 1, capped_steps: 9_000, species: 'eagle' }]),
+      /duplicate key/i,
+    );
+  });
+
+  it('returns rank and species to a squadmate without any consent', async () => {
+    // A rank is not a health figure, and species is already in two projections
+    // (deviation #40). Capped steps are the disclosure.
+    const { alice, bob, squadId } = await seedPair();
+    await store(squadId, DAY, [
+      { user_id: bob, rank: 1, capped_steps: 9_100, species: 'eagle' },
+    ]);
+
+    const rows = await read(alice, squadId, DAY);
+    expect(Number(rows[0]!.rank)).toBe(1);
+    expect(rows[0]!.species).toBe('eagle');
+    expect(rows[0]!.character_name).toBe('Bob');
+    expect(rows[0]!.capped_steps).toBeNull();
+  });
+
+  it('withholds capped steps from a viewer who has not consented', async () => {
+    // Reciprocity, exactly as squad_leaderboard: without it, declining is
+    // strictly dominant.
+    const { alice, bob, squadId } = await seedPair();
+    await consent(bob);
+    await store(squadId, DAY, [
+      { user_id: bob, rank: 1, capped_steps: 9_100, species: 'eagle' },
+    ]);
+
+    const rows = await read(alice, squadId, DAY);
+    expect(rows[0]!.capped_steps).toBeNull();
+  });
+
+  it('withholds capped steps for a member who has not consented', async () => {
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice);
+    await store(squadId, DAY, [
+      { user_id: bob, rank: 1, capped_steps: 9_100, species: 'eagle' },
+    ]);
+
+    const rows = await read(alice, squadId, DAY);
+    expect(rows[0]!.capped_steps).toBeNull();
+  });
+
+  it('returns capped steps only when both sides have consented', async () => {
+    const { alice, bob, squadId } = await seedPair();
+    await consent(alice);
+    await consent(bob);
+    await store(squadId, DAY, [
+      { user_id: bob, rank: 1, capped_steps: 9_100, species: 'eagle' },
+    ]);
+
+    const rows = await read(alice, squadId, DAY);
+    expect(Number(rows[0]!.capped_steps)).toBe(9_100);
+  });
+
+  it('orders by the snapshotted rank', async () => {
+    const { alice, bob, squadId } = await seedPair();
+    await store(squadId, DAY, [
+      { user_id: bob, rank: 2, capped_steps: 4_000, species: null },
+      { user_id: alice, rank: 1, capped_steps: 10_000, species: null },
+    ]);
+
+    const rows = await read(alice, squadId, DAY);
+    expect(rows.map((r) => Number(r.rank))).toEqual([1, 2]);
+    expect(rows.map((r) => r.user_id)).toEqual([alice, bob]);
+  });
+
+  it('refuses a caller who is not in the squad', async () => {
+    const { squadId } = await seedPair();
+    const outsider = await h.createUser();
+    await store(squadId, DAY, []);
+    await rejects(
+      h.asUser(outsider, 'select * from public.race_result($1, $2)', [squadId, DAY]),
+      /not a member of this squad/,
+    );
+  });
+
+  it('returns nothing for a day with no result yet, rather than raising', async () => {
+    // The common case for today, and for any day a member is still living in.
+    // An empty set is what the digest and the history screen read as "no
+    // result" — an error there would be indistinguishable from a fault.
+    const { alice, squadId } = await seedPair();
+    const rows = await read(alice, squadId, '2020-01-01');
+    expect(rows).toHaveLength(0);
+  });
+
+  it('disappears with the squad', async () => {
+    const { alice, squadId } = await seedPair();
+    await store(squadId, DAY, []);
+    await h.asService('delete from public.squads where id = $1', [squadId]);
+    const rows = await h.asService(
+      'select 1 from public.race_results where squad_id = $1',
+      [squadId],
+    );
+    expect(rows).toEqual([]);
+    void alice;
   });
 });
