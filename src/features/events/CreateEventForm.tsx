@@ -174,6 +174,9 @@ export function CreateEventForm({
         startsOn: today,
         endsOn,
         squadId,
+        // Not a column — carried so `event_created` can say which setting the
+        // squad reached for. See NewEvent.difficulty.
+        difficulty,
       },
       {
         onSuccess: onDone,

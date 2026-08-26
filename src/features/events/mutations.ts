@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
 import { track } from '@/features/telemetry/events.ts';
+import type { EventDifficulty } from '@kairo/core';
 import { eventKeys, type EventRow } from './queries.ts';
 
 /**
@@ -47,6 +48,15 @@ export interface NewEvent {
   /** Never null. `events_need_end` rejects one. */
   endsOn: string;
   squadId: string;
+  /**
+   * Which of `bossHp()`'s three settings produced `target`.
+   *
+   * Carried for telemetry alone — it is not a column, because the target is
+   * snapshotted and the difficulty that produced it is not a thing the fight
+   * consults again (deviation #49). It answers whether squads reach for a
+   * fight they can win.
+   */
+  difficulty: EventDifficulty;
 }
 
 export function useCreateEvent(userId: string | undefined) {
@@ -74,10 +84,14 @@ export function useCreateEvent(userId: string | undefined) {
       }
       return data as EventRow;
     },
-    onSuccess: (event) => {
+    onSuccess: (event, variables) => {
       // Payload carries no target: the boss's HP is derived from the squad's own
-      // history, and the funnel only needs to know a fight exists.
-      void track(userId, 'event_created', { kind: event.kind });
+      // history and is the squad's own number — the rule `goal_created` already
+      // followed. The difficulty is the part that answers a question.
+      void track(userId, 'event_created', {
+        kind: event.kind,
+        difficulty: variables.difficulty,
+      });
       void queryClient.invalidateQueries({ queryKey: eventKeys.all() });
     },
   });

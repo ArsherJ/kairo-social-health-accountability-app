@@ -1,4 +1,5 @@
-import { currentLocalDate, ghostRivals, type RacerInput } from '@kairo/core';
+import { useEffect } from 'react';
+import { currentLocalDate, ghostRivals, questTier, type RacerInput } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import { useScoredDayCount, useTodayScore } from '@/features/character/queries.ts';
@@ -9,6 +10,8 @@ import { todayQuests, useQuestCompletions } from '@/features/quests/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { RaceCard } from '@/features/squad/RaceCard.tsx';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
+import { claimDaily, type DailyMarker } from '@/features/telemetry/daily-marker.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { TrainEntry } from '@/features/train/TrainEntry.tsx';
 import { Label, Screen } from '@/ui/index.ts';
@@ -96,6 +99,45 @@ export default function Today() {
     recentDays: days.data ?? [],
     localToday,
   });
+
+  // The two moments the post-pivot loop turns on (deviation #44), both once per
+  // the user's own local day rather than per render — fired on render they
+  // would measure scrolling rather than engagement.
+  //
+  // In an effect rather than inline in the body: `claimDaily` writes to MMKV
+  // and `track` writes a row, and a render that does either is a render with a
+  // side effect. React may call it twice.
+  const sawRace = racers.length > 1;
+  useEffect(() => {
+    if (!userId || !localToday || !sawRace) return;
+    if (claimDaily(userId, 'race_seen', localToday)) void track(userId, 'race_seen');
+  }, [userId, localToday, sawRace]);
+
+  // The tier is resolved again here rather than threaded out of `todayQuests`,
+  // because it is the same pure call with the same two arguments — and the
+  // payload carries the tier and **never the quest id**: a tier answers "are
+  // the bars set right", where an id would make the table a per-quest
+  // leaderboard nobody asked for. The slot index is the marker key for the same
+  // reason.
+  const metSlots = quests.map((q) => q.state.met).join(',');
+  useEffect(() => {
+    if (!userId || !localToday) return;
+    const tier = questTier({
+      // The same two arguments `todayQuests` passes, from the same two
+      // variables — so the tier reported here cannot disagree with the tier the
+      // three quests on screen were picked for.
+      trailingScoredDays: scoredDays.data ?? 0,
+      override: profile.data?.quest_tier_override ?? null,
+    });
+    quests.forEach((entry, index) => {
+      if (!entry.state.met) return;
+      const marker = `quest_cleared.${index as 0 | 1 | 2}` as DailyMarker;
+      if (claimDaily(userId, marker, localToday)) void track(userId, 'quest_cleared', { tier });
+    });
+    // `metSlots` is the dependency rather than `quests`, which is a fresh array
+    // on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, localToday, metSlots]);
 
   return (
     <Screen>

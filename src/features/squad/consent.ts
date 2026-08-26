@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase.ts';
+import { track } from '@/features/telemetry/events.ts';
 import { squadKeys } from './queries.ts';
 
 export const squadDataConsentKey = ['squad-data-consent'] as const;
@@ -55,6 +56,12 @@ export function useGrantSquadDataConsent(userId: string | undefined) {
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
+      // The funnel step spec §13 flags as the highest risk in the pivot: the
+      // race cannot draw a lane for a member who has not consented. If join
+      // conversion falls materially the fallback is steps and distance only,
+      // and this row is how that is measured rather than guessed. No payload —
+      // the fact of the grant is the whole measurement.
+      void track(userId, 'squad_data_consent_granted');
       void client.invalidateQueries({ queryKey: squadDataConsentKey });
       // The board's *contents* change the moment consent lands, because the
       // gate is evaluated inside the RPC — every squadmate who already
