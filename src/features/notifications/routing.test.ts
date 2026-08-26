@@ -9,7 +9,20 @@ import { notificationTarget } from './routing.ts';
  */
 
 describe('where a notification tap lands', () => {
-  it('sends a squad push to the squad tab', () => {
+  it('sends the daily digest to the Today tab', () => {
+    // The one scheduled push (deviation #52). It carries yesterday's result and
+    // today's standing, and the Today tab is where both of those live — the
+    // character tab shows neither.
+    expect(
+      notificationTarget({
+        trigger: 'daily_digest',
+        localDate: '2026-08-25',
+        screen: 'today',
+      }),
+    ).toBe('/today');
+  });
+
+  it('still lands a squad push from before the digest, rather than nowhere', () => {
     expect(
       notificationTarget({
         trigger: 'day_ending_soon',

@@ -2,7 +2,7 @@
 /**
  * Send a push to a real device, on demand, and report what Apple did with it.
  *
- * The scheduled triggers only fire at three local hours (`DISPATCH_HOURS` in
+ * The one scheduled push fires at a single local hour (`DIGEST_HOUR` in
  * supabase/functions/_shared/notification-plan.ts), so verifying push by
  * waiting for one costs most of a day and tests the dispatcher's clock
  * arithmetic at the same time as its delivery. This tests delivery alone:
@@ -16,9 +16,10 @@
  * Usage:
  *
  *   node supabase/scripts/send-test-push.mjs                    # list who can be sent to
- *   node supabase/scripts/send-test-push.mjs Jay                # → squad tab
- *   node supabase/scripts/send-test-push.mjs Jay character      # → character tab
- *   node supabase/scripts/send-test-push.mjs Jay goals <goalId> # → that goal's screen
+ *   node supabase/scripts/send-test-push.mjs Jay                 # → Today tab
+ *   node supabase/scripts/send-test-push.mjs Jay squad           # → Squad tab
+ *   node supabase/scripts/send-test-push.mjs Jay train           # → Challenges
+ *   node supabase/scripts/send-test-push.mjs Jay events <id>     # → that battle
  *
  * The name matches `profiles.character_name`, case-insensitively. Tokens come
  * from `device_tokens` through remote-sql.sh, because port 5432 is blocked on
@@ -40,7 +41,7 @@ const EXPO_SEND = 'https://exp.host/--/api/v2/push/send';
 const EXPO_RECEIPTS = 'https://exp.host/--/api/v2/push/getReceipts';
 
 /** The screens `notificationTarget()` in src/features/notifications knows. */
-const SCREENS = new Set(['squad', 'character', 'goals']);
+const SCREENS = new Set(['today', 'squad', 'character', 'train', 'events']);
 
 function sql(statement) {
   const out = execFileSync(REMOTE_SQL, [statement], { encoding: 'utf8', stdio: 'pipe' });
@@ -51,7 +52,7 @@ function sql(statement) {
   return JSON.parse(out.slice(start));
 }
 
-const [name, screenArg = 'squad', goalId] = process.argv.slice(2);
+const [name, screenArg = 'today', eventId] = process.argv.slice(2);
 
 const registered = sql(`
   select p.character_name, d.token
@@ -91,17 +92,33 @@ if (targets.length === 0) {
 }
 
 // Deliberately the same shape the Edge Functions send, field for field —
-// dispatch-notifications for the scheduled three, finalize-days for
-// goal_completed. A test payload that drifted from the real one would prove
-// the routing works for a message nothing sends.
-const data = {
-  trigger: screenArg === 'goals' ? 'goal_completed' : 'day_ending_soon',
-  localDate: new Date().toISOString().slice(0, 10),
-  screen: screenArg,
-  ...(goalId ? { goalId } : {}),
+// dispatch-notifications for the digest, finalize-days for the two latched
+// pushes. A test payload that drifted from the real one would prove the
+// routing works for a message nothing sends.
+const TRIGGERS = {
+  today: 'daily_digest',
+  events: 'event_completed',
+  train: 'challenge_cleared',
+  // Historical, and still routed: a push sent before deviation #52's deploy can
+  // be tapped after it, so the two retired destinations stay testable.
+  squad: 'day_ending_soon',
+  character: 'day_starts',
 };
 
-const where = { squad: 'the Squad tab', character: 'the Character tab', goals: 'that goal' };
+const data = {
+  trigger: TRIGGERS[screenArg],
+  localDate: new Date().toISOString().slice(0, 10),
+  screen: screenArg,
+  ...(eventId ? { eventId } : {}),
+};
+
+const where = {
+  today: 'the Today tab',
+  squad: 'the Squad tab',
+  character: 'the Character tab',
+  train: 'Challenges',
+  events: 'that battle',
+};
 
 const messages = targets.map((row) => ({
   to: row.token,

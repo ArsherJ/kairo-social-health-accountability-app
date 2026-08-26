@@ -16,13 +16,15 @@
  * crash a beta build on tap.
  *
  * Two senders exist today:
- *   dispatch-notifications → { trigger, localDate, screen: 'squad' | 'character' }
+ *   dispatch-notifications → { trigger: 'daily_digest', localDate, screen: 'today' }
  *   finalize-days          → { trigger: 'event_completed', screen: 'events', eventId }
  *                          → { trigger: 'challenge_cleared', screen: 'train', localDate }
  *
- * A third shape is **historical** and still routed: pushes sent before the
- * 2026-08-25 Goals → Events rename carry `{ screen: 'goals', goalId }`, and one
- * sent minutes before the deploy can be tapped minutes after it.
+ * Three shapes are **historical** and still routed, because a push sent minutes
+ * before a deploy can be tapped minutes after it: `{ screen: 'goals', goalId }`
+ * from before the 2026-08-25 Goals → Events rename, and `{ screen: 'squad' }`
+ * and `{ screen: 'character' }` from the three scheduled pushes deviation #52
+ * retired.
  */
 
 /**
@@ -32,7 +34,12 @@
  * union is what lets the hook hand the result straight to the router without a
  * cast that would defeat the checking.
  */
-export type NotificationDestination = '/' | '/squad' | '/train' | `/event/${string}`;
+export type NotificationDestination =
+  | '/'
+  | '/squad'
+  | '/today'
+  | '/train'
+  | `/event/${string}`;
 
 /**
  * The character tab, and the fallback for anything addressable but underspecified.
@@ -64,9 +71,16 @@ export function notificationTarget(data: unknown): NotificationDestination | nul
   const { screen, eventId } = data as { screen?: unknown; eventId?: unknown };
 
   switch (screen) {
+    case 'today':
+      // The digest's destination (deviation #52). The present moment: the race
+      // summary, the quests and the Daily Walk — which is what the digest is
+      // about, and what the character tab does not show.
+      return '/today';
     case 'squad':
+      // **Historical**, from the retired evening loop.
       return '/squad';
     case 'character':
+      // **Historical**, from the retired mid-morning nudge.
       return CHARACTER_TAB;
     case 'train':
       // The Challenges route. A stacked route rather than a tab, so this is a

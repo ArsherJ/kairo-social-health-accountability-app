@@ -3,6 +3,7 @@ import {
   BUDGET_EXEMPT,
   MAX_NOTIFICATIONS_PER_DAY,
   QUIET_HOURS,
+  QUIET_HOURS_EXEMPT,
   countsAgainstBudget,
   planNotifications,
   type Candidate,
@@ -205,5 +206,34 @@ describe('purity', () => {
     const once = plan(candidates, 23, 1);
     const twice = plan(candidates, 23, 1);
     expect(once).toEqual(twice);
+  });
+});
+
+describe('the digest budget (deviation #52)', () => {
+  it('admits one digest a day', () => {
+    const [admitted] = planNotifications({
+      candidates: [{ trigger: 'daily_digest', userId: 'u1', data: {} }],
+      sentToday: 0,
+      localNow: { hour: 8, minute: 0 },
+    });
+    expect(admitted).toBeDefined();
+  });
+
+  it('is not quiet-hours exempt, because 08:00 is never in quiet hours', () => {
+    // The exemptions the retired evening pair needed were for 23:00 and 00:00.
+    // A digest firing inside quiet hours would be a scheduling bug, and an
+    // exemption would hide it rather than surface it.
+    expect(QUIET_HOURS_EXEMPT).not.toContain('daily_digest');
+  });
+
+  it('spends budget, so nothing can slip a second one past the cap', () => {
+    expect(countsAgainstBudget('daily_digest')).toBe(true);
+  });
+
+  it('leaves the budget at three, which #52 did not touch', () => {
+    // #52 caps the SCHEDULED pushes at one. A digest plus an Event completion
+    // plus a Challenge clear is still three, and the latter two both fire from
+    // something the user did.
+    expect(MAX_NOTIFICATIONS_PER_DAY).toBe(3);
   });
 });

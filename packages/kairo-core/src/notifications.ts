@@ -13,24 +13,43 @@
  */
 
 export type NotificationTrigger =
+  /**
+   * The one scheduled push (roadmap deviation #52). 08:00 in the recipient's
+   * own timezone, carrying yesterday's final race result and today's live
+   * standing.
+   */
+  | 'daily_digest'
+  /**
+   * **Historical, all three.** The §14 evening loop — 23:00, 00:00 and the
+   * mid-morning nudge — was retired on 2026-08-25 when three pushes a day
+   * became one. They stay in the union because `notification_log.kind` is free
+   * text with no check constraint: rows already say them, `countsAgainstBudget`
+   * reads them, and a historical value matching no case is a tap that goes
+   * nowhere — indistinguishable from push being broken. Nothing emits them any
+   * more.
+   */
   | 'day_ending_soon'
   | 'day_ends'
   | 'day_starts'
   | 'event_completed'
   /**
    * **Historical.** Retired on 2026-08-25 when Goals became Events (deviation
-   * #45), and kept in the union because `notification_log.kind` is free text
-   * with no check constraint: rows already say this, and a push sent minutes
-   * before the deploy can be tapped minutes after it. Nothing emits it any
-   * more. Do not remove it — `countsAgainstBudget` and the routing table both
-   * read it, and a historical row that matches no case is a tap that goes
-   * nowhere, which is indistinguishable from push being broken.
+   * #45), and kept in the union for the same reason as the three above.
    */
   | 'goal_completed'
   | 'challenge_cleared';
 // V1 adds: 'podium_drop' | 'overtake_digest' | 'weekly_recap' | 'streak_at_risk'
 
-/** §14: "max 3/day (configurable)". Configurable means this constant at MVP. */
+/**
+ * §14: "max 3/day (configurable)". Configurable means this constant at MVP.
+ *
+ * **Deviation #52 left it at 3 deliberately.** That deviation caps the
+ * *scheduled* pushes at one; it does not touch the budget that bounds the
+ * event-driven ones, and a digest plus an Event completion plus a Challenge
+ * clear is still three. Each of the latter two fires from something the user
+ * did. Collapsing the two rules would be a scheduling decision quietly
+ * changing an unrelated one.
+ */
 export const MAX_NOTIFICATIONS_PER_DAY = 3;
 
 /** §14's quiet window, in the recipient's own local hours. */
@@ -42,7 +61,14 @@ export const QUIET_HOURS = { from: 22, to: 7 } as const;
  * §14 forbids the 22:00–07:00 window and then schedules the day-boundary pair at
  * 23:00 and 00:00 — inside it. Those two are the core evening loop, not
  * discretionary, so they are exempt on the same footing rather than as an
- * exception to an exception (plan decision #2).
+ * exception to an exception (plan decision #2). Both are **historical** now,
+ * and the list keeps naming them because a push sent before the deploy can be
+ * counted after it.
+ *
+ * **`daily_digest` is deliberately absent.** The exemptions the retired pair
+ * needed were for 23:00 and 00:00; 08:00 is never in quiet hours, so a digest
+ * needing an exemption would mean the schedule itself was wrong — and the
+ * exemption would hide that.
  */
 export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
   'day_ending_soon',
