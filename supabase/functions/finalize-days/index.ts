@@ -17,6 +17,7 @@ import {
   type EventRow,
 } from '../_shared/event-plan.ts';
 import { planChallengeCompletions } from '../_shared/challenge-plan.ts';
+import { buildStandings, squadDayIsComplete } from '../_shared/race-result-plan.ts';
 import { planQuestCompletions } from '../_shared/quest-plan.ts';
 import {
   DAILY_SLEEP_SELECT,
@@ -228,6 +229,86 @@ async function settleEvents(
         },
       });
     }
+  }
+}
+
+/**
+ * Snapshot the squad's race for this date, if the squad has now finished it.
+ *
+ * **The last member wins the write, not the first.** Days are per-user local,
+ * so this runs on every member's finalization and does nothing until the final
+ * one — a result written earlier would crown whoever's timezone happens to be
+ * furthest west. `ignoreDuplicates` is what makes that safe under overlapping
+ * cron runs and under two members finalizing in the same second.
+ *
+ * The board is read with `p_as_user` set to the member whose day just closed,
+ * so a member who has not consented arrives with `steps: null` —
+ * `buildStandings` reads that as zero and keeps them in the standing, and
+ * `race_result()` withholds it again on the way out.
+ */
+async function settleRace(candidate: Candidate): Promise<void> {
+  const { data: mySquads, error: mineError } = await admin
+    .from('squad_members')
+    .select('squad_id')
+    .eq('user_id', candidate.user_id);
+  if (mineError) throw new Error(`squad lookup failed: ${mineError.message}`);
+
+  for (const { squad_id } of (mySquads ?? []) as { squad_id: string }[]) {
+    // Cheap early exit: the row is write-once, so a result already written is
+    // never rewritten and there is nothing left to compute.
+    const { data: existing, error: existingError } = await admin
+      .from('race_results')
+      .select('squad_id')
+      .eq('squad_id', squad_id)
+      .eq('local_date', candidate.local_date)
+      .maybeSingle();
+    if (existingError) throw new Error(`race result read failed: ${existingError.message}`);
+    if (existing) continue;
+
+    const { data: memberRows, error: memberError } = await admin
+      .from('squad_members')
+      .select('user_id')
+      .eq('squad_id', squad_id);
+    if (memberError) throw new Error(`roster lookup failed: ${memberError.message}`);
+    const members = (memberRows ?? []).map((r: { user_id: string }) => r.user_id);
+    if (members.length === 0) continue;
+
+    // Scoped to the roster rather than reading every final row for the date:
+    // the question is only ever about these six people, and an unbounded read
+    // grows with the whole user base for an answer that does not.
+    const { data: finalRows, error: finalError } = await admin
+      .from('daily_scores')
+      .select('user_id')
+      .eq('local_date', candidate.local_date)
+      .eq('status', 'final')
+      .in('user_id', members);
+    if (finalError) throw new Error(`final day lookup failed: ${finalError.message}`);
+
+    const finalUserIds = (finalRows ?? []).map((r: { user_id: string }) => r.user_id);
+    if (!squadDayIsComplete({ members, finalUserIds })) continue;
+
+    const { data: board, error } = await admin.rpc('squad_leaderboard', {
+      p_squad_id: squad_id,
+      p_local_date: candidate.local_date,
+      p_mode: 'current',
+      p_as_user: candidate.user_id,
+    });
+    if (error) throw new Error(`race board read failed: ${error.message}`);
+
+    const standings = buildStandings((board ?? []) as Parameters<typeof buildStandings>[0]);
+    if (standings.length === 0) continue;
+
+    // Write-once. `ignoreDuplicates` rather than an upsert of the values: two
+    // members finalizing in the same second must produce one row, and the
+    // first one written is as good as the second — they are computed from the
+    // same finalized days.
+    const { error: writeError } = await admin
+      .from('race_results')
+      .upsert(
+        [{ squad_id, local_date: candidate.local_date, standings }],
+        { onConflict: 'squad_id,local_date', ignoreDuplicates: true },
+      );
+    if (writeError) throw new Error(`race result write failed: ${writeError.message}`);
   }
 }
 
@@ -608,6 +689,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
         payload: {
           localDate: candidate.local_date,
           error: (questError as Error).message,
+        },
+      });
+    }
+
+    // ---- race ------------------------------------------------------------
+    //
+    // After the streak fold, because the day must be `final` in the database
+    // before squad_leaderboard() reads it. Before events for no reason beyond
+    // ordering — the two are independent.
+    //
+    // Wrapped separately, for the Events reason: a failed snapshot must never
+    // stop a day from becoming final. The day is the durable thing; the
+    // standing can still be written by the next member's finalization, and if
+    // nobody's is left the squad simply has no history row for that date —
+    // which the digest and the history screen both already read as
+    // "no result".
+    try {
+      await settleRace(candidate);
+    } catch (raceError) {
+      await admin.from('app_events').insert({
+        user_id: candidate.user_id,
+        type: 'race_settle_failed',
+        payload: {
+          localDate: candidate.local_date,
+          error: (raceError as Error).message,
         },
       });
     }
