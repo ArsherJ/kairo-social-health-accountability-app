@@ -116,7 +116,7 @@ describe a rule and trust it. The fifteen files involved are listed by
 | `colors.sky` | `#FFE7BC` | The warm field the bird occupies. **A place, not a card** — it has no shadow, no radius of its own at the top, and nothing else may use it. |
 | `colors.accentEdge` | `#DC9014` | The 3px lip under a primary button. |
 | `colors.teal` / `tealEdge` / `tealTint` / `tealInk` | `#35A99B` / `#2A8A7E` / `#E4F2EC` / `#2F5C50` | The secondary action, and the sleep card. |
-| `colors.moss` / `mossTint` / `mossInk` | `#86BE6B` / `#EEF3DC` / `#4C5A32` | The lane card, and the banked-shield row. |
+| ~~`colors.moss` / `mossTint` / `mossInk`~~ | — | **Superseded during planning (2026-08-27).** The design's moss card is `#EEF3DC` on `#4C5A32`, which is `ramp.sage[200]` and `ramp.sage[800]` to within a hair — a fifth family would be two tables of the same colour. Sage covers it. See plan 1, Task 2. |
 | `colors.coral` | `#FF7A5C` | The streak dot. One job. |
 
 `colors.sage` stays and keeps meaning "your lane, never a call to action". Moss
@@ -133,7 +133,7 @@ interchangeable and the docstrings must say so.
 - **`src/ui/Panel.tsx`** — two variants added. `sky` (the `colors.sky` field,
   no shadow) and `tint` (`#FCEBCB`, the "this row is you" ground). `plain`,
   `lift` and `earned` keep their meanings.
-- **`src/ui/Screen.tsx`** — clearance follows `NAV_HEIGHT`, which moves in §5.
+- ~~**`src/ui/Screen.tsx`**~~ — **not edited.** This anticipated `NAV_HEIGHT` moving when the bar flattened. It does not: the discs become a bar of the same height, so `TAB_PILL_CLEARANCE` is unchanged. See plan 1, Task 6.
 
 `Panel`'s `overflow: 'hidden'` stays. It is what clipped the permission sheet on
 2026-08-17, and the lesson recorded there — bound the height, scroll it, and
