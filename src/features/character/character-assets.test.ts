@@ -13,6 +13,12 @@ const { PNG } = loadModule('pngjs') as {
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const REGISTRY_PATH = resolve(REPO_ROOT, 'src/features/character/character-assets.ts');
+const REQUIRED_REGISTRY_EXPORTS = [
+  'KAIRO_BASE_ASSET',
+  'KAIRO_POSE_ASSETS',
+  'KAIRO_STATE_ASSETS',
+  'KAIRO_COSMETIC_ASSETS',
+] as const;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const REQUIRED_PNG = [
   'assets/character/base/kairo_base_front_v1.png',
@@ -91,6 +97,34 @@ function firstDifferenceOutsideRect(
   return null;
 }
 
+function collectExportedNames(source: string): string[] {
+  const names: string[] = [];
+  const exportPattern =
+    /\bexport\s+(?:(?:(?:declare\s+)?(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)|default\b|(?:type\s+)?\{([^}]*)\}))/g;
+
+  for (const match of source.matchAll(exportPattern)) {
+    const declarationName = match[1];
+    const exportClause = match[2];
+    if (declarationName) {
+      names.push(declarationName);
+      continue;
+    }
+    if (/\bdefault\b/.test(match[0])) {
+      names.push('default');
+      continue;
+    }
+    if (exportClause === undefined) continue;
+    for (const specifier of exportClause.split(',')) {
+      const trimmedSpecifier = specifier.trim().replace(/^type\s+/, '');
+      if (!trimmedSpecifier) continue;
+      const alias = trimmedSpecifier.match(/\bas\s+([A-Za-z_$][\w$]*)$/)?.[1];
+      names.push(alias ?? trimmedSpecifier);
+    }
+  }
+
+  return names;
+}
+
 describe('KAIRO character assets', () => {
   it('registers every checked-in PNG with literal React Native requires', () => {
     const registrySource = existsSync(REGISTRY_PATH) ? readFileSync(REGISTRY_PATH, 'utf8') : '';
@@ -99,15 +133,7 @@ describe('KAIRO character assets', () => {
       expect(registrySource).toContain(`require('../../../${relativePath}')`);
     }
 
-    const exportedNames = [...registrySource.matchAll(/\bexport\s+const\s+([A-Z0-9_]+)/g)].map(
-      ([, name]) => name,
-    );
-    expect(exportedNames).toEqual([
-      'KAIRO_BASE_ASSET',
-      'KAIRO_POSE_ASSETS',
-      'KAIRO_STATE_ASSETS',
-      'KAIRO_COSMETIC_ASSETS',
-    ]);
+    expect(collectExportedNames(registrySource)).toEqual([...REQUIRED_REGISTRY_EXPORTS]);
 
     const dependencyAndConfigSources = [
       registrySource,
@@ -119,6 +145,27 @@ describe('KAIRO character assets', () => {
       expect(source).not.toMatch(/rive|\.riv|KAIRO_RIVE/i);
     }
     expect(dependencyAndConfigSources[3]).not.toMatch(/(?:sourceExts|assetExts)[^\n]*\briv\b/i);
+  });
+
+  it('recognizes every export form so extra public names cannot hide', () => {
+    const representativeSource = `
+      export const KAIRO_BASE_ASSET = 1;
+      export const KAIRO_POSE_ASSETS = 2;
+      export const KAIRO_STATE_ASSETS = 3;
+      export const KAIRO_COSMETIC_ASSETS = 4;
+      export const helper = 5;
+      export function helperFunction() {}
+      export type Helper = string;
+      export default {};
+    `;
+
+    expect(collectExportedNames(representativeSource)).toEqual([
+      ...REQUIRED_REGISTRY_EXPORTS,
+      'helper',
+      'helperFunction',
+      'Helper',
+      'default',
+    ]);
   });
 
   it('contains every non-empty PNG fallback and QA preview', () => {
