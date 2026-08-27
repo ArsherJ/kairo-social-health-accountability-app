@@ -100,17 +100,26 @@ function firstDifferenceOutsideRect(
 function collectExportedNames(source: string): string[] {
   const names: string[] = [];
   const exportPattern =
-    /\bexport\s+(?:(?:(?:declare\s+)?(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)|default\b|(?:type\s+)?\{([^}]*)\}))/g;
+    /\bexport\s+(?:(?:(?:declare\s+)?(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)|default\b|(?:type\s+)?\{([^}]*)\})|(?:\*\s+as\s+([A-Za-z_$][\w$]*)|\*))/g;
 
   for (const match of source.matchAll(exportPattern)) {
     const declarationName = match[1];
     const exportClause = match[2];
+    const namespaceName = match[3];
     if (declarationName) {
       names.push(declarationName);
       continue;
     }
     if (/\bdefault\b/.test(match[0])) {
       names.push('default');
+      continue;
+    }
+    if (namespaceName) {
+      names.push(namespaceName);
+      continue;
+    }
+    if (/\*/.test(match[0])) {
+      names.push('*');
       continue;
     }
     if (exportClause === undefined) continue;
@@ -157,6 +166,8 @@ describe('KAIRO character assets', () => {
       export function helperFunction() {}
       export type Helper = string;
       export default {};
+      export * from './helper';
+      export * as namespaceHelper from './helper';
     `;
 
     expect(collectExportedNames(representativeSource)).toEqual([
@@ -165,6 +176,8 @@ describe('KAIRO character assets', () => {
       'helperFunction',
       'Helper',
       'default',
+      '*',
+      'namespaceHelper',
     ]);
   });
 
