@@ -13,7 +13,7 @@ import {
   STRENGTH_TIERS,
   validateCharacterManifests,
 } from './character-contract.ts';
-import { KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
+import { cosmeticAnchorMetadata, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const KAIRO_LAB_PATH = resolve(REPO_ROOT, 'src/features/character/KairoLab.tsx');
@@ -126,6 +126,20 @@ describe('KAIRO character contract', () => {
     });
   });
 
+  it('labels the complete available cosmetic anchor semantics without inventing component identity', () => {
+    const trailSneakers = cosmetics.items.find((item) => item.id === 'trail_sneakers');
+    expect(trailSneakers).toBeDefined();
+    expect(cosmeticAnchorMetadata(trailSneakers!)).toBe(
+      'Primary anchor: left_foot\nComponent anchors (2): left_foot, right_foot',
+    );
+
+    for (const cosmetic of cosmetics.items.filter((item) => item.components.length === 1)) {
+      expect(cosmeticAnchorMetadata(cosmetic)).toBe(
+        `Primary anchor: ${cosmetic.anchor}\nComponent anchors (1): ${cosmetic.anchor}`,
+      );
+    }
+  });
+
   it('keeps the development catalog static and unreachable from production navigation', () => {
     const labSource = existsSync(KAIRO_LAB_PATH) ? readFileSync(KAIRO_LAB_PATH, 'utf8') : '';
     const routeSource = existsSync(KAIRO_LAB_ROUTE_PATH)
@@ -141,13 +155,15 @@ describe('KAIRO character contract', () => {
       expect(labSource).toContain(registry);
     }
     expect(labSource).toContain('Static asset catalog — Rive parked');
+    expect(labSource).toContain('cosmeticAnchorMetadata(cosmetic)');
     expect(labSource).not.toMatch(
       /@rive-app\/react-native|\.riv|KairoRenderer|\bbinding\b|\bview[-_ ]?model\b/i,
     );
 
-    expect(routeSource).toContain('__DEV__');
-    expect(routeSource).toContain('<KairoLab');
-    expect(routeSource).toContain('<Redirect href="/"');
+    const normalizedRouteSource = routeSource.replace(/\s+/g, ' ').trim();
+    expect(normalizedRouteSource).toContain(
+      'if (!__DEV__) return <Redirect href="/" />; return <KairoLab />;',
+    );
 
     for (const navigationPath of PRODUCTION_NAVIGATION_PATHS) {
       expect(readFileSync(navigationPath, 'utf8')).not.toContain('kairo-lab');

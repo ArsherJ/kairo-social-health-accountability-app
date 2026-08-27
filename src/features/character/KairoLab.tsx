@@ -12,7 +12,7 @@ import {
   KAIRO_POSE_ASSETS,
   KAIRO_STATE_ASSETS,
 } from './character-assets.ts';
-import { KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
+import { cosmeticAnchorMetadata, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
 import { SPECIES_HABITATS } from './species-art.ts';
 
 const PREVIEW_SIZES = [
@@ -165,14 +165,13 @@ export function KairoLab() {
         {KAIRO_STATIC_CATALOG.cosmetics.map((cosmeticId) => {
           const cosmetic = cosmetics.items.find((item) => item.id === cosmeticId);
           if (!cosmetic) return null;
-          const anchors = cosmetic.components.map((component) => component.anchor).join(', ');
           return (
             <CatalogEntry
               key={cosmeticId}
               source={KAIRO_COSMETIC_ASSETS[cosmeticId]}
               title={cosmetic.displayName}
             >
-              <Metadata>{`ID: ${cosmetic.id} · Slot: ${cosmetic.slot}\nAnchor/components: ${cosmetic.anchor} / ${anchors}\nCompatible poses: ${cosmetic.compatiblePoses.join(', ')}`}</Metadata>
+              <Metadata>{`ID: ${cosmetic.id} · Slot: ${cosmetic.slot}\n${cosmeticAnchorMetadata(cosmetic)}\nCompatible poses: ${cosmetic.compatiblePoses.join(', ')}`}</Metadata>
             </CatalogEntry>
           );
         })}

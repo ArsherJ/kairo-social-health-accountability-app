@@ -14,3 +14,15 @@ export const KAIRO_STATIC_CATALOG = {
   states: SLEEP_STATES,
   cosmetics: cosmetics.items.map((item) => item.id as CosmeticId),
 } as const;
+
+/** The manifest has component anchors, not a separate component identity schema. */
+export function cosmeticAnchorMetadata({
+  anchor,
+  components,
+}: {
+  anchor: string;
+  components: readonly { anchor: string }[];
+}) {
+  const componentAnchors = components.map((component) => component.anchor).join(', ');
+  return `Primary anchor: ${anchor}\nComponent anchors (${components.length}): ${componentAnchors}`;
+}
