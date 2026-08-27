@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
@@ -10,6 +13,15 @@ import {
   STRENGTH_TIERS,
   validateCharacterManifests,
 } from './character-contract.ts';
+import { KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const KAIRO_LAB_PATH = resolve(REPO_ROOT, 'src/features/character/KairoLab.tsx');
+const KAIRO_LAB_ROUTE_PATH = resolve(REPO_ROOT, 'app/kairo-lab.tsx');
+const PRODUCTION_NAVIGATION_PATHS = [
+  resolve(REPO_ROOT, 'app/_layout.tsx'),
+  resolve(REPO_ROOT, 'app/(tabs)/_layout.tsx'),
+] as const;
 
 describe('KAIRO character contract', () => {
   it('has the approved semantic surface', () => {
@@ -90,5 +102,55 @@ describe('KAIRO character contract', () => {
     expect(animations.poses.map((entry) => entry.id)).not.toContain('level_up');
     expect(animations.reactions.map((entry) => entry.id)).toContain('level_up');
     expect(animations.reactions.map((entry) => entry.id)).toContain('victory');
+  });
+
+  it('lists every approved static KAIRO catalog preview in canonical order', () => {
+    expect(KAIRO_STATIC_CATALOG).toEqual({
+      base: ['base'],
+      poses: ['idle', 'sleep', 'walk', 'run', 'workout', 'race_victory'],
+      states: ['sleepy', 'normal', 'well_rested'],
+      cosmetics: [
+        'runner_cap',
+        'woven_salakot',
+        'leaf_crown',
+        'round_glasses',
+        'flight_goggles',
+        'sunlit_bandana',
+        'sampaguita_garland',
+        'trail_vest',
+        'woven_cape',
+        'trail_sneakers',
+        'rain_boots',
+        'firefly_aura',
+      ],
+    });
+  });
+
+  it('keeps the development catalog static and unreachable from production navigation', () => {
+    const labSource = existsSync(KAIRO_LAB_PATH) ? readFileSync(KAIRO_LAB_PATH, 'utf8') : '';
+    const routeSource = existsSync(KAIRO_LAB_ROUTE_PATH)
+      ? readFileSync(KAIRO_LAB_ROUTE_PATH, 'utf8')
+      : '';
+
+    for (const registry of [
+      'KAIRO_BASE_ASSET',
+      'KAIRO_POSE_ASSETS',
+      'KAIRO_STATE_ASSETS',
+      'KAIRO_COSMETIC_ASSETS',
+    ]) {
+      expect(labSource).toContain(registry);
+    }
+    expect(labSource).toContain('Static asset catalog — Rive parked');
+    expect(labSource).not.toMatch(
+      /@rive-app\/react-native|\.riv|KairoRenderer|\bbinding\b|\bview[-_ ]?model\b/i,
+    );
+
+    expect(routeSource).toContain('__DEV__');
+    expect(routeSource).toContain('<KairoLab');
+    expect(routeSource).toContain('<Redirect href="/"');
+
+    for (const navigationPath of PRODUCTION_NAVIGATION_PATHS) {
+      expect(readFileSync(navigationPath, 'utf8')).not.toContain('kairo-lab');
+    }
   });
 });
