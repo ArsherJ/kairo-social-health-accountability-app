@@ -491,7 +491,43 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
-**Kairo has four tabs as of 2026-08-25** (deviation #50) — Character · Today ·
+**Kairo is Sunlit as of 2026-08-27** (deviations #53, #54). The palette shifted
+in place — every token in `src/theme.ts` kept its name and changed its value, so
+around ninety call sites re-skinned without being edited. The tabs are
+**Today · Sky · Flock · You**, flat, and the character tab is gone. Three things
+break easily:
+
+- **`colors.accent` is a fill and never text.** It is `#f5a623`, which measures
+  **1.9:1** on the cream ground — invisible, and it renders perfectly while
+  being so. The terracotta it replaced measured 4.7:1 and could do both jobs,
+  which is why 53 call sites had to be classified by hand rather than
+  find-and-replaced: the prop is named `color` whether it is `<Meter>`'s fill or
+  `<Feather>`'s ink. Body-size accent text is **`colors.accentDeep`**; large
+  display type is **`colors.accentInk`** (3.3:1, so 24pt and up only). The guard
+  is `src/ui/contrast.test.ts`, which asserts `accent` *fails* as text — so the
+  test goes red if the value ever drifts back into a range that would tempt
+  somebody.
+- **The ramps' step contract is ink strength, and 37 call sites depend on it.**
+  200 is a wash you set text on, 500 is a fill, 700 and 800 are inks.
+  `ramp.accent[700]` in particular must stay at or above 4.5:1 on `colors.bg`,
+  because `Label`'s accent eyebrow is 10pt and reads it — that is why the
+  design's own `#c9721c` is *not* a ramp step but a separate large-text-only
+  role. Change a step's strength and every site reading it goes wrong at once,
+  silently.
+- **`NAV_HEIGHT` stays 96 and there is no raised disc.** The discs became a flat
+  bar; the bar's height did not move, so `TAB_PILL_CLEARANCE` and every screen's
+  bottom padding are unchanged. The raised disc meant *anchor* and the anchor
+  was the character tab — do not add one back for Today. Tab items are `flex: 1`
+  with `numberOfLines={1}`: the labels are painted now, and at the `chrome`
+  scale's 1.4× cap "FLOCK" reaches ~56pt, so a fixed item width is the
+  two-column row that could not fit past 1.3× in a new place.
+- **`/today` and `/squad` no longer resolve.** `notificationTarget()` maps
+  `'today'` → `/` and `'squad'` → `/flock`. `dispatch-notifications` still sends
+  `screen: 'today'` and was **not** redeployed — only the client's reading moved,
+  which is why this needed no Edge Function change. A test asserts no retired
+  route can be returned.
+
+**Kairo had four tabs from 2026-08-25 to 2026-08-27** (deviation #50) — Character · Today ·
 Squad · You. The Today tab is the present moment: a race summary card, three
 quests, the Daily Walk and the Challenge door, in that order. The character
 screen kept its hero, `TodayPanel`, `SyncStatus` and the disclosure note and

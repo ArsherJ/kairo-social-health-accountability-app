@@ -4,11 +4,14 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 
 iOS first via Expo; Supabase backend.
 
+Four tabs: **Today** (the character and the day), **Sky** (the daily race),
+**Flock** (the squad) and **You**.
+
 ## Docs
 
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.
 - [`docs/roadmap.md`](./docs/roadmap.md) — build sequencing, phase status, and the approved-deviations table (deliberate, recorded departures from the spec).
-- [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → the Today tab → the race → character → squad → the Battle.
+- [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → the Today tab → the race → the Sky → the Flock → the Battle.
 - [`docs/mvp-scope.md`](./docs/mvp-scope.md) — **what is in the MVP and what is not.** Cite it in any QA brief, test plan or store-facing copy; a brief describing something not listed there is stale.
 - [`docs/qa/kairo-end-to-end-qa-report.md`](./docs/qa/kairo-end-to-end-qa-report.md) — the August 2026 QA pass, with an addendum tracing its central finding to a stale Edge Function deployment.
 - [`docs/sign-in-with-apple.md`](./docs/sign-in-with-apple.md) — the runbook for rotating and installing the Apple client secret.
