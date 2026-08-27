@@ -1,7 +1,7 @@
 import { RaceTrack } from '@/features/squad/RaceTrack.tsx';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useMySquad, useSquadLeaderboard } from '@/features/squad/queries.ts';
-import { Label, Screen } from '@/ui/index.ts';
+import { Screen } from '@/ui/index.ts';
 
 /**
  * The Sky tab — the daily race, on a screen of its own.
@@ -23,7 +23,9 @@ export default function Sky() {
 
   return (
     <Screen>
-      <Label>Today&apos;s race</Label>
+      {/* No eyebrow here. `RaceTrack` draws its own "TODAY'S RACE" heading,
+          and adding one above it rendered the words twice — caught on the
+          simulator, and invisible to every test in this repo. */}
       <RaceTrack rows={board.data ?? []} />
     </Screen>
   );
