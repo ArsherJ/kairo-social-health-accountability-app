@@ -70,7 +70,7 @@ export default function Sky() {
   // not sync times — so this claims only what it can actually check. HealthKit
   // background delivery is opportunistic, and a corridor that reads as live
   // while it is hours old is the app making a promise it has no way to keep.
-  // It came across from `RaceTrack`, which carried it when the race was lanes.
+  // It came across from the six-lane track, which carried it before this.
   const { lastSyncedAt } = useSyncStatusStore();
   const syncedLabel =
     lastSyncedAt === null

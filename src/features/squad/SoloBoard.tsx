@@ -1,23 +1,13 @@
 import { RefreshControl, StyleSheet, View } from 'react-native';
-import {
-  DEFAULT_SQUAD_PROGRAM,
-  FREE_SQUAD_MAX_MEMBERS,
-  currentLocalDate,
-  ghostRivals,
-  type RacerInput,
-} from '@kairo/core';
+import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { colors, font, space } from '@/theme.ts';
 import { Button, Screen, Text } from '@/ui/index.ts';
-import { describeAge } from '@/features/health/sync-status.ts';
-import { useSyncStatusStore } from '@/features/health/status-store.ts';
-import { ghostDayLabel } from './ghost-day-label.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
-import { RaceTrack } from './RaceTrack.tsx';
-import { useOwnRecentDays, type LeaderboardRow as Row } from './queries.ts';
+import type { LeaderboardRow as Row } from './queries.ts';
 
 /**
  * The squad tab before anyone joins (§7).
@@ -35,6 +25,12 @@ import { useOwnRecentDays, type LeaderboardRow as Row } from './queries.ts';
  * picture of what a squad looks like. The actions move above the row for the
  * same reason: the thing to do here is invite somebody, not admire your rank.
  *
+ * **The race is not here any more** (deviation #56, 2026-08-27). It drew a
+ * six-lane track against the player's own past days; the corridor on the Sky
+ * tab races those same ghosts, and this screen kept the one thing it was for —
+ * an invite affordance beside a real day. Two pictures of one race on two tabs
+ * is how they start disagreeing, and the freshness line went with the picture.
+ *
  * The data source is `useTodayScore`, not `squad_leaderboard`: the row is the
  * caller's own, and the RPC exists to project *other* people's data safely.
  */
@@ -50,58 +46,13 @@ export function SoloBoard({
   const profile = useProfile(userId);
   const score = useTodayScore(userId, profile.data?.timezone);
   // The day in raw units. `daily_scores` stores points and tiers, never steps,
-  // so the race needs its own source — and solo is the one board the RPC does
-  // not build, so this is it. No consent gate: consent governs what squadmates
-  // see, never what you see of yourself.
+  // and the row below draws steps, distance and calories — solo is the one
+  // board the RPC does not build, so this is it. No consent gate: consent
+  // governs what squadmates see, never what you see of yourself.
   const raw = useTodayBuckets(userId, profile.data?.timezone);
-
-  const days = useOwnRecentDays(userId, profile.data?.timezone);
-  const { lastSyncedAt } = useSyncStatusStore();
 
   const today = score.data;
   const totals = raw.data?.totals;
-
-  /**
-   * Your rivals are your own recent days.
-   *
-   * The source design's §20 warns against solo Race/Battle/Adventure modes, and
-   * this is the narrow, deliberate exception: it exists so nobody ever meets an
-   * empty Squad tab, and so the mechanic teaches itself before a friend
-   * arrives. `ghostRivals` drops days that scored nothing — a new account
-   * otherwise lines up against three zeroes, which reads as the feature being
-   * broken rather than as an easy win.
-   *
-   * Today is excluded by the query itself (`.lt('local_date', today)`), which
-   * matters: racing a ghost of yourself puts two figures at exactly the same
-   * position, drawn on top of each other.
-   */
-  const localDate = profile.data?.timezone
-    ? currentLocalDate(new Date(), profile.data.timezone)
-    : undefined;
-
-  const ghosts = ghostRivals(days.data ?? [], 3).map((g) => ({
-    ...g,
-    // `race-label.ts` prefixes a ghost with "your", so this has to read
-    // "your Saturday" — never "your 2026-08-22".
-    characterName: localDate ? ghostDayLabel(g.characterName, localDate) : g.characterName,
-    // Your own past days ran as you. A null species would draw them as blank
-    // discs beside your own figure, which reads as three other people.
-    species: profile.data?.species ?? null,
-  }));
-
-  const me: RacerInput = {
-    userId: userId ?? 'self',
-    characterName: profile.data?.character_name ?? 'You',
-    species: profile.data?.species ?? null,
-    steps: totals?.steps ?? 0,
-    total: today?.total ?? 0,
-    isSelf: true,
-  };
-
-  const syncedLabel =
-    lastSyncedAt === null
-      ? "Your numbers haven't synced yet"
-      : `Your numbers updated ${describeAge(Date.now() - lastSyncedAt)}`;
 
   /**
    * `LeaderboardRow` rather than a parallel self-row component: the shape is
@@ -160,14 +111,13 @@ export function SoloBoard({
     <Screen
       refreshControl={
         <RefreshControl
-          refreshing={score.isRefetching || raw.isRefetching || days.isRefetching}
+          refreshing={score.isRefetching || raw.isRefetching}
           onRefresh={() => {
             void score.refetch();
-            // The track reads raw units and the ghosts read history; neither
-            // rides the score query, so a pull that refreshed only the row
-            // would leave the lanes where they were.
+            // The row's steps, distance and calories are raw units and do not
+            // ride the score query, so a pull that refreshed only the score
+            // would leave half the row where it was.
             void raw.refetch();
-            void days.refetch();
           }}
           tintColor={colors.subtle}
         />
@@ -193,12 +143,6 @@ export function SoloBoard({
             that hierarchy is expressed now the button kit owns the styling. */}
         <Button label="Have an invite code?" variant="ghost" onPress={onJoin} />
       </View>
-
-      {/* The race, before the row. With no qualifying history `ghostRivals`
-          returns nothing and you run one lane alone — never an empty track,
-          and never a fabricated rival. The invite affordance above is what a
-          lone lane points at. */}
-      <RaceTrack rows={[]} extra={[me, ...ghosts]} syncedLabel={syncedLabel} />
 
       {/* Solo is one row and nobody is above it — the same "nothing above"
           case `leaderboardGaps` returns null for on a real board. This is the

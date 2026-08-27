@@ -92,7 +92,7 @@ export function CreateEventForm({
 }) {
   const createEvent = useCreateEvent(userId);
   const history = useSquadKcalHistory(squadId);
-  // The same ~1.3x threshold `HealthPermissionSheet` and `RaceLane` use: past
+  // The same ~1.3x threshold `HealthPermissionSheet` and `SkyMarker` use: past
   // it, three window chips across a row break "2 weeks" mid-word into "2 week"
   // / "s". One per row costs vertical space in a view that already scrolls,
   // which is the trade the disclosure schedule makes everywhere else.

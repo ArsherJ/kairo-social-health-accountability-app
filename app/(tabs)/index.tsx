@@ -111,7 +111,7 @@ function countWord(n: number): string {
  * replaces, on the same key.** The merge adds no request and cannot disagree
  * with the Sky or Flock tab in one frame.
  *
- * **The race is a sentence, not a card.** `RaceCard` is gone: the race has its
+ * **The race is a sentence, not a card.** The card is gone: the race has its
  * own tab now, and the hero sentence names the gap to the bird ahead, which is
  * the only part of it that belongs on a screen about your own day. The
  * `race_seen` marker moved to the Sky tab with the picture — it measures

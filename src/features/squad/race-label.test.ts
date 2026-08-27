@@ -50,10 +50,10 @@ describe('raceLaneLabel', () => {
     expect(raceLaneLabel({ ...base, progressPercent: 60.6 })).toMatch(/61%/);
   });
 
-  it('says nothing about a lane with no position, which is a different label', () => {
-    // A non-consenting squadmate never reaches this function — `RaceTrack`
-    // gives them their own label, because "0% to the finish line" would state
-    // that they did nothing today rather than that they are not sharing.
+  it('says nothing about a racer with no position, which is a different label', () => {
+    // A non-consenting squadmate never reaches this function — the Sky screen
+    // lists them below the corridor, because "0% to the finish line" would
+    // state that they did nothing today rather than that they are not sharing.
     expect(raceLaneLabel({ ...base, progressPercent: 0 })).toBe(
       '2nd, Bayani, 0% to the finish line',
     );
