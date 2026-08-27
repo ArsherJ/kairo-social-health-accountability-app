@@ -22,6 +22,7 @@ export * from './event.ts';
 export * from './challenge.ts';
 export * from './quest.ts';
 export * from './race.ts';
+export * from './sky-path.ts';
 export * from './disclosure.ts';
 export * from './strain.ts';
 export * from './mind.ts';
