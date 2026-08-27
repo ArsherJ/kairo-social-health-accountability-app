@@ -5,23 +5,30 @@ import { colors, earnedColor, ramp, radius, shadow, space } from '../theme.ts';
 /**
  * The only card in the app.
  *
- * On the warm system a card is a *tint*, not an outline — the old 1px border
- * was doing the work that `colors.surface` on `colors.bg` now does by itself,
- * and keeping both would draw a box around every block on the screen.
+ * On Sunlit a card is separated from the ground by **shadow**, not by tint:
+ * `colors.surface` and `colors.bg` differ by a hair on purpose. That is a
+ * change from the warm system that preceded it, where the tint did the work —
+ * so `plain` carries an elevation now, and anything reaching for a darker
+ * surface to make a card legible is working against the system twice over.
  *
- * - `plain` — the default. Surface tint, no elevation: it is part of the page.
- * - `lift` — leaves the page. Lighter than the ground plus a real shadow, for
- *   anything floating over the diorama or over other content.
- * - `earned` — sage, with a terracotta top edge. The glow rule's one
- *   expression on a card, and it belongs to a banked Streak Shield and the
- *   squad leader's row, nothing else.
+ * - `plain` — the default. Card tint plus a small shadow: it sits on the page.
+ * - `lift` — leaves the page. White plus a real shadow, for chrome floating
+ *   over content.
+ * - `earned` — sage, with an amber top edge. The glow rule's one expression on
+ *   a card, and it belongs to a banked Streak Shield and the squad leader's
+ *   row, nothing else.
+ * - `sky` — the warm field the character occupies. **Not a card**: no shadow,
+ *   because it is a place rather than an object, and nothing that is not the
+ *   character's own sky may use it.
+ * - `tint` — the amber wash that means *this one is you*. The self row on a
+ *   board, and the name block on the onboarding meet screen.
  */
 export function Panel({
   variant = 'plain',
   style,
   children,
 }: {
-  variant?: 'plain' | 'lift' | 'earned';
+  variant?: 'plain' | 'lift' | 'earned' | 'sky' | 'tint';
   style?: ViewStyle;
   children: ReactNode;
 }) {
@@ -40,13 +47,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     overflow: 'hidden',
   },
-  plain: { backgroundColor: colors.surface },
+  plain: { backgroundColor: colors.surface, ...shadow.sm },
   // `overflow: 'hidden'` on `base` clips a shadow on Android, where elevation
   // is drawn by the platform rather than composited outside the bounds. iOS
   // ships first (§15) and renders this correctly; if Android matters later,
-  // this variant needs a wrapper view to carry the shadow.
+  // these variants need a wrapper view to carry the shadow.
   lift: { backgroundColor: colors.surfaceLift, ...shadow.md },
   earned: { backgroundColor: ramp.sage[200] },
+  /** No shadow, deliberately. A place does not float. */
+  sky: { backgroundColor: colors.sky },
+  tint: { backgroundColor: ramp.accent[200] },
   edge: {
     position: 'absolute',
     top: 0,
@@ -55,10 +65,10 @@ const styles = StyleSheet.create({
     height: 3,
     borderBottomLeftRadius: radius.pill,
     borderBottomRightRadius: radius.pill,
-    // The app has three colour families with one job each: terracotta means
-    // "you", `earnedColor` means "earned", burnt means falling behind. This edge
-    // marks the squad leader's row and a banked Streak Shield — both "earned",
-    // neither "you".
+    // The app has four colour families with one job each: amber means "you",
+    // `earnedColor` means "earned", teal means rest, coral means falling
+    // behind. This edge marks the squad leader's row and a banked Streak
+    // Shield — both "earned", neither "you".
     backgroundColor: earnedColor,
   },
 });
