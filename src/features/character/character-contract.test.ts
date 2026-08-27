@@ -46,6 +46,38 @@ describe('KAIRO character contract', () => {
     expect(validateCharacterManifests({ character, cosmetics, animations })).toEqual([]);
   });
 
+  it('rejects an unapproved runtime property with a path-specific diagnostic', () => {
+    expect(
+      validateCharacterManifests({
+        character: {
+          ...character,
+          properties: {
+            ...character.properties,
+            mood: { path: 'appearance/mood', type: 'enum' },
+          },
+        },
+        cosmetics,
+        animations,
+      }),
+    ).toEqual(['character.properties.mood must not be declared']);
+  });
+
+  it('rejects an unapproved cosmetic property with a path-specific diagnostic', () => {
+    expect(
+      validateCharacterManifests({
+        character: {
+          ...character,
+          cosmeticProperties: {
+            ...character.cosmeticProperties,
+            aura: { path: 'cosmetics/aura', type: 'enum', order: 110 },
+          },
+        },
+        cosmetics,
+        animations,
+      }),
+    ).toEqual(['character.cosmeticProperties.aura must not be declared']);
+  });
+
   it('registers all 12 cosmetics for all six poses', () => {
     expect(cosmetics.items).toHaveLength(12);
     for (const item of cosmetics.items) {

@@ -167,6 +167,21 @@ function addHeaderErrors(errors: string[], manifestName: string, value: unknown)
   return manifest;
 }
 
+function addExactKeyErrors(
+  errors: string[],
+  path: string,
+  value: UnknownRecord,
+  expectedKeys: readonly string[],
+): void {
+  const keys = Object.keys(value);
+  for (const key of keys) {
+    if (!expectedKeys.includes(key)) errors.push(`${path}.${key} must not be declared`);
+  }
+  if (!sameArray(keys.filter((key) => expectedKeys.includes(key)), expectedKeys)) {
+    errors.push(`${path} must preserve canonical key order`);
+  }
+}
+
 /** Returns ordered development diagnostics for malformed checked-in manifest data. */
 export function validateCharacterManifests({
   character,
@@ -192,6 +207,7 @@ export function validateCharacterManifests({
   if (defaults.pose !== 'idle') errors.push('character.defaults.pose must equal idle');
 
   const properties = asRecord(characterManifest.properties);
+  addExactKeyErrors(errors, 'character.properties', properties, Object.keys(EXPECTED_PROPERTIES));
   for (const [id, expected] of Object.entries(EXPECTED_PROPERTIES)) {
     const property = asRecord(properties[id]);
     if (property.path !== expected.path || property.type !== expected.type) {
@@ -200,6 +216,12 @@ export function validateCharacterManifests({
   }
 
   const cosmeticProperties = asRecord(characterManifest.cosmeticProperties);
+  addExactKeyErrors(
+    errors,
+    'character.cosmeticProperties',
+    cosmeticProperties,
+    COSMETIC_SLOTS,
+  );
   for (const slot of COSMETIC_SLOTS) {
     const expected = EXPECTED_COSMETIC_PROPERTIES[slot];
     const property = asRecord(cosmeticProperties[slot]);
