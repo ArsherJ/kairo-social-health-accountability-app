@@ -12,12 +12,12 @@ describe('notificationStatus', () => {
 
   it('says what is lost, not just that something is off', () => {
     const help = notificationStatus('denied').help;
-    expect(help).toMatch(/day-end|goal alerts/i);
+    expect(help).toMatch(/day-end|battle alerts/i);
     expect(help).toMatch(/settings/i);
   });
 
   it('does not pre-empt the contextual ask when nothing has been decided', () => {
-    // `shouldAskForNotifications` raises this after squad or goal activity.
+    // `shouldAskForNotifications` raises this after squad or battle activity.
     // A button here would be the onboarding ambush that policy avoids.
     const status = notificationStatus('undetermined');
     expect(status.action).toBeNull();

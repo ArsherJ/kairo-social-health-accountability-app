@@ -13,14 +13,43 @@
  */
 
 export type NotificationTrigger =
+  /**
+   * The one scheduled push (roadmap deviation #52). 08:00 in the recipient's
+   * own timezone, carrying yesterday's final race result and today's live
+   * standing.
+   */
+  | 'daily_digest'
+  /**
+   * **Historical, all three.** The §14 evening loop — 23:00, 00:00 and the
+   * mid-morning nudge — was retired on 2026-08-25 when three pushes a day
+   * became one. They stay in the union because `notification_log.kind` is free
+   * text with no check constraint: rows already say them, `countsAgainstBudget`
+   * reads them, and a historical value matching no case is a tap that goes
+   * nowhere — indistinguishable from push being broken. Nothing emits them any
+   * more.
+   */
   | 'day_ending_soon'
   | 'day_ends'
   | 'day_starts'
+  | 'event_completed'
+  /**
+   * **Historical.** Retired on 2026-08-25 when Goals became Events (deviation
+   * #45), and kept in the union for the same reason as the three above.
+   */
   | 'goal_completed'
   | 'challenge_cleared';
 // V1 adds: 'podium_drop' | 'overtake_digest' | 'weekly_recap' | 'streak_at_risk'
 
-/** §14: "max 3/day (configurable)". Configurable means this constant at MVP. */
+/**
+ * §14: "max 3/day (configurable)". Configurable means this constant at MVP.
+ *
+ * **Deviation #52 left it at 3 deliberately.** That deviation caps the
+ * *scheduled* pushes at one; it does not touch the budget that bounds the
+ * event-driven ones, and a digest plus an Event completion plus a Challenge
+ * clear is still three. Each of the latter two fires from something the user
+ * did. Collapsing the two rules would be a scheduling decision quietly
+ * changing an unrelated one.
+ */
 export const MAX_NOTIFICATIONS_PER_DAY = 3;
 
 /** §14's quiet window, in the recipient's own local hours. */
@@ -32,7 +61,14 @@ export const QUIET_HOURS = { from: 22, to: 7 } as const;
  * §14 forbids the 22:00–07:00 window and then schedules the day-boundary pair at
  * 23:00 and 00:00 — inside it. Those two are the core evening loop, not
  * discretionary, so they are exempt on the same footing rather than as an
- * exception to an exception (plan decision #2).
+ * exception to an exception (plan decision #2). Both are **historical** now,
+ * and the list keeps naming them because a push sent before the deploy can be
+ * counted after it.
+ *
+ * **`daily_digest` is deliberately absent.** The exemptions the retired pair
+ * needed were for 23:00 and 00:00; 08:00 is never in quiet hours, so a digest
+ * needing an exemption would mean the schedule itself was wrong — and the
+ * exemption would hide that.
  */
 export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
   'day_ending_soon',
@@ -42,25 +78,30 @@ export const QUIET_HOURS_EXEMPT: readonly NotificationTrigger[] = [
 /**
  * Triggers that send regardless of the daily budget.
  *
- * `goal_completed` earns it on a better claim than `sabotaged` had: it fires once
- * per commitment, at most, and the user set that commitment themselves. A
- * recurring nudge would not qualify — the exemption is for events the user asked
- * for, not events we want them to see.
+ * `event_completed` earns it on a better claim than `sabotaged` had: it fires
+ * once per commitment, at most, and the squad set that commitment themselves. A
+ * recurring nudge would not qualify — the exemption is for things the user asked
+ * for, not things we want them to see. `goal_completed` held the exemption on
+ * exactly the same claim and keeps it, because a push sent before the rename can
+ * still be counted after it.
  *
  * **`challenge_cleared` is that disqualifying case, and is deliberately absent.**
  * A challenge clears repeatedly by design — that is the mechanic — so exempting
  * it would be exactly the recurring nudge the sentence above rules out. It is
- * not quiet-hours exempt either, for `goal_completed`'s reason: finalization
+ * not quiet-hours exempt either, for `event_completed`'s reason: finalization
  * runs about two hours after local midnight.
  *
  * Kept as a separate list from QUIET_HOURS_EXEMPT on purpose: the two rules are
  * independent in §14, and collapsing them would make the day-boundary pair
  * budget-exempt as a side effect of a quiet-hours decision. Note that
- * `goal_completed` is deliberately NOT quiet-hours exempt — finalization runs
+ * `event_completed` is deliberately NOT quiet-hours exempt — finalization runs
  * about two hours after local midnight, squarely inside the window, and a push
  * at 02:00 to say "well done" is worth waiting for morning.
  */
-export const BUDGET_EXEMPT: readonly NotificationTrigger[] = ['goal_completed'];
+export const BUDGET_EXEMPT: readonly NotificationTrigger[] = [
+  'event_completed',
+  'goal_completed',
+];
 
 /**
  * Whether a *sent* notification should be counted when reading `sentToday`.

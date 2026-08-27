@@ -13,7 +13,7 @@ import { CORE_STATS, type CoreStat } from '@kairo/core';
  * It has carried three vocabularies. It named a tier first ("8,200 steps → AGI
  * Gold"), until Bronze/Silver/Gold went internal to scoring (deviation #23). It
  * named points next ("8,412 steps → +900 AGI"), until the points spec retired
- * that figure everywhere outside Goals (deviation #30) — which mattered most
+ * that figure everywhere outside an Event's own target (deviation #30) — which mattered most
  * here, because this line is shown exactly once and only ever to someone who
  * has never seen the app before, the reader the whole change was made for. It
  * now names the steps and the stat they moved, and nothing a first-time reader

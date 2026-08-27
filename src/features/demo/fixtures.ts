@@ -93,6 +93,17 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     current_streak: 9,
     is_self: false,
     program: 'running',
+    // Deviation #47's four gated totals. Non-null throughout, because the demo
+    // board exists to show the product working — a demo of the consent gate
+    // withholding everything would be a demo of an empty track.
+    //
+    // The step counts straddle the finish line on purpose: Ramon is past it,
+    // you are close, Trina is halfway. That is a race with something at stake
+    // in it, which three numbers on the same side of the flag would not be.
+    steps: 12_480,
+    distance_m: 9_310,
+    active_kcal: 604,
+    sleep_minutes: 448,
   },
   {
     rank: 2,
@@ -113,6 +124,10 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     current_streak: 4,
     is_self: true,
     program: 'running',
+    steps: 8_421,
+    distance_m: 6_120,
+    active_kcal: 412,
+    sleep_minutes: 392,
   },
   {
     rank: 3,
@@ -139,6 +154,14 @@ export const DEMO_LEADERBOARD: LeaderboardRow[] = [
     current_streak: 2,
     is_self: false,
     program: 'running',
+    steps: 5_140,
+    distance_m: 3_640,
+    active_kcal: 233,
+    // Phone-only, matching her `has_rec: false` above: no wearable reported a
+    // night, so this is null rather than 0. It is the one row that exercises
+    // the difference, which the track has to render without saying she slept
+    // for no time at all.
+    sleep_minutes: null,
   },
 ];
 

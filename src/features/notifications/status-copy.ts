@@ -28,7 +28,7 @@ export function notificationStatus(
       value: 'On',
       // Names the limits rather than selling the feature: someone deciding
       // whether to leave this on wants to know how noisy it gets.
-      help: 'Day-end reminders and goal alerts. Three a day at most, and never overnight.',
+      help: 'Day-end reminders and battle alerts. Three a day at most, and never overnight.',
       action: null,
     };
   }
@@ -38,17 +38,17 @@ export function notificationStatus(
       value: 'Off',
       // States the consequence, then the fix. No apology, and no pleading —
       // this is a setting the user chose and may well want to keep.
-      help: 'You will not get day-end reminders or goal alerts. iOS only lets you turn these back on in Settings.',
+      help: 'You will not get day-end reminders or battle alerts. iOS only lets you turn these back on in Settings.',
       action: 'Open Settings',
     };
   }
 
-  // Not asked yet. `PermissionAsks` raises this in context after squad or goal
+  // Not asked yet. `PermissionAsks` raises this in context after squad or battle
   // activity, so pre-empting it here with a button would be the onboarding
   // ambush that policy exists to avoid.
   return {
     value: 'Not set',
-    help: 'Kairo will ask once you have a squad or a goal to be reminded about.',
+    help: 'Kairo will ask once you have a squad or a battle to be reminded about.',
     action: null,
   };
 }

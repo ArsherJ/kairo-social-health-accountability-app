@@ -128,6 +128,103 @@ just not counting it twice.
 
 ---
 
+## The race loop (post-pivot, from 2026-08-25)
+
+**Kairo pivoted to character racing on 2026-08-25** (roadmap deviation #44).
+Split every chart in this document on that date: before it, the app was a
+leaderboard with goals, and a cohort that never saw a race is not a cohort of
+the same product.
+
+The old goal funnel is gone with the surface it measured. `goal_created` is
+kept as a historical `AppEventType` because `app_events` already holds rows
+saying it, so a query over a window spanning the pivot still finds them — but
+nothing emits it, and a count of it after 2026-08-25 is a count of zero.
+
+Four events replace it, and each answers one question:
+
+```sql
+select type, count(distinct user_id) as users, count(*) as rows
+from public.app_events
+where type in (
+  'squad_data_consent_granted',  -- did they agree to be seen? (deviation #47)
+  'race_seen',                   -- did they meet a race at all?
+  'quest_cleared',               -- are the bars set right?
+  'event_created'                -- did the squad reach for a fight?
+)
+group by type
+order by type;
+```
+
+`race_seen` fires **once per account per local day**, so `rows` is days-seen
+and `users` is accounts-that-ever-saw-one. `quest_cleared` fires once per
+account per local day per slot, carries `{ tier }` and never a quest id, so
+grouping by tier is the honest way to ask whether a tier's bars are reachable:
+
+```sql
+select payload->>'tier' as tier, count(*) as cleared, count(distinct user_id) as users
+from public.app_events
+where type = 'quest_cleared'
+group by 1
+order by 1;
+```
+
+`event_created` carries `{ kind, difficulty }` and never the target — a boss's
+HP is derived from the squad's own history and is the squad's own number.
+
+### The one question the pivot exists to answer
+
+**Does a user who saw a race come back tomorrow more often than one who did
+not?** That is a cohort split on `race_seen` against the same next-day activity
+`kairo_retention` counts — a scored day — so the two halves stay comparable to
+the retention numbers below rather than becoming a third definition:
+
+```sql
+with first_score as (
+  select user_id, min(local_date) as cohort_date
+  from public.daily_scores
+  where total > 0
+  group by user_id
+),
+saw_race as (
+  select distinct user_id
+  from public.app_events
+  where type = 'race_seen'
+)
+select
+  (r.user_id is not null) as saw_a_race,
+  count(*) as cohort_size,
+  count(*) filter (
+    where exists (
+      select 1 from public.daily_scores d
+      where d.user_id = f.user_id
+        and d.local_date = f.cohort_date + 1
+        and d.total > 0
+    )
+  ) as returned_next_day
+from first_score f
+left join saw_race r on r.user_id = f.user_id
+where f.cohort_date >= date '2026-08-25'
+group by 1;
+```
+
+**It is a correlation, not a trial.** Nobody is randomised into seeing a race,
+and the people who see one are disproportionately the people in a squad — so a
+gap here is a reason to keep going, never proof on its own. It is the closest
+available signal, and the alternative was guessing.
+
+### `kairo_retention()` is deliberately unchanged across the pivot
+
+It measures whether a `daily_scores` row exists on cohort day + N. **The pivot
+redefined what the app shows, not what counts as an active day.** Rewriting
+that denominator would make every measurement taken before 2026-08-25
+incomparable to every one after — which is the opposite of what a pivot's
+instrumentation is for, and it is precisely *because* the definition held still
+that every chart above can be split on the pivot date and mean something.
+
+What was genuinely stale was the funnel vocabulary, and that is what moved.
+
+---
+
 ## Retention, and the kill signal
 
 ```sql
@@ -301,25 +398,13 @@ reflects accounts, not sessions.
 
 ---
 
-## Not yet applied
+## Migration status
 
-**The `kairo_retention` migration has not been run against the live
-Supabase project.** `supabase/migrations/20260816120000_retention_reporting.sql`
-exists in this repo and is exercised by the PGlite schema suite, but nothing
-in this task ran it against the hosted database, and its row is not yet in
-`supabase_migrations.schema_migrations`. Every query in this document that
-calls `kairo_retention` will fail with `function public.kairo_retention(integer)
-does not exist` until it is applied.
+**Applied.** `supabase/migrations/20260816120000_retention_reporting.sql` is
+live and its row is in `supabase_migrations.schema_migrations`, so every
+`kairo_retention` query above works against the hosted project. Verified
+2026-08-26.
 
-That was deliberate — applying a migration to the live project is withheld
-for the repo owner to run by hand, per this repo's environment constraints
-(`CLAUDE.md`, "Environment constraints"). The two commands, run in order:
-
-```bash
-./supabase/scripts/remote-sql.sh -f supabase/migrations/20260816120000_retention_reporting.sql
-./supabase/scripts/remote-sql.sh "insert into supabase_migrations.schema_migrations (version) values ('20260816120000')"
-```
-
-The activation funnel, squad activation, recovery, and squad-survival queries
-above need no migration and work today — they read `app_events`,
-`daily_scores`, `squads` and `squad_members`, all of which already exist.
+The funnel, race-loop, squad-activation, recovery and squad-survival queries
+need no migration at all — they read `app_events`, `daily_scores`, `squads` and
+`squad_members`, all of which predate this document.

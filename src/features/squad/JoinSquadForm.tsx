@@ -4,6 +4,8 @@ import { INVITE_CODE_LENGTH, isValidInviteCode } from './invite-code.ts';
 import { useJoinSquad } from './mutations.ts';
 import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
 import { useSquadPreview } from './queries.ts';
+import { useSquadDataConsent } from './consent.ts';
+import { SquadDataConsentSheet } from './SquadDataConsentSheet.tsx';
 import { colors, font, radius, space } from '@/theme.ts';
 import { BackRow, Button, Label, Panel, Text } from '@/ui/index.ts';
 
@@ -30,6 +32,9 @@ export function JoinSquadForm({
   notice?: string;
 }) {
   const joinSquad = useJoinSquad(userId);
+  const { consented, isSuccess } = useSquadDataConsent(userId);
+
+
   // A lazy initialiser, not a `useEffect`: seeding from an effect would run
   // again on any re-render that changed the prop, wiping whatever the user had
   // typed over it.
@@ -63,6 +68,23 @@ export function JoinSquadForm({
   // Rejoining is idempotent and harmless, so only a genuinely full squad
   // blocks the button. The server still enforces both.
   const blocked = Boolean(squad?.is_full && !squad.already_member);
+
+  // **The decision comes first, and it replaces the form rather than covering
+  // it.** Racing is the reason to have a squad, and racing discloses health
+  // data (deviation #47) — so agreeing is part of joining, exactly as
+  // consenting to the squad's program already is. A modal over a half-filled
+  // form would make it look like an interruption to dismiss.
+  //
+  // `isSuccess &&`, never `!consented` alone: while the query is in flight
+  // `consented` reads false, which is indistinguishable from a refusal, and a
+  // sheet that flashes over the form on every mount reads as a bug.
+  //
+  // **Below every hook, deliberately.** An early return above one of them is a
+  // conditional hook: the count changes the frame consent lands, and React
+  // throws rather than re-rendering.
+  if (isSuccess && !consented) {
+    return <SquadDataConsentSheet userId={userId} onDecline={onCancel} />;
+  }
 
   return (
     <KeyboardAvoidingView

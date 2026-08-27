@@ -3,10 +3,11 @@
  *
  * A Challenge is a target that **moves as the user moves**: the median of their
  * own recent qualifying sessions, nudged about 3%. That is deliberately the
- * opposite of a Goal, whose target is fixed at creation because changing it
+ * opposite of an Event, whose target is snapshotted at creation because changing it
  * mid-window would silently re-grade every day already counted (§8). A moving
- * target is a different concept, not a `GoalKind` variant — so this module is a
- * sibling of `goal.ts` and does not touch it.
+ * target is a different concept, not an `EventKind` variant — so this module is
+ * a sibling of `event.ts` and does not touch it. The asymmetry is deviation
+ * #49: derived here, snapshotted there.
  *
  * Pure, zero-dependency, no clock reads, no randomness, like everything else in
  * this package. Both consumers import this same file: the Expo app via
@@ -58,7 +59,7 @@ export const RUN_MIN_DISTANCE_M = 1_000;
 /**
  * What clearing a challenge pays. About a fifth of a strong day
  * (`MAX_REALISTIC_DAILY_XP` is 200): a real nudge that cannot substitute for
- * showing up, the same posture `goalCompletionXp`'s cap takes.
+ * showing up, the same posture `eventCompletionXp`'s cap takes.
  */
 export const CHALLENGE_COMPLETION_XP = 40;
 
@@ -134,7 +135,7 @@ function median(values: readonly number[]): number {
  * judged from moving its own bar — without it, a great run raises the median
  * that decides whether that same run cleared anything. And it makes the whole
  * mechanism replay-safe: nothing stateful is stored, so a retroactive HealthKit
- * revision flows through for free, the same property that made goal progress a
+ * revision flows through for free, the same property that makes event progress a
  * read-time projection.
  */
 function baselineSessions(
@@ -194,7 +195,7 @@ export function resolveChallenge(
  * Here rather than in either consumer because **both** need it and they must
  * agree: a push saying "4:51/km" beside a card saying "4:52/km" describes two
  * different targets for the same challenge. The same argument that keeps
- * `evaluateGoal` single-implementation.
+ * `evaluateEvent` single-implementation.
  *
  * Rounds to the nearest second, then carries — 4:59.6 is `5:00`, not `4:60`.
  */

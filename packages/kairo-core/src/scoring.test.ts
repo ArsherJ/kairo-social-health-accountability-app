@@ -892,7 +892,7 @@ describe('DAILY_STEP_BASELINE', () => {
 // the user (CLAUDE.md; spec §1). The spread shift made that easy to break by
 // accident, because `daily_scores.tiers->>'AGI'` is the SHIFTED tier and every
 // walk read went through it — including `walk_cleared`, which feeds a
-// consistency goal that LATCHES.
+// commitment that LATCHES.
 //
 // These tests deliberately assert through `computeDailyScore`, not `tierFor`.
 // `tierFor` is `shiftedTierFor(stat, raw, 0)`, so it is the one path where the

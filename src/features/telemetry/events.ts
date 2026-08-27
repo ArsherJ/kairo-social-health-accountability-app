@@ -17,9 +17,12 @@ import { bufferEvent, drainBuffer, type BufferedEvent } from './buffer.ts';
 export type AppEventType =
   | 'first_sync_seen'
   | 'squad_program_selected'
-  // Read by dispatch-notifications, not only by analysis: §14's "Day starts"
-  // fires mid-morning *only if the app has not been opened yet*, and this row
-  // is the entire signal behind that condition.
+  // Analysis only, as of 2026-08-25. It used to be read by
+  // dispatch-notifications as well — §14's "Day starts" fired mid-morning only
+  // if the app had not been opened yet — and that trigger is retired with the
+  // other two (deviation #52). The digest is sent whether or not the app is
+  // open, because it carries yesterday's *result*, which the screen does not
+  // show.
   | 'app_open'
   // The two failures that used to leave no trace anywhere. Both are silent by
   // construction rather than by oversight — the app looks fine while the thing
@@ -52,13 +55,63 @@ export type AppEventType =
   | 'first_score_seen'
   | 'squad_created'
   | 'squad_joined'
+  /**
+   * A Battle started. Payload `{ kind, difficulty }` and **never the target** —
+   * a boss's HP is derived from the squad's own history and is the squad's own
+   * number, the rule `goal_created` already followed. Difficulty answers
+   * whether squads reach for a fight they can win.
+   */
+  | 'event_created'
+  // **Historical.** Retired on 2026-08-25 when Goals became Events
+  // (deviation #45). Nothing emits it any more; the name stays because
+  // `app_events` already holds rows saying it, and `kairo_retention()`
+  // reads that table over a trailing window that still spans the change.
   | 'goal_created'
   // Fired by `useDisclosure` the first time an account crosses
   // `DISCLOSURE_THRESHOLD_DAYS` scored days. Once-ever, marked in MMKV: the
   // stage is *derived* from a day count rather than stored, so without the
   // marker this would re-fire on every launch afterwards and become a launch
   // counter. It is the first honest read on whether the core loop holds.
-  | 'disclosure_unlocked';
+  | 'disclosure_unlocked'
+  // ---------------------------------------------------------------------
+  // The moments the post-pivot loop turns on (deviation #44).
+  //
+  // `kairo_retention()` is deliberately NOT re-pointed alongside these: it
+  // measures whether a `daily_scores` row exists on cohort day + N, and the
+  // pivot redefined what the app *shows*, not what counts as an active day.
+  // Rewriting that denominator would make every measurement taken before
+  // 2026-08-25 incomparable to every one after — which is the opposite of what
+  // a pivot's instrumentation is for, and the reason every chart can be split
+  // on the pivot date and still mean something. What was genuinely stale is the
+  // funnel vocabulary, which is these four.
+  // ---------------------------------------------------------------------
+  /**
+   * Someone agreed to show squadmates their daily totals (deviation #47).
+   *
+   * The funnel step spec §13 flags as the highest risk in the whole pivot: the
+   * race cannot draw a lane for a member who has not consented. If join
+   * conversion falls materially, the fallback is steps and distance only — and
+   * this event is how that is measured rather than guessed.
+   */
+  | 'squad_data_consent_granted'
+  /**
+   * The account saw a race with somebody in it — a squad's or its own ghosts'.
+   *
+   * **Once per local day**, on `daily-marker.ts`, not on every render: fired on
+   * render it would measure scrolling rather than engagement. It is the cohort
+   * split the pivot exists to answer — does a user who saw a race come back
+   * tomorrow more often than one who did not?
+   */
+  | 'race_seen'
+  /**
+   * A quest's bar was met. Payload `{ tier }`, **never the quest id**: a tier
+   * answers "are the bars set right", where an id would make the table a
+   * per-quest leaderboard nobody asked for.
+   *
+   * Once per local day per slot, so re-opening the tab in the afternoon does
+   * not count a quest twice.
+   */
+  | 'quest_cleared';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

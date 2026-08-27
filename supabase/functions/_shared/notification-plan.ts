@@ -2,109 +2,93 @@
  * The decision-making half of `dispatch-notifications`, kept free of I/O so it
  * can be tested in plain Node.
  *
- * The cron fires every hour and asks the database which users are living at
- * each of the three hours §14 schedules on. This module turns that answer into
- * candidates: which trigger, and — the part that is easy to get wrong — which
- * local date the notification is actually *about*.
+ * The cron fires every hour and asks the database which users are living at the
+ * one hour Kairo dispatches on. This module turns that answer into candidates:
+ * which trigger, and — the part that is easy to get wrong — which local dates
+ * the notification is actually *about*.
  */
 
 import { previousDay, type Candidate, type NotificationTrigger } from './core.ts';
 
 /**
- * The triggers a clock can produce.
+ * The one local hour the app dispatches on (roadmap deviation #52).
  *
- * Narrower than `NotificationTrigger` on purpose: `goal_completed` fires from
- * `finalize-days` when a goal latches, so it can never come out of
- * DISPATCH_HOURS. Expressing that in the type is what lets `notificationCopy()`
- * be exhaustive without a throw for a case that cannot happen.
+ * **08:00, and deliberately not the finalization moment.** Days finalize
+ * roughly two hours after each user's local midnight, so a digest carrying the
+ * finalized result would fire at about 2am. The two are decoupled:
+ * `finalize-days` writes the result when the day closes, and this sends it when
+ * the recipient is awake to read it.
+ *
+ * The cron still fires hourly and twenty-three of those hours produce nothing.
+ * That is the normal path, not an error — every hour of the day is somebody's
+ * 08:00, and the same run that greets a Manila player greets a New York one
+ * thirteen hours later.
  */
-export type ScheduledTrigger = Extract<
-  NotificationTrigger,
-  'day_starts' | 'day_ending_soon' | 'day_ends'
->;
+export const DIGEST_HOUR = 8;
 
 /**
- * The three local hours MVP dispatches on (§14). Every MVP trigger is on a
- * clock; nothing fires in real time from another user's action any more.
+ * The triggers a clock can produce.
  *
- * V1 adds 20:00 (streak at risk) and Sunday 21:00 PHT (weekly recap).
+ * Narrower than `NotificationTrigger` on purpose, and narrower than it used to
+ * be: `event_completed` and `challenge_cleared` fire from `finalize-days` when
+ * something latches, and the three retired evening triggers fire from nowhere
+ * at all. Expressing that in the type is what lets the copy layer be exhaustive
+ * without a throw for a case that cannot happen.
  */
-export const DISPATCH_HOURS: Readonly<Record<number, ScheduledTrigger>> = {
-  0: 'day_ends',
-  9: 'day_starts',
-  23: 'day_ending_soon',
-};
+export type ScheduledTrigger = Extract<NotificationTrigger, 'daily_digest'>;
 
-/** One row of `users_at_local_hour()`. */
+/** One row of `users_needing_digest()`. */
 export interface DispatchUser {
   userId: string;
-  /** The date the user is currently living in — not necessarily the one the
-   * notification is about. */
+  /** The date the user is currently living in. */
   localDate: string;
   timeZone: string;
 }
 
 export type DispatchData = {
-  /** The local date the notification concerns. */
-  aboutDate: string;
-  /**
-   * The local date the user is living in when it goes out — the budget bucket
-   * `notification_log.local_date` records. Equal to `aboutDate` except at local
-   * hour 0, where the day being described has just ended.
-   */
+  /** The date whose *result* the digest carries — yesterday. */
+  resultDate: string;
+  /** The date whose *standing* it carries — today, still being run. */
+  standingDate: string;
+  /** The local date the budget ledger records. Always today. */
   sendDate: string;
   timeZone: string;
 };
 
 export interface DispatchCandidate extends Candidate {
-  // Narrowed from Candidate's `NotificationTrigger`: everything this planner can
-  // emit came out of DISPATCH_HOURS, so `goal_completed` is not reachable here.
-  // Stating it lets the dispatcher call `notificationCopy()` without a cast.
   trigger: ScheduledTrigger;
   data: DispatchData;
 }
 
 /**
- * Turn "these users are at local hour H" into what may be sent to them.
+ * Turn "these users are at local hour H" into the one thing that may be sent.
  *
  * Note there is no `now` parameter. The local date arrives from SQL, where the
  * timezone arithmetic already happened; re-deriving it here from a UTC instant
  * would be a second implementation of the thing this function is downstream of.
+ *
+ * **It does not enforce the once-a-day cap and must not try.** The cap is a
+ * server-side ledger applied in the selection query (`users_needing_digest`),
+ * because a cap applied after selection is one this function cannot see across
+ * two invocations of the cron — and a client-side cap is not a cap at all, it
+ * is a race between the same account's devices.
  */
-export function planHourlyDispatch(input: {
+export function planDigest(input: {
   hour: number;
   users: readonly DispatchUser[];
-  /**
-   * User ids known to have opened the app on their current local date. Only
-   * consulted for `day_starts`.
-   */
-  openedApp?: readonly string[];
 }): DispatchCandidate[] {
-  const trigger = DISPATCH_HOURS[input.hour];
-  // Twenty-one hours of the day carry nothing. The cron still fires on all of
-  // them, so this is the normal path, not an error.
-  if (!trigger) return [];
+  if (input.hour !== DIGEST_HOUR) return [];
 
-  const opened = new Set(input.openedApp ?? []);
-
-  const candidates: DispatchCandidate[] = [];
-  for (const user of input.users) {
-    // §14: mid-morning, "only if the app hasn't been opened yet". Telling
-    // someone their day started while they are looking at the screen is noise.
-    if (trigger === 'day_starts' && opened.has(user.userId)) continue;
-
-    candidates.push({
-      trigger,
-      userId: user.userId,
-      data: {
-        // At local hour 0 the user has already rolled into the new day, and the
-        // result being announced belongs to the one before it.
-        aboutDate: trigger === 'day_ends' ? previousDay(user.localDate) : user.localDate,
-        sendDate: user.localDate,
-        timeZone: user.timeZone,
-      },
-    });
-  }
-
-  return candidates;
+  return input.users.map((user) => ({
+    trigger: 'daily_digest' as const,
+    userId: user.userId,
+    data: {
+      // Yesterday's race is the one that has a result: it finalized about two
+      // hours after this user's local midnight, six hours ago.
+      resultDate: previousDay(user.localDate),
+      standingDate: user.localDate,
+      sendDate: user.localDate,
+      timeZone: user.timeZone,
+    },
+  }));
 }

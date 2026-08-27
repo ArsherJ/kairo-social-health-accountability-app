@@ -6,7 +6,7 @@ import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { usePendingInvite } from '@/features/squad/usePendingInvite.ts';
-import { useMyGoals } from '@/features/goals/queries.ts';
+import { useSquadEvents } from '@/features/events/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
@@ -47,7 +47,7 @@ export default function TabsLayout() {
   // The Health ask moved here from the character screen for the same reason,
   // and because two independently-mounted `<Modal>`s cannot both present.
   const squad = useMySquad(session?.user.id);
-  const goals = useMyGoals(session?.user.id);
+  const events = useSquadEvents(squad.data?.id);
 
   return (
     <Fragment>
@@ -58,7 +58,11 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: colors.bg },
         }}
       >
+        {/* This order is the navigator's; `TabPill`'s own `order` array is the
+            bar's. They are allowed to differ and already do — the bar puts
+            Squad ahead of the character. */}
         <Tabs.Screen name="index" options={{ title: 'Character' }} />
+        <Tabs.Screen name="today" options={{ title: 'Today' }} />
         <Tabs.Screen name="squad" options={{ title: 'Squad' }} />
         <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       </Tabs>
@@ -69,7 +73,7 @@ export default function TabsLayout() {
       <PermissionAsks
         userId={session?.user.id}
         hasSquad={Boolean(squad.data)}
-        hasGoal={(goals.data ?? []).length > 0}
+        hasEvent={(events.data ?? []).length > 0}
       />
     </Fragment>
   );

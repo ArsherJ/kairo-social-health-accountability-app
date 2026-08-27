@@ -2,7 +2,7 @@
 
 What a player actually walks through, end to end. Grounded in the current implementation (`app/`, `src/`) and cross-referenced to the spec (`Kairo_Master_Summary.md`, cited as `§n`) and `docs/roadmap.md` for what's shipped vs. still planned.
 
-**Keep this current.** A change to onboarding, the daily loop, the character screen, squads, or goals updates this file in the same pass — see `CLAUDE.md` → Tooling conventions.
+**Keep this current.** A change to onboarding, the daily loop, the character screen, squads, or battles updates this file in the same pass — see `CLAUDE.md` → Tooling conventions.
 
 ---
 
@@ -33,22 +33,26 @@ The portal-side configuration this depends on, and the client secret's ~182-day 
 **The connect sequence itself is `src/features/health/connect-health.ts`, shared with `HealthAsk`.** It is five steps, not one — request, register background delivery, kick off an immediate sync, read the state back, record the event — and it lives in one module because it was paraphrased into this screen from a plan that showed only the request, and three of the five went missing silently. The costly omission was background delivery: after a grant, `readHealthPermissionState()` returns `'asked'`, so `nextPermissionAsk` never offers the sheet again and nothing else would ever have registered it. Nothing errors and nothing logs; data just arrives less often. Two callers, one function.
 2. **Character, then name, within the first 60 seconds** (§5) — emotional investment before any ask. `character.tsx` shows the four species and commits nothing, carrying the choice to the next screen as a route param; `name.tsx` names the one picked and is where the profile row is INSERTed — once, on the last screen, with `species` in it. Profile-row existence (`character_name` set) *is* the onboarding-complete marker (`app/_layout.tsx` gate) — no separate flag to desync. **Every step stays before the name screen** for that reason: deviation #22 deleted the `finishingOnboarding` flag, and anything asked after the INSERT flips `resolveRoute` to `'ready'` under an unfinished screen and needs it back (deviations #27, #35).
 3. **The HealthKit disclosure** the sheet shows lists **every** type Kairo requests with what each is for, rendered from `HEALTH_DISCLOSURE` rather than written out: `disclosure.test.ts` fails if it and `read-types.ts` disagree in either direction. Prose could not stay honest — the copy named four types while the app asked for eight, and iOS showed the user the true list either way, which is what made it a trust problem rather than a wording one. The `NSHealthShareUsageDescription` in `app.config.ts` carries the same list and is the one half a test cannot lock, so it changes by hand.
-4. **Notifications**, requested only once a squad or a goal-in-flight gives them a reason to exist (§14) — not upfront, and after onboarding rather than in it.
-5. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate STR tracking") rather than blocking onboarding. Height/weight feed active-calorie (STR) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
+4. **Notifications**, requested only once a squad or a running battle gives them a reason to exist (§14) — not upfront, and after onboarding rather than in it.
+5. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in Settings ("Add your height and weight for more accurate Body tracking") rather than blocking onboarding. Height/weight feed active-calorie (Body/`STR`) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
 
 ### What a new account actually sees (§5, deviations #37/#38)
 
-**The app a first-time user meets is deliberately smaller than the app.** Someone landing on the home tab used to meet eight retention systems at once — level and XP, four ability ratings, a daily score, streaks, raw metrics, a leaderboard, long-horizon goals and squad program multipliers — before having a single day of data to read any of them against.
+**The app a first-time user meets is deliberately smaller than the app.** Someone landing on the home tab used to meet eight retention systems at once — level and XP, four ability ratings, a daily score, streaks, raw metrics, a leaderboard, long-horizon commitments and squad program multipliers — before having a single day of data to read any of them against.
 
 `disclosureStage()` in `@kairo/core` decides, from one number: how many days this account has ever scored above zero. Below `DISCLOSURE_THRESHOLD_DAYS` (3) the stage is `core`; at or above it, `full`.
 
-**`core` keeps one loop.** The day in real units, the character and its level, the squad gap, the Daily Walk and its streak, the sync line, and a link to *How progress works*. Under the Daily Walk it says what is coming — *"Two more active days and goals, challenges and your full stat breakdown open up."* — because an empty space where a card used to be reads as a missing feature.
+**`core` keeps one loop.** On the Character tab: the day in real units, the character and its level, the squad gap, the sync line, and a link to *How progress works*. On the Today tab (deviation #50): the race card, **three quests** and the Daily Walk with its streak. The character screen says what is coming — *"Two more active days and challenges and your full stat breakdown open up."* — because an empty space where a card used to be reads as a missing feature.
 
-**`core` hides, and never deletes:** `TrainEntry`, `GoalCard`, `StatRail` and the per-stat block behind it, and the Strain/Sleep rows. **And it closes the doors, not just the entry points:** `/train`, `/goal/new` and `/goal/[id]` redirect home and `SquadGoalPanel` renders nothing, because push routing and deep links reach all four regardless of what the home screen draws. `/goal/[id]` is the least obvious of them and a `core` user really can reach it — a squad goal freezes its roster from squad membership at creation, so someone who joined a squad on day one is on a goal a squadmate created and will get its completion push. Their days still count toward it; the screen appears with everything else at three scored days. Those guards wait for the count to resolve before navigating — the stage reads `core` while it is in flight, and a Challenge push that cold-launches straight into `/train` would otherwise bounce a `full` user home.
+**Quests are outside the gate, and are the only thing that is** (deviation #50). A quest is what teaches the loop, so gating it is backwards, and a tab named for the present moment showing one card for three days reads as a broken app rather than a gentle one. **Nothing was taken *out* of the gate to make room** — the subject list below is unchanged.
+
+**`core` hides, and never deletes:** `TrainEntry` — now on the Today tab, wrapper and all, and last on it so a hidden card leaves no hole — `StatRail` and the per-stat block behind it, and the Strain/Sleep rows. **And it closes the door, not just the entry point:** `/train` redirects home, because push routing and deep links reach it regardless of what the home screen draws. That guard waits for the count to resolve before navigating — the stage reads `core` while it is in flight, and a Challenge push that cold-launches straight into `/train` would otherwise bounce a `full` user home. **Neither the Battle nor quests are on this list, for different reasons.** A Challenge stays gated because it is a trailing-median target over workout sessions a `core` account may have none of, and it is opt-in and off by default — offering it on day one offers depth to somebody who has not produced the data it reads.
+
+**The Battle is deliberately not on this list either.** The goal surfaces it replaced were gated, and a `core` user could genuinely be frozen onto a squad goal with no screen to explain it; an Event has a panel on the Squad tab at every stage, so there is nothing left to hide and hiding it would conceal from a new member what the rest of their squad is already looking at.
 
 Crossing the threshold fires `disclosure_unlocked` once, ever. The gate is on **lifetime** scored days, never a recent window: a recent-activity gate would demote someone returning from a quiet week back into the reduced app, and that is precisely the user the retention measurement is about.
 
-A QA pass that reports Goals or Challenges missing on a fresh install is describing the design working — see `docs/mvp-scope.md`.
+A QA pass that reports Challenges missing on a fresh install is describing the design working — see `docs/mvp-scope.md`.
 
 **MVP scope note:** ships one character class with placeholder art; the other three classes are V1 (§6). The class is internal — `profiles.class` defaults to `'hunter'` and no surface names it. **The character has no in-app noun** as of 2026-08-11 (roadmap deviation #26): it is "your character", never a Hunter. **Onboarding asks which animal you play as** (2026-08-18, deviation #40, superseding #27) before asking for a name: four Philippine endemic species — Pilandok, Tamaraw, Carabao, Philippine Eagle. The answer is `profiles.species`, it is cosmetic only, and it is changeable any time from Profile → Companion. `profiles.character_body` is dead.
 
@@ -57,22 +61,57 @@ A QA pass that reports Goals or Challenges missing on a fresh install is describ
 ```
 12:00 AM local  →  Day resets for that player (per-user local day, not a shared server midnight — §2).
 Throughout day  →  HealthKit background delivery syncs automatically, free and paid users alike.
-Anytime         →  Open the app: Character tab, Squad tab, /train, or a goal's progress.
+Anytime         →  Open the app: Character tab, Today tab, Squad tab, /train, or the squad's battle.
 Any workout     →  Logged on the watch or phone, it syncs as a session and can clear a Challenge.
-11:00 PM local  →  Push: "1 hour left. You're in [rank] place."
-11:59 PM local  →  Day ends; provisional results shown.
-~2:00 AM local  →  Day finalizes (grace window for late phone syncs) — coins + XP land.
+11:59 PM local  →  Day ends; provisional results shown. No push — see below.
+~2:00 AM local  →  Day finalizes (grace window for late phone syncs) — XP lands, and once
+                   EVERY member of the squad has finalized that date, the race result is
+                   snapshotted into `race_results` and never changes again.
+ 8:00 AM local  →  The one push of the day: yesterday's result, today's standing, the boss.
 Sunday 10 PM    →  AI weekly recap card pushed to all squads (V1+).
 ```
+
+### One push a day, in the morning (deviation #52)
+
+**Three scheduled pushes became one on 2026-08-25.** The evening pair — "1 hour
+left" at 11 PM and "Day ends" at midnight — and the mid-morning "Day starts" are
+all retired. What replaces them is a **digest at 08:00 in the recipient's own
+timezone**, carrying yesterday's *finished* race result, today's live standing,
+and a live Battle's pooled progress.
+
+**08:00, and deliberately not the finalization moment.** A day finalizes about
+two hours after the player's local midnight, so a push carrying the finalized
+result would arrive at 2am. The two are decoupled: `finalize-days` writes the
+result when the day closes, and the dispatcher sends it when its reader is
+awake. The cron still fires hourly and twenty-three of those runs send nothing —
+every hour of the day is somebody's 08:00.
+
+**It is capped in the database, not on the phone.** `users_needing_digest()`
+excludes anyone already sent today in the same query that works out whose local
+clock reads 08:00, and a partial unique index on `notification_log` refuses a
+second row even if that query is wrong. A client-side cap would be a race
+between the same account's phone and tablet.
+
+Four sentences, not one template with holes: you won yesterday; you placed
+yesterday; yesterday is not final yet but here is where you stand today; you
+have no squad. **A solo player gets a digest too and it never mentions rank** —
+they are racing their own past days, and "1st of 4" against three ghosts would
+be a claim about other people that is not true.
+
+Two pushes still fire from something the user did — a Battle completing and a
+Challenge clearing — and the max of 3 a day still bounds those.
 
 ### Tapping a push lands somewhere specific
 
 Every notification carries a destination, and as of 2026-08-14 the app acts on
-it. `dispatch-notifications` sends `screen: 'squad'` or `'character'` with the
-three scheduled triggers; `finalize-days` sends `screen: 'goals'` with the
-`goalId` that just completed, and — as of 2026-08-15 — `screen: 'train'` when a
-Challenge clears. A tap goes to the squad tab, the character tab, `/train`, or
-**that goal's own screen** — the most specific destination the product has.
+it. `dispatch-notifications` sends `screen: 'today'` with the digest;
+`finalize-days` sends `screen: 'events'` with the `eventId` that just went down,
+and — as of 2026-08-15 — `screen: 'train'` when a Challenge clears. A tap goes
+to the Today tab, `/train`, or **that battle's own screen** — the most specific
+destination the product has. Pushes sent before a deploy still land: the
+pre-rename `goals` payloads and the retired `squad` and `character` ones all
+still route, because a tap that goes nowhere is indistinguishable from push
+being broken.
 
 Three details are load-bearing rather than incidental:
 
@@ -84,8 +123,9 @@ Three details are load-bearing rather than incidental:
   routing hook reads it when the tabs shell finally mounts, seconds later.
 - A push arriving while the app is already open now shows a banner. Before
   `setNotificationHandler`, iOS displayed nothing at all in the foreground —
-  which reads exactly like push being broken, and 11 PM is precisely when
-  someone is likely to have the app in hand.
+  which reads exactly like push being broken. That matters more since the
+  digest, not less: it is worth showing to somebody already looking at the
+  screen, because it carries yesterday's *result*, which the screen does not.
 
 An unrecognised payload is ignored rather than acted on, so a push from a newer
 server than the installed build cannot send anyone somewhere that does not exist.
@@ -113,94 +153,119 @@ It waits **six hours from the first sync ever completed** before saying anything
 
 What it cannot say is that the user declined. HealthKit deliberately never reports read-permission denial — that would leak whether someone has a given condition — so "nothing has arrived" is the whole of what is knowable, and "yet" is what keeps it a status rather than a verdict.
 
-Because each player's day runs midnight-to-midnight in *their own* timezone, a squad spans multiple calendar dates at any instant — this is what makes the OFW-in-Dubai-vs-family-in-Cebu use case work at all, and it's why every score, bucket, and goal window is keyed by local date, never server time (see `CLAUDE.md` → Per-user local days).
+Because each player's day runs midnight-to-midnight in *their own* timezone, a squad spans multiple calendar dates at any instant — this is what makes the OFW-in-Dubai-vs-family-in-Cebu use case work at all, and it's why every score, bucket, and battle window is keyed by local date, never server time (see `CLAUDE.md` → Per-user local days).
 
 ### Engagement hooks, and how many survive with zero friends (§2)
-1. **Morning FOMO** — who's ahead while you slept (solo: how long is the streak now).
-2. **The commitment** — a goal in flight with a visible days-remaining count. Works with no squad at all.
-3. **Night urgency** — real-time rank notification with a countdown.
+1. **Morning FOMO** — who's ahead while you slept (solo: how long is the streak now). Since deviation #52 this is the *only* scheduled push, and it now carries a result rather than a provisional standing: yesterday's race is finished and snapshotted by the time it arrives.
+2. **The commitment** — a Challenge on `/train`, or the squad's battle with a visible days-remaining count. Only the first works with no squad at all.
+3. ~~**Night urgency** — real-time rank notification with a countdown.~~ **Retired 2026-08-25** with the evening pair. Three pushes a day was volume, not urgency; the hook it was meant to be is now the morning digest's, once.
 4. **The floor and the curve** (2026-08-15) — the Daily Walk is the same 10,000 steps for everyone, every day, forever; a Challenge is a target set from your own recent sessions that moves as you do. Both are entirely solo, which is the point: three of these four now work with no squad at all.
+5. **Three quests, reset every local midnight** (2026-08-25, deviation #50) — the smallest hook in the app and the first one a brand-new account meets, because it is the only one outside the disclosure gate. Entirely solo, and deliberately cheap: three of them together pay less than a third of a strong day.
 
-## 4. The three tabs
+## 4. The four tabs
 
-`app/(tabs)/_layout.tsx` defines the shell every session lands in after onboarding.
+`app/(tabs)/_layout.tsx` defines the shell every session lands in after onboarding. Since 2026-08-25 (deviation #50) there are four: **Character · Today · Squad · You**. `TabPill` is a hand-built orbit nav rather than a stock tab bar, and the character keeps the **raised** disc without being geometrically centred — raised means *anchor*, not *middle*. Squad stays leftmost and You stays rightmost, so no existing thumb target moved to the other end of the bar; Today slots between the two you already visit.
 
 ### Character (`index.tsx`)
-The RPG avatar and the day's/lifetime scoring surface.
+The character itself: who you are playing as, and what the days have added up to. **Its subject is the character, not the day** — everything below the hero that was about *today* moved to the Today tab in deviation #50, because a different subject sharing a scroll is what left no room for anything new.
 
-- **Three stats drive it, as of 2026-08-20** (deviation #41, which supersedes §5's and §6's four-stat tables): **AGI** (steps), **STR** (active calories) and **MND** (sleep). Two of them are phone-only and passive; MND needs a sleep source, typically a wearable. END (active minutes) and VIT (hourly movement) are not gone so much as demoted from stats to *modifiers* — active hours lower AGI's bands and verified workout minutes lower STR's, by 5% a step to a cap of 25%, so the signal survives as generosity rather than as points. **A modifier is a threshold shift and never a multiplier**, because a stored multiplier would stack with the squad program's read-time ×1.5 (deviation #10's trap).
-- **A wearable is a third route to the ceiling, not a higher one.** Promoting sleep to a stat would otherwise have made a wearable worth 27% of the daily maximum — a permanent leaderboard gradient, in a market where it lands on the people least likely to own one. A day's stat points are therefore scaled by `3 / earnable stats`, so a phone-only Gold + Gold equals a wearable user's Gold + Gold + Gold and **both ceilings are 4,400**. MND counts as earnable if sleep that scores arrived in the last 14 days: today's data would invert the incentive (skip tracking, score more), and `has_wearable` is sticky, so someone who abandoned a wearable would be penalised twice. The honest cost, which the app says rather than hides: two users with identical steps and calories can score differently.
-- Each stat scores independently per day (None/Bronze/Silver/Gold → 0/250/650/1,200 pts since deviation #41, re-derived so that `4 × 900 = 3 × 1,200`) plus a consistency bonus for touching **every stat available to you** — two without a wearable, three with — in the same day (§6). **Tier names are internal to the scoring engine only** — nothing in the UI shows "Bronze/Silver/Gold" (roadmap deviation #23). What the player sees is a numeric **ability rating** built from lifetime per-stat points, plus a guidance line in raw units that names what the effort achieves rather than what it pays ("1,240 more steps tops out your Agility today", or "Your lane · 20 more kcal lifts your Strength today"). That line has carried three vocabularies — "for Gold", then "for +400 AGI", now this — each retirement for the same reason: name something the user can recognise.
-- **The guidance line names the band the day is actually judged against, as of 2026-08-19** (deviation #41). END and VIT survive as *threshold shifts*: active hours lower AGI's bands and verified workout minutes lower STR's, up to 25%. `nextTierFor` read the unshifted ladder while the scorer read the shifted one, so a day spent moving was told "1,240 more steps" and topped out at 7,500 — arriving early, which reads as a broken score rather than a gift. The line reads `statShifts()`, the same table `computeDailyScore` uses, so the screen and the score cannot quote different ladders. Two things it deliberately does not touch: the **Daily Walk** still reads the *unshifted* AGI ladder (`tiers->>'AGI_base'`), because a public-health baseline must not scale with the user; and STR's hint quotes **no band at all** on a day that carries a workout. The home screen still has no verified-workout figure — widening `useWorkoutSessions` to the three trust columns is a §5 decision that has not been taken — so rather than quoting a ladder the scorer may have lowered by a quarter, Strength is dropped from the guidance ranking on such a day and another stat with a real number takes the line. When none is left it reads "Active calories lift your Strength today", naming the lever and no figure. Silence beats a confidently wrong number: being told 400 kcal and topping out at 300 is the same "broken score" failure the deviation exists to close. The screen decides this from the *existence* of a session — `workoutDaySignal()` reads `local_date` and nothing else — and an in-flight sessions query silences the same way a known session does, because "I have not been told" is not "there is none".
-- **The hero number opening the shelf is the day in real units, not the score, as of 2026-08-15** (roadmap deviation #30). It used to be `daily_scores.total` — a four-digit integer with no unit, no label and no target — and now reads "8,412 steps · 6 active hours" instead, with the full breakdown (distance, calories, active minutes, and Strain/Sleep for wearable users) underneath in `TodayPanel`. The engine still computes the total — it still ranks the board and scores every Goal — it is simply not something a first-time user was ever able to read. Anyone curious what actually ranks them can still find out, on `app/progress.tsx`'s "Daily score" entry.
-- **The stats are glyphs on the rail, not letters** (2026-08-11): a footprint, a flexed arm and a brain, each over its rating. The abbreviation survives one tap down, on the expanded bars — icon, `AGI`, and "Steps and distance" together — which is where a new player learns the mapping, and in the guidance sentence, which still names the stat in words.
-- **Level** is permanent XP, never resets. Two players at the same level can look different — the character's visual build follows whichever stat dominated their **last 14 days** (`DOMINANCE_WINDOW_DAYS`; the ability ratings are the lifetime figure, the build is the recent one): leaner for AGI, broader silhouette for STR, and for MND §6's recovery build, inherited from the VIT entry it replaces since §6 was written before sleep was a stat. A rare "All-Rounder" look — unpurchasable, must be earned — when all three stay within 20% of each other.
+- **Three stats drive it, as of 2026-08-20** (deviation #41, which supersedes §5's and §6's four-stat tables): **Motion** (steps), **Body** (active calories) and **Mind** (sleep). Those are the words on every screen; `AGI`, `STR` and `MND` are the engine keys underneath them and are rendered nowhere, as of deviation #51. Two of them are phone-only and passive; MND needs a sleep source, typically a wearable. END (active minutes) and VIT (hourly movement) are not gone so much as demoted from stats to *modifiers* — active hours lower Motion's bands and verified workout minutes lower Body's, by 5% a step to a cap of 25%, so the signal survives as generosity rather than as points. **A modifier is a threshold shift and never a multiplier**, because a stored multiplier would stack with the squad program's read-time ×1.5 (deviation #10's trap).
+- **A wearable is a third route to the ceiling, not a higher one.** Promoting sleep to a stat would otherwise have made a wearable worth 27% of the daily maximum — a permanent leaderboard gradient, in a market where it lands on the people least likely to own one. A day's stat points are therefore scaled by `3 / earnable stats`, so a phone-only Gold + Gold equals a wearable user's Gold + Gold + Gold and **both ceilings are 4,400**. Mind counts as earnable if sleep that scores arrived in the last 14 days: today's data would invert the incentive (skip tracking, score more), and `has_wearable` is sticky, so someone who abandoned a wearable would be penalised twice. The honest cost, which the app says rather than hides: two users with identical steps and calories can score differently.
+- Each stat scores independently per day (None/Bronze/Silver/Gold → 0/250/650/1,200 pts since deviation #41, re-derived so that `4 × 900 = 3 × 1,200`) plus a consistency bonus for touching **every stat available to you** — two without a wearable, three with — in the same day (§6). **Tier names are internal to the scoring engine only** — nothing in the UI shows "Bronze/Silver/Gold" (roadmap deviation #23). What the player sees is a numeric **ability rating** built from lifetime per-stat points, plus a guidance line in raw units that names what the effort achieves rather than what it pays ("1,240 more steps tops out your Motion today", or "Your lane · 20 more kcal lifts your Body today"). That line has carried three vocabularies — "for Gold", then "for +400 AGI", now this — each retirement for the same reason: name something the user can recognise.
+- **The guidance line names the band the day is actually judged against, as of 2026-08-19** (deviation #41). END and VIT survive as *threshold shifts*: active hours lower Motion's bands and verified workout minutes lower Body's, up to 25%. `nextTierFor` read the unshifted ladder while the scorer read the shifted one, so a day spent moving was told "1,240 more steps" and topped out at 7,500 — arriving early, which reads as a broken score rather than a gift. The line reads `statShifts()`, the same table `computeDailyScore` uses, so the screen and the score cannot quote different ladders. Two things it deliberately does not touch: the **Daily Walk** still reads the *unshifted* Motion ladder (`tiers->>'AGI_base'`), because a public-health baseline must not scale with the user; and Body's hint quotes **no band at all** on a day that carries a workout. The home screen still has no verified-workout figure — widening `useWorkoutSessions` to the three trust columns is a §5 decision that has not been taken — so rather than quoting a ladder the scorer may have lowered by a quarter, Body is dropped from the guidance ranking on such a day and another stat with a real number takes the line. When none is left it reads "Active calories lift your Body today", naming the lever and no figure. Silence beats a confidently wrong number: being told 400 kcal and topping out at 300 is the same "broken score" failure the deviation exists to close. The screen decides this from the *existence* of a session — `workoutDaySignal()` reads `local_date` and nothing else — and an in-flight sessions query silences the same way a known session does, because "I have not been told" is not "there is none".
+- **The hero number opening the shelf is the day in real units, not the score, as of 2026-08-15** (roadmap deviation #30). It used to be `daily_scores.total` — a four-digit integer with no unit, no label and no target — and now reads "8,412 steps · 6 active hours" instead, with the full breakdown (distance, calories, active minutes, and Strain/Sleep for wearable users) underneath in `TodayPanel`. The engine still computes the total — it still ranks the board and feeds XP and the ability ratings — it is simply not something a first-time user was ever able to read. Anyone curious what actually ranks them can still find out, on `app/progress.tsx`'s "Daily score" entry.
+- **The stats are glyphs on the rail, not letters** (2026-08-11): a footprint, a flexed arm and a brain, each over its rating. The name survives one tap down, on the expanded bars — icon, "Motion", and "Steps and distance" together — which is where a new player learns the mapping, and in the guidance sentence, which names the stat the same way. That bar printed the `AGI` key until deviation #51: it was teaching a mapping to a three-letter word that appeared on no other screen, and it disagreed with its own screen-reader label, which had always spoken the stat's name.
+- **Level** is permanent XP, never resets. Two players at the same level can look different — the character's visual build follows whichever stat dominated their **last 14 days** (`DOMINANCE_WINDOW_DAYS`; the ability ratings are the lifetime figure, the build is the recent one): leaner for Motion, broader silhouette for Body, and for Mind §6's recovery build, inherited from the VIT entry it replaces since §6 was written before sleep was a stat. A rare "All-Rounder" look — unpurchasable, must be earned — when all three stay within 20% of each other.
 - **Strain** (roadmap deviation #24, 2026-08-10) is a derived, wearable-only, display-only figure from hourly heart rate — never stored on `daily_scores`, never ranked, never gates anything.
 - **Which animal you are is the figure.** One artwork per species, plus a
   habitat behind it — and one is enough precisely because the three responses
   below are code rather than art. A species is cosmetic and reaches nothing in
   `@kairo/core`; its `affinity` is flavour, naming which stat the animal is
   *about*, never what you earn. Squadmates see it too: `squad_leaderboard()`
-  and `goal_window_scores()` both project `species`, so the leaderboard row and
-  the goal roster draw the animal where the initial disc used to be. Anyone who
+  and `event_progress()` both project `species`, so the leaderboard row and
+  the battle roster draw the animal where the initial disc used to be. Anyone who
   predates the choice keeps the disc, and the home screen offers them the
   picker once per launch until they choose.
 
 - **Three things move the figure, and they are independent.** `stage` (level bands) widens and deepens the ground shadow, so levelling shows whatever you grind; `dominance` changes the build's proportions and the shadow's tint per §6; and the **presence ring** carries the ability rating (`src/features/character/aura.ts`) — present from rating 5, stronger at 10, and still always on for the balanced All-Rounder, whose ring means *shape* rather than magnitude. The August QA pass reported the character as static: the first two already existed and were invisible because nothing had scored since the 9th, so level sat at 1 and dominance was null. The ring is the only genuinely new one, and it reuses an element already on screen rather than inventing a third visual language.
-- A rest day scores 0 and still costs the streak, but the goal card always says how many days are left to make it up (§6) — the app is designed to still be worth opening on a bad day.
+- **It answers at every level now, not only at three boundaries (2026-08-25).** The QA finding survived the ring, and only half of it was the missing data: the arithmetic was also almost invisible — 146 points of shadow at level 1 against 200 at level 21, a 37% span across the entire game — and `stage` moves at levels 6, 11 and 21 and nowhere else, so levelling 12 → 13 genuinely changed nothing. `figureResponse()` in `src/features/character/level-response.ts` widens the span past 1.7× and adds a within-band term, with the band boundary still much the bigger jump so the four artworks stay the milestone. It is a tested pure module rather than three expressions inline, precisely so the bands could be widened against assertions rather than by eye — and it grows to a ceiling at level 40, because unbounded growth eventually pushes the figure out of the diorama. **With no cosmetics and no coins in Phase 1, the figure is the reward**, which is what makes this worth doing before any of them.
+- A rest day scores 0 and still costs the streak, but the battle card always says how many days are left to make it up (§6) — the app is designed to still be worth opening on a bad day.
 - **"How progress works"** (`app/progress.tsx`), linked from the foot of the expanded stat rail, explains the four numbers by the one thing that actually separates them — their timescale: daily score is today, ability ratings are lifetime per stat, level and XP are all-time, streak is the run of days. A route rather than a modal, because `PermissionAsks` owns the single modal the app may present. Offered at the point of expansion rather than beside the hero: expanding the rail *is* the question being asked.
+
+### Today (`today.tsx`)
+The present moment. Four cards, in this order: **the race summary**, **three quests**, **the Daily Walk**, **the Challenge door**. The race is today; the quests are what to do about it; the walk is the floor every day shares; Challenges are the opt-in depth underneath. The gated item is last deliberately — a hidden card at the bottom leaves no hole, where one removed from the middle would.
+
+- **A quest is derived, never stored.** `pickQuests()` in `@kairo/core` is a pure hash of `(account, local date, tier)`, so the local-midnight reset costs no job, no row and no cron: tomorrow simply hashes to a different three. That is the property a Challenge already had, bought the same way and for the same payoff — nothing stateful exists for a retroactive Apple revision to invalidate, because progress is a read-time projection over `health_buckets` and `daily_sleep`. Only the *completion* is stored, because it pays XP and must fire exactly once. A hash rather than a random draw for a reason that bites rather than being a house rule: a random pick would hand the same account a different three on every render, and the user would watch their morning's work disappear.
+- **The catalogue is hand-authored, at three tiers, at least six per tier** — with exactly three, every day would show the same three in a different order and the reset would read as a bug. Bars are in raw units the user produces: "Walk 7,000 steps", "Burn 400 kcal", "Sleep 7 hours". Never points and never stat names — a quest is the smallest thing in the app and the first thing a new account meets, so it has to be answerable without knowing anything about Kairo's model.
+- **XP is deliberately small.** Three quests cap at 60 together against a realistic 200-point day. A quest is a garnish on the loop, never a cheaper route through it — otherwise the fastest way to level is to clear three easy bars and stop. It reaches `profiles.total_xp` as a **fourth source**, alongside daily scores, Event completions and Challenge completions, and never touches `daily_scores.xp_awarded` (a rescore would replay it away) or the three stat rollups (a cleared quest is not activity in a stat).
+- **Difficulty is auto-assigned, and the override wins outright.** The automatic rule counts how many days the account has ever scored — which measures *engagement*, not capability, so it hands a thirty-day account averaging 3,000 steps the same tier as one averaging 15,000. The alternative, a trailing median of daily steps, was rejected because it makes the bar rise as the user improves, which is exactly the conflation the Daily Walk exists to refuse. So the Profile → **Quest difficulty** control is the correction for a rule that is wrong by construction for part of the cohort, and its copy names the automatic rule's real input: *"Kairo picks a difficulty from how long you have been here. If the quests feel wrong, choose your own."* A user who finds their quests too easy learns why, rather than assuming the app measured them and got it wrong.
+- **"No reading yet" is not "0 of 420".** A missing sleep row means the night is *unknown*, and a hand-typed night scores nothing at all — so both read as silence rather than as an accusation. `finalize-days` applies the identical gate when it grades, so a night the card called unknown clears nothing on the server either.
+- **The race card is a summary, not a second track.** It reads the same payload the Squad tab's track does — one fetch, two renderings — and says one line: your position, and how far the flag still is. Rivals appear as a strip of position pips with no names and no figures, because repeating the track here would make the card the same size as the thing it summarises. With no squad the rivals are your own recent days; with no qualifying history at all the card renders nothing rather than an empty race.
 
 ### Squad (`squad.tsx`)
 The optional social layer (§7).
 
-- **Solo Mode is not a degraded state** — it's a first-class mode. Character progression, coins, and shop all work with zero squadmates. **The solo board sells possibility rather than absence, as of 2026-08-17:** the title, the one-sentence explanation of what a squad is, then **Create a squad** / **Have an invite code?**, then your own real row, then **one** empty seat. It previously opened on `1st` at 64pt over `of 1` — an ordinal whose only possible meaning is that you beat nobody — above five empty seats, which is a picture of loneliness drawn five times. One seat is a picture of what a squad looks like, and the actions sit above the board because inviting somebody is the thing to do here, not admiring a rank.
+**The tab opens on a consent decision before it opens on anything else, as of deviation #47.** Racing means squadmates see four of your daily totals — steps, distance, active calories, sleep duration — and that is real health data leaving the account, so the ask is a screen with a decline path rather than a line in a policy. It appears *instead of* the create or join form (agreeing is part of joining, exactly as consenting to the squad's program already is), and once per launch for anyone already in a squad, because they joined under a model where their totals were never projected. Declining leaves you on the board; your lane and everyone else's simply carry no position. The gate is **reciprocal and per row** — you see a squadmate's totals only if you are sharing yours — which is what stops declining being strictly dominant, and what stops a single holdout's decision being broadcast to the five people who agreed.
+
+**Then the tab leads with the Race (deviation #46).** Six characters running horizontal lanes at one shared flag, which sits at `DAILY_STEP_BASELINE` — the same 10,000 steps as the Daily Walk, deliberately, so crossing the line and clearing the walk are one event. It is always on: there is no creation flow, nothing is stored, and a retroactive Apple revision moves the standings the same way it moves everything else, by being replayed. Ranking is by **capped** steps, so past the flag extra steps buy nothing at all — the cap *is* the anti-cheat, and it needs no fraud detection and no accusation. The board survives underneath it, still in the program-weighted order: two orderings over one payload, one fetch. A squadmate who is not sharing keeps their lane, labelled "not sharing" and drawn without a position — dropping them would look like they left the squad, and drawing them at zero would invent a bad day.
+
+- **Solo Mode is not a degraded state** — it's a first-class mode. **With no squad you race your own recent days as ghost figures** (deviation #46), which is the narrow, deliberate exception to the source design's warning against solo challenge modes: it exists so nobody ever meets an empty tab, and so the mechanic teaches itself before a friend arrives. Days that scored nothing are dropped rather than raced — a new account otherwise lines up against three zeroes, which reads as the feature being broken rather than as an easy win — and with no qualifying history at all you run one lane beside the invite affordance. Never an empty track, and never a fabricated rival. Character progression works with zero squadmates; coins and the shop are V1+ and this beta ships neither (`docs/mvp-scope.md`). **The solo board sells possibility rather than absence, as of 2026-08-17:** the title, the one-sentence explanation of what a squad is, then **Create a squad** / **Have an invite code?**, then your own real row, then **one** empty seat. It previously opened on `1st` at 64pt over `of 1` — an ordinal whose only possible meaning is that you beat nobody — above five empty seats, which is a picture of loneliness drawn five times. One seat is a picture of what a squad looks like, and the actions sit above the board because inviting somebody is the thing to do here, not admiring a rank.
+**And the day's race is kept.** When the **last** member of a squad finalizes a date — not the first, because days are per-user local and a squad's race for a date is not over until every member's is — `finalize-days` snapshots the standing into `race_results` and never touches it again. That is the §19 rule the completions already follow: a later Apple revision does not retract anyone's win, and it is why the standing is stored at all, since the projection behind it can no longer answer "who won on 14 March" once the buckets have been revised. The table has **no client grant whatsoever**; `race_result()` reads it under exactly the consent gate above, returning rank and species to anyone in the squad and capped steps only when both sides have agreed. A member who was not sharing is still stored with a real rank, because dropping them would make the history disagree with the board their squad watched all day.
+
 - Joining a squad: an invite link or the 6-character code, typed. Leader can rename, remove members, transfer leadership. Free tier: 6 members / 1 squad; Legendary: 15 members / 3 squads.
 - **Inviting is an action, not a code to read aloud.** The invite card has a Share row, and every empty seat is itself the button — the `+` disc and "Invite your squad" were already drawn and did nothing, which is where the social loop stopped. `shareInvite()` uses React Native's own `Share`, deliberately with no clipboard dependency: the iOS sheet already contains Copy, and it puts Messenger and Viber one tap from the code, which matters more here than a "copied" toast. The message names the squad and says what Kairo is, because the recipient is not a user yet — **since 2026-08-17 by naming what they are being asked into** ("we keep each other to a daily walk. It counts steps, never your Health data") rather than describing the leaderboard to somebody with no reason to care about it yet. It is the only Kairo copy a non-user ever reads, which makes it the only place the privacy promise reaches them. Every word is spent against a hard budget: the link and the code line are 84 characters between them and a test holds the whole message under 200, so adding a clause means removing one. **Universal links landed 2026-08-17** (deviation #36). The message now carries `https://kairo-teal-nine.vercel.app/join/<CODE>` *and* the bare code, because a client that mangles the link must still leave six characters to type.
 
 **The link is an accelerator, never an action.** `app/join/[code].tsx` fills the field in and stops: a link can be stale, belong to a full squad, or be tapped by somebody who did not mean to join, and joining is not free on a tier that allows one squad. `JoinSquadForm`'s existing preview then shows the squad's name and program before the tap that commits. Three arrivals it handles, none of them unusual — **signed out or mid-onboarding**, where the gate redirects and the code is stashed in MMKV for an hour and redeemed by `usePendingInvite()` in the tabs layout (which only mounts for a `'ready'` user, so mounting *is* the check); **already in a squad**, which gets a screen naming the one-squad rule rather than a silent redirect to a board nobody asked for; and **a link carrying no usable code**, which renders the form empty with a line saying so.
-- What a squadmate can see is an **aggregate only** — never raw step counts, hourly patterns, or timestamps (§5, `squad_leaderboard()` in `CLAUDE.md`). The hour-by-hour shape of someone's movement reveals sleep and work patterns and stays owner-only — it stopped being a stat with deviation #41 and did not stop being sensitive, since it still decides AGI's threshold shift.
-- **Squad programs** (`squads.program`) are the one "focus" concept left in the app — fixed at squad creation, unlike a per-player goal (see `docs/roadmap.md`, 2026-08-07 scope addition).
+- What a squadmate can see is aggregates, plus — behind the consent gate above — **four daily totals**: steps, distance, active calories and sleep duration (deviation #47). What they still cannot see is the half of §5 that actually carries routine: **hourly patterns, heart rate, workout sessions, pace, routes and timestamps.** `squad_leaderboard()` sums a day and never selects or groups by the hour column, which is exactly the difference between a total and a movement pattern. The hour-by-hour shape of someone's movement reveals sleep and work patterns and stays owner-only — it stopped being a stat with deviation #41 and did not stop being sensitive, since it still decides Motion's threshold shift.
+- **Squad programs** (`squads.program`) are the one "focus" concept left in the app — fixed at squad creation (see `docs/roadmap.md`, 2026-08-07 scope addition).
 - **A row is rank and the gap to the row above, never a total, as of 2026-08-15** (roadmap deviation #30). `row-label.ts` composes the accessible name from rank, name, that gap, level and ratings — it stopped saying "N points" because a screen reader naming a figure the screen does not show would describe a different product. The board header still carries the program's boost chip; a row no longer needs one to explain a total it no longer shows.
 
 ### Profile (`profile.tsx`)
-Settings, body-metric soft prompt, and account actions.
+Settings, body-metric soft prompt, and account actions. **Quest difficulty** lives here (deviation #50) — four chips, Automatic plus the three tiers — above Timezone for the Companion reason: this one is a choice and that one is an observation.
 
 - **Delete account** (`app/delete-account.tsx`, migration `20260811140000`) is a route rather than an alert, gated on typing `DELETE`. It is the one action with no undo, and a two-tap dialog optimises for the person who already decided while the whole cost lands on the person who had not. It sits below Sign out so the reversible action does not compete with the irreversible one.
-- The screen says what *survives*, because "everything is deleted" would be simpler and false: squad leadership passes to the longest-standing member (or the squad goes too, if you were the last), and a shared goal keeps running for everyone else with your name off it. Someone erasing an account to get out of a squad deserves to know the squad continues.
+- The screen says what *survives*, because "everything is deleted" would be simpler and false: squad leadership passes to the longest-standing member (or the squad goes too, if you were the last), and a battle you started keeps running for everyone else with your name off it. Someone erasing an account to get out of a squad deserves to know the squad continues.
 
 - **Notifications** (`NotificationSettingsCard.tsx`) reports whether they are on, and offers `Linking.openSettings()` when iOS has a denial on file. Re-read on every foreground, because the state can only change in iOS Settings — so returning to the app is the only moment worth checking, and reading once at mount is precisely how the QA pass ended up with a screen describing permissions the user had already revoked. It sits above Timezone deliberately: the zone follows the device and cannot silently be wrong, whereas this can.
 - The card does **not** campaign for the permission back. A denial is a decision; the row's job is to make it legible and reversible. `shouldAskForNotifications` still owns the contextual ask, so an undetermined state shows no button here.
 - When the permission *is* granted, a **delivery line** sits under the copy: `Delivery: registered.` It reports whether the server has a token it can address — which granting the permission does not prove, and whose absence is otherwise silent. On a development build it appends the APNs environment; on TestFlight it cannot, because that value is read from a provisioning profile App Store distribution strips out, and registration is the better answer anyway (a token cannot exist if the entitlement is wrong). On a simulator it says so, rather than reporting a failure that is not one. It ships in Release on purpose; `__DEV__` would hide it from TestFlight.
 
-## 5. Goals (§8) — what replaced Sabotage
+## 5. Events (§8, deviations #45/#48/#49) — the Battle, which replaced Goals
 
-Sabotage was the original hook through v1.3; removed 2026-08-09. Goals are what makes the app matter past week three now: a target committed to over a window of days, scored off the same `daily_scores.total` the leaderboard already ranks on, so progress is a read-time projection — never a separately tracked number (see `CLAUDE.md` → Writes are server-authoritative).
+Sabotage was the original hook through v1.3; removed 2026-08-09, and Goals replaced it. **Goals were themselves replaced on 2026-08-25 by the Event**, of which one kind ships: the **Battle**. A Battle is what makes the app matter past week three now — a boss a squad fights together, over a window of days, measured in the calories they actually produce.
 
-`app/goal/new.tsx` to create, `app/goal/[id].tsx` to view progress.
+The change is not a rename. A squad goal was **N-of-M**: everyone had to hit the target individually, so a weak member was a liability and inviting somebody was a risk. A Battle **pools** every participant's contribution into one bar. That reversal is the whole reason the mechanic exists — the strong member carries, and being carried is a reason to be in a squad at all.
 
-- **Two metrics, and the first question the form asks.** *Daily Walks* is the default: days that cleared 10,000 steps, counted from the tier already stored on `daily_scores` — so "clear the Daily Walk 25 days out of 30" can be judged against the streak already on the home shelf before committing to it. *Points* is the advanced path and stays for anyone who wants it. This is deviation #35, and it is downstream of #30: once the ambient score left every surface outside Goals, a points target became a number nobody could evaluate, which made it arbitrary and made missing it read as the algorithm's fault.
-- **Choosing Daily Walks makes the form shorter.** A walk goal counted over most days has no target to type — the bar is "cleared it", not a number — so the field is absent rather than disabled. (It stores `target: 1` as a sentinel, because the column requires a positive value; no surface ever renders it.)
-- **Two shapes:** *cumulative* ("20 Daily Walks by 31 December", or "75,000 points") or *consistency* (a bar met on N of M days — the walk, or e.g. "2,500/day, 25 of the next 30 days").
-- **Window:** a preset length, a picked end date, or **no end date at all**. Open-ended goals are cumulative-only — enforced at the database level, because "clear the bar eventually" can never become unreachable, so there's nothing for a pace marker to fail against (roadmap deviation #21).
-- **Personal or squad-shared.** A squad goal's roster is frozen at creation — "everyone must hit it" only means something against a denominator that can't move mid-window.
-- **Fixed at creation** apart from title/description. Abandoning is the escape hatch; it's a distinct, visible act from quietly lowering the bar.
-- **Completion is a one-way latch**, evaluated only once a day has gone `final`. A later downward revision from Apple's step count never revokes a goal already met (same principle as streak milestones). Reward is XP (scaled by window length, capped) plus a permanent completed-goal record on the profile — no separate badge table.
+It lives on the **Squad tab**, below the race, because a squad's shared fight belongs where the squad is. `app/event/new.tsx` to start one, `app/event/[id].tsx` to see it in full. There is **no personal Battle** — a personal fight is a Challenge, which already exists on `/train`, and the database rejects a squad-less Event outright.
+
+- **Three questions and a computed fourth.** Name it, pick a window, pick a difficulty — Skirmish, Standard or Raid — and the app works out the boss's HP from the squad's own last fortnight, showing the number before you commit to it. The Goal form asked for a points target the user had no way to evaluate before typing it, which made the number arbitrary and made missing it read as the algorithm's fault. This is the fix.
+- **The target is snapshotted at creation and never moves.** That is the deliberate opposite of a Challenge, whose target is re-derived on every read. A boss whose HP rose because the squad got fitter mid-fight would silently re-grade every day already counted. **Progress** stays a read-time projection over `health_buckets`, so a retroactive Apple revision still flows through: the target is fixed, the progress is replayed.
+- **Difficulty is not a formula on screen.** The multipliers exist and are deliberately unprinted — 0.85 on a card invites a squad to reason about the arithmetic instead of about the fight. Standard is winnable by carrying on as you already were; Raid is where everybody has to push.
+- **A brand-new squad still gets a real fight.** With no history the pooled median is zero, so a floor per member per day applies. Without it the boss would be defeated in the same second it was created, which reads as the feature being broken rather than as a gift.
+- **The roster is frozen at creation**, and membership changing later does not change what the group committed to.
+- **When the bar fills, everybody on the roster is paid** — including a member who contributed nothing. That is the mechanic, not an oversight: paying only contributors would rebuild the per-member rule one layer down, with the weak member visibly carrying a liability tag.
+- **One live Battle per squad.** Starting a second is refused with a sentence, not a constraint name. Leaving is the escape hatch and a distinct, visible act; the last member to leave **closes** the fight rather than deleting it, so XP already paid keeps its record.
+- **Completion is a one-way latch**, evaluated only once every participant's day has gone `final`. A later downward revision from Apple never revokes a Battle already won. Reward is XP — scaled by the window committed to rather than by how early it landed, and capped.
+- **Not disclosure-gated.** A new member sees the fight their squad is already in, which is the one thing a scored-day gate would hide for no good reason.
+- **The per-member breakdown carries the same consent gate the race does.** The pooled bar is always visible to everyone on the fight; an individual's own calorie figure appears only where both people have agreed to share daily totals, and reads "not sharing" otherwise. In a squad of **two**, the pooled total can be inverted by subtraction — a known limit with no technical fix, named in the privacy policy rather than papered over.
+
+**Adventure** is the same engine counting metres instead of calories. The schema carries it already so the migration happened once, but nothing can create one yet.
 
 ## 5b. Train (§5, deviations #32/#33) — the floor and the curve
 
-Two mechanics, deliberately different in kind, reached from the home shelf.
+Two mechanics, deliberately different in kind, reached from the Today tab.
 
-**The Daily Walk** sits on the shelf itself (`DailyWalkCard`): 10,000 steps,
+**The Daily Walk** sits on the Today tab (`DailyWalkCard`) — it was on the home shelf until deviation #50 moved it, unchanged in every other respect: 10,000 steps,
 every day, forever, with a streak of days cleared. It is **flat and permanent** —
 it never scales up as the user improves — because it is a public-health number
 rather than a personal-progress one, and conflating the two is the specific
 error the design names. A missed day breaks the streak and costs nothing else.
 
-It does **not** restate today's step count. The hero above it already sets steps
-at 64pt, and the guidance line already names the steps still to go — the same
-figure, since AGI Gold and the 10,000 baseline are one threshold by
+It does **not** restate today's step count. The Character tab's hero already sets
+steps at 64pt, and the guidance line there already names the steps still to go — the same
+figure, since Motion's Gold and the 10,000 baseline are one threshold by
 construction — the **unshifted** one. The walk reads `tiers->>'AGI_base'`
-precisely because a spread day lowers scoring AGI's Gold and must not lower a
+precisely because a spread day lowers scoring Motion's Gold and must not lower a
 public-health number with it. So the card says the two things nothing else on the screen says:
 that the target is fixed, and how many days in a row it has been cleared. The
 streak is the display figure for the same reason — the target cannot grow, so
@@ -228,12 +293,12 @@ conjure. The accepted cost is that this card reads as unclearable to some beta
 users until they change that habit.
 
 Clearing an area pays a flat **40 XP**, once per area per local day, latched in
-`finalize-days` alongside goals, and sends one push. **Clearing a Challenge
-still pays no points**: a run earns AGI through its steps as it always did, and
+`finalize-days` alongside events, and sends one push. **Clearing a Challenge
+still pays no points**: a run earns Motion through its steps as it always did, and
 pace never enters `daily_scores` — the same posture strain takes. What did
 change with deviation #41 is that the *session* is no longer inert — a workout
 whose source is allowlisted **and** which carries heart-rate evidence
-contributes minutes to STR's threshold shift. Both conditions, deliberately: a
+contributes minutes to Body's threshold shift. Both conditions, deliberately: a
 quarter of a band is too much to hand to an unverified claim, and the accepted
 cost is that a real workout from an obscure app that records no heart rate
 shifts nothing and the UI cannot yet explain why.
@@ -243,9 +308,9 @@ shifts nothing and the UI cannot yet explain why.
 **Not in the current implementation** — no referral screens or roadmap phase exist yet; this section documents the intended design so it isn't rediscovered from scratch when the phase starts.
 
 - Reframed away from the old "war declaration" sabotage-era pitch. The share message names the shared commitment, not a challenge: *"[Name] is going for 25 active days this month. Want in?"*
-- Highest-converting moment: right when a player sets a goal — freshly committed and naturally shareable.
-- Three-layer rewards: referrer gets coins + long-term recruiter status; referee gets a coin head start, is auto-joined to the squad's active goal (kills Day-1 aimlessness), and starts at Level 2; the whole squad gets 2x XP for 3 days.
+- Highest-converting moment: right when a squad starts a battle — freshly committed and naturally shareable.
+- Three-layer rewards: referrer gets coins + long-term recruiter status; referee gets a coin head start, is auto-joined to the squad's running battle (kills Day-1 aimlessness), and starts at Level 2; the whole squad gets 2x XP for 3 days.
 
 ## 7. Monetization touchpoints (§10, largely V1+)
 
-Not part of the MVP user journey today beyond what's noted above (coins/shop referenced by the goal-completion and character-progression flows are staged for V1 per `docs/roadmap.md`). See the spec for the full coin economy and Legendary subscription design before building against it.
+Not part of the MVP user journey today beyond what's noted above (coins/shop referenced by the battle-completion and character-progression flows are staged for V1 per `docs/roadmap.md`). See the spec for the full coin economy and Legendary subscription design before building against it.

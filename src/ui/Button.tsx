@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   secondary: { backgroundColor: ramp.neutral[100] },
   ghost: {},
   /**
-   * Abandoning a goal, leaving a squad.
+   * Leaving a battle, leaving a squad.
    *
    * Outlined in the damage colour rather than filled with it: these belong at
    * the foot of a screen and must not compete with the primary action above

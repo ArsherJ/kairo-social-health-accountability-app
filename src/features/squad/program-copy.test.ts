@@ -46,13 +46,16 @@ describe('programLabel', () => {
 });
 
 describe('boostChipLabel', () => {
-  it('names the boosted stat and the multiplier', () => {
-    expect(boostChipLabel('running')).toBe('AGI ×1.5');
-    expect(boostChipLabel('strength')).toBe('STR ×1.5');
+  it('names the boosted stat in the player vocabulary, and the multiplier', () => {
+    // The player word, not the engine key (deviation #51). This chip printed
+    // `AGI ×1.5` until 2026-08-25 and was the last surface in the app showing
+    // a `CoreStat` to a user.
+    expect(boostChipLabel('running')).toBe('Motion ×1.5');
+    expect(boostChipLabel('strength')).toBe('Body ×1.5');
     // Walking boosted VIT until deviation #41 retired it; VIT's signal now
-    // makes AGI's bands easier instead.
-    expect(boostChipLabel('walking')).toBe('AGI ×1.5');
-    expect(boostChipLabel('recovery')).toBe('MND ×1.5');
+    // makes Motion's bands easier instead.
+    expect(boostChipLabel('walking')).toBe('Motion ×1.5');
+    expect(boostChipLabel('recovery')).toBe('Mind ×1.5');
   });
 
   it('shows nothing on an untilted board', () => {

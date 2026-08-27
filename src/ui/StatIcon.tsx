@@ -43,17 +43,12 @@ const ICONS = {
 } as const satisfies Record<CoreStat, React.ComponentProps<typeof MaterialCommunityIcons>['name']>;
 
 /**
- * The stats said in full, for screen readers.
- *
- * **Load-bearing, not decoration.** The coins carry no text at all, so this is
- * the entire accessible name of a stat on the rail — the same status
- * `TabPill`'s `LABELS` map has for the nav.
+ * Re-exported so the seven existing call sites keep one import for a stat's
+ * glyph and its name. The table itself lives in `stat-names.ts`, which imports
+ * nothing at runtime and can therefore be tested — this file cannot, because
+ * `@expo/vector-icons` reaches React Native's Flow syntax.
  */
-export const STAT_NAMES: Record<CoreStat, string> = {
-  AGI: 'Agility',
-  STR: 'Strength',
-  MND: 'Mind',
-};
+export { STAT_NAMES, dominanceName } from './stat-names.ts';
 
 /**
  * One stat glyph.
@@ -66,7 +61,7 @@ export const STAT_NAMES: Record<CoreStat, string> = {
  * Colour is always the caller's — there is no per-stat hue and there should not
  * be one. Four colours competing is what buried the tier coins this rail
  * replaced, and the system reserves its three hues for other jobs entirely
- * (terracotta = you, sage = your lane, burnt = a goal slipping).
+ * (terracotta = you, sage = your lane, burnt = a battle slipping).
  */
 export function StatIcon({
   stat,

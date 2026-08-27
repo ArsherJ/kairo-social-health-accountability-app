@@ -3,6 +3,7 @@ import {
   BUDGET_EXEMPT,
   MAX_NOTIFICATIONS_PER_DAY,
   QUIET_HOURS,
+  QUIET_HOURS_EXEMPT,
   countsAgainstBudget,
   planNotifications,
   type Candidate,
@@ -10,12 +11,17 @@ import {
 } from './notifications.ts';
 
 describe('what counts against the budget', () => {
-  it('exempts a completed goal and counts every scheduled trigger', () => {
+  it('exempts a completed event and counts every scheduled trigger', () => {
     // The sender reads sentToday with this same predicate. If a logged
-    // goal_completed counted, hitting a goal in the evening would silently cost
+    // event_completed counted, beating a boss in the evening would silently cost
     // the user their day-end push — the cap applying to a trigger it exempts, by
     // the back door.
-    expect(BUDGET_EXEMPT).toEqual(['goal_completed']);
+    //
+    // `goal_completed` keeps the exemption on the same claim: nothing emits it
+    // any more, but a push sent minutes before the 2026-08-25 rename can still
+    // be logged and counted minutes after it.
+    expect(BUDGET_EXEMPT).toEqual(['event_completed', 'goal_completed']);
+    expect(countsAgainstBudget('event_completed')).toBe(false);
     expect(countsAgainstBudget('goal_completed')).toBe(false);
     expect(countsAgainstBudget('day_starts')).toBe(true);
     expect(countsAgainstBudget('day_ending_soon')).toBe(true);
@@ -147,22 +153,22 @@ describe('the daily budget', () => {
     expect(plan([candidate('day_ends')], 0, MAX_NOTIFICATIONS_PER_DAY)).toEqual([]);
   });
 
-  it('sends a completed goal with the budget long gone', () => {
-    const done = candidate('goal_completed');
+  it('sends a completed event with the budget long gone', () => {
+    const done = candidate('event_completed');
     expect(plan([done], 12, 99)).toEqual([done]);
   });
 
-  it('does not let a completed goal consume the budget the others share', () => {
-    const done = candidate('goal_completed');
+  it('does not let a completed event consume the budget the others share', () => {
+    const done = candidate('event_completed');
     const ends = candidate('day_ends');
     const admitted = plan([done, ends], 12, MAX_NOTIFICATIONS_PER_DAY - 1);
     expect(admitted).toEqual([done, ends]);
   });
 
-  it('still suppresses a completed goal during quiet hours', () => {
+  it('still suppresses a completed event during quiet hours', () => {
     // Budget-exempt is not quiet-hours-exempt. Finalization runs ~2h after local
-    // midnight, so an unsuppressed goal push would land at 02:00.
-    expect(plan([candidate('goal_completed')], 2)).toEqual([]);
+    // midnight, so an unsuppressed boss-down push would land at 02:00.
+    expect(plan([candidate('event_completed')], 2)).toEqual([]);
   });
 
   it('honours a caller-supplied maxPerDay', () => {
@@ -200,5 +206,34 @@ describe('purity', () => {
     const once = plan(candidates, 23, 1);
     const twice = plan(candidates, 23, 1);
     expect(once).toEqual(twice);
+  });
+});
+
+describe('the digest budget (deviation #52)', () => {
+  it('admits one digest a day', () => {
+    const [admitted] = planNotifications({
+      candidates: [{ trigger: 'daily_digest', userId: 'u1', data: {} }],
+      sentToday: 0,
+      localNow: { hour: 8, minute: 0 },
+    });
+    expect(admitted).toBeDefined();
+  });
+
+  it('is not quiet-hours exempt, because 08:00 is never in quiet hours', () => {
+    // The exemptions the retired evening pair needed were for 23:00 and 00:00.
+    // A digest firing inside quiet hours would be a scheduling bug, and an
+    // exemption would hide it rather than surface it.
+    expect(QUIET_HOURS_EXEMPT).not.toContain('daily_digest');
+  });
+
+  it('spends budget, so nothing can slip a second one past the cap', () => {
+    expect(countsAgainstBudget('daily_digest')).toBe(true);
+  });
+
+  it('leaves the budget at three, which #52 did not touch', () => {
+    // #52 caps the SCHEDULED pushes at one. A digest plus an Event completion
+    // plus a Challenge clear is still three, and the latter two both fire from
+    // something the user did.
+    expect(MAX_NOTIFICATIONS_PER_DAY).toBe(3);
   });
 });

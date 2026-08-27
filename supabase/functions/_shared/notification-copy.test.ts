@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { challengeClearedCopy, notificationCopy, ordinal } from './notification-copy.ts';
+import {
+  challengeClearedCopy,
+  digestCopy,
+  eventCompletedCopy,
+  ordinal,
+} from './notification-copy.ts';
 
 describe('ordinal', () => {
   it('uses the ordinary suffixes', () => {
@@ -22,41 +27,102 @@ describe('ordinal', () => {
   });
 });
 
-describe('day-boundary copy', () => {
-  it('names the rank when the user is in a squad', () => {
-    expect(notificationCopy('day_ending_soon', { rank: 3, total: 2410, inSquad: true })).toEqual({
-      title: '1 hour left.',
-      body: "You're in 3rd place. Push.",
-    });
-    expect(notificationCopy('day_ends', { rank: 2, total: 2410, inSquad: true })).toEqual({
-      title: 'Provisional: you finished 2nd.',
-      body: 'Finalizes in ~2h.',
+describe('digestCopy (deviation #52)', () => {
+  it('congratulates a win without naming a number', () => {
+    expect(digestCopy({ inSquad: true, result: { rank: 1, racers: 4 } })).toEqual({
+      title: 'You won yesterday. 🏁',
+      body: 'The flag resets this morning. Line up again.',
     });
   });
 
-  it('falls back to the score for a solo user rather than saying nothing', () => {
-    // "You're in 1st place" in a squad of one is absurd, but suppressing the
-    // evening loop for solo users would gut it for exactly the population §7's
-    // churn argument is about.
-    expect(notificationCopy('day_ending_soon', { rank: null, total: 2410, inSquad: false })).toEqual({
-      title: '1 hour left.',
-      body: '2,410 points today. Push.',
-    });
-    expect(notificationCopy('day_ends', { rank: null, total: 2410, inSquad: false })).toEqual({
-      title: 'Provisional: 2,410 points today.',
-      body: 'Finalizes in ~2h.',
+  it('names the place, and says the day resets, for anyone else', () => {
+    expect(digestCopy({ inSquad: true, result: { rank: 3, racers: 6 } })).toEqual({
+      title: '3rd yesterday.',
+      body: 'Everyone starts level this morning.',
     });
   });
 
-  it('says a new day has begun, with a squad-less variant', () => {
-    expect(notificationCopy('day_starts', { rank: null, total: 0, inSquad: true })).toEqual({
-      title: 'A new day begins.',
-      body: 'Your squad is already moving. 👊',
+  it('falls back to today’s standing when yesterday has no result yet', () => {
+    // Ordinary, not exceptional: the squad's race for yesterday is not final
+    // until every member's yesterday is, and a member further west is still
+    // living in it.
+    expect(digestCopy({ inSquad: true, result: null, standing: { rank: 2, racers: 5 } })).toEqual({
+      title: 'The race is on. 🏁',
+      body: 'You are 2nd of 5 so far today.',
     });
-    expect(notificationCopy('day_starts', { rank: null, total: 0, inSquad: false })).toEqual({
-      title: 'A new day begins.',
-      body: 'Your character is waiting. 👊',
+  });
+
+  it('says the squad is lining up when there is neither', () => {
+    expect(digestCopy({ inSquad: true, result: null, standing: null })).toEqual({
+      title: 'A new day. 🌤',
+      body: 'Your squad is lining up.',
     });
+  });
+
+  it('never mentions rank to a solo player', () => {
+    // They are racing their own past days. "1st of 4" against three ghosts
+    // would be a claim about other people that is not true.
+    const message = digestCopy({ inSquad: false, result: { rank: 1, racers: 4 } });
+    expect(message).toEqual({
+      title: 'A new day. 🌤',
+      body: 'Your track is clear. Beat yesterday.',
+    });
+    expect(message.body).not.toMatch(/1st|of 4/);
+  });
+
+  it('appends a live battle as damage dealt, not health left', () => {
+    // "Boss at 62%" reads either way, and the fraction is progress toward the
+    // target.
+    const message = digestCopy({
+      inSquad: true,
+      result: { rank: 2, racers: 4 },
+      event: { kind: 'battle', fraction: 0.62 },
+    });
+    expect(message.body).toBe('Everyone starts level this morning. Boss is 62% down.');
+  });
+
+  it('says an adventure in its own words', () => {
+    const message = digestCopy({
+      inSquad: true,
+      result: null,
+      standing: null,
+      event: { kind: 'adventure', fraction: 0.4 },
+    });
+    expect(message.body).toBe('Your squad is lining up. 40% of the way there.');
+  });
+
+  it('says nothing about an Event already beaten', () => {
+    // event_completed pushed the moment it latched. Repeating it the next
+    // morning would make one achievement look like two.
+    const message = digestCopy({
+      inSquad: true,
+      result: { rank: 1, racers: 3 },
+      event: { kind: 'battle', fraction: 1.4 },
+    });
+    expect(message.body).toBe('The flag resets this morning. Line up again.');
+  });
+
+  it('survives a fraction that is not a number', () => {
+    const message = digestCopy({
+      inSquad: true,
+      result: null,
+      standing: null,
+      event: { kind: 'battle', fraction: Number.NaN },
+    });
+    expect(message.body).toBe('Your squad is lining up.');
+  });
+
+  it('speaks no points total anywhere (deviation #30)', () => {
+    const messages = [
+      digestCopy({ inSquad: false }),
+      digestCopy({ inSquad: true, result: { rank: 1, racers: 4 } }),
+      digestCopy({ inSquad: true, result: { rank: 4, racers: 4 } }),
+      digestCopy({ inSquad: true, standing: { rank: 2, racers: 4 } }),
+      digestCopy({ inSquad: true }),
+    ];
+    for (const message of messages) {
+      expect(`${message.title} ${message.body}`).not.toMatch(/points/i);
+    }
   });
 });
 
@@ -102,5 +168,40 @@ describe('challengeClearedCopy', () => {
     for (const message of messages) {
       expect(`${message.title} ${message.body}`).not.toMatch(/\bpoints?\b/i);
     }
+  });
+});
+
+describe('eventCompletedCopy', () => {
+  it('says a Battle was beaten, not that an event completed', () => {
+    // Nobody set out to complete an event; they set out to beat the Carabao.
+    const message = eventCompletedCopy({
+      title: 'The Carabao',
+      kind: 'battle',
+      xpAwarded: 79,
+    });
+    expect(message.title).toBe('Boss down. ⚔️');
+    expect(message.body).toContain('The Carabao');
+    expect(message.body).toContain('+79 XP');
+  });
+
+  it('speaks to the squad, because an Event is pooled', () => {
+    // Every member on the frozen roster is paid, contributor or not
+    // (deviation #48) — "you hit it" would be a lie to the member the mechanic
+    // exists for.
+    expect(
+      eventCompletedCopy({ title: 'The Carabao', kind: 'battle', xpAwarded: 30 }).body,
+    ).toContain('your squad');
+  });
+
+  it('has its own sentence for an Adventure rather than a generic default', () => {
+    const message = eventCompletedCopy({ title: 'To Baguio', kind: 'adventure', xpAwarded: 164 });
+    expect(message.title).toBe('You made it. 🏕');
+    expect(message.body).toContain('reached the end');
+  });
+
+  it('separates thousands, matching the rest of the push copy', () => {
+    expect(
+      eventCompletedCopy({ title: 'Big', kind: 'battle', xpAwarded: 1_200 }).body,
+    ).toContain('+1,200 XP');
   });
 });

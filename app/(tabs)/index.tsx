@@ -9,10 +9,7 @@ import {
   levelForXp,
   type CoreStat,
 } from '@kairo/core';
-import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
-import { TrainEntry } from '@/features/train/TrainEntry.tsx';
 import { useWorkoutSessions } from '@/features/train/queries.ts';
-import { GoalCard } from '@/features/goals/GoalCard.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { StatBar } from '@/features/character/StatBar.tsx';
@@ -44,7 +41,16 @@ import {
   markUnreached,
 } from '@/features/telemetry/milestone-store.ts';
 import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
-import { Avatar, Label, Meter, Numeral, STAT_NAMES, TAB_PILL_CLEARANCE, Text } from '@/ui/index.ts';
+import {
+  Avatar,
+  Label,
+  Meter,
+  Numeral,
+  STAT_NAMES,
+  TAB_PILL_CLEARANCE,
+  Text,
+  dominanceName,
+} from '@/ui/index.ts';
 
 /**
  * Distinct from `first_sync_seen` (`markFirstSyncSeen` in `useHealthSync.ts`,
@@ -86,18 +92,6 @@ function markFirstScoreSeen(userId: string): void {
     }
   });
 }
-
-/**
- * §6's evolution table, said out loud. The silhouette differences are real but
- * subtle on placeholder art, and a character that quietly changes shape reads
- * as a rendering glitch rather than as a reward.
- */
-const DOMINANCE_LABELS: Record<CoreStat | 'balanced', string> = {
-  AGI: 'Agility build',
-  STR: 'Strength build',
-  MND: 'Mind build',
-  balanced: 'All-Rounder',
-};
 
 /** The human-readable line under each bar, once the rail is expanded. */
 const STAT_LABELS: Record<CoreStat, string> = {
@@ -163,7 +157,7 @@ function detailCopy(detail: StatDetail): string | null {
     case 'maxed':
       return 'Every stat is maxed for today.';
     case 'unquantified': {
-      // Strength is the only thing left to ask for and today carries a
+      // Body (`STR`) is the only thing left to ask for and today carries a
       // workout, so the bands it will be judged against are lower than the
       // ones this screen can compute — by up to a quarter. Naming the lever
       // and no figure is the one honest sentence available: "150 more kcal"
@@ -227,7 +221,7 @@ export default function Character() {
   const vitals = useTodayVitals(session?.user.id, profile.data?.timezone);
   const streak = useStreak(session?.user.id);
   // Mounted here for the guidance line, not for the TRAIN card: whether today
-  // carries a workout decides whether Strength's gap can be quoted at all
+  // carries a workout decides whether Body's gap can be quoted at all
   // (`resolveStatDetail`), and that is true at every disclosure stage, while
   // `TrainEntry` below only renders at `full`. TanStack shares the cache on
   // `sessionsKey`, so the two mounts are one request.
@@ -336,7 +330,7 @@ export default function Character() {
     sleepMinutes: vitals.data?.sleepMinutes,
     // Not the minutes — those need three trust columns this app deliberately
     // does not read — but whether there is a workout at all, which is enough
-    // to know that Strength's bands may have moved and that quoting them
+    // to know that Body's bands may have moved and that quoting them
     // would be a guess. In flight reads `'unknown'` and silences the same way.
     workoutDay: workoutDaySignal(sessions.data, localToday),
     lane,
@@ -441,9 +435,9 @@ export default function Character() {
                 </View>
               </View>
 
-              {/* The streak is the only persistent pill. A goal in flight
-                  belongs on the shelf below, where it has room for a target
-                  and a date — not squeezed into a second pill up here.
+              {/* The streak is the only persistent pill. A squad's Battle
+                  belongs on the squad tab, where the squad is — not squeezed
+                  into a second pill up here.
 
                   "3 day streak", not "3-day": the hyphenated form is right on
                   screen and wrong out loud, the same rule `row-label.ts`
@@ -492,12 +486,15 @@ export default function Character() {
         <View style={styles.shelf}>
           <View style={styles.todayHead}>
             <Label>Today</Label>
-            {/* Null means an unstarted character, which has no build to name —
-                and saying "All-Rounder" to someone who has done nothing would
-                cheapen the one visual §6 says must be earned. */}
-            {dominance.data != null && (
+            {/* `dominanceName` returns null for an unstarted character *and*
+                for a query still in flight, which is the same guard the
+                `!= null` check was making by hand — so the name is what the
+                condition now reads. One table, not two: the old
+                `DOMINANCE_LABELS` held its own copy of the three stat words,
+                which is exactly the drift `STAT_NAMES` exists to stop. */}
+            {dominanceName(dominance.data) != null && (
               <Text style={styles.build}>
-                {DOMINANCE_LABELS[dominance.data]} · last {DOMINANCE_WINDOW_DAYS} days
+                {dominanceName(dominance.data)} build · last {DOMINANCE_WINDOW_DAYS} days
               </Text>
             )}
           </View>
@@ -506,8 +503,9 @@ export default function Character() {
 
               This slot held `daily_scores.total` until 2026-08-15: a four-digit
               integer with no unit, no label and no target, in 64pt type. The
-              engine still computes it — it ranks the board and scores every
-              Goal — it is simply not something a first-time user can read.
+              engine still computes it — it ranks the board and feeds XP and
+              the ability ratings — it is simply not something a first-time
+              user can read.
               Steps lead because they are the figure the most users earn.
 
               Guarded on the buckets query, not the score query: this reads
@@ -636,25 +634,21 @@ export default function Character() {
             </View>
           )}
 
-          {/* The one number in Kairo that never moves, and the run of days
-              against it. Above the goal deliberately: the walk is the floor
-              everyone shares, and a goal is the thing this particular user
-              chose — baseline first, then commitment.
+          {/* The Daily Walk and the Challenge door moved to the Today tab on
+              2026-08-25 (deviation #50). This screen's subject is the
+              character; everything below the hero was a different subject
+              sharing a scroll, and that scroll had no room left. **The `full`
+              wrapper moved with `TrainEntry`** — it is reproduced on the Today
+              tab, not dropped, and the disclosure gate's subject list is
+              unchanged by the move. */}
 
-              It does not restate today's steps. The hero already sets them at
-              64pt and `detailCopy` already names the gap; see the card. */}
-          <DailyWalkCard
-            userId={session?.user.id}
-            timeZone={profile.data?.timezone}
-            today={localToday}
-            todaySteps={buckets.data?.totals?.steps}
-          />
-
-          {/* What the walk above is building toward. An empty space where two
-              cards used to be reads as a missing feature, so `core` says what
-              is coming — named against the Daily Walk directly above it rather
-              than as a bare countdown, because "active day" is the thing the
-              gate actually counts and the card is where you earn one.
+          {/* What the gate is building toward. An empty space where a card
+              used to be reads as a missing feature, so `core` says what is
+              coming — counted in "active days" rather than as a bare
+              countdown, because that is the thing the gate actually counts.
+              The card where you earn one is the Daily Walk, which now lives on
+              the Today tab; the sentence stays true either way, because it
+              names the day and not the card.
 
               No accessibilityLabel: it is already text, and a label would
               duplicate it. */}
@@ -666,34 +660,17 @@ export default function Character() {
               if the count query errors while the profile query succeeded. */}
           {disclosure.resolved && disclosure.stage === 'core' && (
             <Text style={styles.disclosureNote}>
+              {/* Names only what this gate still holds back. Goals were on this
+                  list until 2026-08-25; a Battle replaced them and is ungated,
+                  because it is the squad's shared thing and hiding it from one
+                  new member would hide something the rest are already looking
+                  at. A promise of a feature that has since become visible
+                  reads as the app losing track of itself. */}
               {disclosure.daysToGo === 1
-                ? 'One more active day and goals, challenges and your full stat breakdown open up.'
-                : `${countWord(disclosure.daysToGo)} more active days and goals, ` +
-                  'challenges and your full stat breakdown open up.'}
+                ? 'One more active day and challenges and your full stat breakdown open up.'
+                : `${countWord(disclosure.daysToGo)} more active days and challenges ` +
+                  'and your full stat breakdown open up.'}
             </Text>
-          )}
-
-          {/* The door to Challenges, between the floor everyone shares and the
-              commitment this user chose. It shows the live target as text so
-              the mechanic is legible without navigating — for a new user that
-              reads as "Log one run of 1 km", which is an invitation. */}
-          {disclosure.stage === 'full' && (
-            <TrainEntry
-              userId={session?.user.id}
-              timeZone={profile.data?.timezone}
-              today={localToday}
-            />
-          )}
-
-          {/* The slot the sabotage callout left. A commitment belongs below the
-              day's numbers, not among them: today's score is a fact, and this is
-              a promise measured against it. */}
-          {disclosure.stage === 'full' && (
-            <GoalCard
-              userId={session?.user.id}
-              today={localToday}
-              onSetGoal={() => router.push('/goal/new')}
-            />
           )}
 
           {/* `/progress` is reached through the expanded stat block in `full`,

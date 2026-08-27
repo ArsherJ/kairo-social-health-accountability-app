@@ -5,6 +5,7 @@ import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
+import { RaceTrack } from './RaceTrack.tsx';
 import { resolveSquadStanding, type SquadStanding } from './standing.ts';
 import {
   useSquadLeaderboard,
@@ -17,10 +18,12 @@ import { boostChipLabel, programLabel } from './program-copy.ts';
 import { shareInvite } from './share-invite.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
-import { SquadGoalPanel } from '@/features/goals/SquadGoalPanel.tsx';
+import { SquadEventPanel } from '@/features/events/SquadEventPanel.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
+import { describeAge } from '@/features/health/sync-status.ts';
+import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
 
@@ -165,6 +168,18 @@ export function Leaderboard({
 
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
+
+  // How old *your own* numbers are, and the line says "your" for a reason.
+  //
+  // Squadmates' freshness is not knowable from here — the RPC projects totals,
+  // not sync times — so this claims only what it can actually check. HealthKit
+  // background delivery is opportunistic, and a track that reads as live while
+  // it is hours old is the app making a promise it has no way to keep.
+  const { lastSyncedAt } = useSyncStatusStore();
+  const syncedLabel =
+    lastSyncedAt === null
+      ? "Your numbers haven't synced yet"
+      : `Your numbers updated ${describeAge(Date.now() - lastSyncedAt)}`;
 
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);
@@ -318,6 +333,18 @@ export function Leaderboard({
         </View>
       )}
 
+      {/* The race and the board are two readings of one payload — the track
+          re-ranks by capped steps, the rows below stay in the program-weighted
+          order the RPC returned. One query, deliberately: a second fetch here
+          would let the two disagree about the same day.
+
+          Only in `current` mode. "Yesterday" is a finished day and a race
+          nobody is still running; drawing a live track over it would invite
+          the reading that there is still time. */}
+      {mode === 'current' && board.isSuccess && rows.length > 0 && (
+        <RaceTrack rows={rows} syncedLabel={syncedLabel} />
+      )}
+
       {rows.map((row) => (
         <LeaderboardRow
           key={row.user_id}
@@ -350,24 +377,23 @@ export function Leaderboard({
       ))}
 
       {/* The slot the sabotage feed left, doing the opposite job: the feed was
-          what people did *to* each other, this is what they committed to
-          together. */}
-      <SquadGoalPanel
+          what people did *to* each other, this is what they fight together.
+          One pooled bar rather than each member's own (deviation #48) — the
+          panel routes to its own screens, so it needs no callback. */}
+      <SquadEventPanel
         squadId={squad.id}
-        userId={userId}
         today={
           profile.data?.timezone
             ? currentLocalDate(new Date(), profile.data.timezone)
             : undefined
         }
-        onSetGoal={() => router.push(`/goal/new?squadId=${squad.id}`)}
       />
 
       {/* Deliberately at the foot of the scroll, not in a header: this is rare,
           irreversible, and must not sit next to the invite code someone taps
           every day. Outlined rather than filled so it stays quiet down here —
-          the `destructive` variant is exactly this compromise, and abandoning a
-          goal now uses the same one so the two cannot drift. */}
+          the `destructive` variant is exactly this compromise, and leaving a
+          Battle uses the same one so the two cannot drift. */}
       <View style={styles.leaveBlock}>
         {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
         <Button

@@ -5,7 +5,7 @@ import { Text } from './Text.tsx';
 /**
  * A call to action that **is not itself tappable** — the card around it is.
  *
- * Deliberately a `View`, not a `Button`. The goal empty states are one big
+ * Deliberately a `View`, not a `Button`. The battle empty state is one big
  * `Pressable`, and nesting a touchable inside a touchable on iOS gives you two
  * overlapping targets where the inner one swallows the press and the outer one
  * still highlights. So this borrows `Button`'s shape and does none of its work.
@@ -20,7 +20,7 @@ export function CtaPill({ label, tone = 'accent' }: { label: string; tone?: 'acc
     <View style={[styles.pill, tone === 'sage' && styles.sage]}>
       {/* `chrome`, and deliberately not marked up as a control: the card
           around this is the `Pressable`, so VoiceOver should reach one
-          element that ends "…Set a goal", not a button nested in a button.
+          element that ends "…Start a battle", not a button nested in a button.
           Same reasoning as the comment above about overlapping targets. */}
       <Text scale="chrome" style={styles.label}>
         {label}

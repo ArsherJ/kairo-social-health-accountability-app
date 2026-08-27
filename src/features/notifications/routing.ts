@@ -16,9 +16,15 @@
  * crash a beta build on tap.
  *
  * Two senders exist today:
- *   dispatch-notifications → { trigger, localDate, screen: 'squad' | 'character' }
- *   finalize-days          → { trigger: 'goal_completed', screen: 'goals', goalId }
+ *   dispatch-notifications → { trigger: 'daily_digest', localDate, screen: 'today' }
+ *   finalize-days          → { trigger: 'event_completed', screen: 'events', eventId }
  *                          → { trigger: 'challenge_cleared', screen: 'train', localDate }
+ *
+ * Three shapes are **historical** and still routed, because a push sent minutes
+ * before a deploy can be tapped minutes after it: `{ screen: 'goals', goalId }`
+ * from before the 2026-08-25 Goals → Events rename, and `{ screen: 'squad' }`
+ * and `{ screen: 'character' }` from the three scheduled pushes deviation #52
+ * retired.
  */
 
 /**
@@ -28,7 +34,12 @@
  * union is what lets the hook hand the result straight to the router without a
  * cast that would defeat the checking.
  */
-export type NotificationDestination = '/' | '/squad' | '/train' | `/goal/${string}`;
+export type NotificationDestination =
+  | '/'
+  | '/squad'
+  | '/today'
+  | '/train'
+  | `/event/${string}`;
 
 /**
  * The character tab, and the fallback for anything addressable but underspecified.
@@ -42,7 +53,7 @@ export type NotificationDestination = '/' | '/squad' | '/train' | `/goal/${strin
 const CHARACTER_TAB = '/' as const;
 
 /**
- * A goal id we are willing to interpolate into a path.
+ * An event id we are willing to interpolate into a path.
  *
  * The ids are uuids, but this deliberately does not test for a uuid: the check
  * that matters is that the value cannot alter the shape of the route it is
@@ -57,23 +68,38 @@ function isAddressableId(value: unknown): value is string {
 export function notificationTarget(data: unknown): NotificationDestination | null {
   if (typeof data !== 'object' || data === null) return null;
 
-  const { screen, goalId } = data as { screen?: unknown; goalId?: unknown };
+  const { screen, eventId } = data as { screen?: unknown; eventId?: unknown };
 
   switch (screen) {
+    case 'today':
+      // The digest's destination (deviation #52). The present moment: the race
+      // summary, the quests and the Daily Walk — which is what the digest is
+      // about, and what the character tab does not show.
+      return '/today';
     case 'squad':
+      // **Historical**, from the retired evening loop.
       return '/squad';
     case 'character':
+      // **Historical**, from the retired mid-morning nudge.
       return CHARACTER_TAB;
     case 'train':
       // The Challenges route. A stacked route rather than a tab, so this is a
       // push onto the shell — which is exactly what a tap should do.
       return '/train';
+    case 'events':
+      // The most specific destination the product has — the boss that just went
+      // down. Without a usable id there is still something worth showing, so
+      // this degrades to the character tab rather than swallowing the tap: the
+      // notification already promised the user that something happened, and
+      // `/event/undefined` renders an error where the tab renders the app.
+      return isAddressableId(eventId) ? `/event/${eventId}` : CHARACTER_TAB;
     case 'goals':
-      // The most specific destination the product has — the goal that just
-      // completed. Without a usable id there is still something worth showing,
-      // so this degrades to the character tab rather than swallowing the tap:
-      // the notification already promised the user that something happened.
-      return isAddressableId(goalId) ? `/goal/${goalId}` : CHARACTER_TAB;
+      // **Historical.** Pushes sent before the 2026-08-25 rename (deviation
+      // #45). The goal routes are gone, so this lands on the character tab
+      // rather than nowhere — a tap that goes nowhere is indistinguishable from
+      // push being broken, and `notification_log.kind` is free text, so these
+      // payloads genuinely still exist.
+      return CHARACTER_TAB;
     default:
       return null;
   }

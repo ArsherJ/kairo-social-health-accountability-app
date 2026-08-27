@@ -18,7 +18,7 @@ export function Meter({
    * that position, so the bar answers "am I keeping up?" and not just "how far
    * have I got?".
    *
-   * This is the difference between a goal and a tally. Progress alone says
+   * This is the difference between a commitment and a tally. Progress alone says
    * 42,300 of 60,000, which is either fine or a disaster depending on whether
    * three days are left or twenty — and the caller already knows which.
    * Omit it wherever there is no deadline to be measured against; a tick at a

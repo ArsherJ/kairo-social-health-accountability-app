@@ -5,6 +5,12 @@ import {
   type SquadProgram,
 } from '@kairo/core';
 
+// Relative, and not `@/ui/index.ts`, for two separate reasons — this module is
+// tested by root Vitest, which has neither the `@/` alias nor a parser for
+// React Native's Flow syntax, and the barrel re-exports every component. The
+// same double constraint is why `event-copy.ts` reaches `kairo-core` by path.
+import { STAT_NAMES } from '../../ui/stat-names.ts';
+
 /**
  * How a squad's program is described to people. One module because three
  * surfaces say it — the create form, the join confirmation and the board header
@@ -23,15 +29,27 @@ export type ProgramOption = {
  * leading with it in the UI would make it the answer most founders pick by
  * inertia — and the beta needs squads on each program to answer §15's
  * per-program risk question at all.
+ *
+ * **A program's name is not a stat's name.** `strength` stays "Strength" and
+ * `running` stays "Running" — those name the *game the squad is playing*, and
+ * renaming them alongside the stats (deviation #51) would be a second,
+ * unrequested change to a concept members already consented to. What each blurb
+ * must do is name the stat it weights in the player's current vocabulary, which
+ * is why "Strength and effort count for more" is now wrong and "Body and effort"
+ * is right.
  */
 export const PROGRAM_OPTIONS: readonly ProgramOption[] = [
-  { value: 'running', label: 'Running', blurb: 'Distance and pace count for more' },
-  { value: 'strength', label: 'Strength', blurb: 'Strength and effort count for more' },
-  { value: 'walking', label: 'Walking', blurb: 'Steps and active hours count for more' },
+  { value: 'running', label: 'Running', blurb: 'Motion counts for more — distance and pace' },
+  {
+    value: 'strength',
+    label: 'Strength',
+    blurb: 'Body counts for more — effort and active calories',
+  },
+  { value: 'walking', label: 'Walking', blurb: 'Motion counts for more — steps and active hours' },
   {
     value: 'recovery',
     label: 'Recovery',
-    blurb: 'Sleep counts for more — the one game you win by resting',
+    blurb: 'Mind counts for more — the one game you win by resting',
   },
   {
     value: 'all_around',
@@ -46,7 +64,7 @@ export function programLabel(program: SquadProgram | undefined): string {
 }
 
 /**
- * The boost, said out loud — e.g. `AGI ×1.5`. Null on an untilted board.
+ * The boost, said out loud — e.g. `Motion ×1.5`. Null on an untilted board.
  *
  * This is **program information**: what game this squad is playing. It lives on
  * the board header, next to the program name.
@@ -56,14 +74,21 @@ export function programLabel(program: SquadProgram | undefined): string {
  * any more (see
  * `docs/superpowers/specs/2026-08-15-points-stop-being-spoken-design.md`), so
  * there are no two numbers left to reconcile and the row's copy was removed.
+ *
+ * It also used to print the raw `CoreStat` key, which was the last surface in
+ * the app showing an engine name to a player — and the one a rename would most
+ * obviously have missed, because it never contained a stat *word* to grep for.
+ * `STAT_NAMES` is the one table of stat words (deviation #51) and this reads it
+ * rather than inventing a shorter one: a chip is not a reason for a second
+ * vocabulary.
  */
 export function boostChipLabel(program: SquadProgram | undefined): string | null {
   const stat = program ? boostedStatFor(program) : null;
-  return stat === null ? null : `${stat} ×${PROGRAM_BOOST_MULTIPLIER}`;
+  return stat === null ? null : `${STAT_NAMES[stat]} ×${PROGRAM_BOOST_MULTIPLIER}`;
 }
 
 /**
- * The honest-capability rule, applied where it bites hardest. STR comes from
+ * The honest-capability rule, applied where it bites hardest. Body (STR) comes from
  * estimated active energy, which a phone in a pocket measures poorly during a
  * lifting session — so a strength squad founded on phones alone may feel dead.
  * Say it at the moment the choice is made, not in a support article.

@@ -41,7 +41,7 @@ export function DailyWalkCard({
 
   // Nothing until the window is known. A card that renders a zero streak and
   // corrects itself to six a frame later has told the user they lost a streak
-  // they did not lose — the same reasoning as `GoalCard`'s guard, and the
+  // they did not lose — the same reasoning as `SquadEventPanel`'s guard, and the
   // stakes here are higher because the wrong value is the discouraging one.
   if (!today || !history.isSuccess) return null;
 
@@ -99,7 +99,7 @@ export function DailyWalkCard({
 }
 
 const styles = StyleSheet.create({
-  // Matches `GoalCard`'s filled card exactly. These two sit adjacent on the
+  // Matches `BattleCard`'s filled card exactly. These sit adjacent on the
   // shelf, and a different radius or ground between them would read as one of
   // them having failed to load rather than as a distinction.
   card: {

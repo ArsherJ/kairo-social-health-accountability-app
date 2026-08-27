@@ -18,6 +18,13 @@ export type ProfileEdit = {
   /** Challenge opt-ins (§7.9). Granted by 20260815120000. */
   trains_run?: boolean;
   trains_strength?: boolean;
+  /**
+   * Quest difficulty (deviation #50). Granted by 20260829090000.
+   *
+   * `null` is a real value here and means "use the automatic rule" — it is not
+   * the same as omitting the key, which leaves whatever is stored.
+   */
+  quest_tier_override?: 'starter' | 'steady' | 'strong' | null;
 };
 
 const INSUFFICIENT_PRIVILEGE = '42501';

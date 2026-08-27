@@ -12,6 +12,7 @@ import { useChromeStore } from './chrome.ts';
  */
 const LABELS: Record<string, string> = {
   index: 'Character',
+  today: 'Today',
   squad: 'Squad',
   profile: 'You',
 };
@@ -24,8 +25,13 @@ const LABELS: Record<string, string> = {
  * inside a ring. That keeps one family and one stroke weight across the three
  * discs, which a mixed-family substitute would not.
  */
-const ICONS: Record<string, 'user' | 'users'> = {
+const ICONS: Record<string, 'user' | 'users' | 'sun'> = {
   index: 'user',
+  // `sun` is Feather's, at the same 2px stroke as `user` and `users` — the
+  // family and the weight do not move. The hairline/solid split is total in
+  // both directions: chrome is Feather, character data is
+  // MaterialCommunityIcons.
+  today: 'sun',
   squad: 'users',
   profile: 'user',
 };
@@ -36,16 +42,21 @@ const ICONS: Record<string, 'user' | 'users'> = {
  * unmodified — including `insets`, which is why no `useSafeAreaInsets` call
  * lives in this file.
  *
- * Three discs rather than a bar: the character sits centre and larger because it
- * is where the app opens and where it returns, and the other two orbit it.
+ * Four discs rather than a bar: the character is raised and larger because it
+ * is where the app opens and where it returns, and the other three orbit it.
  * The height is fixed at `NAV_HEIGHT` and `Screen` clears exactly that, so
  * changing one without the other hides content behind the nav.
+ *
+ * **The character keeps the raised disc and is no longer geometrically
+ * centred** (deviation #50). The raised disc means *anchor*, not *middle*: with
+ * four items a raised third-of-four would be arbitrary, and two raised discs is
+ * no anchor at all. Do not add a second raised disc for Today.
  */
 export const NAV_HEIGHT = 96;
 
-/** Glyph sizes, tuned to the disc they sit in — 60pt orbit, 74pt centre. */
-const ORBIT_ICON = 22;
-const CENTRE_ICON = 26;
+/** Glyph sizes, tuned to the disc they sit in — 52pt orbit, 68pt centre. */
+const ORBIT_ICON = 20;
+const CENTRE_ICON = 24;
 
 export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
   // Create and join are full-screen tasks. `Screen` drops its clearance on the
@@ -53,7 +64,11 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
   const navHidden = useChromeStore((s) => s.navHidden);
   if (navHidden) return null;
 
-  const order = ['squad', 'index', 'profile'];
+  // Squad stays leftmost and You stays rightmost, so no existing thumb target
+  // moves to the other end of the bar. Today slots between the character and
+  // the profile, which is where a new place belongs: next to the two you
+  // already visit, not at an edge.
+  const order = ['squad', 'index', 'today', 'profile'];
   const routes = order
     .map((name) => state.routes.find((r) => r.name === name))
     .filter((r): r is NonNullable<typeof r> => r !== undefined);
@@ -114,11 +129,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: space.lg,
+    gap: space.md,
   },
   disc: { borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  orbit: { width: 60, height: 60, marginBottom: space.sm, ...shadow.md },
-  centre: { width: 74, height: 74, ...shadow.lg },
+  // Four discs, sized against the narrowest supported screen:
+  // 3 x 52 + 68 + 3 x 16 = 272 against 320pt. `NAV_HEIGHT` stays 96 and
+  // `TAB_PILL_CLEARANCE` therefore stays unchanged — the discs got smaller,
+  // not the bar.
+  orbit: { width: 52, height: 52, marginBottom: space.sm, ...shadow.md },
+  centre: { width: 68, height: 68, ...shadow.lg },
   resting: { backgroundColor: ramp.neutral[100] },
   focused: { backgroundColor: colors.accent },
   /** lucide's `circle-user-round`, composed: `user` inscribed in a 2px ring. */

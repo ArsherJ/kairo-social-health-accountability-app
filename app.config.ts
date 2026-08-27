@@ -5,6 +5,13 @@ import type { ExpoConfig } from 'expo/config';
 // Safari with nothing reporting an error.
 import { INVITE_HOST } from './src/features/squad/invite-link.ts';
 
+// The EAS project. Written once because it appears twice — `updates.url` is
+// `https://u.expo.dev/<projectId>`, and `extra.eas.projectId` is the same id.
+// If those two ever disagree the app fetches manifests for a project it does
+// not belong to, which returns no update and reports no error: OTA simply
+// stops working, silently, exactly like the entitlement traps below.
+const EAS_PROJECT_ID = 'ccfa0966-3aa9-4548-b5a2-6e311816d8de';
+
 /**
  * Kairo — Expo app config.
  *
@@ -69,6 +76,47 @@ const config: ExpoConfig = {
   // Deep-link scheme. §14 routes eight notification types straight to a screen.
   scheme: 'kairo',
   userInterfaceStyle: 'dark',
+
+  // OTA updates (expo-updates). This is the quota valve: a JS or asset change
+  // ships to installed builds for free, and only a *native* change costs one of
+  // the month's EAS builds.
+  //
+  // **The policy is `fingerprint`, and that choice is load-bearing.** The
+  // alternative, `appVersion`, ties compatibility to the `version` string above
+  // — which means an OTA update is delivered to any build sharing that string,
+  // including one whose native side no longer matches. Add a native module,
+  // forget to bump `version`, publish an update that calls into it, and every
+  // older build takes the update and crashes on launch with no way to recover
+  // except a new build through review. `fingerprint` hashes the actual native
+  // inputs instead — the config plugins under `plugins/`, the resolved Expo
+  // config, native dependency versions, `patches/` — so a native change moves
+  // the runtime version by construction and old builds simply stop being
+  // offered the update. Both policies fail when native drifts; this one fails
+  // by withholding an update rather than by bricking the app.
+  //
+  // Two consequences worth knowing before changing this:
+  //
+  // - The fingerprint's default `balanced` preset deliberately skips
+  //   `ExpoConfigVersions`, which is what makes this compatible with
+  //   `appVersionSource: "remote"` + `autoIncrement` in eas.json. Without that
+  //   skip every build would carry a fresh buildNumber, therefore a fresh
+  //   fingerprint, and no update would ever match anything.
+  // - The runtime version is not readable by eye. `npm run eas:fingerprint`
+  //   prints it; `eas update` prints the one it published to. When an update
+  //   appears not to arrive, compare those two before assuming the network.
+  runtimeVersion: { policy: 'fingerprint' },
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+    // Launch from the embedded/cached bundle immediately and fetch the new one
+    // in the background, applying it on the next launch. This is the default
+    // (0), declared explicitly because raising it is the tempting change that
+    // reintroduces a bug this app has already shipped once: a non-zero value
+    // blocks the first frame on a network request, and the 2026-08-14 outage
+    // was precisely a host that resolved but never connected. `fetch-timeout.ts`
+    // guards Supabase; nothing guards this, so the only safe value is 0 —
+    // an update that lands one launch later is never worth a launch that hangs.
+    fallbackToCacheTimeout: 0,
+  },
   // No newArchEnabled flag: React Native 0.83 dropped the legacy architecture,
   // so New Architecture is the only option and the option was removed.
 
@@ -231,7 +279,7 @@ const config: ExpoConfig = {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     eas: {
-      projectId: 'ccfa0966-3aa9-4548-b5a2-6e311816d8de',
+      projectId: EAS_PROJECT_ID,
     },
   },
 };

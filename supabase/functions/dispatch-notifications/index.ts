@@ -1,31 +1,48 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { fail, json } from '../_shared/http.ts';
-import { countsAgainstBudget, currentLocalDate, planNotifications } from '../_shared/core.ts';
 import {
-  DISPATCH_HOURS,
-  planHourlyDispatch,
+  countsAgainstBudget,
+  evaluateEvent,
+  planNotifications,
+  pooledDays,
+  type EventProgressRow,
+} from '../_shared/core.ts';
+import {
+  DIGEST_HOUR,
+  planDigest,
   type DispatchCandidate,
-  type DispatchUser,
 } from '../_shared/notification-plan.ts';
-import { notificationCopy } from '../_shared/notification-copy.ts';
+import { digestCopy, type DigestFacts } from '../_shared/notification-copy.ts';
+import { eventRowToEvent, type EventRow } from '../_shared/event-plan.ts';
 import { sendToUser } from '../_shared/push.deno.ts';
 
 /**
- * dispatch-notifications — the three scheduled pushes of §14.
+ * dispatch-notifications — the one scheduled push a day (deviation #52).
  *
- * Runs hourly, seven past. Because every player has their own timezone, every
- * hour of the day is somebody's 11 PM: the same run that tells a Manila player
- * their day is ending tells a New York player theirs has begun.
+ * Runs hourly, seven past, and twenty-three of those runs send nothing. Because
+ * every player has their own timezone, every hour of the day is somebody's
+ * 08:00: the same run that greets a Manila player greets a New York one
+ * thirteen hours later.
+ *
+ * §14's three scheduled pushes — 23:00, 00:00 and the mid-morning nudge —
+ * collapsed into this on 2026-08-25. The digest carries what none of them
+ * could: yesterday's *finished* race, which the screen does not show.
  *
  * Deliberately NOT part of finalize-days. That function selects days whose
- * local midnight passed more than two hours ago — the §12 grace window — which
- * would fire "Day ends" at 02:00 local, two hours late and deep inside quiet
- * hours. It also caps at 500 days inside a 55s timeout, and a push round trip
- * per user does not belong in that budget. A failed push must never stop a day
- * from closing.
+ * local midnight passed more than two hours ago — the §12 grace window — so a
+ * digest sent from it would fire at about 2am. It also caps at 500 days inside
+ * a 55s timeout, and a push round trip per user does not belong in that budget.
+ * A failed push must never stop a day from closing.
  *
- * Every decision lives in a pure module tested in plain Node — which hours
- * carry which trigger and which date they concern in `notification-plan.ts`,
+ * **The once-a-day cap is enforced in the database, not here.** A client-side
+ * cap is a race between the same account's devices, and a cap applied after
+ * selection is one this handler cannot see across two invocations of the cron.
+ * `users_needing_digest()` excludes anyone already sent, in the same query that
+ * does the timezone arithmetic, and `notification_log_one_digest_per_day` is
+ * the backstop underneath it.
+ *
+ * Every decision lives in a pure module tested in plain Node — which hour
+ * carries the digest and which dates it concerns in `notification-plan.ts`,
  * whether a candidate may go out in `kairo-core/notifications.ts`, and what it
  * says in `notification-copy.ts`. This handler only reads, plans, sends, logs.
  */
@@ -49,32 +66,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const now = new Date();
-  const hours = Object.keys(DISPATCH_HOURS).map(Number);
 
-  // Who is at each of the three hours right now. Three cheap queries against
-  // profiles; the timezone arithmetic stays in SQL, next to the data.
-  const usersByHour = new Map<number, DispatchUser[]>();
-  for (const hour of hours) {
-    const { data, error } = await admin.rpc('users_at_local_hour', { p_hour: hour });
-    if (error) return fail(`hour lookup failed: ${error.message}`, 500);
-    usersByHour.set(
-      hour,
-      (data ?? []).map((row: Record<string, unknown>) => ({
-        userId: row.user_id as string,
-        localDate: row.local_date as string,
-        timeZone: row.timezone as string,
-      })),
-    );
-  }
+  // The hour is decided in SQL, not here. `users_needing_digest` compares each
+  // recipient's own local hour against the argument and excludes anyone already
+  // sent today, so the handler passes the constant and the database does both —
+  // the same division `users_at_local_hour` already used, and the reason there
+  // is no timezone library in this function. Computing an hour from a UTC
+  // instant here would send every user the digest at 08:00 UTC.
+  const { data: userRows, error: userError } = await admin.rpc('users_needing_digest', {
+    p_hour: DIGEST_HOUR,
+  });
+  if (userError) return fail(`digest lookup failed: ${userError.message}`, 500);
 
-  const openedApp = await usersWhoOpenedToday(usersByHour.get(9) ?? [], now);
-
-  const candidates: DispatchCandidate[] = [];
-  for (const hour of hours) {
-    candidates.push(
-      ...planHourlyDispatch({ hour, users: usersByHour.get(hour) ?? [], openedApp }),
-    );
-  }
+  const candidates: DispatchCandidate[] = planDigest({
+    hour: DIGEST_HOUR,
+    users: (userRows ?? []).map((row: Record<string, unknown>) => ({
+      userId: row.user_id as string,
+      localDate: row.local_date as string,
+      timeZone: row.timezone as string,
+    })),
+  });
 
   if (candidates.length === 0) {
     return json({ ranAt: now.toISOString(), candidates: 0, sent: 0, suppressed: 0 });
@@ -87,20 +98,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const failures: Array<{ userId: string; trigger: string; error: string }> = [];
 
   for (const candidate of candidates) {
-    const { sendDate, aboutDate, timeZone } = candidate.data;
+    const { sendDate, resultDate, timeZone } = candidate.data;
 
-    // The budget is per recipient per local day, and it is read fresh for each
-    // candidate rather than batched: a user reachable at two of the three hours
-    // in one run must see their own first send when the second is planned.
+    // The budget still applies — it bounds the event-driven pushes, which #52
+    // did not touch — and is read fresh for each candidate rather than batched.
     const sentToday = await budgetSpent(candidate.userId, sendDate);
 
     const [admitted] = planNotifications({
       candidates: [candidate],
       sentToday,
       // The hour the candidate was selected for IS the recipient's local hour —
-      // that is what users_at_local_hour answered. Minute is not part of any
+      // that is what users_needing_digest answered. Minute is not part of any
       // §14 rule, and passing the UTC minute here would be noise.
-      localNow: { hour: hourOf(candidate.trigger), minute: 0 },
+      localNow: { hour: DIGEST_HOUR, minute: 0 },
     });
 
     if (!admitted) {
@@ -109,18 +119,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const squadId = squadByUser.get(candidate.userId);
-    const standing = await standingFor(candidate, squadId, aboutDate);
+    const message = digestCopy(await digestFactsFor(candidate, squadId));
 
-    const message = notificationCopy(candidate.trigger, {
-      ...standing,
-      inSquad: Boolean(squadId),
-    });
     const { delivered, failures: sendFailures } = await sendToUser(
       admin,
       candidate.userId,
       message,
-      // §14: every notification deep-links to the relevant screen.
-      { trigger: candidate.trigger, localDate: aboutDate, screen: squadId ? 'squad' : 'character' },
+      // Every notification deep-links to the relevant screen. `today` is plan
+      // 3's fourth tab, which is where the race summary and the quests are —
+      // the digest is about the present moment, so that is where it lands.
+      { trigger: candidate.trigger, localDate: resultDate, screen: 'today' },
     );
 
     if (delivered > 0) {
@@ -153,51 +161,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 });
 
-/** Which trigger belongs to which local hour, inverted. */
-function hourOf(trigger: string): number {
-  for (const [hour, t] of Object.entries(DISPATCH_HOURS)) {
-    if (t === trigger) return Number(hour);
-  }
-  return 12;
-}
-
-/**
- * Users who have already opened the app on their current local date.
- *
- * §14 makes "Day starts" conditional on this. The window is the last 48 hours
- * of `app_open` events — wide enough to cover every timezone's version of
- * "today", with the actual comparison done per user against their own local
- * date, which is the only way the question means anything in a squad spanning
- * Dubai and Cebu.
- */
-async function usersWhoOpenedToday(
-  users: readonly DispatchUser[],
-  now: Date,
-): Promise<string[]> {
-  if (users.length === 0) return [];
-
-  const since = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await admin
-    .from('app_events')
-    .select('user_id, occurred_at')
-    .eq('type', 'app_open')
-    .in('user_id', users.map((u) => u.userId))
-    .gte('occurred_at', since);
-
-  if (error) return [];
-
-  const zoneOf = new Map(users.map((u) => [u.userId, u]));
-  const opened = new Set<string>();
-  for (const row of data ?? []) {
-    const user = zoneOf.get(row.user_id as string);
-    if (!user) continue;
-    if (currentLocalDate(new Date(row.occurred_at as string), user.timeZone) === user.localDate) {
-      opened.add(user.userId);
-    }
-  }
-  return [...opened];
-}
-
 /** One squad per user — free users cap at one, and MVP ranks against it. */
 async function squadsFor(userIds: readonly string[]): Promise<SquadByUser> {
   const byUser: SquadByUser = new Map();
@@ -218,52 +181,97 @@ async function squadsFor(userIds: readonly string[]): Promise<SquadByUser> {
 }
 
 /**
- * The rank and score a message needs.
+ * What the digest has to say, for one recipient.
  *
- * `rank: null` means "no squad", which selects the solo copy variant rather
- * than suppressing the push — solo players are exactly the population §7's
- * churn argument is about.
+ * Three reads, each of which may legitimately come back empty — and every empty
+ * has its own copy branch rather than a placeholder. A user with no squad, a
+ * squad whose race for yesterday is not final because one member is still
+ * living in it, and a squad with no live Event are all ordinary states, not
+ * errors.
  *
- * The rank comes from `squad_leaderboard` rather than a query written here.
- * That function already weights totals by the squad's program and orders on
- * ties by name; reproducing it would eventually make the number in the push
- * disagree with the number on the screen.
+ * The race result is read from `race_results` **directly** rather than through
+ * `race_result()`: this runs with the service role and no JWT, so `auth.uid()`
+ * is null and that function would raise. Reading the table is correct here, and
+ * is why the table has no client grant rather than an RLS policy — the service
+ * role is the only reader that is not a viewer.
  */
-async function standingFor(
+async function digestFactsFor(
   candidate: DispatchCandidate,
   squadId: string | undefined,
-  aboutDate: string,
-): Promise<{ rank: number | null; total: number }> {
-  if (!squadId) {
-    const { data } = await admin
-      .from('daily_scores')
-      .select('total')
-      .eq('user_id', candidate.userId)
-      .eq('local_date', aboutDate)
-      .maybeSingle();
-    return { rank: null, total: data ? Number(data.total) : 0 };
+): Promise<DigestFacts> {
+  if (!squadId) return { inSquad: false };
+
+  const [resultRow, standingRows, eventRows] = await Promise.all([
+    admin
+      .from('race_results')
+      .select('standings')
+      .eq('squad_id', squadId)
+      .eq('local_date', candidate.data.resultDate)
+      .maybeSingle(),
+    admin.rpc('squad_leaderboard', {
+      p_squad_id: squadId,
+      p_local_date: candidate.data.standingDate,
+      p_mode: 'current',
+      // The cron has no JWT. squad_leaderboard honours this only when auth.uid()
+      // is null, so it cannot be used by a client to read as somebody else.
+      p_as_user: candidate.userId,
+    }),
+    admin
+      .from('challenge_events')
+      .select('id, squad_id, title, description, kind, metric, target, starts_on, ends_on')
+      .eq('squad_id', squadId)
+      // `closed_at is null` is not optional on any read: the table still holds
+      // every pre-pivot Goal row, and one of those graded here would be a
+      // points target that means nothing to this copy.
+      .is('closed_at', null)
+      .lte('starts_on', candidate.data.standingDate)
+      .gte('ends_on', candidate.data.standingDate)
+      .limit(1),
+  ]);
+
+  // The live Event's pooled fraction, through the same two functions the client
+  // and finalize-days use — `pooledDays()` takes each date once (event_progress
+  // repeats the pooled figure on every participant's row) and `evaluateEvent()`
+  // is the single implementation of the arithmetic. A third reading of a bar
+  // three surfaces already draw is exactly what deviation #18 forbids.
+  let event: DigestFacts['event'] = null;
+  const liveEvent = (eventRows.data ?? [])[0] as EventRow | undefined;
+  if (liveEvent) {
+    const { data: progressRows } = await admin.rpc('event_progress', {
+      p_event_id: liveEvent.id,
+      p_as_user: candidate.userId,
+    });
+    const parsed = eventRowToEvent(liveEvent);
+    event = {
+      kind: parsed.kind,
+      fraction: evaluateEvent(
+        parsed,
+        pooledDays((progressRows ?? []) as EventProgressRow[]),
+        candidate.data.standingDate,
+      ).fraction,
+    };
   }
 
-  // "A new day begins" carries no rank, so there is nothing to ask for.
-  if (candidate.trigger === 'day_starts') return { rank: null, total: 0 };
+  const standings = (resultRow.data?.standings ?? []) as Array<{
+    user_id: string;
+    rank: number;
+  }>;
+  const mine = standings.find((s) => s.user_id === candidate.userId);
 
-  const { data, error } = await admin.rpc('squad_leaderboard', {
-    p_squad_id: squadId,
-    // An explicit date rather than p_mode: the candidate already knows which
-    // day it is about, and letting the board re-derive "yesterday" would be a
-    // second chance to disagree about it.
-    p_local_date: aboutDate,
-    // The cron has no JWT. squad_leaderboard honours this only when auth.uid()
-    // is null, so it cannot be used by a client to read as somebody else.
-    p_as_user: candidate.userId,
-  });
+  // Today's standing is ranked by the RPC's weighted total, not by capped
+  // steps — the race re-ranks on the client (deviation #46). At 08:00 almost
+  // nobody has moved, so the two orderings agree in practice, and re-ranking
+  // here would mean a second implementation of rankRacers on the server for a
+  // difference nobody can observe. Stated so it is a decision rather than an
+  // oversight.
+  const board = (standingRows.data ?? []) as Array<{ user_id: string; rank: number }>;
+  const myRow = board.find((r) => r.user_id === candidate.userId);
 
-  if (error || !data) return { rank: null, total: 0 };
-
-  const own = (data as Record<string, unknown>[]).find((r) => r.user_id === candidate.userId);
   return {
-    rank: own ? Number(own.rank) : null,
-    total: own ? Number(own.total) : 0,
+    inSquad: true,
+    result: mine ? { rank: Number(mine.rank), racers: standings.length } : null,
+    standing: myRow ? { rank: Number(myRow.rank), racers: board.length } : null,
+    event,
   };
 }
 

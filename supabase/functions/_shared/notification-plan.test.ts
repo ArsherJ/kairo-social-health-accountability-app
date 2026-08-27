@@ -1,91 +1,76 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DISPATCH_HOURS,
-  planHourlyDispatch,
-  type DispatchUser,
-} from './notification-plan.ts';
+import { DIGEST_HOUR, planDigest, type DispatchUser } from './notification-plan.ts';
 
 const manila: DispatchUser = {
   userId: 'u-manila',
-  localDate: '2026-08-08',
+  localDate: '2026-08-26',
   timeZone: 'Asia/Manila',
 };
 const newYork: DispatchUser = {
   userId: 'u-ny',
-  localDate: '2026-08-07',
+  localDate: '2026-08-25',
   timeZone: 'America/New_York',
 };
 
-describe('which trigger an hour carries', () => {
-  it('maps the three MVP hours and nothing else', () => {
-    expect(DISPATCH_HOURS).toEqual({ 0: 'day_ends', 9: 'day_starts', 23: 'day_ending_soon' });
+describe('DIGEST_HOUR', () => {
+  it('is the morning, not the finalization moment', () => {
+    // Days finalize roughly two hours after each user's local midnight, so a
+    // digest carrying the finalized result would fire at about 2am. The two are
+    // decoupled deliberately (spec §4.2): finalize-days writes the result when
+    // the day closes, and this sends it when the user is awake.
+    expect(DIGEST_HOUR).toBe(8);
   });
 
-  it('produces nothing for an hour that carries no trigger', () => {
-    // The cron fires every hour; twenty-one of the twenty-four are no-ops, and
-    // that has to be a quiet return rather than an error.
-    expect(planHourlyDispatch({ hour: 14, users: [manila] })).toEqual([]);
+  it('is outside quiet hours, which is what lets it need no exemption', () => {
+    expect(DIGEST_HOUR).toBeGreaterThanOrEqual(7);
+    expect(DIGEST_HOUR).toBeLessThan(22);
   });
 });
 
-describe('the date a notification is about', () => {
-  it('is today for day_starts and day_ending_soon', () => {
-    expect(planHourlyDispatch({ hour: 9, users: [manila] })[0]!.data.aboutDate).toBe(
-      '2026-08-08',
-    );
-    expect(planHourlyDispatch({ hour: 23, users: [manila] })[0]!.data.aboutDate).toBe(
-      '2026-08-08',
-    );
+describe('planDigest', () => {
+  it('carries yesterday as the result and today as the standing', () => {
+    const [candidate] = planDigest({ hour: DIGEST_HOUR, users: [manila] });
+    expect(candidate!.trigger).toBe('daily_digest');
+    expect(candidate!.data.resultDate).toBe('2026-08-25');
+    expect(candidate!.data.standingDate).toBe('2026-08-26');
+    // The budget bucket is always the day the recipient is living in.
+    expect(candidate!.data.sendDate).toBe('2026-08-26');
   });
 
-  it('buckets the send against the date the user is living in, not the date it is about', () => {
-    // notification_log.local_date is the budget bucket, and the budget resets
-    // when the recipient's day does. At local hour 0 the day just reset, so a
-    // "Day ends" push is the first of the NEW day's three — logging it against
-    // the day it describes would spend a budget that is already closed.
-    const [candidate] = planHourlyDispatch({ hour: 0, users: [manila] });
-    expect(candidate!.data.sendDate).toBe('2026-08-08');
-    expect(candidate!.data.aboutDate).toBe('2026-08-07');
+  it('emits nothing on the other twenty-three hours', () => {
+    // The cron still fires on all of them, so this is the normal path, not an
+    // error.
+    for (const hour of [0, 7, 9, 23]) {
+      expect(planDigest({ hour, users: [manila] })).toEqual([]);
+    }
   });
 
-  it('is yesterday for day_ends, because local midnight has already passed', () => {
-    // users_at_local_hour reports the date the user is now LIVING in. At local
-    // hour 0 that is the new day; the day whose result the push announces is the
-    // one before it. Getting this backwards announces a day that has no score.
-    const [candidate] = planHourlyDispatch({ hour: 0, users: [manila] });
-    expect(candidate!.data.aboutDate).toBe('2026-08-07');
+  it('emits one candidate per user and no more', () => {
+    const candidates = planDigest({ hour: DIGEST_HOUR, users: [manila, newYork] });
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((c) => c.userId)).toEqual([manila.userId, newYork.userId]);
   });
 
-  it('carries each user\'s own timezone through', () => {
-    const candidates = planHourlyDispatch({ hour: 9, users: [manila, newYork] });
+  it("carries each user's own timezone and their own dates", () => {
+    const candidates = planDigest({ hour: DIGEST_HOUR, users: [manila, newYork] });
     expect(candidates.map((c) => c.data.timeZone)).toEqual([
       'Asia/Manila',
       'America/New_York',
     ]);
+    // Two members of one squad, at their own 08:00, are on different dates.
+    expect(candidates.map((c) => c.data.resultDate)).toEqual(['2026-08-25', '2026-08-24']);
   });
-});
 
-describe('day_starts is conditional', () => {
-  it('is dropped for a user who already opened the app today', () => {
-    // §14: mid-morning, "only if the app hasn't been opened yet". Sending it to
-    // someone already looking at the screen is the definition of noise.
-    const candidates = planHourlyDispatch({
-      hour: 9,
-      users: [manila, newYork],
-      openedApp: [manila.userId],
+  it('crosses a month boundary correctly', () => {
+    const [candidate] = planDigest({
+      hour: DIGEST_HOUR,
+      users: [{ ...manila, localDate: '2026-09-01' }],
     });
-    expect(candidates.map((c) => c.userId)).toEqual([newYork.userId]);
+    expect(candidate!.data.resultDate).toBe('2026-08-31');
   });
 
-  it('does not gate the other triggers on app opens', () => {
-    for (const hour of [0, 23]) {
-      const candidates = planHourlyDispatch({
-        hour,
-        users: [manila],
-        openedApp: [manila.userId],
-      });
-      expect(candidates.map((c) => c.userId)).toEqual([manila.userId]);
-    }
+  it('emits nothing for nobody', () => {
+    expect(planDigest({ hour: DIGEST_HOUR, users: [] })).toEqual([]);
   });
 });
 
@@ -93,8 +78,7 @@ describe('purity', () => {
   it('preserves user order and does not mutate the input', () => {
     const users = [manila, newYork];
     const snapshot = JSON.parse(JSON.stringify(users)) as DispatchUser[];
-    const candidates = planHourlyDispatch({ hour: 23, users });
-    expect(candidates.map((c) => c.userId)).toEqual([manila.userId, newYork.userId]);
+    planDigest({ hour: DIGEST_HOUR, users });
     expect(users).toEqual(snapshot);
   });
 });

@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
 
   /**
    * A tint, not a colour. `damage` used to carry this and should not have —
-   * it is reserved for a goal slipping away, and a sign-in that failed is not
+   * it is reserved for a battle slipping away, and a sign-in that failed is not
    * that. The system builds emphasis from surface, so the message sits on a
    * neutral wash and stays in the text colour.
    */

@@ -3,7 +3,7 @@
  *
  * A new user met eight retention systems at once — level and XP, four ability
  * ratings, a daily score, streaks, raw metrics, a leaderboard, long-horizon
- * goals and squad program multipliers — before having a single day of data to
+ * Challenges and squad program multipliers — before having a single day of data to
  * read any of them against. This is the decision to show one loop first:
  * activity, visible character progress, the squad gap, and the Daily Walk as
  * the one daily action.
@@ -18,7 +18,7 @@
  */
 
 export type DisclosureStage =
-  /** The one loop. Goals, Challenges and per-stat detail are not on screen. */
+  /** The one loop. Challenges and per-stat detail are not on screen. */
   | 'core'
   /** Everything. */
   | 'full';
@@ -27,7 +27,7 @@ export type DisclosureStage =
  * Scored days before the rest of the app appears.
  *
  * Three, not seven: long enough that the Daily Walk streak on screen is a real
- * baseline to set a goal against, short enough that a curious user is not
+ * baseline to read a Challenge target against, short enough that a curious user is not
  * locked out of the app's depth for a week. Pinned by a test, because moving it
  * changes what every new user sees and nothing else would signal the change.
  */

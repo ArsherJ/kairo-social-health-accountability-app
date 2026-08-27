@@ -84,10 +84,18 @@ export function StatBar({
         importantForAccessibility="no-hide-descendants"
         style={styles.header}
       >
-        {/* Icon *and* abbreviation, unlike the rail's coin. This is where the
-            mapping gets taught — glyph, name and "Steps and distance" on three
-            consecutive lines — so dropping the letters here would leave the
-            coin's glyph with nothing anywhere that explains it.
+        {/* Icon *and* name, unlike the rail's coin. This is where the mapping
+            gets taught — glyph, name and "Steps and distance" on three
+            consecutive lines — so dropping the word here would leave the coin's
+            glyph with nothing anywhere that explains it.
+
+            It was the three-letter key until deviation #51, which is the one
+            place that decision outlived its reason: the screen printed `AGI`
+            while this row's own `accessibilityLabel` said the stat's name, so
+            after the rename the bar would have shown an engine key and spoken
+            a player word for the same element. A key teaches a mapping to
+            nothing — it appears on no other surface in the app. `flexShrink`
+            on the wrapper already absorbs the longer word.
 
             16pt against the 20pt Caprasimo beside it: here the glyph reinforces
             text that is already present, so it should not out-shout it. On the
@@ -95,7 +103,7 @@ export function StatBar({
         <View style={styles.name}>
           <StatIcon stat={stat} size={16} color={lane ? colors.accent : colors.text} />
           <Text scale="chrome" style={[styles.stat, lane && styles.statLane]}>
-            {stat}
+            {STAT_NAMES[stat]}
             {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
           </Text>
         </View>

@@ -82,7 +82,7 @@ export function sessionsKey(userId: string | undefined, today: string | undefine
  *
  * The client resolves the same challenge the server does, from the same
  * `resolveChallenge()` in `@kairo/core` — so the card and the push can never
- * disagree about what today's target is. That is the `evaluateGoal` arrangement
+ * disagree about what today's target is. That is the `evaluateEvent` arrangement
  * (deviation #18) applied to challenges: a read-time projection over stored
  * rows, with no second implementation and no derived state to go stale.
  *

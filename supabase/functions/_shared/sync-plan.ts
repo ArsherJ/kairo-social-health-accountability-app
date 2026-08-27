@@ -607,8 +607,9 @@ export function planDay(input: DayPlanInput): DayPlan {
         // The unshifted AGI ladder, stored alongside the scoring tier because
         // the Daily Walk asks a different question: `AGI` can reach gold at
         // 7,500 steps on a well-spread day, `AGI_base` only ever at
-        // `DAILY_STEP_BASELINE`. Every walk read — `goal_window_scores()`'s
-        // `walk_cleared` and the 90-day streak — uses this key.
+        // `DAILY_STEP_BASELINE`. Every walk read — the 90-day streak in
+        // `train/queries.ts`, and anything later deciding whether the race's
+        // finish line was crossed from a stored tier — uses this key.
         //
         // Rows written before the three-stat switch have no `AGI_base` and
         // need none: no shift existed then, so their `AGI` *is* unshifted.

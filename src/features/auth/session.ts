@@ -4,6 +4,7 @@ import { clearSyncState } from '@/features/health/storage.ts';
 import { unregisterDeviceToken } from '@/features/notifications/permission.ts';
 import { clearTelemetryBuffer } from '@/features/telemetry/events.ts';
 import { clearMilestones } from '@/features/telemetry/milestone-store.ts';
+import { clearDailyMarkers } from '@/features/telemetry/daily-marker.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { supabase } from '@/lib/supabase.ts';
 
@@ -79,6 +80,7 @@ export async function signOut(): Promise<void> {
     if (userId) {
       clearSyncState(userId);
       clearMilestones(userId);
+      clearDailyMarkers(userId);
     }
   }
 }

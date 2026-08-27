@@ -41,7 +41,7 @@ export interface PermissionAskInput {
   notification: NotificationPermission;
   notificationDismissed: boolean;
   hasSquad: boolean;
-  hasGoal: boolean;
+  hasEvent: boolean;
   /**
    * Whether the user has already answered *an* ask this session. Answering
    * Health makes the notification ask eligible in the same frame, and a second
@@ -63,7 +63,7 @@ export function nextPermissionAsk(input: PermissionAskInput): PermissionAsk {
     shouldAskForNotifications({
       permission: input.notification,
       hasSquad: input.hasSquad,
-      hasGoal: input.hasGoal,
+      hasEvent: input.hasEvent,
       dismissedThisSession: input.notificationDismissed,
     })
   ) {

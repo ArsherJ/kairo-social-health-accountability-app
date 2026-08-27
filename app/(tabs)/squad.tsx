@@ -6,6 +6,8 @@ import { CreateSquadForm } from '@/features/squad/CreateSquadForm.tsx';
 import { JoinSquadForm } from '@/features/squad/JoinSquadForm.tsx';
 import { Leaderboard } from '@/features/squad/Leaderboard.tsx';
 import { SoloBoard } from '@/features/squad/SoloBoard.tsx';
+import { SquadDataConsentSheet } from '@/features/squad/SquadDataConsentSheet.tsx';
+import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { colors, font } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
@@ -14,11 +16,29 @@ import { Button, Screen, Text } from '@/ui/index.ts';
 /** Which of the no-squad screens is showing. Local state, not a route. */
 type Pane = 'choose' | 'create' | 'join';
 
+/**
+ * Whether the consent prompt has already been declined this launch.
+ *
+ * **Module scope, not MMKV, and that is the decision.** Everyone already in a
+ * squad joined under the previous model, where their totals were never
+ * projected — so they have to be asked, and asked again next launch if they
+ * say no. A permanent dismissal would strand that whole cohort on a track
+ * where every lane but theirs reads "not sharing", with no way back to the
+ * question. Same reasoning as the species prompt in deviation #40.
+ *
+ * It is not state, because nothing should re-render when it changes — the
+ * `declined` state below is what does that, and this only survives the unmount
+ * a tab switch does not cause but a remount would.
+ */
+let declinedThisLaunch = false;
+
 export default function Squad() {
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const squad = useMySquad(userId);
   const [pane, setPane] = useState<Pane>('choose');
+  const { consented, isSuccess } = useSquadDataConsent(userId);
+  const [declined, setDeclined] = useState(declinedThisLaunch);
 
   // Create and join are full-screen: the orbit nav floating over a half-filled
   // form reads as an escape hatch, and it paints over the bottom of it.
@@ -59,6 +79,27 @@ export default function Squad() {
           <Text style={styles.error}>{squad.error.message}</Text>
           <Button label="Try again" variant="secondary" onPress={() => void squad.refetch()} />
         </View>
+      </Screen>
+    );
+  }
+
+  // Existing members are asked once per launch, because they joined under a
+  // model where their totals were never projected to anyone (spec §4.5).
+  //
+  // `isSuccess &&`, never `!consented` alone: the query reads false while in
+  // flight, and a sheet flashing over the board on every tab visit reads as a
+  // bug. Declining leaves them on the board with four empty columns, which is
+  // exactly what not sharing means.
+  if (squad.data && isSuccess && !consented && !declined) {
+    return (
+      <Screen scroll={false}>
+        <SquadDataConsentSheet
+          userId={userId}
+          onDecline={() => {
+            declinedThisLaunch = true;
+            setDeclined(true);
+          }}
+        />
       </Screen>
     );
   }

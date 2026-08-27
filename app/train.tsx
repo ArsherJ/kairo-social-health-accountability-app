@@ -22,14 +22,14 @@ import { BackRow, CtaPill, Label, Screen, Text } from '@/ui/index.ts';
  * Train — the Challenges screen.
  *
  * A **stacked route, not a fourth tab**. `TabPill` stays at three items and
- * this is pushed over the shell, the precedent the goal routes set: a tab is
+ * this is pushed over the shell, the precedent the event routes set: a tab is
  * for a place you return to constantly, and a challenge is checked once a day
  * at most.
  *
  * The challenge shown here is resolved on the client from the same
  * `resolveChallenge()` in `@kairo/core` that `finalize-days` uses, over the
  * same stored sessions. There is no second implementation and no derived state
- * to go stale — the arrangement goal progress already has (deviation #18).
+ * to go stale — the arrangement event progress already has (deviation #18).
  *
  * Opting in happens here, on first visit, rather than in onboarding: onboarding
  * stays at two screens, and the profile row still commits exactly once, on the
@@ -45,7 +45,7 @@ export default function Train() {
   const update = useUpdateProfile(userId);
   const disclosure = useDisclosure(userId);
 
-  // Same shape as the goal routes: a card over the tab shell, so the orbit nav
+  // Same shape as the event routes: a card over the tab shell, so the orbit nav
   // is covered rather than absent and `Screen` must not reserve room for it.
   // The cleanup is the load-bearing half.
   useFocusEffect(
@@ -64,6 +64,13 @@ export default function Train() {
   // no cached count — redirecting on that frame would send a `full` user home
   // and read exactly like Challenges having been removed. The screen below
   // already renders its own pending states, so waiting costs nothing.
+  //
+  // Unchanged by the Today tab (deviation #50). Quests left the gate;
+  // Challenges did not, and the parent spec's §4.4 list is read as
+  // illustrative rather than exhaustive — its own §5.3 says Challenges keep
+  // their behaviour unchanged, and the redirect is part of that behaviour. A
+  // Challenge target is a trailing median over workout sessions a `core`
+  // account may have none of, where a quest is the thing that teaches the loop.
   if (disclosure.resolved && disclosure.stage === 'core') return <Redirect href="/" />;
 
   const today = profile.data?.timezone
@@ -222,7 +229,7 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
     lineHeight: 18,
   },
-  // Dashed, following `LockedSlot` and the empty `GoalCard`: this app says "a
+  // Dashed, following `LockedSlot` and the empty `SquadEventPanel`: this app says "a
   // place something goes" with a dashed edge, and an area not yet turned on is
   // the same idea. A filled card here would read as already active.
   pick: {
