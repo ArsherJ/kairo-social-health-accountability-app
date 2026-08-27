@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "characterId": "kairo_creature",
+  "transitionSeconds": 0.18,
+  "poses": [
+    { "id": "idle", "durationSeconds": 2.4, "completion": "loop" },
+    { "id": "sleep", "durationSeconds": 2.8, "completion": "loop" },
+    { "id": "walk", "durationSeconds": 0.8, "completion": "loop" },
+    { "id": "run", "durationSeconds": 0.5, "completion": "loop" },
+    { "id": "workout", "durationSeconds": 1.2, "completion": "loop" },
+    { "id": "race_victory", "durationSeconds": 1.4, "completion": "hold" }
+  ],
+  "reactions": [
+    { "id": "tired", "priority": 10, "durationSeconds": 1.2, "affectedRegions": ["face", "crest", "posture"], "interrupts": "pose", "queue": "ignore_equal_or_lower", "preemption": "higher_priority", "loop": false, "returnTo": "current_pose" },
+    { "id": "happy", "priority": 20, "durationSeconds": 0.9, "affectedRegions": ["face", "crest", "wings"], "interrupts": "pose", "queue": "ignore_equal_or_lower", "preemption": "higher_priority", "loop": false, "returnTo": "current_pose" },
+    { "id": "excited", "priority": 30, "durationSeconds": 1.1, "affectedRegions": ["face", "crest", "wings", "root"], "interrupts": "pose", "queue": "ignore_equal_or_lower", "preemption": "higher_priority", "loop": false, "returnTo": "current_pose" },
+    { "id": "victory", "priority": 40, "durationSeconds": 1.4, "affectedRegions": ["face", "wings", "root"], "interrupts": "pose", "queue": "ignore_equal_or_lower", "preemption": "higher_priority", "loop": false, "returnTo": "current_pose" },
+    { "id": "level_up", "priority": 50, "durationSeconds": 1.8, "affectedRegions": ["face", "crest", "wings", "root"], "interrupts": "pose", "queue": "ignore_equal_or_lower", "preemption": "higher_priority", "loop": false, "returnTo": "current_pose" }
+  ]
+}

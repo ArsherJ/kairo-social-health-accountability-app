@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "characterId": "kairo_creature",
+  "slotEnums": {
+    "body": ["none", "trail_vest"],
+    "feet": ["none", "trail_sneakers", "rain_boots"],
+    "back": ["none", "woven_cape"],
+    "neck": ["none", "sunlit_bandana", "sampaguita_garland"],
+    "face": ["none", "round_glasses", "flight_goggles"],
+    "head": ["none", "runner_cap", "woven_salakot", "leaf_crown"],
+    "effect": ["none", "firefly_aura"]
+  },
+  "items": [
+    { "id": "runner_cap", "displayName": "Runner Cap", "slot": "head", "anchor": "head_top", "riveEnumValue": "runner_cap", "components": [{ "anchor": "head_top" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "woven_salakot", "displayName": "Woven Salakot", "slot": "head", "anchor": "head_top", "riveEnumValue": "woven_salakot", "components": [{ "anchor": "head_top" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "leaf_crown", "displayName": "Leaf Crown", "slot": "head", "anchor": "head_top", "riveEnumValue": "leaf_crown", "components": [{ "anchor": "head_top" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "round_glasses", "displayName": "Round Glasses", "slot": "face", "anchor": "head_center", "riveEnumValue": "round_glasses", "components": [{ "anchor": "head_center" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "flight_goggles", "displayName": "Flight Goggles", "slot": "face", "anchor": "head_center", "riveEnumValue": "flight_goggles", "components": [{ "anchor": "head_center" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "sunlit_bandana", "displayName": "Sunlit Bandana", "slot": "neck", "anchor": "neck", "riveEnumValue": "sunlit_bandana", "components": [{ "anchor": "neck" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "sampaguita_garland", "displayName": "Sampaguita Garland", "slot": "neck", "anchor": "neck", "riveEnumValue": "sampaguita_garland", "components": [{ "anchor": "neck" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "trail_vest", "displayName": "Trail Vest", "slot": "body", "anchor": "body_center", "riveEnumValue": "trail_vest", "components": [{ "anchor": "body_center" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "woven_cape", "displayName": "Woven Cape", "slot": "back", "anchor": "back", "riveEnumValue": "woven_cape", "components": [{ "anchor": "back" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "trail_sneakers", "displayName": "Trail Sneakers", "slot": "feet", "anchor": "left_foot", "riveEnumValue": "trail_sneakers", "components": [{ "anchor": "left_foot" }, { "anchor": "right_foot" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "rain_boots", "displayName": "Rain Boots", "slot": "feet", "anchor": "left_foot", "riveEnumValue": "rain_boots", "components": [{ "anchor": "left_foot" }, { "anchor": "right_foot" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] },
+    { "id": "firefly_aura", "displayName": "Firefly Aura", "slot": "effect", "anchor": "body_center", "riveEnumValue": "firefly_aura", "components": [{ "anchor": "body_center" }], "compatiblePoses": ["idle", "sleep", "walk", "run", "workout", "race_victory"] }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": "0.2",
+  "character_id": "kairo_creature",
+  "asset_version": "v1",
+  "inspiration": "Philippine eagle",
+  "style": [
+    "minimalist",
+    "rounded",
+    "cute",
+    "warm",
+    "expressive"
+  ],
+  "canonical_reference": "reference/KAIRO_GOLDEN_REFERENCE.png",
+  "locked_features": [
+    "head silhouette",
+    "eye placement",
+    "beak shape",
+    "head feather silhouette",
+    "wing attachment points",
+    "body proportions",
+    "foot shape",
+    "base palette"
+  ],
+  "attributes": {
+    "strength": {
+      "source": "workouts",
+      "region": "torso_wings",
+      "tiers": [
+        "slim",
+        "fit",
+        "strong"
+      ]
+    },
+    "agility": {
+      "source": "steps_running",
+      "region": "animation",
+      "tiers": [
+        "calm",
+        "active",
+        "high_energy"
+      ]
+    },
+    "intelligence": {
+      "source": "sleep",
+      "region": "head_face",
+      "daily_states": [
+        "sleepy",
+        "normal",
+        "well_rested"
+      ]
+    }
+  },
+  "poses": [
+    "idle",
+    "sleep",
+    "walk",
+    "run",
+    "workout",
+    "race_victory"
+  ],
+  "reactions": [
+    "happy",
+    "excited",
+    "tired",
+    "victory",
+    "level_up"
+  ],
+  "canonical_rive": "character/rive/kairo_v1.riv",
+  "rive": {
+    "artboard": "KAIRO",
+    "view_model": "KairoCharacter",
+    "state_machine": "KairoStateMachine"
+  },
+  "cosmetic_slots": {
+    "body": 10,
+    "feet": 20,
+    "back": 30,
+    "neck": 40,
+    "face": 50,
+    "head": 60,
+    "effect": 100
+  },
+  "anchors": [
+    "head_top",
+    "head_center",
+    "left_eye",
+    "right_eye",
+    "beak",
+    "neck",
+    "body_center",
+    "left_wing",
+    "right_wing",
+    "back",
+    "left_foot",
+    "right_foot"
+  ],
+  "naming": {
+    "base": "kairo_base_{view}_{version}.png",
+    "pose": "kairo_pose_{pose}_{version}.png",
+    "state": "kairo_state_{state}_{version}.png",
+    "cosmetic": "cosmetic_{slot}_{id}_{version}.png"
+  }
+}

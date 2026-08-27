@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "characterId": "kairo_creature",
+  "assetVersion": "v1",
+  "rive": {
+    "artboard": "KAIRO",
+    "viewModel": "KairoCharacter",
+    "stateMachine": "KairoStateMachine"
+  },
+  "defaults": {
+    "sleepState": "normal",
+    "strengthTier": "fit",
+    "pose": "idle"
+  },
+  "properties": {
+    "sleepState": { "path": "appearance/sleep_state", "type": "enum" },
+    "strengthTier": { "path": "appearance/strength_tier", "type": "enum" },
+    "pose": { "path": "motion/pose", "type": "enum" },
+    "reaction": { "path": "motion/reaction", "type": "enum" },
+    "playReaction": { "path": "motion/play_reaction", "type": "trigger" },
+    "reducedMotion": { "path": "motion/reduced_motion", "type": "boolean" }
+  },
+  "cosmeticProperties": {
+    "body": { "path": "cosmetics/body", "type": "enum", "order": 10 },
+    "feet": { "path": "cosmetics/feet", "type": "enum", "order": 20 },
+    "back": { "path": "cosmetics/back", "type": "enum", "order": 30 },
+    "neck": { "path": "cosmetics/neck", "type": "enum", "order": 40 },
+    "face": { "path": "cosmetics/face", "type": "enum", "order": 50 },
+    "head": { "path": "cosmetics/head", "type": "enum", "order": 60 },
+    "effect": { "path": "cosmetics/effect", "type": "enum", "order": 100 }
+  }
+}
