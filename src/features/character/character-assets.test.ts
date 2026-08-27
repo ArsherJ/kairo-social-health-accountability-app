@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { KAIRO_THUMBNAIL_POSE } from './character-surface-policy.ts';
 
@@ -104,37 +105,66 @@ function firstDifferenceOutsideRect(
   return null;
 }
 
-function collectExportedNames(source: string): string[] {
-  const names: string[] = [];
-  const exportPattern =
-    /\bexport\s+(?:(?:(?:declare\s+)?(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)|default\b|(?:type\s+)?\{([^}]*)\})|(?:\*\s+as\s+([A-Za-z_$][\w$]*)|\*))/g;
+function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
+  return ts.canHaveModifiers(node) && ts.getModifiers(node)?.some((item) => item.kind === kind) === true;
+}
 
-  for (const match of source.matchAll(exportPattern)) {
-    const declarationName = match[1];
-    const exportClause = match[2];
-    const namespaceName = match[3];
-    if (declarationName) {
-      names.push(declarationName);
+function collectBindingNames(name: ts.BindingName, names: string[]): void {
+  if (ts.isIdentifier(name)) {
+    names.push(name.text);
+    return;
+  }
+  for (const element of name.elements) {
+    if (ts.isOmittedExpression(element)) continue;
+    collectBindingNames(element.name, names);
+  }
+}
+
+function collectExportedNames(source: string): string[] {
+  const sourceFile = ts.createSourceFile(
+    'character-assets.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const names: string[] = [];
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportAssignment(statement)) {
+      names.push(statement.isExportEquals ? 'export=' : 'default');
       continue;
     }
-    if (/\bdefault\b/.test(match[0])) {
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.exportClause === undefined) {
+        names.push('*');
+      } else if (ts.isNamespaceExport(statement.exportClause)) {
+        names.push(statement.exportClause.name.text);
+      } else {
+        names.push(...statement.exportClause.elements.map((element) => element.name.text));
+      }
+      continue;
+    }
+    if (!hasModifier(statement, ts.SyntaxKind.ExportKeyword)) continue;
+    if (hasModifier(statement, ts.SyntaxKind.DefaultKeyword)) {
       names.push('default');
       continue;
     }
-    if (namespaceName) {
-      names.push(namespaceName);
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(declaration.name, names);
+      }
       continue;
     }
-    if (/\*/.test(match[0])) {
-      names.push('*');
-      continue;
-    }
-    if (exportClause === undefined) continue;
-    for (const specifier of exportClause.split(',')) {
-      const trimmedSpecifier = specifier.trim().replace(/^type\s+/, '');
-      if (!trimmedSpecifier) continue;
-      const alias = trimmedSpecifier.match(/\bas\s+([A-Za-z_$][\w$]*)$/)?.[1];
-      names.push(alias ?? trimmedSpecifier);
+    if (
+      ts.isFunctionDeclaration(statement) ||
+      ts.isClassDeclaration(statement) ||
+      ts.isInterfaceDeclaration(statement) ||
+      ts.isTypeAliasDeclaration(statement) ||
+      ts.isEnumDeclaration(statement) ||
+      ts.isModuleDeclaration(statement)
+    ) {
+      if (statement.name !== undefined) names.push(statement.name.getText(sourceFile));
     }
   }
 
@@ -186,14 +216,24 @@ describe('KAIRO character assets', () => {
 
   it('recognizes every export form so extra public names cannot hide', () => {
     const representativeSource = `
+      // export const COMMENT_FAKE = true;
+      const text = "export const STRING_FAKE = true";
       export const KAIRO_BASE_ASSET = 1;
       export const KAIRO_POSE_ASSETS = 2;
       export const KAIRO_STATE_ASSETS = 3;
       export const KAIRO_COSMETIC_ASSETS = 4;
-      export const helper = 5;
-      export function helperFunction() {}
+      export const helper = 5, secondHelper = 6;
+      export async function helperFunction() {}
       export type Helper = string;
+      export interface HelperInterface {}
+      export enum HelperEnum { Value }
+      export class HelperClass {}
       export default {};
+      export = helper;
+      const namedHelper = 7;
+      export { namedHelper };
+      export { helper as helperAlias };
+      export type { Helper as ExportedHelper };
       export * from './helper';
       export * as namespaceHelper from './helper';
     `;
@@ -201,21 +241,48 @@ describe('KAIRO character assets', () => {
     expect(collectExportedNames(representativeSource)).toEqual([
       ...REQUIRED_REGISTRY_EXPORTS,
       'helper',
+      'secondHelper',
       'helperFunction',
       'Helper',
+      'HelperInterface',
+      'HelperEnum',
+      'HelperClass',
       'default',
+      'export=',
+      'namedHelper',
+      'helperAlias',
+      'ExportedHelper',
       '*',
       'namespaceHelper',
     ]);
   });
 
-  it('contains every non-empty PNG fallback and QA preview', () => {
+  it('contains every structurally valid full-frame PNG fallback and QA preview', () => {
+    expect(REQUIRED_PNG).toHaveLength(22);
+
     for (const relativePath of REQUIRED_PNG) {
       const absolutePath = resolve(REPO_ROOT, relativePath);
 
       expect(existsSync(absolutePath), relativePath).toBe(true);
       expect(statSync(absolutePath).size, relativePath).toBeGreaterThan(0);
       expect(readFileSync(absolutePath).subarray(0, 8), relativePath).toEqual(PNG_SIGNATURE);
+
+      const png = decodePng(relativePath);
+      expect([png.width, png.height], relativePath).toEqual([570, 636]);
+      expect(png.data.length, relativePath).toBe(570 * 636 * 4);
+      for (const [x, y] of [
+        [0, 0],
+        [png.width - 1, 0],
+        [0, png.height - 1],
+        [png.width - 1, png.height - 1],
+      ] as const) {
+        expect(channel(png.data, pixelOffset(png.width, x, y) + 3), `${relativePath} ${x},${y}`).toBe(0);
+      }
+
+      const bottomRowHasContact = Array.from({ length: png.width }, (_, x) =>
+        channel(png.data, pixelOffset(png.width, x, png.height - 1) + 3),
+      ).some((alpha) => alpha > 0);
+      expect(bottomRowHasContact, relativePath).toBe(true);
     }
   });
 

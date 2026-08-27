@@ -23,6 +23,141 @@ const PRODUCTION_NAVIGATION_PATHS = [
   resolve(REPO_ROOT, 'app/(tabs)/_layout.tsx'),
 ] as const;
 
+type MutableRecord = Record<string, unknown>;
+type MutableManifestBundle = {
+  character: MutableRecord;
+  cosmetics: MutableRecord;
+  animations: MutableRecord;
+};
+
+function mutableRecord(value: unknown): MutableRecord {
+  return value as MutableRecord;
+}
+
+function mutableArray(value: unknown): unknown[] {
+  return value as unknown[];
+}
+
+function manifestFixture(): MutableManifestBundle {
+  return structuredClone({ character, cosmetics, animations }) as MutableManifestBundle;
+}
+
+const ADVERSARIAL_MANIFEST_MUTATIONS: readonly {
+  name: string;
+  mutate: (bundle: MutableManifestBundle) => void;
+  expected: readonly string[];
+}[] = [
+  {
+    name: 'an extra character top-level key',
+    mutate: ({ character: mutableCharacter }) => {
+      mutableCharacter.unapproved = true;
+    },
+    expected: ['character.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra cosmetics top-level key',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      mutableCosmetics.unapproved = true;
+    },
+    expected: ['cosmetics.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra animations top-level key',
+    mutate: ({ animations: mutableAnimations }) => {
+      mutableAnimations.unapproved = true;
+    },
+    expected: ['animations.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra Rive metadata key',
+    mutate: ({ character: mutableCharacter }) => {
+      mutableRecord(mutableCharacter.rive).unapproved = true;
+    },
+    expected: ['character.rive.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra defaults key',
+    mutate: ({ character: mutableCharacter }) => {
+      mutableRecord(mutableCharacter.defaults).unapproved = true;
+    },
+    expected: ['character.defaults.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra runtime-property key',
+    mutate: ({ character: mutableCharacter }) => {
+      const properties = mutableRecord(mutableCharacter.properties);
+      mutableRecord(properties.sleepState).unapproved = true;
+    },
+    expected: ['character.properties.sleepState.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra cosmetic-property key',
+    mutate: ({ character: mutableCharacter }) => {
+      const cosmeticProperties = mutableRecord(mutableCharacter.cosmeticProperties);
+      mutableRecord(cosmeticProperties.body).unapproved = true;
+    },
+    expected: ['character.cosmeticProperties.body.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra slot-enum key',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      mutableRecord(mutableCosmetics.slotEnums).unapproved = ['none'];
+    },
+    expected: ['cosmetics.slotEnums.unapproved must not be declared'],
+  },
+  {
+    name: 'an extra cosmetic-item key',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      mutableRecord(mutableArray(mutableCosmetics.items)[0]).unapproved = true;
+    },
+    expected: ['cosmetics.items[0].unapproved must not be declared'],
+  },
+  {
+    name: 'an extra cosmetic-component key',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      const item = mutableRecord(mutableArray(mutableCosmetics.items)[0]);
+      mutableRecord(mutableArray(item.components)[0]).unapproved = true;
+    },
+    expected: ['cosmetics.items[0].components[0].unapproved must not be declared'],
+  },
+  {
+    name: 'an extra pose key',
+    mutate: ({ animations: mutableAnimations }) => {
+      mutableRecord(mutableArray(mutableAnimations.poses)[0]).unapproved = true;
+    },
+    expected: ['animations.poses[0].unapproved must not be declared'],
+  },
+  {
+    name: 'an extra reaction key',
+    mutate: ({ animations: mutableAnimations }) => {
+      mutableRecord(mutableArray(mutableAnimations.reactions)[0]).unapproved = true;
+    },
+    expected: ['animations.reactions[0].unapproved must not be declared'],
+  },
+  {
+    name: 'cosmetic items outside canonical order',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      const items = mutableArray(mutableCosmetics.items);
+      [items[0], items[1]] = [items[1], items[0]];
+    },
+    expected: ['cosmetics.items must preserve canonical item order'],
+  },
+  {
+    name: 'an empty cosmetic display name',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      mutableRecord(mutableArray(mutableCosmetics.items)[0]).displayName = '';
+    },
+    expected: ['cosmetics.items.runner_cap.displayName must equal Runner Cap'],
+  },
+  {
+    name: 'a changed cosmetic display name',
+    mutate: ({ cosmetics: mutableCosmetics }) => {
+      mutableRecord(mutableArray(mutableCosmetics.items)[0]).displayName = 'Running Cap';
+    },
+    expected: ['cosmetics.items.runner_cap.displayName must equal Runner Cap'],
+  },
+];
+
 describe('KAIRO character contract', () => {
   it('has the approved semantic surface', () => {
     expect(SLEEP_STATES).toEqual(['sleepy', 'normal', 'well_rested']);
@@ -89,6 +224,16 @@ describe('KAIRO character contract', () => {
       }),
     ).toEqual(['character.cosmeticProperties.aura must not be declared']);
   });
+
+  it.each(ADVERSARIAL_MANIFEST_MUTATIONS)(
+    'rejects $name with deterministic path-specific diagnostics',
+    ({ mutate, expected }) => {
+      const bundle = manifestFixture();
+      mutate(bundle);
+
+      expect(validateCharacterManifests(bundle)).toEqual(expected);
+    },
+  );
 
   it('registers all 12 cosmetics for all six poses', () => {
     expect(cosmetics.items).toHaveLength(12);

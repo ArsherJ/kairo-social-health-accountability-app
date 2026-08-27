@@ -84,6 +84,20 @@ describe('sanitizeCosmetics', () => {
     warning.mockRestore();
   });
 
+  it('keeps the first valid cosmetic when array input repeats a slot', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    expect(
+      sanitizeCosmetics([
+        { slot: 'head', id: 'runner_cap' },
+        { slot: 'head', id: 'woven_salakot' },
+      ]),
+    ).toEqual({ head: 'runner_cap' });
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledWith('[character] dropped duplicate cosmetic in head');
+    warning.mockRestore();
+  });
+
   it('emits diagnostics only for invalid product data in development', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     sanitizeCosmetics({ head: 'not_a_cosmetic' });

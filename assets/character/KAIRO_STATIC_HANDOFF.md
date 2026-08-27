@@ -2,7 +2,7 @@ STATIC SLICE COMPLETE — RIVE WORK PARKED
 
 # KAIRO static asset handoff
 
-**Tested feature-branch commit:** `f143222` (`fix(character): clarify catalog cosmetic anchors`)  
+**Tested feature-branch commit:** `f143222` (`fix(character): clarify catalog cosmetic anchors`)
 **Verification date:** 2026-08-27
 
 This handoff covers only the non-Rive static KAIRO slice. It does **not** claim that the original compositional Rive MVP, native integration, or device acceptance work is complete.
@@ -69,6 +69,7 @@ Source-boundary inspection confirmed that `KairoThumbnail`, its three compact co
 - State previews are static.
 - Strength tiers and reactions have no rendered static variants.
 - No state × strength × pose × cosmetic compositor exists.
+- Payload tradeoff: the production Expo export currently contains all 22 provisional images because the development catalog shares the literal production registry. Those PNGs total **5,127,587 bytes**, computed by enumerating the 22 required files under `assets/character/{base,poses,states,cosmetics}` and summing each file's byte size with `stat`. This payload is accepted for the current static slice while Rive is parked; splitting or optimizing the registry/catalog boundary is follow-up work.
 
 ## Parked Rive-dependent work
 

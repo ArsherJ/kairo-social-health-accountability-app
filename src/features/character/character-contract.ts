@@ -116,20 +116,58 @@ const EXPECTED_COSMETIC_PROPERTIES = {
   effect: { path: 'cosmetics/effect', type: 'enum', order: 100 },
 } as const;
 
-const EXPECTED_COSMETICS: readonly [CosmeticId, CosmeticSlot, string][] = [
-  ['runner_cap', 'head', 'head_top'],
-  ['woven_salakot', 'head', 'head_top'],
-  ['leaf_crown', 'head', 'head_top'],
-  ['round_glasses', 'face', 'head_center'],
-  ['flight_goggles', 'face', 'head_center'],
-  ['sunlit_bandana', 'neck', 'neck'],
-  ['sampaguita_garland', 'neck', 'neck'],
-  ['trail_vest', 'body', 'body_center'],
-  ['woven_cape', 'back', 'back'],
-  ['trail_sneakers', 'feet', 'left_foot'],
-  ['rain_boots', 'feet', 'left_foot'],
-  ['firefly_aura', 'effect', 'body_center'],
+const EXPECTED_COSMETICS: readonly [CosmeticId, string, CosmeticSlot, string][] = [
+  ['runner_cap', 'Runner Cap', 'head', 'head_top'],
+  ['woven_salakot', 'Woven Salakot', 'head', 'head_top'],
+  ['leaf_crown', 'Leaf Crown', 'head', 'head_top'],
+  ['round_glasses', 'Round Glasses', 'face', 'head_center'],
+  ['flight_goggles', 'Flight Goggles', 'face', 'head_center'],
+  ['sunlit_bandana', 'Sunlit Bandana', 'neck', 'neck'],
+  ['sampaguita_garland', 'Sampaguita Garland', 'neck', 'neck'],
+  ['trail_vest', 'Trail Vest', 'body', 'body_center'],
+  ['woven_cape', 'Woven Cape', 'back', 'back'],
+  ['trail_sneakers', 'Trail Sneakers', 'feet', 'left_foot'],
+  ['rain_boots', 'Rain Boots', 'feet', 'left_foot'],
+  ['firefly_aura', 'Firefly Aura', 'effect', 'body_center'],
 ];
+
+const CHARACTER_MANIFEST_KEYS = [
+  'schemaVersion',
+  'characterId',
+  'assetVersion',
+  'rive',
+  'defaults',
+  'properties',
+  'cosmeticProperties',
+] as const;
+const COSMETIC_MANIFEST_KEYS = ['schemaVersion', 'characterId', 'slotEnums', 'items'] as const;
+const ANIMATION_MANIFEST_KEYS = [
+  'schemaVersion',
+  'characterId',
+  'transitionSeconds',
+  'poses',
+  'reactions',
+] as const;
+const COSMETIC_ITEM_KEYS = [
+  'id',
+  'displayName',
+  'slot',
+  'anchor',
+  'riveEnumValue',
+  'components',
+  'compatiblePoses',
+] as const;
+const REACTION_KEYS = [
+  'id',
+  'priority',
+  'durationSeconds',
+  'affectedRegions',
+  'interrupts',
+  'queue',
+  'preemption',
+  'loop',
+  'returnTo',
+] as const;
 
 const EXPECTED_POSES = [
   ['idle', 2.4, 'loop'],
@@ -193,8 +231,13 @@ export function validateCharacterManifests({
   const cosmeticsManifest = addHeaderErrors(errors, 'cosmetics', cosmetics);
   const animationsManifest = addHeaderErrors(errors, 'animations', animations);
 
+  addExactKeyErrors(errors, 'character', characterManifest, CHARACTER_MANIFEST_KEYS);
+  addExactKeyErrors(errors, 'cosmetics', cosmeticsManifest, COSMETIC_MANIFEST_KEYS);
+  addExactKeyErrors(errors, 'animations', animationsManifest, ANIMATION_MANIFEST_KEYS);
+
   if (characterManifest.assetVersion !== 'v1') errors.push('character.assetVersion must equal v1');
   const rive = asRecord(characterManifest.rive);
+  addExactKeyErrors(errors, 'character.rive', rive, ['artboard', 'viewModel', 'stateMachine']);
   if (rive.artboard !== 'KAIRO') errors.push('character.rive.artboard must equal KAIRO');
   if (rive.viewModel !== 'KairoCharacter') errors.push('character.rive.viewModel must equal KairoCharacter');
   if (rive.stateMachine !== 'KairoStateMachine') {
@@ -202,6 +245,11 @@ export function validateCharacterManifests({
   }
 
   const defaults = asRecord(characterManifest.defaults);
+  addExactKeyErrors(errors, 'character.defaults', defaults, [
+    'sleepState',
+    'strengthTier',
+    'pose',
+  ]);
   if (defaults.sleepState !== 'normal') errors.push('character.defaults.sleepState must equal normal');
   if (defaults.strengthTier !== 'fit') errors.push('character.defaults.strengthTier must equal fit');
   if (defaults.pose !== 'idle') errors.push('character.defaults.pose must equal idle');
@@ -210,6 +258,7 @@ export function validateCharacterManifests({
   addExactKeyErrors(errors, 'character.properties', properties, Object.keys(EXPECTED_PROPERTIES));
   for (const [id, expected] of Object.entries(EXPECTED_PROPERTIES)) {
     const property = asRecord(properties[id]);
+    addExactKeyErrors(errors, `character.properties.${id}`, property, ['path', 'type']);
     if (property.path !== expected.path || property.type !== expected.type) {
       errors.push(`character.properties.${id} must equal ${expected.path} (${expected.type})`);
     }
@@ -225,6 +274,11 @@ export function validateCharacterManifests({
   for (const slot of COSMETIC_SLOTS) {
     const expected = EXPECTED_COSMETIC_PROPERTIES[slot];
     const property = asRecord(cosmeticProperties[slot]);
+    addExactKeyErrors(errors, `character.cosmeticProperties.${slot}`, property, [
+      'path',
+      'type',
+      'order',
+    ]);
     if (
       property.path !== expected.path ||
       property.type !== expected.type ||
@@ -238,9 +292,23 @@ export function validateCharacterManifests({
 
   const items = Array.isArray(cosmeticsManifest.items) ? cosmeticsManifest.items : [];
   if (items.length !== EXPECTED_COSMETICS.length) errors.push('cosmetics.items must contain 12 items');
+  if (!sameArray(items.map((item) => asRecord(item).id), EXPECTED_COSMETICS.map(([id]) => id))) {
+    errors.push('cosmetics.items must preserve canonical item order');
+  }
   const itemById = new Map<string, UnknownRecord>();
   for (let index = 0; index < items.length; index += 1) {
     const item = asRecord(items[index]);
+    addExactKeyErrors(errors, `cosmetics.items[${index}]`, item, COSMETIC_ITEM_KEYS);
+    if (Array.isArray(item.components)) {
+      for (let componentIndex = 0; componentIndex < item.components.length; componentIndex += 1) {
+        addExactKeyErrors(
+          errors,
+          `cosmetics.items[${index}].components[${componentIndex}]`,
+          asRecord(item.components[componentIndex]),
+          ['anchor'],
+        );
+      }
+    }
     const id = item.id;
     if (typeof id !== 'string') {
       errors.push(`cosmetics.items[${index}].id must be a string`);
@@ -251,11 +319,14 @@ export function validateCharacterManifests({
     }
   }
 
-  for (const [id, slot, anchor] of EXPECTED_COSMETICS) {
+  for (const [id, displayName, slot, anchor] of EXPECTED_COSMETICS) {
     const item = itemById.get(id);
     if (!item) {
       errors.push(`cosmetics.items.${id} must be registered`);
       continue;
+    }
+    if (item.displayName !== displayName) {
+      errors.push(`cosmetics.items.${id}.displayName must equal ${displayName}`);
     }
     if (item.slot !== slot || item.anchor !== anchor) {
       errors.push(`cosmetics.items.${id} must use ${slot}/${anchor}`);
@@ -274,10 +345,11 @@ export function validateCharacterManifests({
   }
 
   const slotEnums = asRecord(cosmeticsManifest.slotEnums);
+  addExactKeyErrors(errors, 'cosmetics.slotEnums', slotEnums, COSMETIC_SLOTS);
   for (const slot of COSMETIC_SLOTS) {
     const expectedValues = [
       'none',
-      ...EXPECTED_COSMETICS.filter(([, itemSlot]) => itemSlot === slot).map(([id]) => id),
+      ...EXPECTED_COSMETICS.filter(([, , itemSlot]) => itemSlot === slot).map(([id]) => id),
     ];
     if (!sameArray(slotEnums[slot], expectedValues)) {
       errors.push(`cosmetics.slotEnums.${slot} must equal none plus its slot IDs`);
@@ -294,6 +366,11 @@ export function validateCharacterManifests({
   if (poses.length !== EXPECTED_POSES.length) errors.push('animations.poses must contain six poses');
   for (const [index, [id, durationSeconds, completion]] of EXPECTED_POSES.entries()) {
     const pose = asRecord(poses[index]);
+    addExactKeyErrors(errors, `animations.poses[${index}]`, pose, [
+      'id',
+      'durationSeconds',
+      'completion',
+    ]);
     if (pose.id !== id || pose.durationSeconds !== durationSeconds || pose.completion !== completion) {
       errors.push(`animations.poses[${index}] must equal ${id} (${durationSeconds}s, ${completion})`);
     }
@@ -306,6 +383,7 @@ export function validateCharacterManifests({
   if (reactions.length !== EXPECTED_REACTIONS.length) errors.push('animations.reactions must contain five reactions');
   for (const [index, [id, priority, durationSeconds, affectedRegions]] of EXPECTED_REACTIONS.entries()) {
     const reaction = asRecord(reactions[index]);
+    addExactKeyErrors(errors, `animations.reactions[${index}]`, reaction, REACTION_KEYS);
     if (
       reaction.id !== id ||
       reaction.priority !== priority ||
