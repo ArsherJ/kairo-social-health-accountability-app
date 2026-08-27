@@ -98,6 +98,9 @@ export function SquadDataConsentSheet({
           bounces={false}
         >
           <View style={{ width: contentWidth }}>
+            {/* Says "squad", deliberately, after the 2026-08-27 rename to "flock"
+                (deviation #57). This is the text members consented under; changing it
+                belongs with the privacy-policy update, not with a vocabulary pass. */}
             <Text style={styles.eyebrow}>BEFORE YOU RACE</Text>
             <Text style={styles.title} accessibilityRole="header">
               Your squad will see four numbers
