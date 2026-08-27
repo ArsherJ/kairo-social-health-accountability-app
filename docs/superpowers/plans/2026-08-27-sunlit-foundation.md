@@ -1143,7 +1143,7 @@ the same commit — this is the rule `goal_completed` is kept alive by.
 **Files:**
 - Rename: `app/(tabs)/squad.tsx` → `app/(tabs)/flock.tsx`
 - Create: `app/(tabs)/sky.tsx`
-- Delete: `app/(tabs)/today.tsx` (its body moves in plan 2)
+- Move: `app/(tabs)/today.tsx` → `src/features/character/TodayShelf.tsx`
 - Modify: `app/(tabs)/_layout.tsx`
 - Modify: `src/features/notifications/routing.ts`
 - Modify: `src/features/notifications/routing.test.ts`
@@ -1278,22 +1278,55 @@ Run: `npx vitest run --config vitest.config.ts src/features/notifications/routin
 
 Expected: PASS.
 
-- [ ] **Step 5: Rename the tab files**
+- [ ] **Step 5: Rename the tab files, and keep the Today shelf mounted**
 
 ```bash
 git mv "app/(tabs)/squad.tsx" "app/(tabs)/flock.tsx"
-git rm "app/(tabs)/today.tsx"
+git mv "app/(tabs)/today.tsx" "src/features/character/TodayShelf.tsx"
 ```
 
-Deleting `today.tsx` is safe: its body is re-composed onto `index.tsx` in plan
-2, and until then the Today tab shows the current character screen. The file is
-in git history if a line of it is wanted back.
-
-In the renamed `app/(tabs)/flock.tsx`, rename the default export and its
-`declinedThisLaunch` comment reference:
+In the renamed `app/(tabs)/flock.tsx`, rename the default export:
 
 ```tsx
 export default function Flock() {
+```
+
+**`today.tsx` is moved, not deleted, and this is a correctness point rather than
+a convenience.** Deleting it would take quests, the Daily Walk, the Challenge
+door and two telemetry markers off the app for the whole gap between this plan
+and plan 2 — `race_seen` and `quest_cleared` fire from that file, and nothing
+else claims those markers. This plan's claim to leave a shippable app would be
+false. Moving it costs three lines.
+
+In the moved `src/features/character/TodayShelf.tsx`, make exactly two changes.
+Rename the export:
+
+```tsx
+export function TodayShelf() {
+```
+
+and replace its `<Screen>` wrapper with a plain `<View>`, because `index.tsx`
+already provides the scroll container and a `ScrollView` inside a `ScrollView`
+scrolls neither well:
+
+```tsx
+  return (
+    <View>
+      <Label>Today</Label>
+```
+
+...and the closing `</Screen>` becomes `</View>`. Update the imports: drop
+`Screen` from the `@/ui` import, and add `View` to the `react-native` import
+(the file does not currently import it).
+
+Its docstring gains a line at the top:
+
+```
+ * **Interim shape (2026-08-27).** This was `app/(tabs)/today.tsx` until the
+ * character tab dissolved. It is mounted at the foot of the Today tab so
+ * quests, the Daily Walk and the `race_seen` / `quest_cleared` markers keep
+ * working, and plan 2 dissolves it into that screen's real composition. Do not
+ * build anything new on it.
 ```
 
 - [ ] **Step 6: Create the Sky tab as a placeholder that is honest about itself**
@@ -1333,7 +1366,26 @@ export default function Sky() {
 }
 ```
 
-- [ ] **Step 7: Update the navigator**
+- [ ] **Step 7: Mount the shelf on the Today tab**
+
+At the foot of `app/(tabs)/index.tsx`'s `ScrollView`, immediately before its
+closing `</ScrollView>`, add:
+
+```tsx
+        {/* Interim (2026-08-27): the Today tab is the character screen plus the
+            shelf that used to be its own tab, until plan 2 composes the two
+            into one screen. Both were already mounting the same queries on the
+            same keys, so this adds no request. */}
+        <TodayShelf />
+```
+
+and import it:
+
+```tsx
+import { TodayShelf } from '@/features/character/TodayShelf.tsx';
+```
+
+- [ ] **Step 8: Update the navigator**
 
 In `app/(tabs)/_layout.tsx`, replace the four `Tabs.Screen` lines and the
 comment above them:
@@ -1347,12 +1399,12 @@ comment above them:
         <Tabs.Screen name="profile" options={{ title: 'You' }} />
 ```
 
-- [ ] **Step 8: Repoint the three `/squad` navigations**
+- [ ] **Step 9: Repoint the three `/squad` navigations**
 
 In `app/join/[code].tsx`, lines 94, 110 and 130 — replace each
 `router.replace('/squad')` with `router.replace('/flock')`.
 
-- [ ] **Step 9: Prove no retired route literal survives**
+- [ ] **Step 10: Prove no retired route literal survives**
 
 Run:
 
@@ -1362,7 +1414,7 @@ grep -rn "'/squad'\|\"/squad\"\|'/today'\|\"/today\"" src app --include="*.ts" -
 
 Expected: **no output.**
 
-- [ ] **Step 10: Typecheck and run the whole suite**
+- [ ] **Step 11: Typecheck and run the whole suite**
 
 Run: `npm run typecheck && npm test`
 
@@ -1370,7 +1422,7 @@ Expected: PASS. Typed routes are on (`experiments.typedRoutes`), so a route
 literal that no longer resolves is a compile error rather than a runtime
 surprise — this step is the real check that the rename is complete.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add -A
