@@ -34,6 +34,6 @@ Metro only bundles literal asset registration. Add each PNG explicitly to the re
 
 ## Export requirements
 
-Keep layered source upstream and export production PNGs with transparency. Full figures are centered with feet on the bottom edge and must read at both 190 × 212 and 72 × 72. Do not bake a shadow, glow, presence ring, text, habitat, or background into an export.
+Keep layered source upstream and export production PNGs with transparency. Full figures are centered with feet on the bottom edge and must read at both 190 × 212 and 72 × 72. Do not bake a shadow, presence ring, text, habitat, or background into an export. A selected `effect`-slot cosmetic may include its own restrained local glow; no unrelated glow belongs in any export.
 
 The JSON manifests remain the semantic source. The provisional PNG pack does not own health interpretation, product scoring, cosmetic ownership, network behavior, or runtime composition.
