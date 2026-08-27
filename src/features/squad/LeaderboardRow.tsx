@@ -217,6 +217,12 @@ const styles = StyleSheet.create({
   // Your own row wins over the leader tint when you are both — being first is
   // already said by the rank, and losing track of yourself in your own squad
   // is the worse failure.
+  //
+  // `ramp.accent[200]` is `Panel`'s `tint` ground, spelled out rather than
+  // composed: that variant means *this one is you* and this is the row it was
+  // added for, but `Panel` also brings its own margin, padding and radius, and
+  // this row has three grounds (plain, leader, self) switching on one style
+  // array. Keep the two values in step.
   self: { backgroundColor: ramp.accent[200], borderWidth: 2, borderColor: ramp.accent[500] },
   // minWidth, not width: the column still aligns at the default text size,
   // but a scaled rank glyph grows the box instead of being clipped by it.
