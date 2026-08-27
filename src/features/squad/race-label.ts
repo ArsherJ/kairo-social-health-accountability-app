@@ -1,20 +1,20 @@
 /**
- * A race lane, said out loud.
+ * A racer on the corridor, said out loud.
  *
- * Same job as `row-label.ts`, and for the same measured reason: a lane draws a
- * rank, a figure, a name, a position on a track and a step count, and left as
- * separate accessibility elements a six-person race is thirty stops. The order
- * of this string *is* the reading order — position, who, how far — because that
- * is the order the eye takes the track in.
+ * Same job as `row-label.ts`, and for the same measured reason: a marker draws
+ * a figure, a name and a position on the path, and left as separate
+ * accessibility elements a six-person race is a dozen stops. The order of this
+ * string *is* the reading order — position, who, how far — because that is the
+ * order the eye takes the corridor in.
  *
  * Pure and tested in Node. It imports no UI, and the species name and the
  * ghost's day label are injected already formatted, exactly as `row-label.ts`
  * takes its `species` string rather than an id.
  *
- * **It says a percentage rather than a step count.** The track draws a distance
- * to a flag, not a number, and a label naming a figure the screen does not show
- * would describe a different product — the same rule deviation #34 applied when
- * points stopped being spoken.
+ * **It says a percentage rather than a step count.** The corridor draws a
+ * distance to a flag, not a number, and a label naming a figure the screen does
+ * not show would describe a different product — the same rule deviation #34
+ * applied when points stopped being spoken.
  */
 
 export interface RaceLabelInput {
@@ -61,37 +61,4 @@ export function raceLaneLabel(input: RaceLabelInput): string {
   // Commas, so VoiceOver pauses between fields instead of running the ordinal
   // into the name as one word.
   return `${ordinal(input.rank)}, ${who}, ${where}`;
-}
-
-export interface RaceCardLineInput {
-  rank: number;
-  /** Everyone on the track, ghosts included. */
-  racers: number;
-  /** Capped steps still to go. Zero once the line is crossed. */
-  stepsToFinish: number;
-  finished: boolean;
-}
-
-/**
- * The Today tab's one-line reading of the race.
- *
- * Position first, then the distance left, because that is the order the
- * question arrives in — "where am I" then "how much further". Same
- * clause · clause shape as the home screen's standing and detail lines, and
- * the same `·` glyph, so the app has one rhetorical pattern rather than three.
- *
- * It never names a score. The gap on a leaderboard row is already the only
- * competitive figure the app prints (deviation #34's successor to #23), and a
- * second number here would be the points total arriving through a side door.
- *
- * **It does name steps, where `raceLaneLabel` names a percentage**, and that is
- * not a drift: the card draws a distance to a flag with a figure under it, and
- * the track draws a position along a lane with no figure at all. Each label
- * says what its own surface shows.
- */
-export function raceCardLine(input: RaceCardLineInput): string {
-  const where = `${ordinal(input.rank)} of ${input.racers}`;
-  if (input.finished) return `${where} · finished`;
-  const steps = input.stepsToFinish;
-  return `${where} · ${steps.toLocaleString()} ${steps === 1 ? 'step' : 'steps'} to the flag`;
 }
