@@ -59,12 +59,11 @@ export default function TabsLayout() {
         }}
       >
         {/* This order is the navigator's; `TabPill`'s own `order` array is the
-            bar's. They are allowed to differ and already do — the bar puts
-            Squad ahead of the character. */}
-        <Tabs.Screen name="index" options={{ title: 'Character' }} />
-        <Tabs.Screen name="today" options={{ title: 'Today' }} />
-        <Tabs.Screen name="squad" options={{ title: 'Squad' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+            bar's. They are allowed to differ, and here they agree. */}
+        <Tabs.Screen name="index" options={{ title: 'Today' }} />
+        <Tabs.Screen name="sky" options={{ title: 'Sky' }} />
+        <Tabs.Screen name="flock" options={{ title: 'Flock' }} />
+        <Tabs.Screen name="profile" options={{ title: 'You' }} />
       </Tabs>
 
       {/* `PermissionAsks` lives here rather than on a screen: the ask is keyed

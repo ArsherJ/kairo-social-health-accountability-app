@@ -91,7 +91,7 @@ export default function JoinByLink() {
   if (squad.data) {
     return (
       <Screen scroll={false}>
-        <BackRow onPress={() => router.replace('/squad')} />
+        <BackRow onPress={() => router.replace('/flock')} />
         <Panel variant="plain" style={styles.panel}>
           <Label>INVITE</Label>
           <Text style={styles.title}>You're already in a squad.</Text>
@@ -107,7 +107,7 @@ export default function JoinByLink() {
             variant="primary"
             disabled={false}
             busy={false}
-            onPress={() => router.replace('/squad')}
+            onPress={() => router.replace('/flock')}
           />
         </View>
       </Screen>
@@ -127,7 +127,7 @@ export default function JoinByLink() {
         // `replace`, not `back`: arriving from a link means there is nothing
         // behind this screen to go back to, and `back()` on an empty stack is
         // a no-op that reads as a dead button.
-        onCancel={() => router.replace('/squad')}
+        onCancel={() => router.replace('/flock')}
       />
     </Screen>
   );

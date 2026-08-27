@@ -16,6 +16,7 @@ import { StatBar } from '@/features/character/StatBar.tsx';
 import { StatRail } from '@/features/character/StatRail.tsx';
 import { SyncStatus } from '@/features/character/SyncStatus.tsx';
 import { TodayPanel } from '@/features/character/TodayPanel.tsx';
+import { TodayShelf } from '@/features/character/TodayShelf.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
 import {
   DOMINANCE_WINDOW_DAYS,
@@ -699,6 +700,11 @@ export default function Character() {
             hasScore={today != null}
           />
         </View>
+        {/* Interim (2026-08-27): the Today tab is the character screen plus the
+            shelf that used to be its own tab, until plan 2 composes the two
+            into one screen. Both were already mounting the same queries on the
+            same keys, so this adds no request. */}
+        <TodayShelf />
       </ScrollView>
     </View>
   );

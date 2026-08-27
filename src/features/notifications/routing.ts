@@ -24,7 +24,8 @@
  * before a deploy can be tapped minutes after it: `{ screen: 'goals', goalId }`
  * from before the 2026-08-25 Goals → Events rename, and `{ screen: 'squad' }`
  * and `{ screen: 'character' }` from the three scheduled pushes deviation #52
- * retired.
+ * retired. `'today'` is not historical — it is live — but its *route* moved on
+ * 2026-08-27 and the payload did not.
  */
 
 /**
@@ -36,21 +37,24 @@
  */
 export type NotificationDestination =
   | '/'
-  | '/squad'
-  | '/today'
+  | '/flock'
+  | '/sky'
   | '/train'
   | `/event/${string}`;
 
 /**
- * The character tab, and the fallback for anything addressable but underspecified.
+ * The Today tab, and the fallback for anything addressable but underspecified.
  *
- * Note it is `/` — the tabs group's index — and emphatically **not**
- * `/character`, which is the onboarding body picker in `app/(onboard)/`. The
- * two names invite exactly one confusion and it is silent: `redirectTarget()`
- * would bounce a ready user straight back out of onboarding, so the bug shows
- * up as a flash on tap rather than as an error.
+ * It is `/` — the tabs group's index. Today *became* the index on 2026-08-27
+ * when the character tab dissolved, so this constant changed meaning without
+ * changing value, and the historical `screen: 'character'` payloads kept
+ * working for free.
+ *
+ * Emphatically **not** `/character`, which does not exist any more either: it
+ * was the onboarding species picker, retired with the one-Kairo change. A
+ * future route by that name would inherit exactly one silent confusion.
  */
-const CHARACTER_TAB = '/' as const;
+const HOME_TAB = '/' as const;
 
 /**
  * An event id we are willing to interpolate into a path.
@@ -72,16 +76,18 @@ export function notificationTarget(data: unknown): NotificationDestination | nul
 
   switch (screen) {
     case 'today':
-      // The digest's destination (deviation #52). The present moment: the race
-      // summary, the quests and the Daily Walk — which is what the digest is
-      // about, and what the character tab does not show.
-      return '/today';
+      // The digest's destination (deviation #52). Today is the index tab since
+      // 2026-08-27; `/today` no longer resolves and must not be returned.
+      return HOME_TAB;
     case 'squad':
-      // **Historical**, from the retired evening loop.
-      return '/squad';
+      // **Historical**, from the retired evening loop. The squad tab is the
+      // Flock tab now, and a tap that goes nowhere is indistinguishable from
+      // push being broken.
+      return '/flock';
     case 'character':
-      // **Historical**, from the retired mid-morning nudge.
-      return CHARACTER_TAB;
+      // **Historical**, from the retired mid-morning nudge. The character tab
+      // is gone and its hero is the first thing on Today.
+      return HOME_TAB;
     case 'train':
       // The Challenges route. A stacked route rather than a tab, so this is a
       // push onto the shell — which is exactly what a tap should do.
@@ -89,17 +95,17 @@ export function notificationTarget(data: unknown): NotificationDestination | nul
     case 'events':
       // The most specific destination the product has — the boss that just went
       // down. Without a usable id there is still something worth showing, so
-      // this degrades to the character tab rather than swallowing the tap: the
+      // this degrades to the Today tab rather than swallowing the tap: the
       // notification already promised the user that something happened, and
       // `/event/undefined` renders an error where the tab renders the app.
-      return isAddressableId(eventId) ? `/event/${eventId}` : CHARACTER_TAB;
+      return isAddressableId(eventId) ? `/event/${eventId}` : HOME_TAB;
     case 'goals':
       // **Historical.** Pushes sent before the 2026-08-25 rename (deviation
-      // #45). The goal routes are gone, so this lands on the character tab
-      // rather than nowhere — a tap that goes nowhere is indistinguishable from
-      // push being broken, and `notification_log.kind` is free text, so these
+      // #45). The goal routes are gone, so this lands on the Today tab rather
+      // than nowhere — a tap that goes nowhere is indistinguishable from push
+      // being broken, and `notification_log.kind` is free text, so these
       // payloads genuinely still exist.
-      return CHARACTER_TAB;
+      return HOME_TAB;
     default:
       return null;
   }

@@ -32,7 +32,7 @@ type Pane = 'choose' | 'create' | 'join';
  */
 let declinedThisLaunch = false;
 
-export default function Squad() {
+export default function Flock() {
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const squad = useMySquad(userId);

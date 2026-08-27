@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { currentLocalDate, ghostRivals, questTier, type RacerInput } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
@@ -14,9 +15,15 @@ import { claimDaily, type DailyMarker } from '@/features/telemetry/daily-marker.
 import { track } from '@/features/telemetry/events.ts';
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { TrainEntry } from '@/features/train/TrainEntry.tsx';
-import { Label, Screen } from '@/ui/index.ts';
+import { Label } from '@/ui/index.ts';
 
 /**
+ * **Interim shape (2026-08-27).** This was `app/(tabs)/today.tsx` until the
+ * character tab dissolved. It is mounted at the foot of the Today tab so
+ * quests, the Daily Walk and the `race_seen` / `quest_cleared` markers keep
+ * working, and plan 2 dissolves it into that screen's real composition. Do not
+ * build anything new on it.
+ *
  * Today — the present moment (roadmap deviation #50).
  *
  * A tab rather than a shelf on the character screen, because the character
@@ -41,7 +48,7 @@ import { Label, Screen } from '@/ui/index.ts';
  * squad screens, and every hook resolves to the same key those screens use — so
  * this tab adds no requests, and it cannot disagree with them in one frame.
  */
-export default function Today() {
+export function TodayShelf() {
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -140,7 +147,7 @@ export default function Today() {
   }, [userId, localToday, metSlots]);
 
   return (
-    <Screen>
+    <View>
       <Label>Today</Label>
 
       {/* The race you are currently in, summarised. The full track is on the
@@ -180,7 +187,7 @@ export default function Today() {
       {disclosure.stage === 'full' && (
         <TrainEntry userId={userId} timeZone={timeZone} today={localToday} />
       )}
-    </Screen>
+    </View>
   );
 }
 

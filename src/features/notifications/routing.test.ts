@@ -9,27 +9,31 @@ import { notificationTarget } from './routing.ts';
  */
 
 describe('where a notification tap lands', () => {
-  it('sends the daily digest to the Today tab', () => {
-    // The one scheduled push (deviation #52). It carries yesterday's result and
-    // today's standing, and the Today tab is where both of those live — the
-    // character tab shows neither.
+  it('sends the daily digest to the Today tab, which is now `/`', () => {
+    // The one scheduled push (deviation #52). `dispatch-notifications` still
+    // sends `screen: 'today'` and is not redeployed — only this build's
+    // reading of it moved, because Today became the tabs group's index on
+    // 2026-08-27 and `/today` no longer resolves.
     expect(
       notificationTarget({
         trigger: 'daily_digest',
         localDate: '2026-08-25',
         screen: 'today',
       }),
-    ).toBe('/today');
+    ).toBe('/');
   });
 
-  it('still lands a squad push from before the digest, rather than nowhere', () => {
+  it('still lands a squad push from before the digest, on the Flock tab', () => {
+    // Historical, from the retired evening loop, and `notification_log.kind` is
+    // free text — these payloads genuinely still exist. `/squad` is gone, so
+    // this resolves to the tab that replaced it rather than to nothing.
     expect(
       notificationTarget({
         trigger: 'day_ending_soon',
         localDate: '2026-08-14',
         screen: 'squad',
       }),
-    ).toBe('/squad');
+    ).toBe('/flock');
   });
 
   it('sends a solo push to the character tab, which is `/` and not `/character`', () => {
@@ -99,6 +103,19 @@ describe('where a notification tap lands', () => {
       expect(notificationTarget({ trigger: 'goal_completed', screen: 'goals', goalId })).toBe(
         '/',
       );
+    }
+  });
+
+  it('never returns a route the app no longer has', () => {
+    // The whole point of the two cases above, stated once so it cannot be
+    // regressed by editing them individually. `/today` and `/squad` were real
+    // routes until 2026-08-27; a payload still naming them must land on a real
+    // screen, and the union type is not enough on its own because a historical
+    // string can be added back to the switch by hand.
+    const retired = ['/today', '/squad'];
+    for (const screen of ['today', 'squad', 'character', 'events', 'goals', 'train']) {
+      const target = notificationTarget({ screen });
+      if (target !== null) expect(retired).not.toContain(target);
     }
   });
 });
