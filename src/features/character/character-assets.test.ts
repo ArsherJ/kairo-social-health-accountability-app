@@ -12,6 +12,7 @@ const { PNG } = loadModule('pngjs') as {
 };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const REGISTRY_PATH = resolve(REPO_ROOT, 'src/features/character/character-assets.ts');
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const REQUIRED_PNG = [
   'assets/character/base/kairo_base_front_v1.png',
@@ -91,6 +92,35 @@ function firstDifferenceOutsideRect(
 }
 
 describe('KAIRO character assets', () => {
+  it('registers every checked-in PNG with literal React Native requires', () => {
+    const registrySource = existsSync(REGISTRY_PATH) ? readFileSync(REGISTRY_PATH, 'utf8') : '';
+
+    for (const relativePath of REQUIRED_PNG) {
+      expect(registrySource).toContain(`require('../../../${relativePath}')`);
+    }
+
+    const exportedNames = [...registrySource.matchAll(/\bexport\s+const\s+([A-Z0-9_]+)/g)].map(
+      ([, name]) => name,
+    );
+    expect(exportedNames).toEqual([
+      'KAIRO_BASE_ASSET',
+      'KAIRO_POSE_ASSETS',
+      'KAIRO_STATE_ASSETS',
+      'KAIRO_COSMETIC_ASSETS',
+    ]);
+
+    const dependencyAndConfigSources = [
+      registrySource,
+      readFileSync(resolve(REPO_ROOT, 'package.json'), 'utf8'),
+      readFileSync(resolve(REPO_ROOT, 'package-lock.json'), 'utf8'),
+      readFileSync(resolve(REPO_ROOT, 'metro.config.js'), 'utf8'),
+    ];
+    for (const source of dependencyAndConfigSources) {
+      expect(source).not.toMatch(/rive|\.riv|KAIRO_RIVE/i);
+    }
+    expect(dependencyAndConfigSources[3]).not.toMatch(/(?:sourceExts|assetExts)[^\n]*\briv\b/i);
+  });
+
   it('contains every non-empty PNG fallback and QA preview', () => {
     for (const relativePath of REQUIRED_PNG) {
       const absolutePath = resolve(REPO_ROOT, relativePath);
