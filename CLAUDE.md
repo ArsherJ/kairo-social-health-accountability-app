@@ -267,8 +267,9 @@ reverse. Four things break easily:
   cold-launches into `/train` has no cached count, and bouncing a `full` user
   home on that frame reads exactly like the feature being removed. Hide on
   `stage`, navigate on `resolved && stage`.
-- **Onboarding is `/connect` → `/character` → `/name`**, and the profile row
-  still commits exactly once, on the last screen. Add steps *before* the name,
+- **Onboarding is `/connect` → `/name`** (two screens since deviation #55; the
+  species picker sat between them), and the profile row still commits exactly
+  once, on the last screen. Add steps *before* the name,
   never after — that is still deviation #22's deleted flag. `/connect` reads
   HealthKit **locally** via `readStepsToday` against the *device* zone, because
   no profile row and therefore no `profiles.timezone` exists yet; that is the
@@ -385,45 +386,38 @@ hairline = *things you operate*, solid = *things you are*. Don't blur it in eith
 direction.
 
 **The character is an animal as of 2026-08-18** (roadmap deviation #40, which
-supersedes #27). Four Philippine endemic species — `'pilandok' | 'tamaraw' |
-'carabao' | 'eagle'` — live in `src/features/character/species.ts`, a
+supersedes #27). **Deviation #55 supersedes the *choosing* half of it on
+2026-08-27** — every character is now the eagle and the picker is retired; the
+registry, the column and the art are all unchanged. Four Philippine endemic
+species — `'pilandok' | 'tamaraw' | 'carabao' | 'eagle'` — live in
+`src/features/character/species.ts`, a
 zero-import registry that is the single source for ids, names, hues,
 affinities and blurbs. **`affinity` is flavour and nothing in `@kairo/core`
 imports that file**: a species never touches scoring, and adding a mechanical
 bonus later would rescore history, because `daily_scores` is replayed from
-stored buckets. Five things break easily:
+stored buckets. Four things break easily:
 
 - **`profiles.species` is a new nullable column; `profiles.character_body` is
   dead**, never written and read by no surface — the same disposition as
   `profiles.sex`. Its TypeScript parser was deleted (a parser for a value no
   screen can produce documents nothing); the column comment and its schema test
   are what record the disposition.
-- **One `SpeciesPicker`, mounted by two routes, because `redirectTarget` cuts
-  both ways** — a `ready` user inside `(onboard)` is bounced to `/`, and a
-  `needs-profile` user outside it is bounced to `/connect`, so no single route
-  can serve both. `app/(onboard)/character.tsx` is the onboarding mount and
-  writes nothing; the groupless `app/species.tsx` serves everyone past it and
-  writes directly under the column-scoped UPDATE grant. Groupless is what the
-  `ready` denylist permits, the same as `/event/new`.
-- **Onboarding is still `/connect` → `/character` → `/name`, and the profile
-  row still commits exactly once**, on the name screen — unchanged by #40 and
-  still load-bearing. Deviation #22 deleted the `finishingOnboarding` flag when
+- **`SpeciesPicker`, `/species`, `app/(onboard)/character.tsx` and the home
+  screen's one-per-launch prompt are all gone** (deviation #55, 2026-08-27).
+  The picker was mounted by two routes because `redirectTarget` cuts both ways
+  — a `ready` user inside `(onboard)` is bounced to `/`, a `needs-profile` user
+  outside it to `/connect` — and that is worth remembering the next time a
+  screen has to serve both cohorts, not for this one.
+- **Onboarding is `/connect` → `/name`, and the profile row still commits
+  exactly once**, on the name screen — two screens since #55, and still
+  load-bearing. Deviation #22 deleted the `finishingOnboarding` flag when
   onboarding collapsed to one step; asking anything *after* the INSERT flips
   `resolveRoute` to `'ready'` under the unfinished screen and needs that flag
   back. Add onboarding steps *before* the name, never after.
-- **`SpeciesPicker` is vertical, scrolls, and its text sits in a `View` with a
-  computed point width.** All three are the permission sheet's 2026-08-17
-  lessons in a new place, and the width arithmetic has been wrong twice: it
-  subtracts the screen padding, the card's `borderWidth` (Yoga lays out
-  border-box), *three* `space.md` widths — two paddings plus the row `gap` —
-  and `ART_WIDTH`. `CARD_BORDER` and `ART_WIDTH` are constants precisely so the
-  stylesheet and that sum cannot drift.
-- **The home screen prompts for a species once per launch, gated on
-  `profile.isSuccess`.** `profile.data?.species` reads `undefined` while the
-  query is in flight, which is indistinguishable from null — deviation #37's
-  fourth lesson again. The flag is module scope, not MMKV: a permanent
-  dismissal would strand the pre-#40 cohort on the fallback figure with no
-  prompt to fix it.
+- **The picker's layout lessons outlived it and now live on `/name`**: it
+  scrolls, and its text sits in a `View` with a real width. Both are the
+  permission sheet's 2026-08-17 lessons, and on a screen carrying a 28pt input
+  they are not optional.
 
 **Two documents hold the decisions. Read them before proposing changes.**
 
@@ -526,6 +520,43 @@ break easily:
   `screen: 'today'` and was **not** redeployed — only the client's reading moved,
   which is why this needed no Edge Function change. A test asserts no retired
   route can be returned.
+
+**There is one Kairo, and it is a Philippine eagle, as of 2026-08-27**
+(deviations #55, #57). Four things break easily:
+
+- **`profiles.species` is untouched and must stay so.** The eagle is resolved at
+  the *render boundary* by `displaySpecies()`, which takes the stored value and
+  ignores it. Nothing migrates, nothing is dropped, and `parseSpecies` still
+  accepts all four — narrowing it would fail every stored row on read, which is
+  the difference between a display decision and a destructive one. Reversing #55
+  is deleting one line. Six call sites resolve through it and each lost its
+  `Avatar` fallback, `CharacterFigure`'s View primitives with them; `Build` now
+  holds only `shade` and `weight`, the pair the ground shadow reads.
+- **Onboarding is `/connect` → `/name`, two screens.** The picker sat between
+  them. This *removes* a step, so deviation #22's rule is strengthened rather
+  than merely respected: the profile row still commits exactly once, on the last
+  screen. Add onboarding steps **before** the name, never after — anything after
+  the INSERT flips `resolveRoute` to `'ready'` under an unfinished screen and
+  needs the deleted `finishingOnboarding` flag back.
+- **`kairo-voice.ts` owns what the bird says**, and it is zero-runtime-import so
+  root Vitest can test it — it reaches `stat-names.ts` by relative path, exactly
+  as `program-copy.ts` does, because the `@/ui` barrel does not resolve there.
+  Three rules have tests behind them: no score total, no engine key, and a
+  missing figure yields a *shorter* sentence rather than a fabricated one. The
+  null night reads "No reading yet", which is the rule `finalize-days` grades
+  by — a raw `daily_sleep.minutes` read would have the card congratulating
+  somebody on a night the engine ignored.
+- **The Today tab is the character screen and the old Today tab merged**, and
+  the race on it is a *sentence*, not a card. `RaceCard` is gone; the picture is
+  the Sky tab, and `race_seen` fires there — **it fires nowhere at all until
+  plan 3 mounts it**, which is a deliberate gap, not a regression. The
+  disclosure gate did not move — the sleep and lane cards are the Strain/Sleep
+  rows in a new dress and keep their `full` gate, `StatRail` and its per-stat
+  block moved to You with the same gate, and `useDisclosure`'s doc comment now
+  names every gated surface and which file mounts it. `TodayPanel`,
+  `character/standing.ts` and `character/stat-detail.ts` are unmounted by the
+  merge and still on disk with their tests; `RaceCard.tsx` is unmounted and
+  plan 3 deletes it.
 
 **Kairo had four tabs from 2026-08-25 to 2026-08-27** (deviation #50) — Character · Today ·
 Squad · You. The Today tab is the present moment: a race summary card, three

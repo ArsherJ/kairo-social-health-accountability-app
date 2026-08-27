@@ -1,11 +1,16 @@
 # Kairo
 
-Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together.
+Kairo is a Philippines-market health accountability app, **solo-first**: your character — a Philippine eagle — levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together.
 
 iOS first via Expo; Supabase backend.
 
-Four tabs: **Today** (the character and the day), **Sky** (the daily race),
+Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 **Flock** (the squad) and **You**.
+
+Onboarding is two screens — connect Apple Health, then name your Kairo. The
+player picks no species: every character is the eagle as of 2026-08-27
+(deviation #55), and `profiles.species` still holds every earlier choice so
+the decision is one line to reverse.
 
 ## Docs
 

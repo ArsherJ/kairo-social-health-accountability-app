@@ -5,9 +5,10 @@ import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
-import { RaceTrack } from './RaceTrack.tsx';
 import { resolveSquadStanding, type SquadStanding } from './standing.ts';
+import { WeekStrip, type WeekDay } from './WeekStrip.tsx';
 import {
+  useOwnRecentDays,
   useSquadLeaderboard,
   useSquadMemberCount,
   type LeaderboardMode,
@@ -22,15 +23,60 @@ import { SquadEventPanel } from '@/features/events/SquadEventPanel.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
-import { describeAge } from '@/features/health/sync-status.ts';
-import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
+import { Button, Label, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },
   { mode: 'completed', label: 'Yesterday' },
 ];
+
+/**
+ * Your last seven days, as the week strip's input.
+ *
+ * **The strip shows *your* week, not the squad's, and that is a scope decision
+ * rather than an oversight.** 2d draws a squadmate's face on each day, which
+ * needs a per-day, per-member roster the app has no query for — a new RPC, and
+ * this change ships no backend. `useOwnRecentDays` is already in cache from
+ * the Today tab and answers a real question: which of the last seven days you
+ * have recorded. The eyebrow says "Your week" so the strip does not imply a
+ * claim it cannot make.
+ *
+ * `timeZone` and not the device clock: §2 runs everybody's day in their own
+ * zone, and a squad spans several at any instant. `Intl` is given that zone
+ * explicitly for both the date arithmetic and the weekday initial.
+ *
+ * Today is `waiting` rather than `future` even when nothing has been recorded
+ * yet — the day is still open, and marking it `future` would say it is over.
+ */
+function weekFrom(
+  days: readonly { localDate: string; steps: number }[],
+  today: string | undefined,
+  timeZone: string | undefined,
+): WeekDay[] {
+  if (!today || !timeZone) return [];
+
+  const recorded = new Set(days.filter((d) => d.steps > 0).map((d) => d.localDate));
+  const initial = new Intl.DateTimeFormat(undefined, { weekday: 'narrow', timeZone });
+
+  // Six days back through today, oldest first. Built from the local date
+  // string rather than from `Date.now()` so it agrees with every other date in
+  // the app.
+  //
+  // Note the `T12:00:00Z` anchor: stepping a `Date` by whole days from
+  // midnight can land on the wrong side of a DST boundary, and midday is far
+  // enough from both edges that it cannot.
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - (6 - i));
+    const iso = d.toISOString().slice(0, 10);
+
+    return {
+      letter: initial.format(d),
+      state: iso === today ? 'waiting' : recorded.has(iso) ? 'done' : 'future',
+    };
+  });
+}
 
 /** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
 function ordinal(n: number): string {
@@ -166,20 +212,15 @@ export function Leaderboard({
   // correct and free.
   useSquadRealtime(squad.id);
 
+  // Already in cache from the Today tab, on the same key — the strip adds no
+  // request.
+  const days = useOwnRecentDays(userId, profile.data?.timezone);
+  const localToday = profile.data?.timezone
+    ? currentLocalDate(new Date(), profile.data.timezone)
+    : undefined;
+
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
-
-  // How old *your own* numbers are, and the line says "your" for a reason.
-  //
-  // Squadmates' freshness is not knowable from here — the RPC projects totals,
-  // not sync times — so this claims only what it can actually check. HealthKit
-  // background delivery is opportunistic, and a track that reads as live while
-  // it is hours old is the app making a promise it has no way to keep.
-  const { lastSyncedAt } = useSyncStatusStore();
-  const syncedLabel =
-    lastSyncedAt === null
-      ? "Your numbers haven't synced yet"
-      : `Your numbers updated ${describeAge(Date.now() - lastSyncedAt)}`;
 
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);
@@ -249,6 +290,11 @@ export function Leaderboard({
         </Text>
         {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
       </View>
+
+      {/* Your last seven days. Drawn under the squad header because the week
+          is the frame the day below it sits in — 2d's composition. */}
+      <Label>Your week</Label>
+      <WeekStrip days={weekFrom(days.data ?? [], localToday, profile.data?.timezone)} />
 
       {/* The program is the board's rule, so it belongs in the header rather
           than in a settings screen nobody opens. */}
@@ -331,18 +377,6 @@ export function Leaderboard({
           <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
           <InviteCode code={squad.invite_code} squadName={squad.name} />
         </View>
-      )}
-
-      {/* The race and the board are two readings of one payload — the track
-          re-ranks by capped steps, the rows below stay in the program-weighted
-          order the RPC returned. One query, deliberately: a second fetch here
-          would let the two disagree about the same day.
-
-          Only in `current` mode. "Yesterday" is a finished day and a race
-          nobody is still running; drawing a live track over it would invite
-          the reading that there is still time. */}
-      {mode === 'current' && board.isSuccess && rows.length > 0 && (
-        <RaceTrack rows={rows} syncedLabel={syncedLabel} />
       )}
 
       {rows.map((row) => (

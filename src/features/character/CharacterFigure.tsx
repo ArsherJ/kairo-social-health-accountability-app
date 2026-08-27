@@ -1,6 +1,6 @@
 import { Animated, Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import type { SpeciesId } from './species.ts';
+import { displaySpecies, type SpeciesId } from './species.ts';
 import { SPECIES_FIGURES } from './species-art.ts';
 import { colors, earnedColor, ramp } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
@@ -9,11 +9,12 @@ import { auraStrength } from './aura.ts';
 import { figureResponse } from './level-response.ts';
 
 /**
- * The character. Static placeholder art where an asset exists for the
- * (stage × dominance) pair, and the original View primitives everywhere else —
- * still no new dependency (react-native-svg, Rive and Reanimated are all
- * deliberately not installed; §15 scopes MVP to *static* placeholder art, and
- * pulling in an animation runtime for a placeholder is the wrong trade).
+ * The character. Static placeholder art, one figure per species — and since
+ * 2026-08-27 (deviation #55) that is always the eagle, resolved here through
+ * `displaySpecies`. Still no new dependency (react-native-svg, Rive and
+ * Reanimated are all deliberately not installed; §15 scopes MVP to *static*
+ * placeholder art, and pulling in an animation runtime for a placeholder is
+ * the wrong trade).
  *
  * Two things drive it, and they are independent:
  *
@@ -23,20 +24,15 @@ import { figureResponse } from './level-response.ts';
  *   `level-response.ts`**, which is tested — the arithmetic used to be three
  *   expressions inline here, and it was correct, tasteful and almost
  *   invisible. Tune the constants there, never here.
- * - `dominance` is *shape*, following §6's table — AGI leaner, STR broader,
- *   END a planted stance, VIT a recovery glow, balanced the All-Rounder.
+ * - `dominance` is *weight*, following §6's table — AGI a lighter contact
+ *   patch, STR a denser one, MND the recovery tint, balanced the All-Rounder's
+ *   gold. It read as silhouette proportions until the primitives went with
+ *   deviation #55; the shadow is where it reads now.
  *
- * The proportions below are the honest reading of that table within the
- * primitives available. Commissioned art and Rive replace all of it in V1.
+ * Commissioned art and Rive replace all of it in V1.
  */
 
 interface Build {
-  /** Multiplies shoulder width. Under 1 reads lean, over 1 reads broad. */
-  shoulders: number;
-  /** Multiplies torso width. */
-  torso: number;
-  /** Multiplies torso height — a taller torso plants the figure. */
-  height: number;
   /**
    * The ground shadow's tint. §6 asked for an aura per build; on the warm
    * system the shadow is where that reads, so a heavier build sits in a
@@ -45,40 +41,35 @@ interface Build {
   shade: string;
   /** Added to the shadow's base opacity. */
   weight: number;
-  /** Stance width. Zero means no legs drawn. */
-  stance: number;
 }
 
+/**
+ * The proportion fields — shoulders, torso, height, stance — went with the
+ * View primitives on 2026-08-27 (deviation #55). They shaped a figure that can
+ * no longer be drawn: `displaySpecies` always resolves art, so there is no
+ * "no species" case left for primitives to cover. What survives is the pair
+ * the ground shadow reads, which is where dominance still shows.
+ */
+
 const BUILDS: Record<Exclude<Dominance, null>, Build> = {
-  // "Leaner frame, faster Rive idle animation" — the frame is all that
-  // survives without an animation runtime.
-  AGI: { shoulders: 0.86, torso: 0.84, height: 1.0, shade: ramp.sage[700], weight: -0.03, stance: 0 },
+  // "Leaner frame, faster Rive idle animation" — a lighter contact patch is
+  // all that survives without an animation runtime.
+  AGI: { shade: ramp.sage[700], weight: -0.03 },
   // "Broader silhouette, power aura intensifies."
-  STR: { shoulders: 1.18, torso: 1.14, height: 0.94, shade: colors.damage, weight: 0.07, stance: 0 },
+  STR: { shade: colors.damage, weight: 0.07 },
   // §6's "recovery glow, healthier skin tone", inherited from the VIT build
   // this replaces. MND has no table entry of its own — it joined as a stat in
   // roadmap deviation #41, long after §6 was written — and the recovery build
   // is the nearest thing §6 describes, which makes it a better placeholder
   // than a neutral frame that would read as "no dominance at all".
-  MND: { shoulders: 0.96, torso: 1.0, height: 1.0, shade: ramp.sage[600], weight: -0.05, stance: 0 },
-  // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, evenly
-  // proportioned, and the only build that earns the ring.
-  balanced: { shoulders: 1.04, torso: 1.04, height: 1.04, shade: earnedColor, weight: 0.03, stance: 34 },
+  MND: { shade: ramp.sage[600], weight: -0.05 },
+  // "Rare All-Rounder visual — cannot be bought, must be earned." Gold, and
+  // the only build that earns the ring.
+  balanced: { shade: earnedColor, weight: 0.03 },
 };
 
 /** A character with no points yet: the original neutral placeholder. */
-const UNSTARTED: Build = {
-  shoulders: 1,
-  torso: 1,
-  height: 1,
-  shade: ramp.sage[700],
-  weight: 0,
-  stance: 0,
-};
-
-const BASE_SHOULDERS = 132;
-const BASE_TORSO_WIDTH = 104;
-const BASE_TORSO_HEIGHT = 96;
+const UNSTARTED: Build = { shade: ramp.sage[700], weight: 0 };
 
 export function CharacterFigure({
   level,
@@ -113,7 +104,10 @@ export function CharacterFigure({
   lifetimePoints?: Record<CoreStat, number>;
 }) {
   const build = dominance ? BUILDS[dominance] : UNSTARTED;
-  const art = species ? SPECIES_FIGURES[species] : undefined;
+  // `displaySpecies` rather than the stored id (deviation #55): everyone is an
+  // eagle. The stored value is still passed in, so the day this is reversed
+  // nothing here changes.
+  const art = SPECIES_FIGURES[displaySpecies(species ?? null)];
 
   const scale = height / 220;
 
@@ -155,44 +149,17 @@ export function CharacterFigure({
           that rises with the figure reads as the whole world bobbing, where
           one that stays put reads as the figure lifting off the ground. */}
       <Animated.View style={[styles.lift, { transform: [{ translateY }] }]}>
-        {/* Art when there is art, primitives when there is not. This branch is
-            live, not leftover: every profile predating the species choice (or
-            still loading it) has no `species`, so `art` is undefined and the
-            primitives render — they are also what carries §6's dominance
-            table (leaner AGI, broader STR, END's planted stance). Drop them
-            only once every profile has a species and real per-species art
-            covers every case. */}
-        {art ? (
-          <Image
-            source={art}
-            style={{ width: 190 * scale, height: 212 * scale }}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View style={styles.figure}>
-            <View style={styles.head} />
-            <View
-              style={[styles.shoulders, { width: BASE_SHOULDERS * build.shoulders }]}
-            />
-            <View
-              style={[
-                styles.torso,
-                {
-                  width: BASE_TORSO_WIDTH * build.torso,
-                  height: BASE_TORSO_HEIGHT * build.height,
-                },
-              ]}
-            />
-
-            {build.stance > 0 && (
-              <View style={[styles.legs, { width: build.stance }]}>
-                <View style={styles.leg} />
-                <View style={styles.leg} />
-              </View>
-            )}
-          </View>
-        )}
+        {/* Always art. Every profile predating the species choice used to fall
+            through to View primitives here; `displaySpecies` resolves a figure
+            for a null species too (deviation #55), so that branch was
+            unreachable and is deleted rather than left to rot. §6's dominance
+            table now reads entirely through the ground shadow above. */}
+        <Image
+          source={art}
+          style={{ width: 190 * scale, height: 212 * scale }}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
       </Animated.View>
     </View>
   );
@@ -200,39 +167,8 @@ export function CharacterFigure({
 
 const styles = StyleSheet.create({
   frame: { alignItems: 'center', justifyContent: 'flex-end' },
-  // The art box matches the primitives' overall footprint (head + shoulders +
-  // torso + legs ≈ 212 tall) so swapping one for the other does not move the
-  // layout under it. It is sized inline because `scale` is a prop now; the
-  // ground shadow is `<GroundShadow>`'s job, not styles here.
+  // The art box is 190×212 at scale 1 — the primitives' old footprint, kept so
+  // the removal of that branch moved nothing under it. It is sized inline
+  // because `scale` is a prop; the ground shadow is `<GroundShadow>`'s job.
   lift: { alignItems: 'center' },
-  figure: { alignItems: 'center' },
-  head: {
-    width: 46,
-    height: 52,
-    borderTopLeftRadius: 23,
-    borderTopRightRadius: 23,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    backgroundColor: colors.text,
-  },
-  shoulders: {
-    height: 34,
-    marginTop: -6,
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    backgroundColor: colors.text,
-  },
-  torso: {
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
-    backgroundColor: colors.text,
-  },
-  legs: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  leg: {
-    width: 18,
-    height: 30,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    backgroundColor: colors.text,
-  },
 });

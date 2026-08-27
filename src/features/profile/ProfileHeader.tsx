@@ -23,9 +23,12 @@ const DISC = 74;
 export function ProfileHeader({
   name,
   totalXp,
+  species,
 }: {
   name: string;
   totalXp: number;
+  /** Already resolved through `displaySpecies` by the caller. */
+  species: string;
 }) {
   const xp = xpProgress(totalXp);
   // Intl-safe: `[...name]` splits by code point, so an accented character or
@@ -45,10 +48,14 @@ export function ProfileHeader({
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.level}>
-          Level {xp.level} · {toNext.toLocaleString()} XP to {xp.level + 1}
+        {/* 2e's line: what you are, not only how far along. The XP to the next
+            level moved down a line rather than out — the ring already draws the
+            fraction, and the absolute figure is what stops being guessable once
+            a level spans thousands. */}
+        <Text style={styles.level}>{`Level ${xp.level} · ${species}`}</Text>
+        <Text style={styles.lifetime}>
+          {toNext.toLocaleString()} XP to {xp.level + 1} · {totalXp.toLocaleString()} lifetime
         </Text>
-        <Text style={styles.lifetime}>{totalXp.toLocaleString()} lifetime</Text>
       </View>
     </View>
   );

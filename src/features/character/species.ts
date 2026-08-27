@@ -110,3 +110,32 @@ export function parseSpecies(raw: unknown): SpeciesId | null {
   if (typeof raw !== 'string') return null;
   return (SPECIES_IDS as readonly string[]).includes(raw) ? (raw as SpeciesId) : null;
 }
+
+/**
+ * The one Kairo (roadmap deviation #55).
+ *
+ * Every character is a Philippine eagle as of 2026-08-27. Four species meant
+ * the app had no character at all — nothing could be *about* your Kairo when
+ * your Kairo was one of four interchangeable skins, and the picker asked for an
+ * identity declaration at the highest-attention moment in onboarding to buy
+ * that.
+ */
+export const DEFAULT_SPECIES: SpeciesId = 'eagle';
+
+/**
+ * The species to *draw*, given the species that is *stored*.
+ *
+ * Always the eagle. This is the entire mechanism of deviation #55 and it is
+ * deliberately this small: `profiles.species` is not migrated, not dropped and
+ * never written differently, so every pre-2026-08-27 choice survives in the
+ * column and reversing the decision is deleting the first line of this
+ * function.
+ *
+ * Call it at the **render boundary** — wherever art, a hue or a species name is
+ * resolved. Do not call it before a write, and do not call it inside
+ * `parseSpecies`, which guards what the database is allowed to hold and must
+ * keep accepting all four or every stored row fails on read.
+ */
+export function displaySpecies(_stored: SpeciesId | null): SpeciesId {
+  return DEFAULT_SPECIES;
+}

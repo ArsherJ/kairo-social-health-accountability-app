@@ -5,17 +5,30 @@ import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { healthSource } from '@/features/health/health-source.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
+import { StatBar } from '@/features/character/StatBar.tsx';
+import { StatRail } from '@/features/character/StatRail.tsx';
+import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
+import { useDominantStat, useTodayScore } from '@/features/character/queries.ts';
+import { useDisclosure } from '@/features/character/useDisclosure.ts';
+import { SPECIES, displaySpecies } from '@/features/character/species.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
+import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
 import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
-import { SPECIES_NAMES } from '@/features/character/species.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
-import { Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
+import { Button, Label, Panel, Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
-import type { QuestTier } from '@kairo/core';
+import { CORE_STATS, ratingForStatPoints, type CoreStat, type QuestTier } from '@kairo/core';
+
+/** The human-readable line under each bar, once the rail is expanded. */
+const STAT_LABELS: Record<CoreStat, string> = {
+  AGI: 'Steps and distance',
+  STR: 'Active calories',
+  MND: 'Sleep duration',
+};
 
 /**
  * The four choices, in ascending order with the automatic rule first.
@@ -45,6 +58,41 @@ export default function ProfileTab() {
   const streak = useStreak(userId);
   const update = useUpdateProfile(userId);
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
+
+  // The rail and the block it opens came here when the character screen
+  // dissolved (2026-08-27). Both queries are already in TanStack's cache from
+  // the Today tab on the same keys, so this screen adds no request.
+  const disclosure = useDisclosure(userId);
+  const score = useTodayScore(userId, profile.data?.timezone);
+  const dominance = useDominantStat(userId, profile.data?.timezone);
+  const [railOpen, setRailOpen] = useState(false);
+
+  // Lifetime rollups, which is what the rail reads. `ratingForStatPoints`
+  // floors at 1, so an unloaded profile says the same thing a brand-new
+  // character's does rather than flashing a dash.
+  //
+  // `mnd_total`, not `mind_total`: the rollup is spelled for the stat, the
+  // score column it sums is `mind_points`, and that split has cost a bug.
+  const ratings: Record<CoreStat, number> | undefined = profile.data && {
+    AGI: ratingForStatPoints(profile.data.agi_total),
+    STR: ratingForStatPoints(profile.data.str_total),
+    MND: ratingForStatPoints(profile.data.mnd_total),
+  };
+
+  const lifetime: Record<CoreStat, number> | undefined = profile.data && {
+    AGI: profile.data.agi_total,
+    STR: profile.data.str_total,
+    MND: profile.data.mnd_total,
+  };
+
+  const todayPoints: Record<CoreStat, number> = {
+    AGI: score.data?.agi_points ?? 0,
+    STR: score.data?.str_points ?? 0,
+    MND: score.data?.mind_points ?? 0,
+  };
+
+  const lane = laneStat(dominance.data);
+  const laneCopy = laneEmptyCopy(dominance.data);
 
   async function seed() {
     const timeZone = profile.data?.timezone;
@@ -80,12 +128,68 @@ export default function ProfileTab() {
           <ProfileHeader
             name={profile.data.character_name}
             totalXp={profile.data.total_xp}
+            species={SPECIES[displaySpecies(profile.data.species)].name}
           />
 
           {/* Streak errors are silent by design: a failed streak fetch must
               not stop the rest of the screen rendering, and StreakCard reads
               a missing row as zeros — which is what a new user has anyway. */}
           <StreakCard streak={streak.data} />
+
+          {/* The ability ratings, moved here from the character screen when it
+              dissolved. **Still gated on `full`** — deviation #37's list did
+              not change, only which file mounts it. A rating over a lifetime
+              rollup means nothing on an account with no lifetime.
+
+              The per-stat block comes with it: the rail is a summary you tap
+              to open, and a toggle that opens nothing is worse than no toggle.
+              `railOpen` can only be set by the rail, so the second condition
+              is unreachable in `core` anyway — stated rather than implied, so
+              removing the first gate later cannot silently bring it back. */}
+          {disclosure.stage === 'full' && (
+            <StatRail
+              ratings={ratings}
+              expanded={railOpen}
+              onToggle={() => setRailOpen((open) => !open)}
+            />
+          )}
+
+          {disclosure.stage === 'full' && railOpen && (
+            <View style={styles.detailBlock}>
+              {CORE_STATS.map((stat) => (
+                <StatBar
+                  key={stat}
+                  stat={stat}
+                  label={STAT_LABELS[stat]}
+                  todayPoints={todayPoints[stat]}
+                  lifetimePoints={lifetime?.[stat]}
+                  lane={stat === lane}
+                  laneEmptyCopy={laneCopy}
+                />
+              ))}
+
+              {/* Offered here rather than beside the ratings because expanding
+                  the rail is the moment someone is already asking what these
+                  numbers mean. A permanent link would be a help affordance
+                  competing with the thing it explains. `core` reaches the same
+                  screen from Today, which is where it has least else to go on. */}
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="How progress works"
+                hitSlop={space.sm}
+                onPress={() => router.push('/progress')}
+                style={({ pressed }) => pressed && { opacity: 0.6 }}
+              >
+                <Text style={styles.helpLink}>How progress works</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Ungated, deliberately, and the counterpart to the rail above: a
+              new account needs to know what the three things *are* before it
+              has any of them. This says what each is for and never what has
+              been earned. */}
+          <GrowthCard />
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
 
@@ -95,29 +199,7 @@ export default function ProfileTab() {
           <NotificationSettingsCard />
 
           {/* Above Timezone, because this one is a choice and that one is an
-              observation. The picker itself is `/species`, groupless — see
-              that file for why it cannot live in `(onboard)` alongside the
-              onboarding mount. */}
-          <Panel>
-            <Label>Companion</Label>
-            <Text style={styles.value}>
-              {profile.data.species === null
-                ? 'Not chosen yet'
-                : SPECIES_NAMES[profile.data.species]}
-            </Text>
-            <Text style={styles.help}>
-              Cosmetic only — your stats, scores and streak are untouched by
-              which animal you play as.
-            </Text>
-            <Button
-              label={profile.data.species === null ? 'Choose a companion' : 'Change'}
-              variant="secondary"
-              onPress={() => router.push('/species')}
-            />
-          </Panel>
-
-          {/* Above Timezone for the Companion reason: this one is a choice and
-              that one is an observation.
+              observation.
 
               The copy names the automatic rule's *actual* input, and that
               sentence is doing real work. `questTier()` keys off how many days
@@ -222,6 +304,13 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
   centered: { paddingVertical: space.xl, alignItems: 'center' },
+  detailBlock: { marginTop: space.md, gap: space.md },
+  helpLink: {
+    ...font.body.strong,
+    color: colors.accentDeep,
+    marginTop: space.xs,
+    textAlign: 'center',
+  },
   value: { color: colors.text, ...font.display.minor, fontSize: 19, marginTop: space.xs },
   help: { ...font.body.body, fontSize: 12, color: ramp.neutral[600], marginTop: space.sm, lineHeight: 18 },
   devStatus: { ...font.body.body, fontSize: 13, color: colors.subtle, marginTop: space.sm },

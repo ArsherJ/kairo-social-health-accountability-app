@@ -30,13 +30,23 @@ import { useScoredDayCount } from './queries.ts';
  * indistinguishable from the feature being gone. Hide on `stage`, navigate on
  * `resolved && stage`.
  *
- * **What the gate keeps, written down as of 2026-08-25 (deviation #50):** the
- * stat rail and its expanded per-stat block, the Strain/Sleep rows in
- * `TodayPanel`, `TrainEntry`, and `/train`'s own redirect. That list is
- * UNCHANGED by the Today tab — quests are simply built outside it, which is a
- * fact about a new surface rather than a change to this rule. It is written
- * down here because it never was, and that absence is what let a wider reading
- * of the parent spec's §4.4 look plausible.
+ * **What `core` hides, as of 2026-08-27.** The list moved file twice in the
+ * redesign and nothing else records it:
+ *
+ *   - `StatRail` and its expanded per-stat block — now on
+ *     `app/(tabs)/profile.tsx` (was the character screen)
+ *   - The sleep and lane cards — now on `app/(tabs)/index.tsx`, drawn as the
+ *     bird's observations (they were `TodayPanel`'s Strain/Sleep rows)
+ *   - `TrainEntry` — `app/(tabs)/index.tsx`, unchanged
+ *   - `/train`'s redirect — unchanged, and the one that gates on
+ *     `resolved && stage` rather than on `stage` alone
+ *
+ * **Nothing was added and nothing was taken out.** The constant, the
+ * `total > 0` filter and the lifetime-not-recent rule are all unchanged, and
+ * quests are still simply *built* outside the gate — a fact about a surface
+ * rather than a change to this rule. It is written down here because it never
+ * was, and that absence is what let a wider reading of the parent spec's §4.4
+ * look plausible.
  *
  * The distinction, because it is the one a reader will want to undo: a quest is
  * what teaches the loop, so gating it is backwards. A Challenge is a trailing
@@ -44,8 +54,8 @@ import { useScoredDayCount } from './queries.ts';
  * opt-in and off by default — offering it on day one offers depth to somebody
  * who has not yet produced the data it reads.
  *
- * Called from several surfaces at once (the home screen, the Today tab and
- * `/train`). That costs one request, not three: every call resolves to
+ * Called from several surfaces at once (Today, You and `/train`). That costs
+ * one request, not three: every call resolves to
  * the same TanStack key, so the query is shared and the gate cannot disagree
  * with itself between two screens in the same frame.
  */

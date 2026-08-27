@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { SPECIES, SPECIES_IDS, SPECIES_NAMES, parseSpecies } from './species.ts';
+import {
+  DEFAULT_SPECIES,
+  SPECIES,
+  SPECIES_IDS,
+  SPECIES_NAMES,
+  displaySpecies,
+  parseSpecies,
+} from './species.ts';
 
 describe('SPECIES registry', () => {
   it('lists exactly the four values in the CHECK constraint, in order', () => {
@@ -74,5 +81,43 @@ describe('parseSpecies', () => {
   it('rejects non-strings', () => {
     expect(parseSpecies(0)).toBeNull();
     expect(parseSpecies({})).toBeNull();
+  });
+});
+
+describe('one Kairo (2026-08-27)', () => {
+  it('defaults to the eagle', () => {
+    expect(DEFAULT_SPECIES).toBe('eagle');
+    // The default has to be a real registry entry, not a string that happens
+    // to look like one — `SPECIES[DEFAULT_SPECIES]` is what every art lookup
+    // ends up indexing.
+    expect(SPECIES[DEFAULT_SPECIES]).toBeDefined();
+  });
+
+  it('shows the eagle for an account that never chose', () => {
+    expect(displaySpecies(null)).toBe('eagle');
+  });
+
+  it('shows the eagle for an account that chose something else', () => {
+    // The point of the deviation, not a side effect of it. Someone who picked
+    // a tamaraw renders as an eagle from now on, and the stored value is what
+    // makes that undoable.
+    expect(displaySpecies('tamaraw')).toBe('eagle');
+    expect(displaySpecies('pilandok')).toBe('eagle');
+    expect(displaySpecies('carabao')).toBe('eagle');
+  });
+
+  it('keeps the other three in the registry', () => {
+    // Deleting them would make this a migration rather than a display
+    // decision. `SPECIES_IDS` still mirrors the CHECK constraint in
+    // 20260818120000_species.sql, and that constraint did not move.
+    expect(SPECIES_IDS).toEqual(['pilandok', 'tamaraw', 'carabao', 'eagle']);
+  });
+
+  it('does not change what the database is allowed to hold', () => {
+    // `parseSpecies` guards a value coming off a URL or a row. Narrowing it to
+    // the eagle would reject every stored row on read, which is the difference
+    // between a display decision and a destructive one.
+    expect(parseSpecies('tamaraw')).toBe('tamaraw');
+    expect(parseSpecies('nothing')).toBeNull();
   });
 });

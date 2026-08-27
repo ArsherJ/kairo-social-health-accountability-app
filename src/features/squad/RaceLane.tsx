@@ -1,8 +1,9 @@
 import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { Racer } from '@kairo/core';
+import { displaySpecies, type SpeciesId } from '@/features/character/species.ts';
 import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
 import { colors, earnedColor, font, ramp, space } from '@/theme.ts';
-import { Avatar, Text } from '@/ui/index.ts';
+import { Text } from '@/ui/index.ts';
 import { raceLaneLabel } from './race-label.ts';
 
 /**
@@ -137,19 +138,14 @@ export function RaceLane({ racer }: { racer: Racer }) {
 function Figure({ racer }: { racer: Racer }) {
   const style = [styles.figure, racer.isGhost && styles.figureGhost];
 
-  // `Avatar` for anyone predating the species choice — a lane with no runner
-  // in it would be less identifiable, not more.
-  return racer.species ? (
-    <Image
-      source={SPECIES_FIGURES[racer.species as keyof typeof SPECIES_FIGURES]}
-      style={style}
-      resizeMode="contain"
-    />
-  ) : (
-    <View style={style}>
-      <Avatar name={racer.characterName} self={racer.isSelf} size={FIGURE} />
-    </View>
-  );
+  // `displaySpecies` rather than the stored id (deviation #55): everyone is an
+  // eagle. The stored value is still passed in, so the day this is reversed
+  // nothing here changes. The `Avatar` fallback for anyone predating the
+  // choice went with it — `displaySpecies(null)` is an eagle, so there is no
+  // such case any more.
+  const figure = SPECIES_FIGURES[displaySpecies(racer.species as SpeciesId | null)];
+
+  return <Image source={figure} style={style} resizeMode="contain" />;
 }
 
 /**
@@ -193,17 +189,11 @@ export function QuietLane({
         {!stacked && name}
 
         <View style={[styles.track, styles.trackQuiet]}>
-          {species ? (
-            <Image
-              source={SPECIES_FIGURES[species as keyof typeof SPECIES_FIGURES]}
-              style={[styles.figure, styles.figureQuiet]}
-              resizeMode="contain"
-            />
-          ) : (
-            <View style={[styles.figure, styles.figureQuiet]}>
-              <Avatar name={characterName} size={FIGURE} />
-            </View>
-          )}
+          <Image
+            source={SPECIES_FIGURES[displaySpecies(species as SpeciesId | null)]}
+            style={[styles.figure, styles.figureQuiet]}
+            resizeMode="contain"
+          />
           <Text scale="chrome" style={styles.quietLabel} numberOfLines={1}>
             Not sharing
           </Text>

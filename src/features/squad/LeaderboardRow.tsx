@@ -1,11 +1,15 @@
 import { Image, StyleSheet, View } from 'react-native';
 import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
 import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
-import { SPECIES_NAMES } from '@/features/character/species.ts';
+import {
+  SPECIES_NAMES,
+  displaySpecies,
+  type SpeciesId,
+} from '@/features/character/species.ts';
 import { leaderboardRowLabel } from './row-label.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Avatar, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
+import { StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 /**
  * One squadmate.
@@ -53,9 +57,9 @@ export function LeaderboardRow({
         characterName: row.character_name,
         isSelf: row.is_self,
         // The name, resolved here — `row-label.ts` takes the word, never the
-        // id, so it keeps importing no UI. Undefined for anyone predating the
-        // choice, which is what drops the clause rather than emptying it.
-        ...(row.species ? { species: SPECIES_NAMES[row.species] } : {}),
+        // id, so it keeps importing no UI. The *drawn* species, not the stored
+        // one, so the spoken row matches the picture (deviation #55).
+        species: SPECIES_NAMES[displaySpecies(row.species as SpeciesId | null)],
         level: row.level,
         gap,
         ratings: Object.fromEntries(
@@ -87,25 +91,23 @@ export function LeaderboardRow({
         {row.rank}
       </Text>
 
-      {row.species ? (
-        // Replaces the disc rather than sitting beside it. `Avatar`'s tints are
-        // terracotta and sage — the palette's only two hues, and both already
-        // mean something here (your own row, the leader's) — so four species
-        // hues next to them would be two colour systems in one row.
-        <Image
-          source={SPECIES_FIGURES[row.species]}
-          style={styles.species}
-          resizeMode="contain"
-          // The row is one element and `leaderboardRowLabel` already names the
-          // species in its own reading order.
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        />
-      ) : (
-        /* `Avatar` already hides itself. Kept for anyone predating the choice —
-           a row with no picture at all would be less identifiable, not more. */
-        <Avatar name={row.character_name} self={row.is_self} />
-      )}
+      {/* Replaces the disc rather than sitting beside it. `Avatar`'s tints are
+          terracotta and sage — the palette's only two hues, and both already
+          mean something here (your own row, the leader's) — so a species hue
+          next to them would be two colour systems in one row.
+
+          `displaySpecies` rather than the stored id (deviation #55): everyone
+          is an eagle, and the `Avatar` fallback for anyone predating the choice
+          went with it, since there is no such case any more. */}
+      <Image
+        source={SPECIES_FIGURES[displaySpecies(row.species as SpeciesId | null)]}
+        style={styles.species}
+        resizeMode="contain"
+        // The row is one element and `leaderboardRowLabel` already names the
+        // species in its own reading order.
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
 
       {/* Hiding the wrapper takes the whole name / meta / ratings subtree with
           it, which is why this is four props and not twenty. */}
@@ -215,6 +217,12 @@ const styles = StyleSheet.create({
   // Your own row wins over the leader tint when you are both — being first is
   // already said by the rank, and losing track of yourself in your own squad
   // is the worse failure.
+  //
+  // `ramp.accent[200]` is `Panel`'s `tint` ground, spelled out rather than
+  // composed: that variant means *this one is you* and this is the row it was
+  // added for, but `Panel` also brings its own margin, padding and radius, and
+  // this row has three grounds (plain, leader, self) switching on one style
+  // array. Keep the two values in step.
   self: { backgroundColor: ramp.accent[200], borderWidth: 2, borderColor: ramp.accent[500] },
   // minWidth, not width: the column still aligns at the default text size,
   // but a scaled rank glyph grows the box instead of being clipped by it.
@@ -230,8 +238,8 @@ const styles = StyleSheet.create({
   // element this replaced used `colors.text`, so 600 was a regression on the
   // very thing that took the total's place.
   gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700] },
-  // Matches `Avatar`'s default size, so a mixed board — some rows chose an
-  // animal, some have not — keeps one column edge rather than two.
+  // Matches the 44pt disc `Avatar` used to draw here, so the column edge did
+  // not move when every row became a figure (deviation #55).
   species: { width: 44, height: 44 },
   middle: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
