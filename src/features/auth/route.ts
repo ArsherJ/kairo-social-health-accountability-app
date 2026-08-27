@@ -53,7 +53,7 @@ export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
 export function redirectTarget(input: {
   route: AppRoute;
   group: string | undefined;
-}): '/sign-in' | '/connect' | '/character' | '/name' | '/' | null {
+}): '/sign-in' | '/connect' | '/name' | '/' | null {
   switch (input.route) {
     case 'loading':
     case 'profile-error':
@@ -63,11 +63,11 @@ export function redirectTarget(input: {
     case 'signed-out':
       return input.group === '(auth)' ? null : '/sign-in';
     case 'needs-profile':
-      // The *first* onboarding screen: `/connect` → `/character` → `/name`.
-      // Health is asked before the character is chosen so the name screen can
-      // land on a home tab with real numbers rather than zeros. The later
-      // screens are reached by pushing, never by this gate, which only knows
-      // "has no profile row yet".
+      // The *first* onboarding screen: `/connect` → `/name`, two screens as
+      // of 2026-08-27 (deviation #55 retired the species picker between them).
+      // Health is asked first so the name screen can land on a home tab with
+      // real numbers rather than zeros. The name screen is reached by pushing,
+      // never by this gate, which only knows "has no profile row yet".
       //
       // Every step stays *before* the name screen on purpose. The profile row
       // commits exactly once, there; anything asked after that INSERT flips

@@ -155,7 +155,7 @@ export default function Connect() {
           <Button
             label="Continue"
             variant="primary"
-            onPress={() => router.push('/character')}
+            onPress={() => router.push('/name')}
           />
         ) : phase === 'asking' ? (
           <>
@@ -167,10 +167,10 @@ export default function Connect() {
             />
             {/* A deferral, not a refusal — `PermissionAsks` asks again later,
                 and nothing downstream depends on the answer. */}
-            <Button label="Not now" variant="ghost" onPress={() => router.push('/character')} />
+            <Button label="Not now" variant="ghost" onPress={() => router.push('/name')} />
           </>
         ) : (
-          <Button label="Continue" variant="primary" onPress={() => router.push('/character')} />
+          <Button label="Continue" variant="primary" onPress={() => router.push('/name')} />
         )}
       </View>
     </View>
