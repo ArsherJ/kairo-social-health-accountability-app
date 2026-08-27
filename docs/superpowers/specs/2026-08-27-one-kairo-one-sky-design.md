@@ -83,12 +83,18 @@ grounds:
 |---|---|---|---|---|
 | `colors.accent` | `#F5A623` | fills, meters, the flag, the active tab glyph | 1.9:1 as text on cream | **fill only** — ink on it is `colors.text` |
 | `colors.accentInk` | `#C9721C` | the hero numerals (56pt) and other large accent type | 3.3:1 on `#FFF6E8` | large-text AA |
-| `colors.accentDeep` | `#8F5A08` | accent text on the `#FCEBCB` tint | 4.9:1 on `#FCEBCB` | AA at body size |
+| `colors.accentDeep` | `#7a4409` | accent text at body size, on cream **or** on the `#fcebcb` tint | 7.4:1 / 6.7:1 | AA at body size |
 
 `accentDeep` is **deliberately darker than the mock's `#A0670C`**, which
 measures 4.0:1 and is drawn at 12.5px — under AA for body text. This is the one
 place the implementation overrides the drawing, and the reason is recorded here
 so it is not "corrected" back later.
+
+*Amended during planning (2026-08-27):* the value settled at `#7a4409`
+(`ramp.accent[800]`) rather than the `#8F5A08` first written here. The lighter
+one passes on cream and measures 4.30:1 on the amber tint, which is the ground
+this token most often sits on. One value that clears both beats two that each
+clear one. Verified in `src/ui/contrast.test.ts`.
 
 **The migration is 54 call sites and none of them is automatic.** Counted on
 2026-08-27 across `src` and `app`:
@@ -119,9 +125,9 @@ describe a rule and trust it. The fifteen files involved are listed by
 | ~~`colors.moss` / `mossTint` / `mossInk`~~ | — | **Superseded during planning (2026-08-27).** The design's moss card is `#EEF3DC` on `#4C5A32`, which is `ramp.sage[200]` and `ramp.sage[800]` to within a hair — a fifth family would be two tables of the same colour. Sage covers it. See plan 1, Task 2. |
 | `colors.coral` | `#FF7A5C` | The streak dot. One job. |
 
-`colors.sage` stays and keeps meaning "your lane, never a call to action". Moss
-is a *tint family* for a card ground; sage is a line colour. They are not
-interchangeable and the docstrings must say so.
+`colors.sage` stays and keeps meaning "your lane, never a call to action", and
+after the amendment above it carries the design's moss card as well — the wash
+is `ramp.sage[200]` and its ink is `ramp.sage[800]`.
 
 ### 4.4 Primitives that change shape
 
