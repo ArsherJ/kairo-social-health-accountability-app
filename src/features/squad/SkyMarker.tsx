@@ -1,7 +1,7 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { Placement, Racer } from '@kairo/core';
-import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
-import { displaySpecies, type SpeciesId } from '@/features/character/species.ts';
+import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
+import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Text } from '@/ui/index.ts';
 import { raceLaneLabel } from './race-label.ts';
@@ -73,14 +73,9 @@ export function SkyMarker({
         },
       ]}
     >
-      <Image
-        {...HIDDEN}
-        // Everyone is an eagle (deviation #55). The stored value is still
-        // passed, so reversing that changes nothing here.
-        source={SPECIES_FIGURES[displaySpecies(racer.species as SpeciesId | null)]}
-        style={[{ width: size, height: size }, racer.isGhost && styles.ghost]}
-        resizeMode="contain"
-      />
+      <View {...HIDDEN} style={racer.isGhost && styles.ghost}>
+        <KairoThumbnail pose={KAIRO_THUMBNAIL_POSE.skyMarker} size={size} decorative />
+      </View>
 
       <View {...HIDDEN} style={[styles.pill, racer.isSelf ? styles.pillSelf : styles.pillOther]}>
         <Text

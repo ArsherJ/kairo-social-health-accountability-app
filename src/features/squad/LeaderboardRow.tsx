@@ -1,6 +1,7 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
-import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
+import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
+import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
 import {
   SPECIES_NAMES,
   displaySpecies,
@@ -91,22 +92,15 @@ export function LeaderboardRow({
         {row.rank}
       </Text>
 
-      {/* Replaces the disc rather than sitting beside it. `Avatar`'s tints are
-          terracotta and sage — the palette's only two hues, and both already
-          mean something here (your own row, the leader's) — so a species hue
-          next to them would be two colour systems in one row.
-
-          `displaySpecies` rather than the stored id (deviation #55): everyone
-          is an eagle, and the `Avatar` fallback for anyone predating the choice
-          went with it, since there is no such case any more. */}
-      <Image
-        source={SPECIES_FIGURES[displaySpecies(row.species as SpeciesId | null)]}
-        style={styles.species}
-        resizeMode="contain"
+      {/* Replaces the disc rather than sitting beside it. The row label keeps
+          the species-name wording in its reading order, while this static
+          KAIRO thumbnail stays decorative. */}
+      <KairoThumbnail
+        pose={KAIRO_THUMBNAIL_POSE.leaderboard}
+        size={44}
+        decorative
         // The row is one element and `leaderboardRowLabel` already names the
         // species in its own reading order.
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
       />
 
       {/* Hiding the wrapper takes the whole name / meta / ratings subtree with
@@ -238,9 +232,6 @@ const styles = StyleSheet.create({
   // element this replaced used `colors.text`, so 600 was a regression on the
   // very thing that took the total's place.
   gap: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700] },
-  // Matches the 44pt disc `Avatar` used to draw here, so the column edge did
-  // not move when every row became a figure (deviation #55).
-  species: { width: 44, height: 44 },
   middle: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   name: { ...font.display.small, fontSize: 17, color: colors.text, flexShrink: 1 },

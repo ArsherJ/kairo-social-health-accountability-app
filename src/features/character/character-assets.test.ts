@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { KAIRO_THUMBNAIL_POSE } from './character-surface-policy.ts';
 
 type DecodedPng = { width: number; height: number; data: Buffer };
 
@@ -13,6 +14,12 @@ const { PNG } = loadModule('pngjs') as {
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const REGISTRY_PATH = resolve(REPO_ROOT, 'src/features/character/character-assets.ts');
+const THUMBNAIL_PATH = resolve(REPO_ROOT, 'src/features/character/KairoThumbnail.tsx');
+const COMPACT_SURFACE_PATHS = [
+  resolve(REPO_ROOT, 'src/features/squad/SkyMarker.tsx'),
+  resolve(REPO_ROOT, 'src/features/squad/LeaderboardRow.tsx'),
+  resolve(REPO_ROOT, 'app/event/[id].tsx'),
+] as const;
 const REQUIRED_REGISTRY_EXPORTS = [
   'KAIRO_BASE_ASSET',
   'KAIRO_POSE_ASSETS',
@@ -135,6 +142,27 @@ function collectExportedNames(source: string): string[] {
 }
 
 describe('KAIRO character assets', () => {
+  it('assigns the approved static pose to every compact surface', () => {
+    expect(KAIRO_THUMBNAIL_POSE).toEqual({
+      skyMarker: 'run',
+      leaderboard: 'idle',
+      eventMember: 'idle',
+    });
+  });
+
+  it('keeps compact KAIRO surfaces on the static thumbnail boundary', () => {
+    const thumbnailSource = existsSync(THUMBNAIL_PATH) ? readFileSync(THUMBNAIL_PATH, 'utf8') : '';
+    const compactSources = COMPACT_SURFACE_PATHS.map((path) => readFileSync(path, 'utf8'));
+
+    expect(thumbnailSource).toContain('KAIRO_POSE_ASSETS');
+    for (const source of compactSources) {
+      expect(source).toContain('<KairoThumbnail');
+    }
+    for (const source of [thumbnailSource, ...compactSources]) {
+      expect(source).not.toMatch(/KairoRenderer|@rive-app\/react-native|\.riv/);
+    }
+  });
+
   it('registers every checked-in PNG with literal React Native requires', () => {
     const registrySource = existsSync(REGISTRY_PATH) ? readFileSync(REGISTRY_PATH, 'utf8') : '';
 

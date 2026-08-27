@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, eventWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
-import { displaySpecies, type SpeciesId } from '@/features/character/species.ts';
-import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
+import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
+import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { BattleCard } from '@/features/events/BattleCard.tsx';
 import { eventWindowLine } from '@/features/events/event-copy.ts';
@@ -133,18 +133,8 @@ export default function EventDetail() {
             >
               {/* Replaces the disc rather than joining it, the same rule the
                   leaderboard row follows. Nothing is added to what this row
-                  *says* — the name is right there in text.
-
-                  `displaySpecies` rather than the stored id (deviation #55):
-                  everyone is an eagle, and the `Avatar` fallback for anyone
-                  predating the choice went with it. */}
-              <Image
-                source={SPECIES_FIGURES[displaySpecies(share.species as SpeciesId | null)]}
-                style={styles.species}
-                resizeMode="contain"
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              />
+                  *says* — the name is right there in text. */}
+              <KairoThumbnail pose={KAIRO_THUMBNAIL_POSE.eventMember} size={36} decorative />
               <View style={styles.memberBody}>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {share.characterName || 'Someone'}
@@ -214,7 +204,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   memberSelf: { backgroundColor: ramp.accent[200] },
-  species: { width: 36, height: 36 },
   memberBody: { flex: 1, minWidth: 0 },
   memberName: { ...font.display.small, fontSize: 15, color: colors.text },
   memberMeta: { ...font.body.body, fontSize: 12.5, color: ramp.neutral[700], marginTop: 1 },
