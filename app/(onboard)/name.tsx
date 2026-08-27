@@ -83,11 +83,11 @@ export default function NameYourCharacter() {
           maxFontSizeMultiplier={1.4}
           placeholder="Name your character"
           placeholderTextColor={colors.muted}
-          selectionColor={colors.accent}
+          selectionColor={colors.accentDeep}
           style={[
             styles.input,
             {
-              borderBottomColor: inputFocused ? colors.accent : colors.borderStrong,
+              borderBottomColor: inputFocused ? colors.accentDeep : colors.borderStrong,
             },
           ]}
           returnKeyType="done"

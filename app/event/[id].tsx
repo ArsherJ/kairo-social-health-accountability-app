@@ -75,7 +75,7 @@ export default function EventDetail() {
       <Screen>
         <BackRow onPress={() => router.back()} />
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.accentDeep} />
         </View>
       </Screen>
     );

@@ -127,7 +127,7 @@ export function HealthAsk({
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.accent, ...font.body.label },
+  label: { color: colors.accentDeep, ...font.body.label },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },
   disclosure: { marginTop: space.md },

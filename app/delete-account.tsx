@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
-  survivesLabel: { color: colors.accent, ...font.body.label },
+  survivesLabel: { color: colors.accentDeep, ...font.body.label },
   survivesBody: {
     color: colors.subtle,
     ...font.body.body,

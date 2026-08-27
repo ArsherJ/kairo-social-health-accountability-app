@@ -138,6 +138,6 @@ const styles = StyleSheet.create({
   icon: { marginRight: space.xs },
   message: { ...font.body.strong, flexShrink: 1 },
   action: { marginLeft: 'auto', paddingLeft: space.sm },
-  actionLabel: { ...font.body.strong, color: colors.accent },
+  actionLabel: { ...font.body.strong, color: colors.accentDeep },
   pressed: { opacity: 0.6 },
 });

@@ -261,6 +261,6 @@ const styles = StyleSheet.create({
   },
   areaName: { ...font.body.strong, color: colors.text },
   areaState: { ...font.body.strong, color: ramp.neutral[600] },
-  areaStateOn: { color: colors.accent },
+  areaStateOn: { color: colors.accentDeep },
   error: { ...font.body.body, fontSize: 13, color: colors.damage, marginTop: space.md },
 });

@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   nameStacked: { alignSelf: 'flex-start', paddingRight: 0, paddingBottom: 2 },
   // Terracotta is what this system means by "you", everywhere else in the app.
-  nameSelf: { color: colors.accent },
+  nameSelf: { color: colors.accentDeep },
   nameGhost: { color: colors.muted },
   nameQuiet: { color: colors.muted },
 

@@ -41,7 +41,7 @@ export function Button({
         style={[styles.base, styles[variant], inert && styles.disabled]}
       >
         {busy ? (
-          <ActivityIndicator color={variant === 'primary' ? colors.bg : colors.accent} />
+          <ActivityIndicator color={variant === 'primary' ? colors.bg : colors.accentDeep} />
         ) : (
           // `chrome`: `base` sets minHeight rather than height, so the pill
           // grows with the label — but a Caprasimo action line past ~1.4x

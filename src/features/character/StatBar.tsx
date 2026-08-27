@@ -101,7 +101,7 @@ export function StatBar({
             text that is already present, so it should not out-shout it. On the
             coin, where it is the only carrier, it leads. */}
         <View style={styles.name}>
-          <StatIcon stat={stat} size={16} color={lane ? colors.accent : colors.text} />
+          <StatIcon stat={stat} size={16} color={lane ? colors.accentDeep : colors.text} />
           <Text scale="chrome" style={[styles.stat, lane && styles.statLane]}>
             {STAT_NAMES[stat]}
             {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
@@ -160,14 +160,14 @@ const styles = StyleSheet.create({
   // rating off the row.
   name: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexShrink: 1 },
   stat: { ...font.display.minor, color: colors.text },
-  statLane: { color: colors.accent },
-  laneTag: { ...font.body.label, color: colors.accent, fontSize: 10 },
+  statLane: { color: colors.accentDeep },
+  laneTag: { ...font.body.label, color: colors.accentDeep, fontSize: 10 },
   rating: { ...font.display.minor, color: colors.text },
   label: { ...font.body.body, color: colors.muted, fontSize: 13, marginTop: 2 },
   meter: { marginTop: space.xs, borderRadius: radius.pill },
   // The lane ring sits on a wrapper rather than on `Meter` itself: the meter
   // owns fill and track, and giving it a border prop for one caller would put
   // a presentation decision inside a primitive two screens share.
-  meterLane: { borderWidth: 1, borderColor: colors.accent },
+  meterLane: { borderWidth: 1, borderColor: colors.accentDeep },
   laneCopy: { ...font.body.body, color: colors.subtle, fontSize: 12, marginTop: space.xs },
 });

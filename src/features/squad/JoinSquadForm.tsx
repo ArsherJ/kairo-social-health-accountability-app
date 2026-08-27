@@ -125,7 +125,7 @@ export function JoinSquadForm({
           // what to type instead of showing something that looks typed.
           placeholder={`${INVITE_CODE_LENGTH}-character code`}
           placeholderTextColor={colors.muted}
-          selectionColor={colors.accent}
+          selectionColor={colors.accentDeep}
           style={styles.input}
           returnKeyType="done"
           onSubmitEditing={submit}
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   input: {
     marginTop: space.xl,
     borderBottomWidth: 2,
-    borderBottomColor: colors.accent,
+    borderBottomColor: colors.accentDeep,
     color: colors.text,
     // Wide letter-spacing so six characters can be checked against a
     // screenshot one glyph at a time.
@@ -246,12 +246,12 @@ const styles = StyleSheet.create({
   previewProgram: { color: colors.subtle, fontSize: 14, fontFamily: 'Figtree-SemiBold' },
   boostChip: {
     borderWidth: 1,
-    borderColor: colors.accent,
+    borderColor: colors.accentDeep,
     borderRadius: radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  boostLabel: { color: colors.accent, fontSize: 11, fontFamily: 'Figtree-Bold' },
+  boostLabel: { color: colors.accentDeep, fontSize: 11, fontFamily: 'Figtree-Bold' },
   previewCount: { color: colors.muted, fontSize: 12, marginLeft: 'auto' },
   previewNote: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   previewFull: { color: colors.damage, fontSize: 12, marginTop: space.sm },

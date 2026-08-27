@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   scroll: { alignSelf: 'stretch', flexGrow: 0, flexShrink: 1 },
   scrollContent: { flexGrow: 0 },
 
-  eyebrow: { color: colors.accent, ...font.body.label, textTransform: 'uppercase' },
+  eyebrow: { color: colors.accentDeep, ...font.body.label, textTransform: 'uppercase' },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md, lineHeight: 22 },
 

@@ -103,7 +103,7 @@ export default function ProgressHelp() {
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
-            <StatIcon stat={stat} size={16} color={colors.accent} />
+            <StatIcon stat={stat} size={16} color={colors.accentDeep} />
             <Text style={styles.statName}>{STAT_NAMES[stat]}</Text>
           </View>
           <Text
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   term: { color: colors.text, ...font.display.minor },
   scope: {
-    color: colors.accent,
+    color: colors.accentDeep,
     ...font.body.label,
     textTransform: 'uppercase',
     marginTop: space.xs,

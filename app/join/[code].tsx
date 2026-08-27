@@ -82,7 +82,7 @@ export default function JoinByLink() {
     return (
       <Screen scroll={false}>
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.accentDeep} />
         </View>
       </Screen>
     );

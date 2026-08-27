@@ -70,7 +70,7 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) {
     return (
       <View style={[styles.overlay, styles.centered]}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.accentDeep} />
       </View>
     );
   }
@@ -157,7 +157,7 @@ function Gate() {
         // of "we know what you are waiting for".
         <View style={[styles.overlay, styles.centered, styles.holdContainer]}>
           <Text style={styles.holdMark}>KAIRO</Text>
-          <ActivityIndicator color={colors.accent} style={styles.holdSpinner} />
+          <ActivityIndicator color={colors.accentDeep} style={styles.holdSpinner} />
         </View>
       )}
 
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   centered: { justifyContent: 'center' },
   holdContainer: { alignItems: 'center' },
-  holdMark: { color: colors.accent, ...font.display.brand },
+  holdMark: { color: colors.accentInk, ...font.display.brand },
   holdSpinner: { marginTop: space.lg },
   errorContainer: {
     justifyContent: 'center',

@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
   detailBlock: { marginTop: space.sm },
   helpLink: {
     ...font.body.strong,
-    color: colors.accent,
+    color: colors.accentDeep,
     marginTop: space.md,
     alignSelf: 'flex-start',
   },

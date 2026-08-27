@@ -108,7 +108,7 @@ export function CreateSquadForm({
           // stopped responding rather than a form waiting for input.
           placeholder="Name your squad"
           placeholderTextColor={colors.muted}
-          selectionColor={colors.accent}
+          selectionColor={colors.accentDeep}
           style={styles.input}
           returnKeyType="done"
           onSubmitEditing={submit}
@@ -202,9 +202,9 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm + 2,
     paddingHorizontal: space.md,
   },
-  programSelected: { borderColor: colors.accent },
+  programSelected: { borderColor: colors.accentDeep },
   programLabel: { color: colors.text, fontSize: 15, fontFamily: 'Figtree-Bold' },
-  programLabelSelected: { color: colors.accent },
+  programLabelSelected: { color: colors.accentDeep },
   programBlurb: { color: colors.subtle, fontSize: 12, marginTop: 2 },
   note: { color: colors.muted, fontSize: 12, marginTop: space.md, lineHeight: 18 },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     // truncated this field's placeholder. An omitted property is not a reset.
     letterSpacing: 0,
     borderBottomWidth: 2,
-    borderBottomColor: colors.accent,
+    borderBottomColor: colors.accentDeep,
     color: colors.text,
     fontSize: 28,
     fontFamily: 'Figtree-Bold',

@@ -50,7 +50,7 @@ export default function NewEvent() {
     return (
       <Screen scroll={false}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.accentDeep} />
         </View>
       </Screen>
     );

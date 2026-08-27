@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: space.sm,
   },
-  eyebrow: { color: colors.accent, ...font.body.label, textTransform: 'uppercase' },
+  eyebrow: { color: colors.accentDeep, ...font.body.label, textTransform: 'uppercase' },
   // Sits over the finish line, naming it once for the whole track rather than
   // per lane. Caprasimo, because every number in this app is.
   finishLabel: { color: colors.muted, ...font.display.label },

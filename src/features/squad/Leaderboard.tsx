@@ -312,7 +312,7 @@ export function Leaderboard({
 
       {board.isPending && (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.accentDeep} />
         </View>
       )}
 
