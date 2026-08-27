@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import { SPECIES_NAMES, type SpeciesId } from './species.ts';
+import { SPECIES_NAMES, displaySpecies, type SpeciesId } from './species.ts';
 import { SPECIES_HABITATS } from './species-art.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
@@ -23,7 +23,8 @@ import { speciesFigureLabel } from './species-label.ts';
  * flat character art". Deviation #40 overrides that deliberately: the habitats
  * are flat vector in the same bold-outline language as the figure, so they are
  * neither photographic nor fighting it. The sage gradient stays underneath as
- * the ground for a character with no species yet.
+ * the ground the habitat is painted over — it no longer shows on its own,
+ * since `displaySpecies` resolves a habitat for every account (deviation #55).
  */
 
 /** Sage, deepening toward the horizon. */
@@ -73,18 +74,20 @@ export function Diorama({
     <View style={[styles.sky, { height }]}>
       <Gradient stops={SKY} />
 
-      {species && (
-        <Image
-          source={SPECIES_HABITATS[species]}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-          // Decorative. The figure's own label already says where the character
-          // is by naming the species, and a backdrop that announced itself
-          // would be a second stop describing scenery.
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        />
-      )}
+      {/* `displaySpecies` rather than the stored id (deviation #55): everyone is
+          an eagle, including an account that never chose and one still
+          loading. The `species &&` guard that used to wrap this went with the
+          same change — there is no speciesless case left for it to catch. */}
+      <Image
+        source={SPECIES_HABITATS[displaySpecies(species ?? null)]}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        // Decorative. The figure's own label already says where the character
+        // is by naming the species, and a backdrop that announced itself
+        // would be a second stop describing scenery.
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
 
       {/* Two soft bodies behind the figure. They give the sky somewhere to be
           — a flat ramp reads as a swatch — and they are placed off both edges
@@ -131,7 +134,9 @@ export function Diorama({
         accessible
         accessibilityRole="image"
         accessibilityLabel={speciesFigureLabel({
-          species: species ?? null,
+          // The drawn species, not the stored one — the name has to match the
+          // picture (deviation #55).
+          species: displaySpecies(species ?? null),
           level,
           dominance: dominance ?? null,
           speciesNames: SPECIES_NAMES,

@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Image, StyleSheet, View } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { currentLocalDate, eventWindowDays } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
+import { displaySpecies, type SpeciesId } from '@/features/character/species.ts';
 import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { BattleCard } from '@/features/events/BattleCard.tsx';
@@ -11,7 +12,7 @@ import { useAbandonEvent } from '@/features/events/mutations.ts';
 import { memberShares, useEventDetail } from '@/features/events/queries.ts';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { Avatar, BackRow, Button, Screen, Text } from '@/ui/index.ts';
+import { BackRow, Button, Screen, Text } from '@/ui/index.ts';
 
 /** Thousands separators, matching `event-copy.ts` rather than the device locale. */
 function num(value: number): string {
@@ -130,21 +131,20 @@ export default function EventDetail() {
               key={share.userId}
               style={[styles.member, share.userId === userId && styles.memberSelf]}
             >
-              {share.species && share.species in SPECIES_FIGURES ? (
-                // Replaces the disc rather than joining it, the same rule the
-                // leaderboard row follows. Nothing is added to what this row
-                // *says* — the name is right there in text.
-                <Image
-                  source={SPECIES_FIGURES[share.species as keyof typeof SPECIES_FIGURES]}
-                  style={styles.species}
-                  resizeMode="contain"
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                />
-              ) : (
-                /* Anyone predating the choice. `Avatar` already hides itself. */
-                <Avatar name={share.characterName} self={share.userId === userId} />
-              )}
+              {/* Replaces the disc rather than joining it, the same rule the
+                  leaderboard row follows. Nothing is added to what this row
+                  *says* — the name is right there in text.
+
+                  `displaySpecies` rather than the stored id (deviation #55):
+                  everyone is an eagle, and the `Avatar` fallback for anyone
+                  predating the choice went with it. */}
+              <Image
+                source={SPECIES_FIGURES[displaySpecies(share.species as SpeciesId | null)]}
+                style={styles.species}
+                resizeMode="contain"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              />
               <View style={styles.memberBody}>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {share.characterName || 'Someone'}
