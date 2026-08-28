@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Image, ImageBackground, StyleSheet, View, type ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
 import cosmetics from '../../../data/cosmetics.json';
-import { colors, font, radius, space } from '@/theme.ts';
+import { colors, font, space } from '@/theme.ts';
 import { Screen, Text } from '@/ui/index.ts';
 import {
   KAIRO_BASE_ASSET,
@@ -13,7 +13,6 @@ import {
   KAIRO_STATE_ASSETS,
 } from './character-assets.ts';
 import { cosmeticAnchorMetadata, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
-import { SPECIES_HABITATS } from './species-art.ts';
 
 const PREVIEW_SIZES = [
   { label: '190 × 212', dimensions: { width: 190, height: 212 } },
@@ -23,22 +22,9 @@ const PREVIEW_SIZES = [
 function StaticPreviewSet({ source, name }: { source: ImageSourcePropType; name: string }) {
   return (
     <View style={styles.previews}>
-      {PREVIEW_SIZES.flatMap((size) => [
-        <PreviewFrame
-          key={`${size.label}-cream`}
-          source={source}
-          name={name}
-          ground="app cream"
-          {...size}
-        />,
-        <PreviewFrame
-          key={`${size.label}-habitat`}
-          source={source}
-          name={name}
-          ground="eagle habitat"
-          {...size}
-        />,
-      ])}
+      {PREVIEW_SIZES.map((size) => (
+        <PreviewFrame key={`${size.label}-cream`} source={source} name={name} {...size} />
+      ))}
     </View>
   );
 }
@@ -46,43 +32,16 @@ function StaticPreviewSet({ source, name }: { source: ImageSourcePropType; name:
 function PreviewFrame({
   source,
   name,
-  ground,
   label,
   dimensions,
 }: {
   source: ImageSourcePropType;
   name: string;
-  ground: 'app cream' | 'eagle habitat';
   label: string;
   dimensions: { width: number; height: number };
 }) {
-  const frameStyle = [styles.previewFrame, dimensions];
-  const accessibilityLabel = `${name}, ${label} static preview on ${ground} ground`;
-
-  if (ground === 'app cream') {
-    return (
-      <View style={[frameStyle, styles.creamGround]}>
-        <Image
-          source={source}
-          resizeMode="contain"
-          style={styles.previewImage}
-          accessibilityIgnoresInvertColors
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel={accessibilityLabel}
-        />
-      </View>
-    );
-  }
-
   return (
-    <ImageBackground
-      source={SPECIES_HABITATS.eagle}
-      resizeMode="cover"
-      style={frameStyle}
-      imageStyle={styles.habitatImage}
-      accessible={false}
-    >
+    <View style={[styles.previewFrame, dimensions, styles.creamGround]}>
       <Image
         source={source}
         resizeMode="contain"
@@ -90,9 +49,9 @@ function PreviewFrame({
         accessibilityIgnoresInvertColors
         accessible
         accessibilityRole="image"
-        accessibilityLabel={accessibilityLabel}
+        accessibilityLabel={`${name}, ${label} static preview on app cream ground`}
       />
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -211,7 +170,6 @@ const styles = StyleSheet.create({
   previews: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   previewFrame: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   creamGround: { backgroundColor: colors.bg },
-  habitatImage: { borderRadius: radius.sm },
   previewImage: { height: '100%', width: '100%' },
   metadata: { marginTop: space.sm },
   metadataText: { color: colors.subtle, ...font.body.body, lineHeight: 20 },

@@ -184,7 +184,9 @@ describe('KAIRO character assets', () => {
     const thumbnailSource = existsSync(THUMBNAIL_PATH) ? readFileSync(THUMBNAIL_PATH, 'utf8') : '';
     const compactSources = COMPACT_SURFACE_PATHS.map((path) => readFileSync(path, 'utf8'));
 
-    expect(thumbnailSource).toContain('KAIRO_POSE_ASSETS');
+    // Interim (2026-08-28): compact surfaces render the single static base
+    // render, not a per-pose export, while the Rive character is authored.
+    expect(thumbnailSource).toContain('KAIRO_BASE_ASSET');
     for (const source of compactSources) {
       expect(source).toContain('<KairoThumbnail');
     }

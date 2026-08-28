@@ -3,8 +3,5 @@ python-dotenv
 openai
 pillow==11.3.0
 
-# Dependencies for scripts/vectorize_swap_assets.py
-vtracer
-
 # Dependencies for scripts/prep_assets.py and prep_hunter_art.py
 numpy
