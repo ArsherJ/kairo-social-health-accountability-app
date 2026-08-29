@@ -1,5 +1,9 @@
 /**
- * Threshold shifts — how END and VIT survive the three-stat model.
+ * Threshold shifts — how VIT survives the three-stat model.
+ *
+ * END's half of this file is gone as of 2026-08-29: verified workout minutes
+ * became an earning route into Body rather than a discount on Body's bands.
+ * See `statShifts` below and `scoring.ts`.
  *
  * **Shifts, deliberately, and never point multipliers.** A stored multiplier
  * stacks with the squad program's read-time weight, which is exactly why
@@ -20,9 +24,7 @@ const SHIFT_STEP = 0.05;
 /** VIT's old bronze band. Below it, spreading has earned nothing. */
 export const SPREAD_SHIFT_FLOOR_HOURS = 3;
 
-/** Twelve minutes per step puts the cap at sixty — END's old gold band. */
-export const WORKOUT_SHIFT_MINUTES_PER_STEP = 12;
-
+/** Five steps of 5% each, so the cap is reached at eight active hours. */
 function capped(steps: number): number {
   return Math.min(MAX_THRESHOLD_SHIFT, Math.max(0, steps) * SHIFT_STEP);
 }
@@ -30,16 +32,6 @@ function capped(steps: number): number {
 /** VIT's signal: how much of the day carried movement. */
 export function spreadShift(activeHours: number): number {
   return capped(Math.floor(activeHours) - SPREAD_SHIFT_FLOOR_HOURS);
-}
-
-/**
- * END's signal: how much verified exercise the day carried.
- *
- * "Verified" is the caller's problem — an unverified session contributes zero
- * minutes here, so a hand-typed workout shifts nothing. See `trust.ts`.
- */
-export function workoutShift(verifiedMinutes: number): number {
-  return capped(Math.floor(Math.max(0, verifiedMinutes) / WORKOUT_SHIFT_MINUTES_PER_STEP));
 }
 
 /**
@@ -58,28 +50,34 @@ export function shiftedThreshold(threshold: number, shift: number): number {
  *
  * The mapping lived inline in `computeDailyScore` until the character sheet's
  * guidance line started naming the band the day is actually judged against
- * (deviation #41, Phase 3). Two copies of "AGI inherited VIT's spread, STR
- * inherited END's workout minutes" is the duplication that drifts in silence:
- * the screen would go on quoting a ladder the scorer stopped using and no
- * test would notice, which is precisely the bug this table was extracted to
+ * (deviation #41, Phase 3). Two copies of it is the duplication that drifts in
+ * silence: the screen would go on quoting a ladder the scorer stopped using and
+ * no test would notice, which is precisely the bug this table was extracted to
  * close.
  *
  * `Record<CoreStat, number>` rather than a lookup with a fallback, so a fourth
  * stat cannot arrive without someone deciding what it inherits.
  *
- * MND is 0 deliberately and permanently: its tier is not a threshold
- * comparison — `mindTierFor` flattens an oversleep night back to Bronze — and
- * the trust gate decides *whether* sleep scores, never how easily.
+ * **Only Motion shifts, as of 2026-08-29.** The table stays a full record
+ * anyway: a zero that someone decided is worth more than an absence somebody
+ * has to interpret.
  */
-export function statShifts(input: {
-  /** `DayTotals.activeHours` — hours carrying meaningful movement. */
-  activeHours: number;
-  /** Minutes of workout that cleared `workoutVerified()`. See `trust.ts`. */
-  verifiedWorkoutMinutes: number;
-}): Record<CoreStat, number> {
+export function statShifts(input: { activeHours: number }): Record<CoreStat, number> {
   return {
     AGI: spreadShift(input.activeHours),
-    STR: workoutShift(input.verifiedWorkoutMinutes),
+    // **Body takes no shift, as of 2026-08-29.** It used to take one derived
+    // from verified workout minutes, and that was the wrong direction on the
+    // wrong stat: the only genuine strength signal Kairo collects was spent
+    // making Body's bands *easier* instead of making Body's number *larger*, so
+    // the app rewarded lifting by asking less of you, invisibly. Those minutes
+    // are an earning route into STR now (`scoring.ts`), and a signal must not
+    // do both — one that lowered the bands and raised the points would be a
+    // direct double-count on a single stat.
+    //
+    // AGI's spread shift is untouched and is not the same arrangement: it is a
+    // different signal, on a different stat, and it double-counts nothing.
+    STR: 0,
+    // The trust gate decides *whether* a night scores, never how easily.
     MND: 0,
   };
 }

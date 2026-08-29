@@ -18,7 +18,11 @@ describe('sleepStateFor', () => {
     [360, 'normal'],
     [420, 'well_rested'],
     [540, 'well_rested'],
-    [541, 'sleepy'],
+    // Nine hours and a minute. It read 'sleepy' until 2026-08-29, when Mind's
+    // oversleep cliff became a taper — a long night is no longer scored as a
+    // bad one, and the bird should not look like it was.
+    [541, 'normal'],
+    [720, 'normal'],
   ])('maps %s scored minutes to %s', (minutes, expected) => {
     expect(sleepStateFor(minutes)).toBe(expected);
   });

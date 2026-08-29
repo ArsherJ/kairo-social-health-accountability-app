@@ -64,7 +64,7 @@ export default function DeleteAccount() {
 
       <Text style={styles.title}>Delete your account</Text>
       <Text style={styles.body}>
-        This erases your character, your level and ability ratings, every day
+        This erases your character, your level and mastery, every day
         you have scored, your streak, and your place in any squad. It cannot be
         undone, and nothing here can be recovered afterwards.
       </Text>

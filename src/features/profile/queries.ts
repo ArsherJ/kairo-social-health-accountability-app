@@ -76,6 +76,18 @@ export type Profile = {
    * and a completion latches.
    */
   quest_tier_override: 'starter' | 'steady' | 'strong' | null;
+  /**
+   * Whether this account has a sleep source, and so whether Mind is earnable
+   * and a `sleep_minutes` quest is winnable at all.
+   *
+   * **Server-written.** `sync-health` maintains it and it is deliberately
+   * absent from `profiles`' column-level UPDATE grant, so the client can read
+   * it and nothing more. `finalize-days` grades quests against this same
+   * column, which is the whole reason it is stored rather than derived on each
+   * side: two derivations that disagree pay XP for a quest that was never on
+   * screen.
+   */
+  has_sleep_source: boolean;
 };
 
 export function profileKey(userId: string | undefined) {
@@ -93,7 +105,8 @@ export function useProfile(userId: string | undefined) {
           'id, character_name, class, character_body, timezone, level, total_xp, has_wearable, ' +
             'agi_total, str_total, mnd_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
-            'trains_run, trains_strength, species, quest_tier_override',
+            'trains_run, trains_strength, species, quest_tier_override, ' +
+            'has_sleep_source',
         )
         .eq('id', userId as string)
         .maybeSingle();

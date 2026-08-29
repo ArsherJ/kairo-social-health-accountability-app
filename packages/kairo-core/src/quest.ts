@@ -172,13 +172,50 @@ function hash(input: string): number {
  * linear sweep fills whatever it missed — still a pure function of the
  * arguments, still the same three all day.
  */
+/**
+ * Metrics this account can actually produce.
+ *
+ * Only sleep can be missing: an iPhone with no sleep source produces no scoring
+ * night, so `hasSleepCapability` is false, `earnableStats` is 2, and every
+ * `sleep_minutes` quest is unclearable **by construction** — the bar cannot be
+ * met on any day, ever, by any behaviour.
+ *
+ * Until 2026-08-29 `pickQuests` filtered on tier alone and dealt them anyway. A
+ * phone-only starter account could be handed `starter-sleep-360` on day one
+ * with no route to clearing it and no explanation, on the one surface whose
+ * whole job is to be the achievable part of the app.
+ */
+export function questMetricEarnable(metric: QuestMetric, hasSleep: boolean): boolean {
+  return metric !== 'sleep_minutes' || hasSleep;
+}
+
 export function pickQuests(input: {
   userId: string;
   /** The player's own local date, `YYYY-MM-DD`. */
   localDate: string;
   tier: QuestTier;
+  /**
+   * Whether this account has a sleep source, and therefore whether a
+   * `sleep_minutes` quest is winnable at all.
+   *
+   * **It must be the same value the grader used.** The client draws the quests
+   * and `finalize-days` re-derives them to pay XP; if the two disagree about
+   * capability they deal different threes, and a completion latches against a
+   * quest that was never on screen — the identical failure `questTier`'s shared
+   * override already guards against. Both sides therefore read one stored
+   * column, `profiles.has_sleep_source`, rather than deriving it twice from the
+   * same underlying rows.
+   *
+   * Filtering changes the pool size and therefore the rotation, so a phone-only
+   * account sees a different three than it otherwise would. Nothing stored
+   * depends on the old draw: completions key on `quest_id`, so anything already
+   * banked stays valid.
+   */
+  hasSleep: boolean;
 }): QuestDef[] {
-  const pool = QUEST_CATALOGUE.filter((q) => q.tier === input.tier);
+  const pool = QUEST_CATALOGUE.filter(
+    (q) => q.tier === input.tier && questMetricEarnable(q.metric, input.hasSleep),
+  );
   if (pool.length <= QUESTS_PER_DAY) return [...pool];
 
   const seed = hash(`${input.userId}:${input.localDate}`);

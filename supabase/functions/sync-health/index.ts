@@ -246,8 +246,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const frozenWrites: Array<{ localDate: string; xp: number; flagged: boolean }> = [];
   const response: Array<{ localDate: string; total: number; frozen: boolean }> = [];
 
+  /** The latest date this payload scored, and that date's sleep capability. */
+  let latestDate: string | null = null;
+  let latestHasSleep: boolean | null = null;
+
   for (const date of dates) {
-    // §2's normalization and §3's STR shift. **Inside the loop, keyed on this
+    // §2's normalization and Body's strength credit. **Inside the loop, keyed on this
     // date**, and deliberately not hoisted above it: a sync carries today and
     // yesterday at minimum and a backfill carries a fortnight, so one answer
     // for the whole payload would be the same bug as reading wall-clock today
@@ -272,7 +276,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       elevatedHeartRateHours: heartRateHoursByDate.get(date) ?? new Set(),
       sleepMinutes: scoringInputs.sleepMinutes,
       earnableStats: scoringInputs.earnableStats,
-      verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
+      verifiedStrengthMinutes: scoringInputs.verifiedStrengthMinutes,
       existingStatus: statusByDate.get(date) ?? null,
     });
 
@@ -289,7 +293,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       fullWrites.push(plan.row);
     }
 
+    // Capability is an account-level fact, but it is measured against a date —
+    // so take the answer for the LATEST date in the payload, which is the only
+    // one that describes the account now. Taking any other (or the last one the
+    // loop happens to visit, since `dates` is not ordered by contract) would
+    // let a backfill of old days quietly report a source the account has since
+    // lost, or never had.
+    if (latestDate === null || date > latestDate) {
+      latestDate = date;
+      latestHasSleep = scoringInputs.hasSleep;
+    }
+
     response.push({ localDate: date, total: plan.row.total, frozen: plan.frozen });
+  }
+
+  // Sleep capability, observed here for the same reason the wearable flag is —
+  // never asked in onboarding. The `.neq` makes it a no-op write for everyone
+  // whose answer has not moved, the same idiom the timezone update above uses.
+  //
+  // **Unlike `has_wearable`, this flips BOTH ways, and that is deliberate.**
+  // The wearable flag is sticky so a watch left on the charger does not read as
+  // a watch you stopped owning. This one gates which quests are drawn, so a
+  // source that genuinely goes away has to withdraw the sleep quests with it —
+  // leaving it stuck true would hand an account exactly the unclearable quest
+  // this column exists to prevent.
+  //
+  // **Not fatal if it fails.** It decides which quests get drawn, not whether
+  // the day scored, and the buckets and scores above are already committed.
+  // Taking the whole sync down over it would trade a cosmetic wrong for a real
+  // one, and the next sync corrects it.
+  if (latestHasSleep !== null) {
+    const { error } = await admin
+      .from('profiles')
+      .update({ has_sleep_source: latestHasSleep })
+      .eq('id', userId)
+      .neq('has_sleep_source', latestHasSleep);
+    if (error) console.warn(`[sync-health] has_sleep_source update failed: ${error.message}`);
   }
 
   if (fullWrites.length > 0) {

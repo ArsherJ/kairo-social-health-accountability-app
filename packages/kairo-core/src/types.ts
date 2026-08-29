@@ -96,14 +96,20 @@ export interface DailyScoreInput {
    */
   earnableStats?: number;
   /**
-   * Minutes from workouts passing `workoutVerified`. Unverified sessions
-   * contribute 0.
+   * Minutes from **strength-type** sessions passing `workoutVerified`.
+   * Unverified sessions, and verified sessions of any other type, contribute 0.
    *
-   * Also passed in rather than derived, and for a sharper reason: the
-   * allowlist that decides "verified" lives server-side on purpose (spec §3),
-   * so a pure function could not apply it even in principle.
+   * Passed in rather than derived, for a sharper reason than the field above:
+   * the allowlist that decides "verified" lives server-side on purpose
+   * (spec §3), so a pure function could not apply it even in principle.
+   *
+   * **Strength-type, not any workout** (2026-08-29). This replaced
+   * `verifiedWorkoutMinutes`, which fed a threshold shift on Body and counted
+   * every verified session including runs. It earns Body points now, and a run
+   * already reports its calories honestly — crediting one would pay twice for
+   * the same effort. See `STRENGTH_MINUTE_KCAL_CREDIT`.
    */
-  verifiedWorkoutMinutes?: number;
+  verifiedStrengthMinutes?: number;
 }
 
 export interface DailyScore {

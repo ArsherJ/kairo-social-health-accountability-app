@@ -62,19 +62,38 @@ squad is a layer on top.
   #51. **Say the words, never the keys.** Body, Motion and Mind are what a
   player reads and what any brief, test plan or store-facing copy must use;
   `AGI`/`STR`/`MND` are engine names that appear in the database and nowhere on
-  a screen. END (active minutes) and VIT (hourly movement) are still measured
-  and no longer scored: they survive as **threshold shifts**, lowering Body's
-  and Motion's bands by up to 25%. Mind needs a sleep source, so it is the one
-  stat that can be unreachable — a day's stat points scale by
+  a screen. VIT (hourly movement) is still measured and not scored directly: it
+  survives as a **threshold shift**, lowering Motion's bands by up to 25%. END's
+  equivalent shift on Body was **retired on 2026-08-29** — verified strength
+  minutes earn Body points now instead of discounting Body's bands, so Body
+  measures physical work rather than calories alone. Mind needs a sleep source,
+  so it is the one stat that can be unreachable — a day's stat points scale by
   `3 / earnable stats` for that reason, and **both daily ceilings are 4,400**. A
   wearable buys a third route to the ceiling, not a higher one. §5 and §6 of the
   spec still describe the four-stat model under its old names and are superseded
   here.
+- **Points are a curve between the tier anchors**, since 2026-08-29. Bronze,
+  Silver and Gold still land on exactly 250 / 650 / 1,200 and the daily ceiling
+  is still 4,400, but the space between them is continuous — 5,000 steps and
+  9,999 steps used to score identically. Below Bronze still pays nothing.
+- **Mind tapers past nine hours rather than cliffing.** A long night declines to
+  the Silver anchor by ten and a half hours and floors there, so it can never
+  score below a short one. HealthKit sleep is noisy enough that a hard cliff
+  punished measurement error as though it were behaviour.
+- **Personal records** — your best day on each stat, in raw units, with the date
+  you set it. Derived on every read, so a retroactive Apple revision moves a
+  record exactly as it moves a score. Yours alone: records pay the character and
+  never the ranking, because the race's cap is the anti-cheat.
 - **Ability ratings** — a numeric rating per stat from lifetime points
   (deviation #23). **Bronze/Silver/Gold still decide every day inside the
   scoring engine and are shown nowhere.**
 - **Level and XP**, **streaks** with a shield, and a **strain** figure for
   wearable users that is display-only and never scored (deviation #24).
+- **The crest** — a day that reaches the ceiling changes the sky behind the
+  character for the rest of that local day, with a line saying why. It is the
+  only place an exceptional day lands in the moment; the permanent half is a
+  record. The **bird itself never changes** for it — the figure already says
+  four things by shape and a fifth would make it a readout.
 - **Three visual responses on the figure**: ground shadow by level band, build
   proportions by dominant stat, presence ring by ability rating. Since
   2026-08-25 the shadow **also moves at every single level**, not only at the
@@ -147,6 +166,11 @@ sync status and the disclosure note, and shed the last two.
 - **XP is deliberately small**: three quests cap at 60 together against a
   `MAX_REALISTIC_DAILY_XP` of 200. A quest is a garnish on the loop, never a
   cheaper route through it.
+- **A quest is never dealt for a stat you cannot earn.** Mind needs a sleep
+  source; without one, a `sleep_minutes` bar is unclearable by construction.
+  Both the client's draw and `finalize-days`' grading read one stored column so
+  they cannot disagree. A phone-only account seeing no sleep quests is the
+  design working.
 - **Difficulty is auto-assigned from how long the account has been here** — a
   count of days that scored, which measures engagement rather than fitness —
   with a **manual override in Profile that wins outright**. The override is in
@@ -181,10 +205,13 @@ from days and Events alone is stale.
 - **Pace and session calories never touch scoring**, and a Challenge pays no
   points — they are display-and-challenge signals only, the same posture strain
   takes (deviation #24), and a run still earns Motion through its steps. One
-  qualification since deviation #41: a workout **session** is no longer inert.
-  Minutes from a session whose source is allowlisted *and* which carries
-  heart-rate evidence lower Body's bands. The pace and the calories still do
-  not.
+  qualification since deviation #41, restated on 2026-08-29: a workout
+  **session** is no longer inert. Minutes from a **strength-type** session whose
+  source is allowlisted *and* which carries heart-rate evidence are credited
+  into Body at 4 kcal-equivalent a minute. They used to lower Body's bands
+  instead; the direction is the point, and a run earns nothing here because its
+  calories are already counted honestly. The pace and the session calories still
+  never touch scoring.
 
 ### Notifications — one push a day
 
@@ -275,7 +302,8 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | boss, its HP | goal target, required points |
 | your character | Hunter, avatar |
 | squad | barkada, party, clan |
-| ability rating | tier, Bronze/Silver/Gold *(internal to scoring; no surface renders them)* |
+| mastery | ability rating, tier, Bronze/Silver/Gold *(the last two are internal to scoring; no surface renders them)* |
+| record | personal best, PB, high score *(yours alone; never on a board)* |
 | daily score | points, today's XP |
 | program | focus *(`profiles.focus` was dropped; `squads.program` is the only focus concept)* |
 | **Today** | the fourth tab. Not "home", not "daily" — the character screen is where the app opens |

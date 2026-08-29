@@ -2,12 +2,16 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  DAILY_STEP_BASELINE,
+  MAX_DAILY_SCORE_PHONE_ONLY,
   currentLocalDate,
   evolutionStageForLevel,
   ghostRivals,
   levelForXp,
   questTier,
   rankRacers,
+  shiftedThreshold,
+  spreadShift,
   type CoreStat,
   type RacerInput,
 } from '@kairo/core';
@@ -15,7 +19,13 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { FirstSyncCallout } from '@/features/character/FirstSyncCallout.tsx';
 import { SyncStatus } from '@/features/character/SyncStatus.tsx';
-import { heroSentence, laneLine, sleepLine } from '@/features/character/kairo-voice.ts';
+import {
+  heroSentence,
+  laneLine,
+  sleepLine,
+  spreadLine,
+  ceilingLine,
+} from '@/features/character/kairo-voice.ts';
 import { laneStat } from '@/features/character/lane.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import {
@@ -182,6 +192,11 @@ export default function Today() {
     // from under someone mid-walk.
     scoredDays: scoredDays.data ?? 0,
     tierOverride: profile.data?.quest_tier_override ?? null,
+    // The stored answer, not a derived one — `finalize-days` grades against
+    // this same column. `?? false` while the profile is in flight matches the
+    // column's default and withholds a sleep quest rather than showing one the
+    // grader might not agree with.
+    hasSleep: profile.data?.has_sleep_source ?? false,
     day: totals && {
       steps: totals.steps,
       activeKcal: totals.activeKcal,
@@ -222,6 +237,25 @@ export default function Today() {
   });
   const lane = laneLine({ characterName, lane: laneStat(dominance.data) });
 
+  // The shift the scorer actually applied to Motion today, read through the
+  // same `spreadShift` rather than restated — a sentence quoting a ladder the
+  // engine stopped using is worse than no sentence. `DAILY_STEP_BASELINE` *is*
+  // Motion's gold band by derivation, which is why no literal appears here.
+  // The day has earned everything scoring can see. Read from the stored total
+  // rather than recomputed — the ceiling is the same figure with or without a
+  // wearable (normalization is what makes that true), so one comparison covers
+  // both cohorts. **Read, never rendered**: deviation #34 bans printing a score
+  // total, not consulting one.
+  const ceilingReached = (today?.total ?? 0) >= MAX_DAILY_SCORE_PHONE_ONLY;
+
+  const spread = totals
+    ? spreadLine({
+        activeHours: totals.activeHours,
+        goldSteps: shiftedThreshold(DAILY_STEP_BASELINE, spreadShift(totals.activeHours)),
+        baseSteps: DAILY_STEP_BASELINE,
+      })
+    : null;
+
   // Once per the user's own local day, not per render: fired on render this
   // would measure scrolling. In an effect because `claimDaily` writes to MMKV
   // and `track` writes a row, and a render that does either is a render with a
@@ -260,6 +294,7 @@ export default function Today() {
           dominance={dominance.data}
           species={profile.data?.species}
           lifetimePoints={lifetime}
+          crest={ceilingReached}
         />
       </Panel>
 
@@ -362,6 +397,21 @@ export default function Today() {
             : null,
         })}
       </Text>
+
+      {/* Why today's Motion is easier than the published number, when it is.
+          **Ungated on purpose**: the shift applies from an account's very first
+          day, and a difficulty change nobody explains reads as a broken score
+          rather than as a gift — which is exactly what `scoring.ts` warned it
+          would. It is a plain line, not a card: it explains the figure directly
+          above it and a panel would make it a separate subject. */}
+      {spread && <Text style={styles.aside}>{spread}</Text>}
+
+      {/* What the changed sky means. The crest is the one thing in this pass
+          that alters the app's centrepiece, so it is also the one that most
+          needs saying out loud — an unexplained change to the screen someone
+          opens first is indistinguishable from a bug. The permanent half of
+          this day is on You, under Your best days. */}
+      {ceilingReached && <Text style={styles.sentence}>{ceilingLine(characterName)}</Text>}
 
       {/* The Strain/Sleep rows, redrawn. **Still gated** — same rule, new
           dress. A `core` account has not produced the nights these read. */}
@@ -632,6 +682,23 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: colors.subtle,
     marginTop: space.sm,
+  },
+
+  /**
+   * The spread line: subordinate to `sentence`, which is the day's headline.
+   *
+   * A step down in size and weight rather than a colour change — `colors.muted`
+   * already carries "supporting" here, and reaching for the accent would make a
+   * footnote compete with the figure it is a footnote to. No card, no rule, no
+   * icon: it is one clause of explanation attached to the number above it, and
+   * every container considered made it look like a separate subject.
+   */
+  aside: {
+    ...font.body.body,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.muted,
+    marginTop: space.xs,
   },
 
   voiceCard: {

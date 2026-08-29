@@ -15,6 +15,8 @@ the decision is one line to reverse.
 ## Docs
 
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.
+- [`CONTEXT.md`](./CONTEXT.md) — the domain glossary: the words Kairo means and the words it refuses. Vocabulary only, no implementation.
+- [`docs/adr/`](./docs/adr/) — architecture decision records, for choices that are hard to reverse and surprising without their context.
 - [`docs/roadmap.md`](./docs/roadmap.md) — build sequencing, phase status, and the approved-deviations table (deliberate, recorded departures from the spec).
 - [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → the Today tab → the race → the Sky → the Flock → the Battle.
 - [`docs/mvp-scope.md`](./docs/mvp-scope.md) — **what is in the MVP and what is not.** Cite it in any QA brief, test plan or store-facing copy; a brief describing something not listed there is stale.
@@ -22,6 +24,35 @@ the decision is one line to reverse.
 - [`docs/sign-in-with-apple.md`](./docs/sign-in-with-apple.md) — the runbook for rotating and installing the Apple client secret.
 - [`docs/eas-migration.md`](./docs/eas-migration.md) — the completed EAS/CNG cutover, build identities, and remaining account cleanup.
 - [`CLAUDE.md`](./CLAUDE.md) — architecture, invariants, and working conventions for anyone (human or agent) changing this codebase.
+
+## How a day is scored
+
+Three stats, from Apple Health: **Motion** (steps), **Body** (active calories,
+plus verified strength-session minutes) and **Mind** (sleep). Each earns points
+against Bronze / Silver / Gold anchors that no screen ever names, and the day's
+total ranks the squad board and pays XP.
+
+Three properties are easy to assume wrongly, and each is pinned by tests in
+`packages/kairo-core`:
+
+- **Points are continuous between the anchors**, since 2026-08-29. The anchors
+  themselves land exactly on 250 / 650 / 1,200 and the daily ceiling is 4,400,
+  but 5,000 steps and 9,999 steps no longer score the same. Below Bronze pays
+  nothing, deliberately — that floor is what makes a scored day mean something
+  happened.
+- **Body measures work, not just burn.** Minutes from an allowlisted
+  strength-type session carrying heart-rate evidence are credited into Body.
+  They used to *lower* Body's thresholds instead, which rewarded lifting by
+  asking less of you, invisibly.
+- **Mind tapers rather than cliffing.** A long night declines toward the Silver
+  anchor past nine hours and floors there, so eleven hours can never score below
+  five. HealthKit sleep is noisy enough that a hard cliff punished measurement
+  error as though it were behaviour.
+
+Scores are always **replayed** from stored hourly buckets, never adjusted in
+place — which is what makes retries, Apple's retroactive step revisions and cron
+overlap all safe. A change to the scoring engine therefore redeploys every Edge
+Function that bundles it, in the same pass; see `CLAUDE.md`.
 
 ## Quick start
 
@@ -135,13 +166,21 @@ that is a hash of the native inputs rather than a version string you can read
 off. So the first question is never the network:
 
 ```bash
-npm run eas:fingerprint   # what this working tree resolves to
+npm run eas:fingerprint                          # what this working tree resolves to
+npx eas-cli build:list --platform ios --limit 1  # the "Fingerprint" of the last build
 ```
 
 Compare it against the runtime version `eas update` reported when it published,
 and against the build you are testing on. If they differ, the working tree has
 native changes the installed build does not have — which is the policy working
 correctly, and the fix is a build, not a retry.
+
+Read-only status, no quota: `npx eas-cli build:list` and
+`npx eas-cli submit:list`. After `eas:build:ios:production` finishes and Apple
+processes the binary (~5–10 min), the **first** submission of a build needs its
+export-compliance question answered once at
+<https://appstoreconnect.apple.com/apps/6800990955/testflight/ios> before
+testers receive it.
 
 Two invariants keep those two numbers comparable, both pinned by tests in
 `src/config/eas-config.test.ts`:

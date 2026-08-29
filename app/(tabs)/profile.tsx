@@ -8,11 +8,15 @@ import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.t
 import { StatBar } from '@/features/character/StatBar.tsx';
 import { StatRail } from '@/features/character/StatRail.tsx';
 import { laneEmptyCopy, laneStat } from '@/features/character/lane.ts';
+import { resolveStatDetail, statDetailLine } from '@/features/character/stat-detail.ts';
+import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import { useDominantStat, useTodayScore } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { SPECIES, displaySpecies } from '@/features/character/species.ts';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
+import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
+import { useStatRecords } from '@/features/profile/records.ts';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
 import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
@@ -21,7 +25,13 @@ import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { Button, Label, Panel, Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { CORE_STATS, ratingForStatPoints, type CoreStat, type QuestTier } from '@kairo/core';
+import {
+  CORE_STATS,
+  currentLocalDate,
+  ratingForStatPoints,
+  type CoreStat,
+  type QuestTier,
+} from '@kairo/core';
 
 /** The human-readable line under each bar, once the rail is expanded. */
 const STAT_LABELS: Record<CoreStat, string> = {
@@ -67,6 +77,20 @@ export default function ProfileTab() {
   const dominance = useDominantStat(userId, profile.data?.timezone);
   const [railOpen, setRailOpen] = useState(false);
 
+  // Both already cached from Today on the same keys, so this screen still adds
+  // no request for them. Records is the one genuinely new call, and it is on
+  // this screen alone.
+  const buckets = useTodayBuckets(userId, profile.data?.timezone);
+  const vitals = useTodayVitals(userId, profile.data?.timezone);
+  const records = useStatRecords(userId);
+
+  // Only ever used to decide whether a record's year is worth printing, so an
+  // undefined timezone yields undefined and `recordDate` falls back to the
+  // record's own year — never a wrong date.
+  const localToday = profile.data?.timezone
+    ? currentLocalDate(new Date(), profile.data.timezone)
+    : undefined;
+
   // Lifetime rollups, which is what the rail reads. `ratingForStatPoints`
   // floors at 1, so an unloaded profile says the same thing a brand-new
   // character's does rather than flashing a dash.
@@ -93,6 +117,20 @@ export default function ProfileTab() {
 
   const lane = laneStat(dominance.data);
   const laneCopy = laneEmptyCopy(dominance.data);
+
+  // The guidance line, live again. `resolveStatDetail` and `nextTierFor` were
+  // orphaned by the 2026-08-27 tab merge — tested, correct, and reachable from
+  // nothing, which is why the app could compute "1,240 steps to go" and never
+  // say it. Retiring Body's threshold shift is what made re-mounting honest:
+  // until then this could not quote Body's ladder at all.
+  const nextUp = statDetailLine(
+    resolveStatDetail({
+      totals: buckets.data?.totals,
+      sleepMinutes: vitals.data?.sleepMinutes ?? null,
+      lane,
+    }),
+    STAT_NAMES,
+  );
 
   async function seed() {
     const timeZone = profile.data?.timezone;
@@ -136,7 +174,7 @@ export default function ProfileTab() {
               a missing row as zeros — which is what a new user has anyway. */}
           <StreakCard streak={streak.data} />
 
-          {/* The ability ratings, moved here from the character screen when it
+          {/* The mastery, moved here from the character screen when it
               dissolved. **Still gated on `full`** — deviation #37's list did
               not change, only which file mounts it. A rating over a lifetime
               rollup means nothing on an account with no lifetime.
@@ -156,6 +194,13 @@ export default function ProfileTab() {
 
           {disclosure.stage === 'full' && railOpen && (
             <View style={styles.detailBlock}>
+              {/* What is closest, before the bars that show where everything
+                  stands. The question "what should I do next" is the one the
+                  bars cannot answer, and it belongs above them rather than
+                  after — a reader who has already read three bars has stopped
+                  asking. */}
+              {nextUp && <Text style={styles.nextUp}>{nextUp}</Text>}
+
               {CORE_STATS.map((stat) => (
                 <StatBar
                   key={stat}
@@ -189,6 +234,12 @@ export default function ProfileTab() {
               new account needs to know what the three things *are* before it
               has any of them. This says what each is for and never what has
               been earned. */}
+          {/* Under the rail, because somebody reading their lifetime numbers is
+              already asking what their best was. Ungated: a record is one of
+              the few things that means something on a young account, and an
+              account with none reads an invitation rather than a blank. */}
+          <RecordsCard records={records.data} today={localToday} />
+
           <GrowthCard />
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
@@ -305,6 +356,13 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   detailBlock: { marginTop: space.md, gap: space.md },
+  /**
+   * The guidance line. Accent-deep rather than muted, because unlike the spread
+   * aside on Today this one is an instruction — it is the only line on the
+   * screen naming something to go and do, and `accentDeep` is the body-size
+   * accent role (`accent` itself is a fill and measures 1.9:1 here).
+   */
+  nextUp: { ...font.body.body, fontSize: 15, lineHeight: 22, color: colors.accentDeep },
   helpLink: {
     ...font.body.strong,
     color: colors.accentDeep,

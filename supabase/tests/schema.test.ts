@@ -768,7 +768,7 @@ describe('planDay writes a row daily_scores can actually store', () => {
       // which is a real answer rather than an omission — both fields are
       // required on DayPlanInput for exactly that distinction.
       earnableStats,
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
       existingStatus: null,
     }).row;
   }
@@ -2201,6 +2201,124 @@ describe('profiles.focus is gone', () => {
          and privilege_type in ('INSERT', 'UPDATE')`,
     );
     expect(rows[0]!.n).toBe(0);
+  });
+});
+
+describe('stat_records()', () => {
+  /** Two days of buckets and one night, so every stat has a clear winner. */
+  async function seedRecords(user: string): Promise<void> {
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps, active_kcal)
+       values ($1, '2026-07-27', 7, 4000, 100),
+              ($1, '2026-07-27', 8, 3000, 120),
+              ($1, '2026-07-28', 7, 9000, 90)`,
+      [user],
+    );
+    await h.asService(
+      `insert into public.daily_sleep (user_id, local_date, minutes, was_user_entered)
+       values ($1, '2026-07-27', 400, false), ($1, '2026-07-28', 380, false)`,
+      [user],
+    );
+  }
+
+  it('returns the best day per stat, in raw units, with its date', async () => {
+    const user = await h.createUser();
+    await seedRecords(user);
+
+    const rows = await h.asUser<{ stat: string; value: string; local_date: string }>(
+      user,
+      // `::text` because PGlite hands a `date` back as a JS Date rendered in
+      // the runner's own zone, so a raw comparison passes or fails depending on
+      // where the test is run.
+      'select stat, value, local_date::text as local_date from public.stat_records() order by stat',
+    );
+    const by = Object.fromEntries(rows.map((r) => [r.stat, r]));
+
+    // Motion is the 9,000 day, not the 7,000 day that had more hours in it.
+    expect(Number(by.AGI!.value)).toBe(9_000);
+    expect(by.AGI!.local_date).toBe('2026-07-28');
+    // Body sums the day: 100 + 120 beats the single 90.
+    expect(Number(by.STR!.value)).toBe(220);
+    expect(Number(by.MND!.value)).toBe(400);
+  });
+
+  it('omits a stat with no qualifying day rather than reporting zero', async () => {
+    // "No record yet" and "a record of zero" are different things, and only one
+    // of them is true. A zero row would let a surface congratulate somebody on
+    // a best night they have never had.
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps, active_kcal)
+       values ($1, '2026-07-27', 7, 5000, 0)`,
+      [user],
+    );
+    const rows = await h.asUser<{ stat: string }>(
+      user,
+      'select stat from public.stat_records()',
+    );
+    expect(rows.map((r) => r.stat).sort()).toEqual(['AGI']);
+  });
+
+  // The same gate `scoringSleepMinutes` applies. Without it somebody types a
+  // fourteen-hour night once and holds a record they did not sleep.
+  it('ignores a hand-typed night', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.daily_sleep (user_id, local_date, minutes, was_user_entered)
+       values ($1, '2026-07-27', 360, false), ($1, '2026-07-28', 840, true)`,
+      [user],
+    );
+    const rows = await h.asUser<{ stat: string; value: string }>(
+      user,
+      "select stat, value from public.stat_records() where stat = 'MND'",
+    );
+    expect(Number(rows[0]!.value)).toBe(360);
+  });
+
+  // It takes no argument precisely so this cannot be got wrong — there is no
+  // parameter to point at somebody else. A personal best must never be
+  // reachable from another account: headroom pays the character, not the rank.
+  it('returns only the caller own records', async () => {
+    const mine = await h.createUser();
+    const theirs = await h.createUser();
+    await seedRecords(theirs);
+
+    const rows = await h.asUser<{ stat: string }>(
+      mine,
+      'select stat from public.stat_records()',
+    );
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe('has_sleep_source is server-observed', () => {
+  it('blocks a client from claiming a sleep source it does not have', async () => {
+    // This column decides which quests get drawn, and `finalize-days` grades
+    // against it. Client-writable would let a forged client deal itself sleep
+    // quests it cannot clear — or, worse, hide the ones it can and quietly
+    // change what the grader pays. Same posture as `has_wearable` below, and
+    // enforced the same way: it is simply absent from the column-level UPDATE
+    // grant, because a column-level REVOKE against a table-level GRANT is a
+    // silent no-op in Postgres.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, 'update public.profiles set has_sleep_source = true where id = $1', [
+        user,
+      ]),
+      /permission denied/i,
+    );
+  });
+
+  it('defaults to false, which withholds an unclearable quest', async () => {
+    // The safe direction. `true` by default would deal `starter-sleep-360` to
+    // exactly the phone-only accounts this column exists to protect, on day
+    // one, with no route to clearing it.
+    const user = await h.createUser();
+    const rows = await h.asService<{ has_sleep_source: boolean }>(
+      'select has_sleep_source from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.has_sleep_source).toBe(false);
   });
 });
 
@@ -4647,7 +4765,7 @@ describe('the history replay', () => {
         elevatedHeartRateHours: new Set(),
         sleepMinutes: 420,
         earnableStats: 3,
-        verifiedWorkoutMinutes: 0,
+        verifiedStrengthMinutes: 0,
         existingStatus,
       }).row;
 
@@ -4707,7 +4825,7 @@ describe('the history replay', () => {
       elevatedHeartRateHours: new Set(),
       sleepMinutes: 420,
       earnableStats: 3,
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
       existingStatus: 'final',
     }).row;
 

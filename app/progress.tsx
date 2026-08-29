@@ -8,9 +8,9 @@ import { setNavHidden } from '@/ui/chrome.ts';
 import { BackRow, Screen, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 
 /**
- * How progress works — one place, four ideas.
+ * How progress works — one place, every idea.
  *
- * The QA pass counted daily score, ability ratings, XP, level, streak and the
+ * The QA pass counted daily score, mastery, XP, level, streak and the
  * consistency and recovery bonuses all visible at once, with the tier
  * thresholds behind them deliberately hidden (deviation #23). Every one of them
  * is explained *somewhere*, which is the problem: a reader assembling the model
@@ -18,8 +18,21 @@ import { BackRow, Screen, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
  *
  * The organising idea is the timescale, because that is what actually separates
  * them and it is the thing no individual label says: today, lifetime per stat,
- * all-time total, and the run of days. Grouped any other way these read as four
- * synonyms for "points".
+ * all-time total, your best ever, and the run of days. Grouped any other way
+ * these read as synonyms for "points".
+ *
+ * **Rewritten 2026-08-29, because it had gone false.** It said active minutes
+ * and active hours "earn points" — they stopped earning points at deviation #41
+ * and became threshold shifts — and it never mentioned sleep or Mind at all.
+ * This is the only screen in the app that explains the model, so a stale entry
+ * here is worse than no entry: a reader has no second source to correct it
+ * against. The three "Today only" entries are new and are the whole reason the
+ * rewrite happened — spreading and strength are real mechanics that changed a
+ * player's day with nothing anywhere saying so.
+ *
+ * **Still no points, no tiers and no totals** (deviations #23 and #34). Every
+ * entry says what a thing *is* and what moves it, in real units or in none. The
+ * ban was never the problem; the model being unexplainable was.
  *
  * A route, not a modal — `PermissionAsks` owns the one modal the app is allowed
  * to present (two on one root view controller and UIKit silently drops the
@@ -27,19 +40,34 @@ import { BackRow, Screen, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
  */
 const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
-    term: 'Daily score',
+    term: 'Your day',
     scope: 'Today only',
-    body: 'Steps, calories, active minutes and how many hours you moved each earn points behind the scenes. Together they are today’s score — you won’t see the number, but it is what ranks you on the squad board and what your squad’s battles are measured against. It resets at midnight in your own timezone — not the squad’s.',
+    body: 'Steps, active calories and last night’s sleep each earn Kairo something behind the scenes, and together they are today. You won’t see the number — it is what ranks the flock and what a battle is measured against. It resets at midnight in your own timezone, never the squad’s.',
   },
   {
-    term: 'Ability ratings',
+    term: 'Spreading it out',
+    scope: 'Today only',
+    body: 'Moving in more hours of the day makes Motion easier to top out — up to a quarter easier. Nothing else changes: the same walk still counts the same, it just arrives sooner. The Daily Walk below is the one figure this never touches.',
+  },
+  {
+    term: 'Strength counts as Body',
+    scope: 'Today only',
+    body: 'A tracked gym session earns Body on top of the calories it burned, because lifting asks more of you than a calorie count can see. It has to come from an app Kairo recognises and carry a heart rate, so a session you typed in yourself earns nothing.',
+  },
+  {
+    term: 'Mastery',
     scope: 'Lifetime, per stat',
-    body: 'Every day you score adds to the stat that earned it, and the rating grows from that running total. Ratings never reset, so they describe your character rather than your day. Two people at the same level look different here.',
+    body: 'Every day you score adds to the stat that earned it, and mastery grows from that running total. It never falls, so a quiet week costs you nothing here. It describes your practice rather than your day — two people at the same level look different.',
   },
   {
     term: 'Level and XP',
     scope: 'All-time total',
-    body: 'Finishing a day earns XP, and so does beating your squad’s boss. Enough XP is the next level. Unlike ability ratings, XP does not care which stat it came from.',
+    body: 'Finishing a day earns XP, and so do quests, challenges and beating your squad’s boss. Enough XP is the next level. Unlike mastery, XP does not care which stat it came from.',
+  },
+  {
+    term: 'Records',
+    scope: 'Your best, ever',
+    body: 'The best day you have had on each stat, and when you had it. Records are yours alone — they never appear on the flock, because past the day’s finish line extra steps buy no ground on anyone else.',
   },
   {
     term: 'Streak',

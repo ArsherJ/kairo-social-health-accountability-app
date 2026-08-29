@@ -110,7 +110,7 @@ export async function rescoreDay(
     elevatedHeartRateHours: heartRateHours,
     sleepMinutes: scoringInputs.sleepMinutes,
     earnableStats: scoringInputs.earnableStats,
-    verifiedWorkoutMinutes: scoringInputs.verifiedWorkoutMinutes,
+    verifiedStrengthMinutes: scoringInputs.verifiedStrengthMinutes,
     existingStatus,
   });
 

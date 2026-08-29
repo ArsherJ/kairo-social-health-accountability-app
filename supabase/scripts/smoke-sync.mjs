@@ -224,7 +224,7 @@ const { data: profile, error: rollupError } = await supabase
   .from('profiles')
   // end_total and vit_total still exist and are dropped in Phase 3; nothing
   // writes them any more, so asserting on them would test the past.
-  .select('total_xp, level, agi_total, str_total, mnd_total')
+  .select('total_xp, level, agi_total, str_total, mnd_total, has_sleep_source')
   .eq('id', userId)
   .maybeSingle();
 if (rollupError) fail('profiles', rollupError.message);
@@ -294,10 +294,24 @@ if (manual.was_user_entered !== true) {
 }
 
 console.log(`score   ${JSON.stringify(score)}`);
+// The payload carried a real, non-user-entered night, so the deployed function
+// must have observed sleep capability and persisted it. This is not cosmetic:
+// the client draws quests from this column and `finalize-days` grades against
+// it, so a deploy where the write is missing silently withholds every sleep
+// quest from every account — with the day still scoring perfectly, which is
+// exactly the kind of drift a source-only test cannot see.
+if (profile.has_sleep_source !== true) {
+  fail(
+    'profiles',
+    'a real night of sleep synced but has_sleep_source is still false — the ' +
+      'deployed sync-health is not writing sleep capability',
+  );
+}
+
 console.log(`rollup  ${JSON.stringify(profile)}`);
 console.log(`workout ${JSON.stringify(workout)}`);
 console.log(`manual  ${JSON.stringify(manual)}`);
 console.log(
-  '\nPASS — buckets, score, normalization, rollups and workout session origin agree.',
+  '\nPASS — buckets, score, normalization, rollups, sleep capability and workout session origin agree.',
 );
 cleanup();

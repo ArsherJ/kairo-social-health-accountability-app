@@ -101,8 +101,9 @@ export function HealthAsk({
       </View>
 
       <Text style={styles.fine}>
-        Your squad only ever sees ability ratings and scores — never your raw
-        numbers, and never when you move. Kairo writes nothing back to Health.
+        Your squad sees your mastery and scores. Your daily totals are shared
+        only if you and they both agree to it. Nobody ever sees when you moved,
+        your heart rate, or your workouts. Kairo writes nothing back to Health.
       </Text>
 
       <Button

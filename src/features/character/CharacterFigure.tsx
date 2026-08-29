@@ -99,7 +99,7 @@ export function CharacterFigure({
   height?: number;
   /**
    * Lifetime per-stat points from `profiles`. Drives the presence ring, which
-   * is the ability rating's only visual counterpart — see `aura.ts`.
+   * is the mastery's only visual counterpart — see `aura.ts`.
    */
   lifetimePoints?: Record<CoreStat, number>;
 }) {
@@ -130,7 +130,7 @@ export function CharacterFigure({
       />
 
       {/* The ring used to fire only for the All-Rounder. It now also carries
-          the ability rating — the number the character sheet leads with and the
+          the mastery — the number the character sheet leads with and the
           one thing about progress the figure said nothing about. `stage` and
           `dominance` above were already responding; they were invisible during
           the QA session because nothing had scored since 9 August, not because

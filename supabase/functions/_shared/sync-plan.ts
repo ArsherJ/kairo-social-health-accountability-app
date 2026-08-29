@@ -471,11 +471,12 @@ export interface DayPlanInput {
    */
   earnableStats: number;
   /**
-   * Minutes of workout on this date that passed `workoutVerified` — an
-   * allowlisted source AND heart-rate evidence (§3). Drives STR's threshold
-   * shift. Zero is a real answer; absent is not, for the same reason as above.
+   * Minutes of **strength-type** work on this date that passed
+   * `workoutVerified` — an allowlisted source AND heart-rate evidence (§3).
+   * Credited into Body's raw value (`STRENGTH_MINUTE_KCAL_CREDIT`). Zero is a
+   * real answer; absent is not, for the same reason as above.
    */
-  verifiedWorkoutMinutes: number;
+  verifiedStrengthMinutes: number;
   /** Status already stored for this date, if any. */
   existingStatus: DayStatus | null;
 }
@@ -570,7 +571,7 @@ export function planDay(input: DayPlanInput): DayPlan {
     buckets: input.buckets,
     sleepMinutes: input.sleepMinutes,
     earnableStats: input.earnableStats,
-    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes,
+    verifiedStrengthMinutes: input.verifiedStrengthMinutes,
     // Deviation #11: stored per-stat points are **base** — pre-multiplier and
     // program-independent. All weighting happens at read time in
     // squad_leaderboard(). Never pass a featuredStat from a write path.

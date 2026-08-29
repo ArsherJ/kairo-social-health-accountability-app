@@ -8,16 +8,18 @@ import {
   earnableStatsFor,
   scoringSleepDates,
   scoringSleepMinutes,
-  verifiedWorkoutMinutesFrom,
+  verifiedStrengthMinutesFrom,
   type DailySleepRow,
   type WorkoutSessionRow,
 } from './scoring-inputs.ts';
 import { planDay, type DayPlanInput } from './sync-plan.ts';
+import { RUN_ACTIVITY_TYPE, STRENGTH_ACTIVITY_TYPES } from './core.ts';
 
 const DAY = '2026-07-27';
 
 function session(overrides: Record<string, unknown> = {}) {
   return {
+    activity_type: STRENGTH_ACTIVITY_TYPES[0]!,
     duration_s: 3_600,
     source_bundle_id: WORKOUT_SOURCE_ALLOWLIST[0]!,
     was_user_entered: false,
@@ -61,19 +63,19 @@ describe('earnableStatsFor', () => {
   });
 });
 
-describe('verifiedWorkoutMinutesFrom', () => {
+describe('verifiedStrengthMinutesFrom', () => {
   it('converts SECONDS to minutes', () => {
     // `workout_sessions.duration_s` is seconds; the shift is priced in
     // minutes. Reading the column as minutes hands a one-hour session a 60x
     // shift, which the 25% cap silently absorbs into "always maxed" — a
     // scoring error with no symptom.
-    expect(verifiedWorkoutMinutesFrom([session({ duration_s: 3_600 })])).toBe(60);
-    expect(verifiedWorkoutMinutesFrom([session({ duration_s: 1_800 })])).toBe(30);
+    expect(verifiedStrengthMinutesFrom([session({ duration_s: 3_600 })])).toBe(60);
+    expect(verifiedStrengthMinutesFrom([session({ duration_s: 1_800 })])).toBe(30);
   });
 
   it('sums every verified session on the date', () => {
     expect(
-      verifiedWorkoutMinutesFrom([
+      verifiedStrengthMinutesFrom([
         session({ duration_s: 1_200 }),
         session({ duration_s: 600 }),
       ]),
@@ -85,12 +87,12 @@ describe('verifiedWorkoutMinutesFrom', () => {
     // The shift is worth up to 25% of a band, which is too much to hand to an
     // unverified claim.
     expect(
-      verifiedWorkoutMinutesFrom([session({ has_heart_rate_evidence: false })]),
+      verifiedStrengthMinutesFrom([session({ has_heart_rate_evidence: false })]),
     ).toBe(0);
   });
 
   it('ignores a hand-typed session', () => {
-    expect(verifiedWorkoutMinutesFrom([session({ was_user_entered: true })])).toBe(0);
+    expect(verifiedStrengthMinutesFrom([session({ was_user_entered: true })])).toBe(0);
   });
 
   it('ignores a session from an unrecognised source', () => {
@@ -98,9 +100,9 @@ describe('verifiedWorkoutMinutesFrom', () => {
     // `trusted`, so it shifts nothing. That is what makes seeding the
     // allowlist conservatively safe.
     expect(
-      verifiedWorkoutMinutesFrom([session({ source_bundle_id: 'com.example.faker' })]),
+      verifiedStrengthMinutesFrom([session({ source_bundle_id: 'com.example.faker' })]),
     ).toBe(0);
-    expect(verifiedWorkoutMinutesFrom([session({ source_bundle_id: null })])).toBe(0);
+    expect(verifiedStrengthMinutesFrom([session({ source_bundle_id: null })])).toBe(0);
   });
 
   it('treats the columns the expand migration added as unverified when NULL', () => {
@@ -108,7 +110,7 @@ describe('verifiedWorkoutMinutesFrom', () => {
     // row written before the client learns to send them does too. Null must
     // read as "no evidence", never as "no objection".
     expect(
-      verifiedWorkoutMinutesFrom([
+      verifiedStrengthMinutesFrom([
         session({
           source_bundle_id: null,
           was_user_entered: null,
@@ -202,7 +204,7 @@ describe('the hand-typed night lands on 4,400, never 6,200', () => {
       elevatedHeartRateHours: new Set<number>(),
       sleepMinutes: null,
       earnableStats: 3,
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
       existingStatus: null,
       ...overrides,
     };
@@ -258,14 +260,15 @@ describe('the PostgREST select lists cannot drift from the row types', () => {
     return Object.fromEntries(columns.map((c) => [c, values[c]])) as T;
   }
 
-  it('selects every column verifiedWorkoutMinutesFrom actually reads', () => {
+  it('selects every column verifiedStrengthMinutesFrom actually reads', () => {
     const verified = rowFrom<WorkoutSessionRow>(WORKOUT_SESSION_SELECT, {
+      activity_type: STRENGTH_ACTIVITY_TYPES[0]!,
       duration_s: 3_600,
       source_bundle_id: WORKOUT_SOURCE_ALLOWLIST[0]!,
       was_user_entered: false,
       has_heart_rate_evidence: true,
     });
-    expect(verifiedWorkoutMinutesFrom([verified])).toBe(60);
+    expect(verifiedStrengthMinutesFrom([verified])).toBe(60);
   });
 
   it('selects was_user_entered, which a positive fixture alone would not prove', () => {
@@ -273,12 +276,13 @@ describe('the PostgREST select lists cannot drift from the row types', () => {
     // `Boolean(undefined)` reads false and the hand-typed session verifies.
     // The test above would still pass; this one is why it cannot.
     const typed = rowFrom<WorkoutSessionRow>(WORKOUT_SESSION_SELECT, {
+      activity_type: STRENGTH_ACTIVITY_TYPES[0]!,
       duration_s: 3_600,
       source_bundle_id: WORKOUT_SOURCE_ALLOWLIST[0]!,
       was_user_entered: true,
       has_heart_rate_evidence: true,
     });
-    expect(verifiedWorkoutMinutesFrom([typed])).toBe(0);
+    expect(verifiedStrengthMinutesFrom([typed])).toBe(0);
   });
 
   it('selects every column the sleep gate reads', () => {
@@ -322,7 +326,7 @@ describe('a stored workout session now moves STR, and only when verified', () =>
       elevatedHeartRateHours: new Set<number>(),
       sleepMinutes: null,
       earnableStats: 3,
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
       existingStatus: null,
     };
   }
@@ -330,9 +334,20 @@ describe('a stored workout session now moves STR, and only when verified', () =>
   function tierFromSessions(rows: WorkoutSessionRow[]): string {
     return planDay({
       ...at300(),
-      verifiedWorkoutMinutes: verifiedWorkoutMinutesFrom(rows),
+      verifiedStrengthMinutes: verifiedStrengthMinutesFrom(rows),
     }).row.tiers.STR;
   }
+
+  // A run reports its calories honestly through `active_kcal`, so crediting
+  // its minutes as well would pay twice for one effort. This is the assertion
+  // that keeps the type filter in place.
+  it('credits nothing for a verified run, however long', () => {
+    expect(
+      verifiedStrengthMinutesFrom([
+        session({ activity_type: RUN_ACTIVITY_TYPE, duration_s: 7_200 }) as WorkoutSessionRow,
+      ]),
+    ).toBe(0);
+  });
 
   it('moves STR silver to gold for an allowlisted session with heart-rate evidence', () => {
     expect(tierFromSessions([session() as WorkoutSessionRow])).toBe('gold');

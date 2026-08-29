@@ -186,7 +186,7 @@ export const colors = {
  * The "earned" step on the terracotta ramp.
  *
  * This is what survives of the tier ladder. Bronze/Silver/Gold stopped being
- * shown on 2026-08-10 — the character sheet reads ability ratings now, and the
+ * shown on 2026-08-10 — the character sheet reads mastery now, and the
  * bands live entirely inside scoring — but two things still need the colour the
  * old `tierColors.gold` carried, and neither is about a tier:
  *

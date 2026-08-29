@@ -12,7 +12,7 @@ import { CORE_STATS, ratingForStatPoints, type CoreStat } from '@kairo/core';
  * and dominance was null. The response existed; there was no progress to
  * respond to.
  *
- * What genuinely had no visual counterpart is the **ability rating**, the
+ * What genuinely had no visual counterpart is the **mastery**, the
  * number the character sheet and the leaderboard both lead with. So rather than
  * inventing a third visual language on top of two that had never been seen
  * working, this reuses the ring `CharacterFigure` already draws — until now

@@ -66,35 +66,35 @@ describe('questTier', () => {
 
 describe('pickQuests', () => {
   it('gives the same account the same three quests all day', () => {
-    const a = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady' });
-    const b = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady' });
+    const a = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true });
+    const b = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true });
     expect(a.map((q) => q.id)).toEqual(b.map((q) => q.id));
   });
 
   it('gives a different set tomorrow, which is the whole reset mechanism', () => {
-    const today = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady' });
-    const tomorrow = pickQuests({ userId: 'u1', localDate: '2026-08-26', tier: 'steady' });
+    const today = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true });
+    const tomorrow = pickQuests({ userId: 'u1', localDate: '2026-08-26', tier: 'steady', hasSleep: true });
     expect(today.map((q) => q.id)).not.toEqual(tomorrow.map((q) => q.id));
   });
 
   it('gives two accounts different quests on the same day', () => {
-    const one = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady' });
-    const two = pickQuests({ userId: 'u2', localDate: '2026-08-25', tier: 'steady' });
+    const one = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true });
+    const two = pickQuests({ userId: 'u2', localDate: '2026-08-25', tier: 'steady', hasSleep: true });
     expect(one.map((q) => q.id)).not.toEqual(two.map((q) => q.id));
   });
 
   it('never repeats a quest inside one day', () => {
-    const picked = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'strong' });
+    const picked = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'strong', hasSleep: true });
     expect(new Set(picked.map((q) => q.id)).size).toBe(QUESTS_PER_DAY);
   });
 
   it('picks only from the requested tier', () => {
-    const picked = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'starter' });
+    const picked = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'starter', hasSleep: true });
     expect(picked.every((q) => q.tier === 'starter')).toBe(true);
   });
 
   it('returns exactly three', () => {
-    expect(pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady' })).toHaveLength(
+    expect(pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true })).toHaveLength(
       QUESTS_PER_DAY,
     );
   });
@@ -110,7 +110,7 @@ describe('pickQuests', () => {
         const date = `2026-${String(Math.floor((d - 1) / 31) + 1).padStart(2, '0')}-${String(
           ((d - 1) % 28) + 1,
         ).padStart(2, '0')}`;
-        const picked = pickQuests({ userId: 'u1', localDate: date, tier });
+        const picked = pickQuests({ userId: 'u1', localDate: date, tier, hasSleep: true });
         expect(picked).toHaveLength(QUESTS_PER_DAY);
         expect(new Set(picked.map((q) => q.id)).size).toBe(QUESTS_PER_DAY);
       }
@@ -150,5 +150,68 @@ describe('questMet', () => {
   it('clears inclusively, at exactly the target', () => {
     expect(questMet(stepQuest, { ...day, steps: stepQuest.target })).toBe(true);
     expect(questMet(stepQuest, { ...day, steps: stepQuest.target - 1 })).toBe(false);
+  });
+});
+
+describe('pickQuests — sleep capability', () => {
+  const TIERS = ['starter', 'steady', 'strong'] as const;
+
+  // The bug this closes. A phone with no sleep source produces no scoring
+  // night, so a `sleep_minutes` bar cannot be met on any day by any behaviour —
+  // and `pickQuests` filtered on tier alone, so it dealt them anyway.
+  it('never deals a sleep quest to an account with no sleep source', () => {
+    for (const tier of TIERS) {
+      for (let day = 1; day <= 28; day += 1) {
+        const picked = pickQuests({
+          userId: 'phone-only',
+          localDate: `2026-08-${String(day).padStart(2, '0')}`,
+          tier,
+          hasSleep: false,
+        });
+        expect(picked.some((q) => q.metric === 'sleep_minutes')).toBe(false);
+      }
+    }
+  });
+
+  it('still deals three quests without them', () => {
+    for (const tier of TIERS) {
+      expect(
+        pickQuests({ userId: 'phone-only', localDate: '2026-08-25', tier, hasSleep: false }),
+      ).toHaveLength(QUESTS_PER_DAY);
+    }
+  });
+
+  it('deals sleep quests to an account that has a source', () => {
+    const seen = new Set<string>();
+    for (let day = 1; day <= 28; day += 1) {
+      for (const quest of pickQuests({
+        userId: 'wearable',
+        localDate: `2026-08-${String(day).padStart(2, '0')}`,
+        tier: 'steady',
+        hasSleep: true,
+      })) {
+        seen.add(quest.metric);
+      }
+    }
+    expect(seen.has('sleep_minutes')).toBe(true);
+  });
+
+  // The two sides must agree, or a completion latches against a quest that was
+  // never on screen. This is the assertion that says the parameter changes the
+  // draw, so a mismatch cannot be harmless.
+  it('deals a different three when capability differs', () => {
+    const withSleep = pickQuests({
+      userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: true,
+    });
+    const without = pickQuests({
+      userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: false,
+    });
+    expect(withSleep.map((q) => q.id)).not.toEqual(without.map((q) => q.id));
+  });
+
+  it('is still deterministic for one account, date and capability', () => {
+    const a = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: false });
+    const b = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: false });
+    expect(a.map((q) => q.id)).toEqual(b.map((q) => q.id));
   });
 });

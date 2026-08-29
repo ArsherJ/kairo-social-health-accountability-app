@@ -44,7 +44,7 @@ export interface RowLabelInput {
    * word the change removed, and the comparison survives without it.
    */
   gap: number | null;
-  /** Already-derived ability ratings, per stat. */
+  /** Already-derived mastery, per stat. */
   ratings: Partial<Record<CoreStat, number>>;
   /** Omitted on the completed board, where it would describe the wrong day. */
   streakDays?: number;

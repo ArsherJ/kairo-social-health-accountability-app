@@ -77,9 +77,20 @@ export default function SignIn() {
         </Text>
 
         {/* The privacy line is the strongest thing about the product and was
-            previously only visible after signing in. */}
+            previously only visible after signing in.
+
+            **Rewritten 2026-08-29, because it had become false.** It read
+            "never your Health data", which deviation #47 stopped being true —
+            squadmates can see four daily totals behind a reciprocal consent
+            gate. A stale privacy claim is the worst kind, and this one was on
+            the first screen of the app, before anyone had agreed to anything.
+            The same correction was made on `HealthPermissionSheet`. What is
+            still absolutely true, and is what this promises, is the part
+            `squad_leaderboard()` structurally cannot expose: the hour you
+            moved, your heart rate and your workouts. */}
         <Text style={styles.privacy}>
-          Your squad sees your progress — never your Health data.
+          Your squad never sees when you moved, your heart rate, or your
+          workouts.
         </Text>
       </ScrollView>
 

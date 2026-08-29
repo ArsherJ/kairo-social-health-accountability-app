@@ -72,6 +72,20 @@ export function todayQuests(input: {
   localDate: string | undefined;
   scoredDays: number;
   tierOverride: QuestTier | null;
+  /**
+   * `profiles.has_sleep_source` — **read, never derived here.**
+   *
+   * `finalize-days` grades against the same column, so the two draw the same
+   * three quests. Computing capability on the client instead would be a second
+   * answer to a question that already has one, and a disagreement pays XP for a
+   * quest that was never on screen — the failure `tierOverride` is already
+   * shared to prevent.
+   *
+   * `false` while the profile is in flight, which is the safe direction: it
+   * shows a clearable quest and may later swap it for a sleep one, where the
+   * reverse is a bar vanishing out from under someone mid-day.
+   */
+  hasSleep: boolean;
   day: QuestDay | undefined;
   completedIds: readonly string[];
 }): TodayQuest[] {
@@ -90,7 +104,12 @@ export function todayQuests(input: {
     sleepMinutes: null,
   };
 
-  return pickQuests({ userId: input.userId, localDate: input.localDate, tier }).map((quest) => {
+  return pickQuests({
+    userId: input.userId,
+    localDate: input.localDate,
+    tier,
+    hasSleep: input.hasSleep,
+  }).map((quest) => {
     const state = questProgress(quest, day);
     return {
       quest,

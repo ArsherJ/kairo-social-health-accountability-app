@@ -5,7 +5,11 @@ import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
 import cosmetics from '../../../data/cosmetics.json';
 import { colors, font, space } from '@/theme.ts';
-import { Screen, Text } from '@/ui/index.ts';
+import { Screen, STAT_NAMES, Text } from '@/ui/index.ts';
+import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
+import { Diorama } from './Diorama.tsx';
+import { ceilingLine, spreadLine } from './kairo-voice.ts';
+import { resolveStatDetail, statDetailLine } from './stat-detail.ts';
 import {
   KAIRO_BASE_ASSET,
   KAIRO_COSMETIC_ASSETS,
@@ -77,6 +81,90 @@ function Metadata({ children }: { children: ReactNode }) {
   return <Text style={styles.metadataText}>{children}</Text>;
 }
 
+/**
+ * The 2026-08-29 copy and layout surfaces, with fixture props.
+ *
+ * **Here because they are otherwise unreachable without data.** Every one of
+ * them needs a synced day, an expanded rail or a ceiling score to appear, so a
+ * Dynamic Type pass over them meant driving the whole app first. This renders
+ * them directly.
+ *
+ * The check they exist for is the one that found the permission sheet's silent
+ * clipping on 2026-08-17: `xcrun simctl ui booted content_size
+ * accessibility-extra-extra-extra-large`, then a screenshot. **Relaunch after
+ * changing the size** — React Native caches text measurements, so a running app
+ * renders correct text inside stale boxes and looks exactly like a regression.
+ */
+function CopySurfaces() {
+  const spread = spreadLine({ activeHours: 8, goldSteps: 7_500, baseSteps: 10_000 });
+  const nextUp = statDetailLine(
+    resolveStatDetail({
+      totals: {
+        steps: 8_760,
+        distanceM: 6_000,
+        activeKcal: 210,
+        activeMinutes: 40,
+        activeHours: 3,
+      },
+      sleepMinutes: 400,
+      lane: 'AGI',
+    }),
+    STAT_NAMES,
+  );
+
+  return (
+    <Section title="Copy surfaces (2026-08-29)">
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Spread aside — Today</Text>
+        <Text style={labStyles.aside}>{spread}</Text>
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Guidance line — You, rail expanded</Text>
+        <Text style={labStyles.nextUp}>{nextUp}</Text>
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Ceiling line — Today, crest day</Text>
+        <Text style={labStyles.sentence}>{ceilingLine('Dagit')}</Text>
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Records — three set</Text>
+        <RecordsCard
+          today="2026-08-29"
+          records={[
+            { stat: 'AGI', value: 18_420, localDate: '2026-08-14' },
+            { stat: 'STR', value: 812, localDate: '2026-07-02' },
+            { stat: 'MND', value: 505, localDate: '2025-12-02' },
+          ]}
+        />
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Records — none yet</Text>
+        <RecordsCard today="2026-08-29" records={[]} />
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Sky — ordinary day</Text>
+        <Diorama height={200} level={7} stage={2} dominance="AGI" />
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Sky — crest day</Text>
+        <Diorama height={200} level={7} stage={2} dominance="AGI" crest />
+      </View>
+    </Section>
+  );
+}
+
+const labStyles = StyleSheet.create({
+  aside: { ...font.body.body, fontSize: 14, lineHeight: 21, color: colors.muted },
+  nextUp: { ...font.body.body, fontSize: 15, lineHeight: 22, color: colors.accentDeep },
+  sentence: { ...font.body.body, fontSize: 16, lineHeight: 23, color: colors.subtle },
+});
+
 export function KairoLab() {
   return (
     <Screen>
@@ -91,6 +179,8 @@ export function KairoLab() {
         and native runtime QA are parked for a future Rive handoff. This catalog does not claim to
         be a compositional renderer.
       </Text>
+
+      <CopySurfaces />
 
       <Section title="Base">
         <CatalogEntry source={KAIRO_BASE_ASSET} title="Base character">

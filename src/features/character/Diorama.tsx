@@ -32,6 +32,32 @@ const SKY: Stop[] = [
 ];
 
 /**
+ * The crest sky — a day that reached the ceiling.
+ *
+ * **The sky changes, never the bird.** The figure already says four things by
+ * shape alone (species, level band, build, presence ring), and a fifth would
+ * make the app's centrepiece a readout. Weather is the one register a diorama
+ * has that the silhouette does not, so the light on the day changes instead of
+ * the animal in it.
+ *
+ * Amber's wash and 200-step, held to the same contract every other surface
+ * reads: 200 is a wash you can set text on, so the HUD sitting over this stays
+ * legible without a single one of its own colours changing. It reads as late
+ * afternoon rather than as an alert, which is the intent — this is a good day
+ * finishing, not a notification.
+ *
+ * **It is always paired with a sentence** (`ceilingLine`). An unexplained
+ * change to the one screen somebody opens first is indistinguishable from a
+ * bug, which is the failure the whole 2026-08-29 pass exists to remove; adding
+ * a new one silently would be an odd way to end it.
+ */
+const CREST_SKY: Stop[] = [
+  { color: ramp.accent[200], at: 0 },
+  { color: ramp.accent[300], at: 0.5 },
+  { color: ramp.sage[300], at: 1 },
+];
+
+/**
  * The dissolve into the page. Alpha, not colour: the sky has to stay visible
  * through the top of the ramp, and only the bottom becomes cream. This is what
  * makes the diorama read as a place the page opens onto rather than as a
@@ -50,6 +76,7 @@ export function Diorama({
   dominance,
   species,
   lifetimePoints,
+  crest = false,
   children,
 }: {
   height: number;
@@ -64,12 +91,19 @@ export function Diorama({
   species?: SpeciesId | null;
   /** Lifetime per-stat points, for the presence ring. See `aura.ts`. */
   lifetimePoints?: Record<CoreStat, number>;
+  /**
+   * Today reached the day's ceiling — nothing more can be earned.
+   *
+   * Changes the sky and nothing else, and only for the rest of that local day.
+   * Defaults false so every existing caller is unaffected.
+   */
+  crest?: boolean;
   /** The floating HUD. Absolutely positioned by the caller. */
   children?: ReactNode;
 }) {
   return (
     <View style={[styles.sky, { height }]}>
-      <Gradient stops={SKY} />
+      <Gradient stops={crest ? CREST_SKY : SKY} />
 
       {/* Two soft bodies behind the figure. They give the sky somewhere to be
           — a flat ramp reads as a swatch — and they are placed off both edges
@@ -100,7 +134,7 @@ export function Diorama({
         // The figure is the app's centrepiece and it is drawn, not written —
         // four things are said by shape alone (§6): which animal you are, the
         // ground shadow by level band, the build proportions by dominant stat,
-        // the presence ring by ability rating. Without a name it is invisible
+        // the presence ring by mastery. Without a name it is invisible
         // to a screen reader, and the character screen becomes a HUD floating
         // over nothing.
         //

@@ -272,7 +272,7 @@ describe('planDay', () => {
       // zero are the neutral pair — factor 1.0, no STR shift — which is what
       // keeps every assertion written before this task meaning what it did.
       earnableStats: 3,
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
       existingStatus: null,
       ...overrides,
     };
@@ -366,10 +366,16 @@ describe('planDay', () => {
     expect(row.normalization_factor).toBeCloseTo(1.5, 5);
   });
 
-  it('applies the STR threshold shift from verified workout minutes', () => {
-    // 60 verified minutes earns the 25% cap, so STR's Gold band falls from
-    // 400 kcal to 300. A 300-kcal day is Silver without the shift and Gold
-    // with it — which is the whole difference this field makes.
+  it('credits verified strength minutes into Body', () => {
+    // 60 verified strength minutes are worth 240 kcal-equivalent, so a
+    // 300-kcal day reads 540 and clears Body's 400 Gold band. Silver without
+    // them, Gold with — which is the whole difference this field makes.
+    //
+    // The direction is the point. Until 2026-08-29 the same sixty minutes
+    // *lowered* Body's Gold band to 300 instead, so lifting was rewarded by
+    // asking less of you. Same outcome here, opposite mechanism, and the
+    // shift was retired rather than kept alongside — one signal must not both
+    // lower a stat's bands and raise its points.
     //
     // A local fixture rather than a moved shared one: the shared input()
     // burns 450 kcal and the row-shape test above pins STR at gold for it.
@@ -379,8 +385,8 @@ describe('planDay', () => {
         b.hour === 0 ? { ...b, activeKcal: 300 } : b,
       ),
     });
-    const unverified = planDay({ ...at300(), verifiedWorkoutMinutes: 0 });
-    const verified = planDay({ ...at300(), verifiedWorkoutMinutes: 60 });
+    const unverified = planDay({ ...at300(), verifiedStrengthMinutes: 0 });
+    const verified = planDay({ ...at300(), verifiedStrengthMinutes: 60 });
 
     expect(unverified.row.tiers.STR).toBe('silver');
     expect(verified.row.tiers.STR).toBe('gold');

@@ -37,6 +37,17 @@ export function planQuestCompletions(input: {
   localDate: string;
   trailingScoredDays: number;
   tierOverride: QuestTier | null;
+  /**
+   * `profiles.has_sleep_source`, read from the same row `tierOverride` comes
+   * from — **never re-derived here.**
+   *
+   * The client draws the quests and this function grades them. Both read that
+   * one column, exactly as both read `quest_tier_override`, and for exactly the
+   * same reason: a disagreement pays XP for a quest that was never on screen,
+   * and the completion latches. Deriving capability locally would be a second
+   * answer to a question that already has one.
+   */
+  hasSleep: boolean;
   day: QuestDay;
   alreadyCompleted: ReadonlySet<string>;
 }): QuestCompletionRow[] {
@@ -50,6 +61,7 @@ export function planQuestCompletions(input: {
     userId: input.userId,
     localDate: input.localDate,
     tier,
+    hasSleep: input.hasSleep,
   })) {
     if (input.alreadyCompleted.has(quest.id)) continue;
     if (!questMet(quest, input.day)) continue;

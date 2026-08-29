@@ -1,6 +1,12 @@
 import { normalizationFactor } from './capability.ts';
-import { mindTierFor, MIND_OVERSLEEP_HOURS, MIND_THRESHOLD_HOURS } from './mind.ts';
+import {
+  mindPoints,
+  mindTierFor,
+  MIND_OVERSLEEP_HOURS,
+  MIND_THRESHOLD_HOURS,
+} from './mind.ts';
 import { shiftedThreshold, statShifts } from './shifts.ts';
+import { TIER_POINTS } from './tier-points.ts';
 import {
   CORE_STATS,
   type CoreStat,
@@ -33,22 +39,6 @@ export const VIT_ACTIVE_HOUR_STEPS = 250;
  */
 export const FEATURED_STAT_MULTIPLIER = 1.5;
 
-/**
- * Re-tuned for three stats (deviation #41), and **derived rather than
- * invented**: `4 x 900 = 3 x 1,200` keeps the daily ceiling where it was, so
- * replayed history stays comparable.
- *
- * Module-private on purpose. `STAT_POINTS_MAX` below is the one figure that
- * escapes, and `nextTierFor`'s `pointsGain` is the other way a caller reads
- * these numbers — both derived here so no surface can size a bar against a
- * band value this table no longer holds.
- */
-const TIER_POINTS: Record<Tier, number> = {
-  none: 0,
-  bronze: 250,
-  silver: 650,
-  gold: 1_200,
-};
 
 /**
  * A single stat's Gold ceiling (§6). Derived from the tier table rather than
@@ -163,6 +153,73 @@ function breadthBonus(contributingStats: number, earnable: number): number {
     contributingStats + (CORE_STATS.length - available),
   );
   return CONSISTENCY_BONUS[index] ?? 0;
+}
+
+/**
+ * What one minute of verified strength work is worth to Body, in the same unit
+ * Body is measured in.
+ *
+ * **This is a correction, not a bonus.** Active calories systematically
+ * under-report resistance work: a hard forty-five minutes under a barbell burns
+ * far fewer calories than forty-five minutes of jogging while demanding more of
+ * the body, so a stat named Body that reads calories alone measures the wrong
+ * thing and had made `STR` a second, quieter `AGI`. The credit is added on top
+ * of the calories the session genuinely burned, and stands for the gap between
+ * what the session cost and what the calorimeter saw.
+ *
+ * Sized so that lifting is a *route* to Gold rather than a shortcut past it: an
+ * hour of verified strength work lands near the Gold band once its own burned
+ * calories are counted, which is the same place an hour of hard cardio lands.
+ *
+ * **Only strength-type sessions earn it.** A run already reports its calories
+ * honestly, and crediting one would pay for the same effort twice — the exact
+ * double-count that retiring `workoutShift` was about.
+ */
+export const STRENGTH_MINUTE_KCAL_CREDIT = 4;
+
+function lerp(from: number, to: number, t: number): number {
+  return from + (to - from) * Math.min(1, Math.max(0, t));
+}
+
+/**
+ * A stat's points for a raw value — continuous between the tier anchors.
+ *
+ * **The anchors are exact and the space between them is not a step.** Until
+ * 2026-08-29 this was `TIER_POINTS[tierFor(raw)]`, so 5,000 steps and 9,999
+ * steps were the identical 650 and a four-thousand-step evening walk changed
+ * nothing at all. Worse, the race over the very same day moved continuously in
+ * raw capped steps, so the two halves of the app disagreed about what a day was
+ * worth, on one screen.
+ *
+ * Interpolating between the anchors fixes that while changing nothing that
+ * hangs off them: 250 / 650 / 1,200 still land exactly on the bands, the daily
+ * ceiling is still 4,400, `tierFor` is untouched, and the Daily Walk streak and
+ * `AGI_base` still read the ladder they always read.
+ *
+ * **Below Bronze is still zero, deliberately.** Interpolating from the origin
+ * would be the obvious next step and it is a trap: `contributingStats` and the
+ * streak both key off "did this stat score at all", so fifty steps would score
+ * points, count as a scored day, and keep a streak alive. The floor is what
+ * makes a day mean something happened.
+ */
+export function statPointsFor(stat: CoreStat, raw: number, shift = 0): number {
+  if (stat === 'MND') return Math.round(mindPoints(raw));
+
+  const t = THRESHOLDS[stat];
+  const bronze = shiftedThreshold(t.bronze, shift);
+  const silver = shiftedThreshold(t.silver, shift);
+  const gold = shiftedThreshold(t.gold, shift);
+
+  if (!Number.isFinite(raw) || raw < bronze) return 0;
+  if (raw >= gold) return TIER_POINTS.gold;
+  if (raw < silver) {
+    return Math.round(
+      lerp(TIER_POINTS.bronze, TIER_POINTS.silver, (raw - bronze) / (silver - bronze)),
+    );
+  }
+  return Math.round(
+    lerp(TIER_POINTS.silver, TIER_POINTS.gold, (raw - silver) / (gold - silver)),
+  );
 }
 
 /**
@@ -308,12 +365,27 @@ export function aggregateBuckets(buckets: readonly HourBucket[]): DayTotals {
   return totals;
 }
 
-function rawFor(stat: CoreStat, totals: DayTotals, sleepMinutes: number | null): number {
+/**
+ * The raw value a stat is judged on.
+ *
+ * Body is the only composite, and the only one whose raw value is not something
+ * a health app hands you directly: it is the day's active calories **plus** a
+ * credit for verified strength minutes (`STRENGTH_MINUTE_KCAL_CREDIT`). Keeping
+ * it a single number in a single unit is what lets the thresholds, the gap line
+ * and the interpolation all stay exactly as they are — the composite is a
+ * property of the *reading*, not of the ladder.
+ */
+function rawFor(
+  stat: CoreStat,
+  totals: DayTotals,
+  sleepMinutes: number | null,
+  strengthMinutes: number,
+): number {
   switch (stat) {
     case 'AGI':
       return totals.steps;
     case 'STR':
-      return totals.activeKcal;
+      return totals.activeKcal + strengthMinutes * STRENGTH_MINUTE_KCAL_CREDIT;
     case 'MND':
       return sleepMinutes ?? 0;
   }
@@ -338,10 +410,11 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
   // than of the stat reading it — and through `statShifts` rather than
   // inline, because the character sheet's guidance line has to read the same
   // mapping to name the band the day will be judged against.
-  const shifts = statShifts({
-    activeHours: totals.activeHours,
-    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes ?? 0,
-  });
+  const shifts = statShifts({ activeHours: totals.activeHours });
+
+  // Clamped rather than trusted: a negative reading is a bug upstream, and it
+  // must not be able to *reduce* the calories a day genuinely burned.
+  const strengthMinutes = Math.max(0, input.verifiedStrengthMinutes ?? 0);
 
   const stats = {} as Record<CoreStat, StatResult>;
   let contributingStats = 0;
@@ -349,19 +422,20 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
   let xp = 0;
 
   for (const stat of CORE_STATS) {
-    const raw = rawFor(stat, totals, sleepMinutes);
+    const raw = rawFor(stat, totals, sleepMinutes, strengthMinutes);
     const shift = shifts[stat];
     // MND's tier is not a threshold comparison: above nine hours the night
     // flattens back to Bronze, which no ladder of minimums can express. It
     // also takes no shift — the trust gate decides *whether* sleep scores,
     // not how easily.
-    const tier = stat === 'MND' ? mindTierFor(raw) : shiftedTierFor(stat, raw, shift);
+    const tier =
+      stat === 'MND' ? mindTierFor(raw) : shiftedTierFor(stat, raw, shift);
     // The same ladder with the shift removed. For AGI this is what the Daily
     // Walk reads: `DAILY_STEP_BASELINE` is a public-health floor and must not
     // move because the user spread their steps out. Identical to `tier`
     // wherever the shift is zero, and for MND, which takes no shift at all.
     const unshiftedTier = stat === 'MND' ? tier : shiftedTierFor(stat, raw, 0);
-    const base = TIER_POINTS[tier];
+    const base = statPointsFor(stat, raw, shift);
     const points =
       stat === featuredStat ? Math.round(base * FEATURED_STAT_MULTIPLIER) : base;
 

@@ -522,10 +522,10 @@ async function settleQuests(candidate: Candidate): Promise<void> {
 
   const { data: profileRow, error: profileError } = await admin
     .from('profiles')
-    .select('quest_tier_override')
+    .select('quest_tier_override, has_sleep_source')
     .eq('id', candidate.user_id)
     .maybeSingle();
-  if (profileError) throw new Error(`quest tier read failed: ${profileError.message}`);
+  if (profileError) throw new Error(`quest profile read failed: ${profileError.message}`);
 
   // Lifetime scored days, filtered on `total > 0` — the identical count
   // `useScoredDayCount` makes on the client. The two must agree or the server
@@ -549,6 +549,10 @@ async function settleQuests(candidate: Candidate): Promise<void> {
     localDate: candidate.local_date,
     trailingScoredDays: scoredDays ?? 0,
     tierOverride: (profileRow?.quest_tier_override ?? null) as QuestTier | null,
+    // The same column the client's draw reads. `?? false` on an absent profile
+    // matches the column's own default and is the safe direction: it withholds
+    // a sleep quest rather than grading one the screen never showed.
+    hasSleep: Boolean(profileRow?.has_sleep_source),
     day,
     alreadyCompleted: new Set(
       (doneRows ?? []).map((r: { quest_id: string }) => r.quest_id),

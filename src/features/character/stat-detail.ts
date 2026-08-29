@@ -60,59 +60,10 @@ function unitForGap(stat: CoreStat, gap: number): string {
   return gap === 1 ? STAT_UNITS_SINGULAR[stat] : STAT_UNITS[stat];
 }
 
-/**
- * What the screen knows about workouts on the day being described.
- *
- * Three states because two of them are not the same thing: a resolved query
- * with no session today is a fact, and a query still in flight is not. Both
- * `'session'` and `'unknown'` mean "STR's bands may already have moved and
- * this screen cannot say by how much"; only `'none'` licenses quoting STR's
- * ladder.
- *
- * It is the *existence* of a session, never its contents — no new column is
- * read, and §5's owner-only posture on `workout_sessions` is untouched.
- */
-export type WorkoutDaySignal = 'none' | 'session' | 'unknown';
-
-/**
- * `useWorkoutSessions`'s result, as the one bit this module needs.
- *
- * Structural on purpose: the hook's rows carry pace and distance, and taking
- * `WorkoutSession` here would invite a later reader to reach for them. A
- * `localDate` is all that decides this.
- *
- * `undefined` sessions — the query in flight or errored — and an unknown
- * `today` both read `'unknown'` rather than `'none'`, because "I have not been
- * told" is not "there is none", and this whole change exists to stop the
- * second being asserted from the first.
- */
-export function workoutDaySignal(
-  sessions: ReadonlyArray<{ localDate: string }> | undefined,
-  today: string | undefined,
-): WorkoutDaySignal {
-  if (!sessions || !today) return 'unknown';
-  return sessions.some((s) => s.localDate === today) ? 'session' : 'none';
-}
 
 export type StatDetail =
   | { kind: 'unknown' }
   | { kind: 'maxed' }
-  | {
-      /**
-       * Body (`STR`) is open and is the only thing left to ask for, but the day
-       * carries a workout — so the number is not the screen's to name.
-       *
-       * A `gap` here would be the unshifted one, and `workoutShift()` can put
-       * Gold at 300 kcal on a day this ladder still calls 400. Being told 400
-       * and topping out at 300 reads as a broken score (`scoring.ts`), which
-       * is worse than being told the direction and no figure.
-       */
-      kind: 'unquantified';
-      /** Only ever STR: it is the one stat whose shift this screen cannot see. */
-      stat: 'STR';
-      /** This stat is the user's lane — their dominant stat (§6). */
-      lane: boolean;
-    }
   | {
       kind: 'gap';
       stat: CoreStat;
@@ -182,19 +133,19 @@ function rawFor(
  * mention. Its input is now observed dominance rather than a declared focus,
  * which changes where the preference comes from and nothing about this rule.
  *
- * **Body (`STR`) can be silenced.** The bands the day is judged against move
- * with the day (`statShifts`), and this screen can see the input to AGI's shift but
- * not to STR's — so on a day carrying a workout, STR is dropped from the
- * ranking rather than quoted from the unshifted ladder. Another stat with a
- * real number wins the line; when none is left, `kind: 'unquantified'` says the
- * lever without the figure. Suppression is the whole fix — nothing here
- * estimates a shift it cannot measure.
+ * **Body could once be silenced, and no longer can.** Body used to take a
+ * threshold shift derived from verified workout minutes, which this screen
+ * could not see — so on a day carrying a workout it was dropped from the
+ * ranking rather than quoted from a ladder that might be a quarter wrong, and
+ * a `kind: 'unquantified'` variant existed to say the lever without a figure.
+ * Retiring that shift on 2026-08-29 deleted the whole problem: Body is judged
+ * against the published ladder now, every stat here is quotable, and the
+ * variant went with the state it described rather than being left behind as an
+ * unreachable branch.
  */
 export function resolveStatDetail({
   totals,
   sleepMinutes,
-  verifiedWorkoutMinutes,
-  workoutDay = 'none',
   lane,
 }: {
   totals: DayTotals | undefined;
@@ -205,41 +156,6 @@ export function resolveStatDetail({
    * line back.
    */
   sleepMinutes?: number | null;
-  /**
-   * Minutes of workout that cleared `workoutVerified()`, which is what lowers
-   * STR's bands (`shifts.ts`).
-   *
-   * **The home screen has none to pass, and that is a stated gap rather than
-   * an oversight.** Verification reads `was_user_entered`,
-   * `has_heart_rate_evidence` and `source_bundle_id`, three columns
-   * `useWorkoutSessions` deliberately does not select — §5 keeps
-   * `workout_sessions` owner-only and out of every projection, and widening
-   * that read is a privacy decision, not a plumbing one, and it has not been
-   * taken.
-   *
-   * Until it is, `workoutDay` below is what keeps that gap from reaching the
-   * user: absent minutes no longer mean "no shift", they mean "no number".
-   * The parameter stays so that the day the figure exists, exactly one call
-   * site changes — pass it and the suppression stops, because the shift is
-   * then known rather than merely possible.
-   *
-   * `undefined` is the whole signal here, so there is no default: a `= 0`
-   * would make "the caller has nothing" indistinguishable from "the caller
-   * measured nothing", which is the bug this closes.
-   */
-  verifiedWorkoutMinutes?: number;
-  /**
-   * Whether the day is known to carry a workout session at all.
-   *
-   * Existence only — `workoutDaySignal()` reads `local_date` and nothing else,
-   * so this needs no column `useWorkoutSessions` does not already select and
-   * no §5 decision.
-   *
-   * Defaults to `'none'`, which is the only value that licenses quoting STR's
-   * ladder. That default is safe precisely because it is a claim: a caller who
-   * has not looked passes `'unknown'` and gets silence.
-   */
-  workoutDay?: WorkoutDaySignal;
   lane: CoreStat | null;
 }): StatDetail {
   if (!totals) return { kind: 'unknown' };
@@ -248,20 +164,7 @@ export function resolveStatDetail({
   // of it. Reading the unshifted ladder here is the bug this closes: a
   // well-spread day was told "1,240 more steps" and reached Gold at 7,500,
   // and arriving early reads as a broken score rather than a gift.
-  const shifts = statShifts({
-    activeHours: totals.activeHours,
-    verifiedWorkoutMinutes: verifiedWorkoutMinutes ?? 0,
-  });
-
-  // AGI's shift is derived from `activeHours`, which this screen has. STR's is
-  // derived from minutes it cannot see — so a zero here is an assumption, not
-  // a measurement, and on a day with a workout it is the *wrong* assumption up
-  // to a quarter of the time. Suppress rather than quote it.
-  //
-  // Only when the caller has no minutes of its own: passing them makes the
-  // shift known and this whole branch inert, which is what keeps the future
-  // wiring to a single call site.
-  const strShiftUnknowable = verifiedWorkoutMinutes === undefined && workoutDay !== 'none';
+  const shifts = statShifts({ activeHours: totals.activeHours });
 
   interface Open {
     stat: CoreStat;
@@ -273,8 +176,6 @@ export function resolveStatDetail({
   }
 
   const open: Open[] = [];
-  /** STR was open and was silenced, rather than being closed. */
-  let strSilenced = false;
   for (const stat of CORE_STATS) {
     const raw = rawFor(stat, totals, sleepMinutes ?? null);
     // Unknown, not zero — see rawFor. A stat with no measurement has no gap
@@ -286,16 +187,6 @@ export function resolveStatDetail({
     // and for MND also a night past the oversleep threshold, where no amount
     // of extra sleep recovers the top band. Either way the stat is closed.
     if (!next) continue;
-    // **After `nextTierFor`, never before.** A shift only ever makes a band
-    // easier, so a stat the unshifted ladder already calls closed is closed
-    // whatever the workout was — and silencing it there would turn a true
-    // "every stat is maxed" into a line implying there is something left to do.
-    // Reaching here means STR is open on the ladder this screen can see, which
-    // is the only case where the real gap is genuinely unknown.
-    if (stat === 'STR' && strShiftUnknowable) {
-      strSilenced = true;
-      continue;
-    }
     // The true band width is (threshold - bandLow), not (threshold - 0):
     // gap / (gap + raw) is a fraction of the target value, which only equals
     // "share of band remaining" in the first band, where bandLow is 0.
@@ -309,13 +200,7 @@ export function resolveStatDetail({
     });
   }
 
-  if (open.length === 0) {
-    // Silence, not a lie in either direction: "every stat is maxed" would be
-    // false while Body is still open, and a kcal figure would be the
-    // unshifted one. The line names the lever and no number.
-    if (strSilenced) return { kind: 'unquantified', stat: 'STR', lane: lane === 'STR' };
-    return { kind: 'maxed' };
-  }
+  if (open.length === 0) return { kind: 'maxed' };
 
   const preferred = lane ? open.find((c) => c.stat === lane) : undefined;
 
@@ -336,4 +221,36 @@ export function resolveStatDetail({
     topsOut: chosen.topsOut,
     unit: unitForGap(chosen.stat, chosen.gap),
   };
+}
+
+/**
+ * The guidance line — what is closest, and what closing it does.
+ *
+ * **Same form as every other line added in this pass**: observation, em dash,
+ * consequence. The observation is a real figure in a real unit ("1,240 steps to
+ * go"); the consequence is what that buys, in the player's terms.
+ *
+ * **It never prints `points`, though `StatDetail` carries them.** That field
+ * predates deviation #34, and its own doc comment still describes copy that
+ * named the reward as a number — copy this replaces. `topsOut` is what the
+ * sentence actually needs: whether this is the last step available on the stat
+ * today. The number stays available for anything that needs to *rank* stats,
+ * which is what `resolveStatDetail` uses it for internally.
+ *
+ * Null for `unknown` and `maxed`, because both are already said better by what
+ * surrounds this line — a screen with no totals yet says so above, and "every
+ * stat is topped out" is a state the bars themselves show at full.
+ */
+export function statDetailLine(
+  detail: StatDetail,
+  statNames: Record<CoreStat, string>,
+): string | null {
+  if (detail.kind !== 'gap') return null;
+
+  const name = statNames[detail.stat];
+  const figure = `${detail.gap.toLocaleString()} ${detail.unit}`;
+
+  return detail.topsOut
+    ? `${figure} to go — ${name} tops out for the day.`
+    : `${figure} to go — ${name} climbs again.`;
 }

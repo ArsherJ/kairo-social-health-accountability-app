@@ -47,8 +47,11 @@ export interface ComputeDayInput {
    * behaviour rather than a wrong one.
    */
   earnableStats?: number;
-  /** Minutes from workouts passing `workoutVerified`. Shifts STR's bands. */
-  verifiedWorkoutMinutes?: number;
+  /**
+   * Minutes from **strength-type** sessions passing `workoutVerified`.
+   * Credited into Body's raw value; see `STRENGTH_MINUTE_KCAL_CREDIT`.
+   */
+  verifiedStrengthMinutes?: number;
 }
 
 export interface ComputeDayResult {
@@ -73,7 +76,7 @@ export function computeDay(input: ComputeDayInput): ComputeDayResult {
     // one are different types, and spelling the default here keeps the two
     // layers agreeing about what "not supplied" means.
     earnableStats: input.earnableStats ?? CORE_STATS.length,
-    verifiedWorkoutMinutes: input.verifiedWorkoutMinutes ?? 0,
+    verifiedStrengthMinutes: input.verifiedStrengthMinutes ?? 0,
     featuredStat: input.featuredStat ?? null,
   });
 

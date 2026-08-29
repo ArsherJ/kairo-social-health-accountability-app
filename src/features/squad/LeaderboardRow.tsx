@@ -15,7 +15,7 @@ import { StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
 /**
  * One squadmate.
  *
- * Ability ratings are the only per-stat detail on this screen: §5 lets
+ * Mastery are the only per-stat detail on this screen: §5 lets
  * squadmates see aggregates and totals, never raw steps or hourly movement, so
  * there is no number here that can be widened into one. A rating is a lifetime
  * aggregate, which puts it a step *further* from the raw data than the tier

@@ -6,14 +6,16 @@ import {
   MAX_DAILY_SCORE_PHONE_ONLY,
   MAX_DAILY_SCORE_WITH_WEARABLE,
   STAT_POINTS_MAX,
+  STRENGTH_MINUTE_KCAL_CREDIT,
   VIT_ACTIVE_HOUR_STEPS,
   aggregateBuckets,
   computeDailyScore,
   nextTierFor,
   shiftedTierFor,
+  statPointsFor,
   tierFor,
 } from './scoring.ts';
-import { spreadShift, workoutShift } from './shifts.ts';
+import { MAX_THRESHOLD_SHIFT, spreadShift, statShifts } from './shifts.ts';
 import { CORE_STATS, type CoreStat, type HourBucket } from './types.ts';
 
 /** Build a day of buckets. `perHour` is applied to each hour listed. */
@@ -107,9 +109,11 @@ describe('tier boundaries', () => {
       [0, 'none', 0],
       [999, 'none', 0],
       [1_000, 'bronze', 250],
-      [4_999, 'bronze', 250],
+      [3_000, 'bronze', 450],
+      [4_999, 'bronze', 650],
       [5_000, 'silver', 650],
-      [9_999, 'silver', 650],
+      [7_500, 'silver', 925],
+      [9_999, 'silver', 1_200],
       [10_000, 'gold', 1_200],
       [40_000, 'gold', 1_200],
     ],
@@ -117,9 +121,11 @@ describe('tier boundaries', () => {
       [0, 'none', 0],
       [49, 'none', 0],
       [50, 'bronze', 250],
-      [199, 'bronze', 250],
+      [125, 'bronze', 450],
+      [199, 'bronze', 647],
       [200, 'silver', 650],
-      [399, 'silver', 650],
+      [300, 'silver', 925],
+      [399, 'silver', 1_197],
       [400, 'gold', 1_200],
       [5_000, 'gold', 1_200],
     ],
@@ -150,6 +156,53 @@ describe('tier boundaries', () => {
     }
   }
 });
+describe('points between the anchors', () => {
+  // The dead zone this pass removed. Until 2026-08-29 points were
+  // `TIER_POINTS[tierFor(raw)]`, so 5,000 steps and 9,999 steps were both
+  // exactly 650 and a four-thousand-step evening walk moved nothing at all —
+  // while the race, over the very same day, moved continuously in raw capped
+  // steps. Two halves of one app disagreeing about what a day was worth.
+
+  it('lands exactly on the anchors, so nothing hanging off them moves', () => {
+    expect(statPointsFor('AGI', 1_000)).toBe(250);
+    expect(statPointsFor('AGI', 5_000)).toBe(650);
+    expect(statPointsFor('AGI', 10_000)).toBe(1_200);
+  });
+
+  it('rises with every step taken inside a band', () => {
+    let previous = statPointsFor('AGI', 1_000);
+    for (let steps = 1_100; steps <= 10_000; steps += 100) {
+      const points = statPointsFor('AGI', steps);
+      expect(points).toBeGreaterThan(previous);
+      previous = points;
+    }
+  });
+
+  // The floor stays a floor. Interpolating from the origin is the obvious next
+  // step and it is a trap: `contributingStats` and the streak both key off
+  // "did this stat score at all", so fifty steps would score points, count as a
+  // scored day, and keep a streak alive.
+  it('still pays nothing below bronze', () => {
+    expect(statPointsFor('AGI', 999)).toBe(0);
+    expect(statPointsFor('AGI', 1)).toBe(0);
+    expect(statPointsFor('STR', 49)).toBe(0);
+  });
+
+  it('never exceeds the gold anchor, so the daily ceiling is unmoved', () => {
+    expect(statPointsFor('AGI', 40_000)).toBe(STAT_POINTS_MAX);
+    expect(statPointsFor('STR', 99_999)).toBe(STAT_POINTS_MAX);
+  });
+
+  // A shift moves the whole ladder, floor and ceiling together. A band whose
+  // top moved and whose bottom did not would put every interpolated value
+  // inside it wrong.
+  it('interpolates against the shifted ladder, not the published one', () => {
+    // A fully spread day reaches AGI gold at 7,500 (spec §2).
+    expect(statPointsFor('AGI', 7_500, MAX_THRESHOLD_SHIFT)).toBe(1_200);
+    expect(statPointsFor('AGI', 3_750, MAX_THRESHOLD_SHIFT)).toBe(650);
+  });
+});
+
 describe('consistency bonus', () => {
   it('awards nothing for zero contributing stats', () => {
     const result = computeDailyScore({ buckets: hours(24) });
@@ -243,29 +296,46 @@ describe('threshold shifts', () => {
     expect(burst.stats.AGI.tier).toBe('silver');
   });
 
-  it('lowers STR bands with sixty verified workout minutes', () => {
-    const shifted = computeDailyScore({
+  // **Body's shift is gone as of 2026-08-29** and this pair is what says so.
+  // Sixty verified strength minutes used to lower Body's bands by 25%; they
+  // raise Body's raw value now. The reachable outcome is the same — Gold on a
+  // 300 kcal gym day — and the direction is opposite, which is the point: the
+  // app no longer rewards lifting by asking less of you.
+  it('credits verified strength minutes into Body rather than discounting its bands', () => {
+    const lifted = computeDailyScore({
       buckets: dayWith({ activeKcal: 300 }),
-      verifiedWorkoutMinutes: 60,
+      verifiedStrengthMinutes: 60,
     });
-    expect(shifted.stats.STR.tier).toBe('gold');
+    expect(lifted.stats.STR.raw).toBe(300 + 60 * STRENGTH_MINUTE_KCAL_CREDIT);
+    expect(lifted.stats.STR.tier).toBe('gold');
   });
 
-  it('shifts nothing when the session did not verify', () => {
+  it('credits nothing when the session did not verify', () => {
     // The caller passes 0 minutes for an unverified session, so this is what
     // a hand-typed workout looks like from in here.
     const unverified = computeDailyScore({
       buckets: dayWith({ activeKcal: 300 }),
-      verifiedWorkoutMinutes: 0,
+      verifiedStrengthMinutes: 0,
     });
+    expect(unverified.stats.STR.raw).toBe(300);
     expect(unverified.stats.STR.tier).toBe('silver');
+  });
+
+  // A negative reading is a bug upstream and must never be able to subtract
+  // from calories the day genuinely burned.
+  it('never lets a negative reading reduce the calories actually burned', () => {
+    const odd = computeDailyScore({
+      buckets: dayWith({ activeKcal: 300 }),
+      verifiedStrengthMinutes: -500,
+    });
+    expect(odd.stats.STR.raw).toBe(300);
   });
 
   it('never shifts MND — the trust gate decides whether sleep scores, not how easily', () => {
     const both = computeDailyScore({
       buckets: dayWith({ steps: 20_000, activeHours: 12 }),
       sleepMinutes: 6 * 60 + 59,
-      verifiedWorkoutMinutes: 300,
+      verifiedStrengthMinutes: 300,
     });
     expect(both.stats.MND.tier).toBe('silver');
   });
@@ -454,7 +524,7 @@ describe('weekly featured stat', () => {
 });
 
 describe('worked scenarios', () => {
-  it('gym day, low steps = 1,850', () => {
+  it('gym day, low steps = 1,985', () => {
     const result = computeDailyScore({
       buckets: dayWith({
         steps: 2_000, // AGI bronze even after the spread shift
@@ -462,26 +532,27 @@ describe('worked scenarios', () => {
         activeHours: 6, // a 15% shift on AGI's bands
       }),
     });
-    expect(result.stats.AGI.points).toBe(250);
+    // 2,000 steps sits inside a shifted bronze band, part-way up it.
+    expect(result.stats.AGI.points).toBe(385);
     expect(result.stats.STR.points).toBe(1_200);
     expect(result.stats.MND.points).toBe(0);
     expect(result.consistencyBonus).toBe(400);
-    expect(result.healthTotal).toBe(1_850);
+    expect(result.healthTotal).toBe(1_985);
   });
 
-  it('gym day with a wearable and a tracked session = 3,850', () => {
+  it('gym day with a wearable and a tracked session = 3,585', () => {
     const result = computeDailyScore({
       buckets: dayWith({ steps: 2_000, activeKcal: 450, activeHours: 6 }),
       sleepMinutes: 7 * 60 + 30, // MND gold
-      verifiedWorkoutMinutes: 60,
+      verifiedStrengthMinutes: 60,
       earnableStats: 3,
     });
     expect(result.stats.MND.points).toBe(1_200);
     expect(result.contributingStats).toBe(3);
-    expect(result.healthTotal).toBe(2_650 + 800);
+    expect(result.healthTotal).toBe(2_785 + 800);
   });
 
-  it('lazy Sunday, walked to the mall = 650', () => {
+  it('lazy Sunday, walked to the mall = 795', () => {
     const result = computeDailyScore({
       buckets: dayWith({
         steps: 6_000, // AGI silver
@@ -492,7 +563,7 @@ describe('worked scenarios', () => {
     expect(result.stats.STR.points).toBe(0);
     expect(result.contributingStats).toBe(1);
     expect(result.consistencyBonus).toBe(0);
-    expect(result.healthTotal).toBe(650);
+    expect(result.healthTotal).toBe(795);
   });
 
   it('complete rest day = 0', () => {
@@ -678,9 +749,11 @@ describe('nextTierFor', () => {
 
     it('does not contradict the tier the scorer actually awards', () => {
       const eleven = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
-      expect(eleven.stats.MND.tier).toBe('bronze');
-      // Bronze with no next tier is the honest reading: there is no positive
-      // number of extra minutes that recovers Gold.
+      expect(eleven.stats.MND.tier).toBe('silver');
+      // Silver with no next tier is the honest reading: there is no positive
+      // number of extra minutes that recovers Gold. (It was Bronze until
+      // 2026-08-29, which made an eleven-hour night score below a five-hour
+      // one — see `MIND_TAPER_END_HOURS`.)
       expect(nextTierFor('MND', 11 * 60)).toBeNull();
     });
 
@@ -745,18 +818,19 @@ describe('nextTierFor — the band the day is actually judged against', () => {
     expect(nextTierFor('AGI', 7_499, shift)).toMatchObject({ tier: 'gold', gap: 1 });
   });
 
-  it("uses STR's own shift, which comes from verified workout minutes", () => {
-    // Sixty verified minutes is the cap, so STR Silver sits at 150 and Gold
-    // at 300. Unshifted, 200 kcal is exactly the Silver line and Gold is 200
-    // away; shifted, it is already inside Silver and Gold is 100 away.
-    const shift = workoutShift(60);
-    expect(nextTierFor('STR', 200)).toMatchObject({ tier: 'gold', gap: 200, bandLow: 200 });
-    expect(nextTierFor('STR', 200, shift)).toEqual({
+  // **Body's gap is always against the published ladder now**, because Body no
+  // longer takes a shift. Strength minutes move the *raw value* the gap is
+  // measured from, which is the same distance travelled and a far easier
+  // sentence: "90 more calories" rather than a band that silently moved.
+  it('measures Body against the ladder the user has learned', () => {
+    expect(nextTierFor('STR', 200)).toMatchObject({
       tier: 'gold',
-      gap: 100,
-      bandLow: 150,
-      pointsGain: 550,
+      gap: 200,
+      bandLow: 200,
     });
+    // A shift argument is still accepted and still clamps, but nothing on the
+    // write path supplies one for Body.
+    expect(statShifts({ activeHours: 24 }).STR).toBe(0);
   });
 
   it('is the unshifted ladder when the day earned no shift', () => {
@@ -850,10 +924,14 @@ describe('MND as a core stat', () => {
     expect(score.stats.MND.tier).toBe('none');
   });
 
-  // Oversleep is a promoted bonus, never a penalty.
-  it('flattens an eleven-hour night to bronze', () => {
-    const score = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
-    expect(score.stats.MND.tier).toBe('bronze');
+  // Oversleep is a promoted bonus, never a penalty — and since 2026-08-29 it
+  // tapers to Silver rather than falling to Bronze, so a long night can no
+  // longer score below a short one.
+  it('tapers an eleven-hour night to silver, never below a short night', () => {
+    const eleven = computeDailyScore({ buckets: [], sleepMinutes: 11 * 60 });
+    const five = computeDailyScore({ buckets: [], sleepMinutes: 5 * 60 });
+    expect(eleven.stats.MND.tier).toBe('silver');
+    expect(eleven.stats.MND.points).toBeGreaterThan(five.stats.MND.points);
   });
 
   it('reports sleep presence for the leaderboard’s wearable icon', () => {

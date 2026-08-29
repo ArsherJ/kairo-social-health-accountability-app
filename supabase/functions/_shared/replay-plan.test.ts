@@ -37,7 +37,7 @@ function plannedRow(existingStatus: 'provisional' | 'final' | null): DayScoreRow
     elevatedHeartRateHours: new Set(),
     sleepMinutes: 420,
     earnableStats: 3,
-    verifiedWorkoutMinutes: 0,
+    verifiedStrengthMinutes: 0,
     existingStatus,
   }).row;
 }

@@ -36,8 +36,8 @@ describe('computeDay', () => {
       buckets: gymDay(),
     });
 
-    expect(result.score.healthTotal).toBe(1_850);
-    expect(result.total).toBe(1_850);
+    expect(result.score.healthTotal).toBe(1_985);
+    expect(result.total).toBe(1_985);
   });
 
   it('is provisional before the grace window closes', () => {
@@ -71,8 +71,8 @@ describe('computeDay', () => {
       buckets: gymDay(),
     });
     expect(result.score.featuredStat).toBeNull();
-    expect(result.score.stats.AGI.base).toBe(250);
-    expect(result.score.stats.AGI.points).toBe(250);
+    expect(result.score.stats.AGI.base).toBe(385);
+    expect(result.score.stats.AGI.points).toBe(385);
   });
 
   it('honours an explicitly supplied featured stat', () => {
@@ -101,20 +101,20 @@ describe('computeDay', () => {
     expect(computeDay({ ...base, earnableStats: 2 }).score.normalizationFactor).toBe(1.5);
   });
 
-  it('forwards verifiedWorkoutMinutes to the scorer', () => {
+  it('forwards verifiedStrengthMinutes to the scorer', () => {
     const base = {
       localDate: DAY,
       timeZone: MANILA,
       now: new Date('2026-07-27T12:00:00Z'),
-      // 300 kcal: STR silver unshifted, gold once 60 verified minutes lower
-      // the band to 300.
+      // 300 kcal: Body silver on its own, gold once 60 verified strength
+      // minutes are credited into the raw value (240 kcal-equivalent).
       buckets: [
         { hour: 0, steps: 0, distanceM: 0, activeKcal: 300, activeMinutes: 60 },
       ] as HourBucket[],
     };
     expect(computeDay(base).score.stats.STR.tier).toBe('silver');
     expect(
-      computeDay({ ...base, verifiedWorkoutMinutes: 60 }).score.stats.STR.tier,
+      computeDay({ ...base, verifiedStrengthMinutes: 60 }).score.stats.STR.tier,
     ).toBe('gold');
   });
 

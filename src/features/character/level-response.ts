@@ -109,7 +109,7 @@ export function figureResponse(input: {
     shadowWidth: width,
     shadowOpacity: opacity,
     ringSize: ringScale === null ? null : width * ringScale,
-    // The ring reads the ability rating through `aura`; thickening it by band
+    // The ring reads the mastery through `aura`; thickening it by band
     // lets it read level too, so the one earned device on the figure answers to
     // both axes rather than to one.
     ringWidth: 2 + input.stage,

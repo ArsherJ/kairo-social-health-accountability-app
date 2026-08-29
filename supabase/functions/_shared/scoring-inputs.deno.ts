@@ -6,10 +6,11 @@ import {
   earnableStatsFor,
   scoringSleepDates,
   scoringSleepMinutes,
-  verifiedWorkoutMinutesFrom,
+  verifiedStrengthMinutesFrom,
   type DailySleepRow,
   type WorkoutSessionRow,
 } from './scoring-inputs.ts';
+import { CORE_STATS } from './core.ts';
 
 /**
  * The stored reads behind §2's normalization and §3's STR shift.
@@ -26,7 +27,18 @@ import {
  */
 export interface ScoringInputs {
   earnableStats: number;
-  verifiedWorkoutMinutes: number;
+  /**
+   * Whether this account has a sleep source at all — `earnableStats === 3`,
+   * said as the boolean the quest draw needs.
+   *
+   * Derived here rather than by the caller so it cannot drift from
+   * `earnableStats`: they answer one question and must always agree. It is
+   * persisted to `profiles.has_sleep_source` because the *client* needs the
+   * same answer to draw the same three quests `finalize-days` will grade, and
+   * two independent derivations is how those two come to disagree.
+   */
+  hasSleep: boolean;
+  verifiedStrengthMinutes: number;
   /**
    * The scored date's sleep as `planDay` should see it, **already gated** — a
    * hand-typed night reads null here.
@@ -100,10 +112,14 @@ export async function readScoringInputs(
   // zero STR shift and an unscored night, with no error anywhere.
   const sleepRows = (sleepHistory.data ?? []) as unknown as DailySleepRow[];
 
+  const scoringDates = scoringSleepDates(sleepRows);
+  const earnable = earnableStatsFor(scoringDates, localDate);
+
   return {
-    earnableStats: earnableStatsFor(scoringSleepDates(sleepRows), localDate),
+    earnableStats: earnable,
+    hasSleep: earnable === CORE_STATS.length,
     sleepMinutes: scoringSleepMinutes(sleepRows, localDate),
-    verifiedWorkoutMinutes: verifiedWorkoutMinutesFrom(
+    verifiedStrengthMinutes: verifiedStrengthMinutesFrom(
       (sessions.data ?? []) as unknown as WorkoutSessionRow[],
     ),
   };

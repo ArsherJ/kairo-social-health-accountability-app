@@ -72,7 +72,8 @@ a score total, it is stale — fix it.
 VIT into AGI as **threshold shifts** — never point multipliers, because a
 stored multiplier stacks with the squad program's read-time weight and that is
 deviation #10's trap — and sleep was promoted from the REC bonus to a full
-stat. A day's stat points scale by `3 / earnable stats`, so both ceilings are
+stat. **END's half of that is retired as of 2026-08-29**; see the block below
+for what replaced it. VIT's spread shift on AGI is unchanged. A day's stat points scale by `3 / earnable stats`, so both ceilings are
 4,400 and a wearable buys a third route to the same ceiling rather than a
 higher one. Three things break easily:
 
@@ -88,7 +89,7 @@ higher one. Three things break easily:
   definition, so `scoring.test.ts`'s 10,000 literal passed throughout. Assert
   through `computeDailyScore` — that is the only place the two ladders can
   disagree.
-- **`planDay` requires `earnableStats` and `verifiedWorkoutMinutes`, and
+- **`planDay` requires `earnableStats` and `verifiedStrengthMinutes`, and
   neither is defaulted.** `DailyScoreInput` defaults both, which is right for a
   pure function whose callers include tests. `planDay` has exactly two callers
   and **both are write paths**, so a default there is the silent failure the
@@ -106,6 +107,140 @@ higher one. Three things break easily:
   program. Changing that function's signature is a **drop by exact argument
   list**, never `create or replace` — the `create_goal` / `p_metric` trap, and a
   surviving overload fails nothing until a call site resolves to it.
+
+**Body reads work, points are a curve, and Mind tapers, as of 2026-08-29.**
+Licensed by `docs/adr/0001-replay-compatibility-expires-at-launch.md`: the live
+project held **3 profiles and 6 scored days**, all development accounts, so
+replay-comparability was protecting nobody and was pure design cost. **That
+licence expires at the first real cohort** — from that day a scoring change that
+moves stored history needs a migration that rescores, or it does not ship. The
+replay *mechanism* is untouched and is not what the ADR is about. Design:
+`docs/superpowers/specs/2026-08-29-body-motion-mind-design.md`. Vocabulary:
+`CONTEXT.md`. Six things break easily:
+
+- **`workoutShift` is gone, and reinstating it is a double-count.** Verified
+  strength minutes used to lower Body's *bands*; they raise Body's *raw value*
+  now, at `STRENGTH_MINUTE_KCAL_CREDIT` (4) kcal-equivalent per minute. One
+  signal must never do both — that is the whole reason the shift was retired
+  rather than kept alongside. `statShifts` therefore takes **only
+  `activeHours`**, and `STR` is a hard 0 in it. AGI's spread shift is untouched
+  and is *not* the same arrangement: different signal, different stat, no
+  double-count.
+- **`verifiedStrengthMinutesFrom` filters on `activity_type`, and
+  `activity_type` had to be added to `WORKOUT_SESSION_COLUMNS`.** It was not in
+  the select list or in `WorkoutSessionRow`. Without it every row reads
+  `undefined`, `Number(undefined)` is `NaN`, `NaN` is in no list, and Body
+  credits **nothing, forever, with no error anywhere**. The completeness guard
+  (`UnselectedWorkoutColumn extends never`) is what stops that, and it only
+  works because the field is declared on the row type. A run is deliberately not
+  credited: it already reports its calories honestly through `active_kcal`.
+- **Points interpolate between the tier anchors; they are no longer a lookup.**
+  `statPointsFor` is the single path. 250 / 650 / 1,200 still land **exactly** on
+  the bands, so the 4,400 ceiling, `tierFor`, the Daily Walk streak and
+  `AGI_base` are all unmoved — and 5,000 steps no longer scores the same as
+  9,999. **Below Bronze is still zero and that is load-bearing**: interpolating
+  from the origin is the obvious next step and would let fifty steps score
+  points, count as a scored day, and keep a streak alive.
+- **Mind tapers to Silver instead of falling to Bronze.** Gold holds to
+  `MIND_OVERSLEEP_HOURS` (9), declines to the Silver anchor by
+  `MIND_TAPER_END_HOURS` (10.5), and floors there — so an eleven-hour night can
+  no longer score below a five-hour one. The reason is the data, not just
+  fairness: HealthKit sleep is noisy (a watch on the nightstand, `inBed` against
+  `asleep`, a merged nap), and a cliff punishes *measurement error* as though it
+  were behaviour. **`mindTierFor` derives its tier from `mindPoints`**, never
+  from a second threshold table, so the two cannot disagree about one night.
+  XP still steps once at nine hours, because `TIER_XP` is banded and this pass
+  did not change that.
+- **`TIER_POINTS` lives in `tier-points.ts` now, and passing it as an argument is
+  the mistake that was already made.** `mind.ts` needs the anchors and
+  `scoring.ts` imports `mind.ts`, so the reverse import is a cycle. Threading the
+  table through as a parameter was the first attempt and broke an
+  out-of-package caller (`character-resolver.ts`) at *runtime* rather than
+  compile time. One module, imported by both.
+- **All five Edge Functions redeploy together.** `sync-health`, `finalize-days`,
+  `replay-scores`, `seed-health` and `dispatch-notifications` all bundle either
+  `core.ts` or `rescore.deno.ts`. Deploying only `sync-health` leaves
+  `finalize-days` rescoring days with the *old* model — the split-brain that
+  took scoring down for two days in August 2026, in a new place. Verified after
+  deploy with `supabase/scripts/smoke-sync.mjs`; a `str_points` that is not
+  250/650/1,200 is the proof the interpolation is live.
+
+**Two more from the same pass (Phase 2).**
+
+- **`profiles.has_sleep_source` is the single stored answer to "can this account
+  earn Mind?", and both quest paths read it.** `pickQuests` now takes `hasSleep`
+  and filters `sleep_minutes` quests out — until 2026-08-29 it filtered on tier
+  alone, so a phone-only account could be dealt `starter-sleep-360` on day one
+  with **no route to clearing it, ever**. The client draws and `finalize-days`
+  grades, so the two must agree: they read one column rather than deriving
+  capability twice, exactly as they already share `quest_tier_override`. The
+  column is **deliberately absent from `profiles`' column-level UPDATE grant**
+  (a client that could set it could change what the grader pays), and — unlike
+  `has_wearable`, which is sticky — it **flips both ways**, because a source
+  that goes away must take the sleep quests with it. `sync-health` writes it for
+  the **latest** date in the payload, never the last one the loop happens to
+  visit. `smoke-sync.mjs` asserts it, so a deploy that silently stops writing it
+  fails at deploy time rather than by quietly withholding every sleep quest.
+- **`stat_records()` is derived on every read and takes no argument.** Best day
+  per stat in raw units, with its date. Derived for the same reason Event
+  progress is — a retroactive Apple revision has to move a record the way it
+  moves a score, and a stored best would go stale with nothing to notice. No
+  argument for the same reason `delete_account()` has none: a `p_user_id` would
+  put it one bug from reading any account's history, and a personal best must
+  never reach a leaderboard. **Body's record is active calories only, without
+  the strength credit** — a record is a thing a calorimeter actually saw, not a
+  scoring input, and that line is also what keeps the function clear of
+  `workout_sessions`, which no `public` function body may name. Mind reads
+  `was_user_entered is not true`; without it somebody types one fourteen-hour
+  night and holds a record they did not sleep. A stat with no qualifying day
+  returns **no row**, never a zero.
+
+**The surfaces (Phase 3), all OTA.** The through-line is one sentence form —
+**observation, em dash, consequence** — used by `spreadLine`, `statDetailLine`
+and `ceilingLine`. The app computed an elaborate model and showed almost none of
+it; the fix was legibility, not more numbers. Five things break easily:
+
+- **`spreadLine` says "tops out sooner", never "ridge" and never a target.**
+  Both would collide with numbers already on the same screen: **ridge** is the
+  race's finish line (`RACE_FINISH_LINE`, flat for everyone), and the Daily Walk
+  is that same flat figure and **deliberately unshifted** — it reads `AGI_base`
+  precisely so a spread day cannot move a public-health number. Naming a
+  *shifted* figure with either word puts two values behind one noun. The line
+  reports the discount instead, which is what the shift actually is. A test pins
+  it.
+- **The engine-key guards are case-sensitive and word-bounded**
+  (`/\b(AGI|STR|MND)\b/`). A loose `/agi/i` matches "D**agi**t", a perfectly good
+  name for a Philippine eagle — and it did, on first run. A guard that fails on
+  real input gets loosened until it guards nothing.
+- **`statDetailLine` never prints `StatDetail.points`, though the field is right
+  there.** That field predates deviation #34 and its own doc comment still
+  describes copy that named the reward as a number. `topsOut` is what the
+  sentence needs; the number stays for ranking stats internally.
+- **The crest changes the sky, never the bird.** The figure already says four
+  things by shape (species, level band, build, presence ring) and a fifth would
+  make the centrepiece a readout. It is **always paired with `ceilingLine`** —
+  an unexplained change to the screen someone opens first is indistinguishable
+  from a bug, which is the failure this whole pass exists to remove. The trigger
+  reads `daily_scores.total` against `MAX_DAILY_SCORE_PHONE_ONLY`: **read, never
+  rendered**, and one comparison covers both cohorts because normalization makes
+  the two ceilings equal.
+- **`/progress` had gone false and is the only screen that explains the model.**
+  It said active minutes and active hours "earn points" — they became shifts at
+  deviation #41 — and never mentioned Mind at all. A stale entry there is worse
+  than none: the reader has no second source to correct it against.
+
+Also renamed in this pass: **"ability rating" is "mastery" everywhere**, comments
+included, and `CONTEXT.md` records why — a monotone lifetime figure cannot
+measure current ability, and it stays monotone because a falling number punishes
+the quiet week, which is the same argument `useScoredDayCount` already makes.
+And the **HealthKit permission sheet's privacy claim was false**: it promised
+squadmates "never your raw numbers", which deviation #47 stopped being true. A
+stale privacy claim is the worst kind, so it is rewritten rather than annotated.
+
+Retiring the shift **deleted** `stat-detail.ts`'s `unquantified` state,
+`strShiftUnknowable` and `workoutDaySignal` — roughly 137 lines that existed only
+because Body had a shift the screen could not measure. Do not reintroduce them;
+Body quotes the published ladder now.
 
 **Stat surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`) as of
 2026-08-25** (deviation #51). The engine keys above are unchanged and must stay
@@ -456,10 +591,36 @@ npm run ios              # build + run on simulator (needs Xcode + CocoaPods)
 npm run prebuild         # regenerate ignored native projects from app.config.ts/plugins; never commit them
 
 # shipping — OTA is free and unlimited; a build is one of 15 a month
-npm run eas:update:production   # JS/assets to installed TestFlight builds
-npm run eas:build:ios:production # native changes only; spends quota
+npm run eas:update:production   # JS/assets to installed TestFlight builds.
+                                #   Non-interactive shells need BOTH flags this
+                                #   script does not carry — run the full command:
+                                #   npx eas-cli update --channel production \
+                                #     --environment production -m "..."
+                                #   **Do not "fix" this by editing the script.**
+                                #   `packageJson:scripts` is a fingerprint input,
+                                #   so touching it moves runtimeVersion and
+                                #   orphans every OTA from the installed build.
+                                #   Verified 2026-08-29: that edit alone took the
+                                #   fingerprint 324fba3e -> a8f47fe3.
+npm run eas:build:ios:production # native changes only; spends quota. = eas build -p ios
+                                 #   --profile ios-production --auto-submit (builds AND
+                                 #   submits to App Store Connect / TestFlight in one shot)
 npm run eas:build:ios:local     # same pipeline locally, no quota (needs fastlane)
 npm run eas:fingerprint         # this tree's iOS runtime version
+
+# which one? compare this tree's fingerprint to the last build's:
+npm run eas:fingerprint                          # -> runtimeVersion of the working tree
+npx eas-cli build:list --platform ios --limit 1  # -> "Fingerprint" of the last build
+#   match    -> npm run eas:update:production  (free; applies on next app launch)
+#   differ   -> npm run eas:build:ios:production  (native drift; an OTA update would
+#               publish fine and silently never reach the device)
+
+# build / submission status (read-only, no quota)
+npx eas-cli build:list --platform ios --limit 5
+npx eas-cli submit:list --platform ios --limit 3
+# after Apple finishes processing (~5-10 min post-submit), first build needs the
+# export-compliance prompt cleared once:
+#   https://appstoreconnect.apple.com/apps/6800990955/testflight/ios
 
 # backend
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project

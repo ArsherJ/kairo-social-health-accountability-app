@@ -12,6 +12,7 @@
 
 import {
   SLEEP_CAPABILITY_WINDOW_DAYS,
+  STRENGTH_ACTIVITY_TYPES,
   addDays,
   earnableStats,
   hasSleepCapability,
@@ -161,6 +162,18 @@ export function earnableStatsFor(
  * three, which is the honest reading: absent evidence is not evidence.
  */
 export interface WorkoutSessionRow {
+  /**
+   * Apple's raw `HKWorkoutActivityType` number, stored untranslated.
+   *
+   * **Load-bearing since 2026-08-29.** Body credits strength-type minutes only,
+   * so this column is what separates a lifting session from a run. Drop it from
+   * the select list below and every row reads `undefined` here — `Number(
+   * undefined)` is `NaN`, `NaN` is in no list, and Body silently credits
+   * nothing at all, forever, with no error anywhere. The completeness guard
+   * further down is what stops that, and it only works because this field is
+   * declared on the row type.
+   */
+  activity_type: number | string | null;
   duration_s: number | string | null;
   source_bundle_id: string | null;
   was_user_entered: boolean | null;
@@ -186,6 +199,7 @@ export interface WorkoutSessionRow {
  * fixture and the assertion goes red.
  */
 export const WORKOUT_SESSION_COLUMNS = [
+  'activity_type',
   'duration_s',
   'source_bundle_id',
   'was_user_entered',
@@ -224,20 +238,32 @@ export const SELECT_LISTS_CHECKED = [
 ] as const;
 
 /**
- * Verified workout minutes for one date, which is what shifts STR's bands.
+ * Verified **strength** minutes for one date — what Body credits into its raw
+ * value (`STRENGTH_MINUTE_KCAL_CREDIT`).
  *
  * **`duration_s` is SECONDS.** There is no `duration_minutes` column; reading
- * it as one would hand a single hour-long session a 60x shift, and the 25% cap
- * would absorb that silently into "always maxed" — a scoring error with no
- * symptom. Seconds are summed once and converted once, so nothing compounds a
- * rounding step per session.
+ * it as one would credit a single hour-long session sixty times over, and
+ * because the credit lands inside a band rather than at a cap there is nothing
+ * to absorb the error — it would simply score. Seconds are summed once and
+ * converted once, so nothing compounds a rounding step per session.
+ *
+ * **Strength-type only, as of 2026-08-29.** This replaced
+ * `verifiedWorkoutMinutesFrom`, which counted every verified session and fed a
+ * threshold shift on Body. A run already reports its calories honestly through
+ * `active_kcal`, so crediting its minutes as well would pay twice for one
+ * effort — the double-count that retiring the shift was about. The type filter
+ * is the whole difference and it is the easiest line here to delete by
+ * accident.
  */
-export function verifiedWorkoutMinutesFrom(
+export function verifiedStrengthMinutesFrom(
   rows: readonly WorkoutSessionRow[],
   allowlist: readonly string[] = WORKOUT_SOURCE_ALLOWLIST,
 ): number {
   let seconds = 0;
   for (const row of rows) {
+    if (!(STRENGTH_ACTIVITY_TYPES as readonly number[]).includes(Number(row.activity_type))) {
+      continue;
+    }
     const verified = workoutVerified(
       {
         wasUserEntered: Boolean(row.was_user_entered),

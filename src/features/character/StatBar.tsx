@@ -107,7 +107,7 @@ export function StatBar({
             {lane && <Text style={styles.laneTag}> YOUR LANE</Text>}
           </Text>
         </View>
-        {/* The ability rating alone. A "+N today" sat beside it until
+        {/* The mastery alone. A "+N today" sat beside it until
             deviation #30 — a raw point figure one tap below a guidance line
             that had just stopped speaking in points. What the day did is on
             the shelf above in real units; this number is the lifetime stat,
