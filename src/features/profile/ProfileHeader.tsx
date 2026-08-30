@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
@@ -39,6 +40,16 @@ const SCENE: Stop[] = [
  * that used to be loose at the foot of this screen — quest difficulty,
  * timezone, notifications, sign out, delete account — is behind it now, so this
  * tab can be about the player rather than about the app's preferences.
+ *
+ * **It takes the safe-area inset itself, and that is not optional.** The You tab
+ * is a `Screen bleed`, which hands the top inset back so the scene band can run
+ * under the status bar — and a bleeding screen that forgets to re-apply it puts
+ * its first row under the notch. This component did exactly that on first build:
+ * the handle collided with the clock and the gear sat inside the Dynamic
+ * Island's cutout, where it could not be tapped. The only control that opens
+ * Settings was unreachable, and nothing about the screen looked broken enough to
+ * say so — which is why `bleed-inset.test.ts` now checks every bleeding screen
+ * for it rather than trusting the doc comment on `Screen` that already said it.
  */
 export function ProfileHeader({
   name,
@@ -57,6 +68,8 @@ export function ProfileHeader({
   joined: string | null;
 }) {
   const router = useRouter();
+  // The You tab bleeds, so the inset comes back here — see the note above.
+  const insets = useSafeAreaInsets();
   const xp = xpProgress(totalXp);
   const toNext = xp.neededForNext - xp.intoLevel;
 
@@ -67,7 +80,7 @@ export function ProfileHeader({
 
   return (
     <View>
-      <View style={styles.topRow}>
+      <View style={[styles.topRow, { paddingTop: insets.top + space.sm }]}>
         <Text scale="chrome" numberOfLines={1} style={styles.handle}>
           {handle}
         </Text>

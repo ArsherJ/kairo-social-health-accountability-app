@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import type { QuestTier } from '@kairo/core';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
+import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
@@ -53,6 +54,25 @@ export default function Settings() {
             structurally unreadable on TestFlight. */}
         <NotificationSettingsCard />
       </Group>
+
+      {/* Height, weight and birth year, moved off the You tab.
+
+          They belong here for the same reason everything else on this screen
+          does: they are inputs the app uses, not facts about the player worth
+          putting on the screen they hand to a friend. They stay **optional and
+          never gate anything** (§5) — height and weight sharpen HealthKit's
+          active-calorie estimate, which is Body, and birth year additionally
+          backs the `220 - age` max-heart-rate estimate behind Strain
+          (deviation #24). Both have sane fallbacks, which is why deferring
+          them costs accuracy rather than function.
+
+          `profile.data &&` because the card takes a loaded row rather than a
+          pending query, and says so. */}
+      {profile.data && (
+        <Group title="Your body">
+          <BodyMetricsCard userId={userId} profile={profile.data} />
+        </Group>
+      )}
 
       <Group title="The game">
         {/*

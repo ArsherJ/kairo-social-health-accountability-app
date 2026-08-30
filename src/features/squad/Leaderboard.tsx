@@ -2,6 +2,7 @@ import { useState } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
@@ -247,6 +248,16 @@ export function Leaderboard({
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);
 
+  /*
+    The day's best.
+
+    `rows[0]` because the RPC has already ordered them. Guarded on **two or
+    more** rows: "you are ahead" in a squad of one is not a standing, it is the
+    app congratulating somebody for being alone, and a squad of one is exactly
+    the state the invite block below exists to fix.
+  */
+  const [leader] = rows;
+
   const standing = resolveSquadStanding({ rows: board.data, memberCount: memberCount.data });
   const heroValue =
     standing.kind === 'ranked'
@@ -352,6 +363,28 @@ export function Leaderboard({
               obvious day boxes was labelling a picture that reads itself. It is
               still spoken — `WeekStrip` names each day. */}
           <WeekStrip days={weekFrom(days.data ?? [], localToday, profile.data?.timezone)} />
+
+          {/* Who is ahead, on the band rather than only in the rows below.
+
+              The Sky tab's flock rail already crowns the leader, and this is
+              the same fact on the tab that ranks them — a board you have to
+              read down to find the top of is a board that buried its own
+              headline. It costs no request: `rows` is the payload already
+              fetched for the list, and `rows[0]` is its first row.
+
+              **Ordered by the board, not by the race.** `squad_leaderboard()`
+              sorts by the program-weighted total, which is the only way a
+              squad's program applies at read time (deviation #11) — so the
+              leader named here is the leader of the rows underneath it. The
+              Sky corridor re-ranks the same payload by capped steps and can
+              legitimately name somebody else; they are two different races and
+              each screen names its own.
+
+              It follows `mode`, so the claim always matches the day the board
+              is showing. */}
+          {rows.length > 1 && leader && (
+            <DayLeader name={leader.character_name} isSelf={leader.is_self} mode={mode} />
+          )}
 
           {/* A pending standing query must never render a claim: nothing beats
               a placeholder or a dash, both of which would state something
@@ -507,7 +540,84 @@ export function Leaderboard({
     </Screen>  );
 }
 
+/**
+ * Who is ahead, as one line on the band.
+ *
+ * One accessibility element: a bird, a crown and a sentence are three stops for
+ * a single claim. The bird is decorative — the sentence names the person.
+ *
+ * The wording follows the mode rather than being written once, because "is
+ * ahead" is a live claim and "won the day" is a settled one, and saying the
+ * live form about a finished day is the same class of error as the streak
+ * number the completed board deliberately hides.
+ */
+function DayLeader({
+  name,
+  isSelf,
+  mode,
+}: {
+  name: string;
+  isSelf: boolean;
+  mode: LeaderboardMode;
+}) {
+  const line =
+    mode === 'current'
+      ? isSelf
+        ? 'You are ahead today'
+        : `${name} is ahead today`
+      : isSelf
+        ? 'You won the day'
+        : `${name} won the day`;
+
+  const hidden = {
+    accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+  } as const;
+
+  return (
+    <View accessible accessibilityLabel={line} style={styles.leader}>
+      <View {...hidden} style={styles.leaderBird}>
+        <KairoThumbnail pose="race_victory" size={26} decorative />
+      </View>
+      <MaterialCommunityIcons {...hidden} name="crown" size={15} color={ramp.gold[300]} />
+      <Text {...hidden} scale="chrome" numberOfLines={1} style={styles.leaderLabel}>
+        {line}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  /**
+   * A translucent pill on the band, sized to its content — `alignSelf:
+   * 'flex-start'` so it hugs the sentence instead of ruling across the whole
+   * width, which would read as a section divider rather than as a remark.
+   */
+  leader: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 5,
+    paddingRight: 14,
+    paddingLeft: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.34)',
+    // So a long name truncates rather than pushing the pill off the band.
+    maxWidth: '100%',
+  },
+  leaderBird: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  leaderLabel: { ...font.body.body, color: colors.bg, flexShrink: 1 },
   /**
    * The band has no fixed height: it is as tall as the name, the week and the
    * standing make it. A fixed one is what would clip the week strip at large

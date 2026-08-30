@@ -13,7 +13,6 @@ import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts
 import { useDominantStat, useTodayScore } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { SPECIES, displaySpecies } from '@/features/character/species.ts';
-import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { useStatRecords } from '@/features/profile/records.ts';
@@ -259,8 +258,6 @@ export default function ProfileTab() {
           <RecordsCard records={records.data} today={localToday} />
 
           <GrowthCard />
-
-          <BodyMetricsCard userId={userId} profile={profile.data} />
 
           {/* The month, as a run of cleared days — the one genuinely new
               surface on this tab. A cleared day is a cleared Daily Walk, read

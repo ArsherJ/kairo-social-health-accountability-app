@@ -725,6 +725,37 @@ replace Caprasimo and Figtree. Six things break easily:
   row carries four stat figures at 11pt with no words beside them, and shape
   alone does not separate three things at a glance. The hues are not new ones.
 
+**`Screen bleed` hands the top inset back, and forgetting it is invisible until
+somebody looks at a device.** Three of the four bleeding surfaces re-applied it;
+`ProfileHeader` did not, so the You tab drew its handle under the clock and its
+gear inside the Dynamic Island's cutout — where the only route to Settings could
+not be tapped. Nothing errored and the screen was recognisably itself apart from
+one row. `src/ui/bleed-inset.test.ts` now scans every `<Screen bleed>` for an
+`insets.top`, following one level of imports because the header component is
+usually what pads rather than the route file. It was verified against the real
+bug: reintroduce it and the test names `app/(tabs)/profile.tsx`.
+
+**The Sky flock rail is one row with exactly one trailing slot.** It used to
+draw a dashed seat per unfilled place — five circles for a squad of one, which
+wrapped to a second row and read as five separate things to do rather than as
+one invitation. Four roster slots then one trailing slot, which is the invite or
+an overflow `+N`, never both and never none. `MAX_SLOTS`/`SEAT` are a real width
+budget (320pt screen − rail inset − padding = 260pt; 5×46 + 4×6 = 254), and
+`flexWrap` is deliberately **absent**: this has to fail by clipping, which is
+visible, rather than by wrapping, which is what it did and what looked like a
+design. Withheld members sort last, so the row never drops a bird that has a
+position in favour of one that does not.
+
+**The Flock band names the day's leader** from `rows[0]` — no extra request, and
+**ordered by the board rather than by the race**: `squad_leaderboard()` sorts by
+the program-weighted total (deviation #11), so the name on the band is the top
+of the rows beneath it. The Sky corridor re-ranks the same payload by capped
+steps and can legitimately name somebody else; two races, each screen naming its
+own. It follows `mode`, so a finished day reads "won the day" rather than the
+live "is ahead" — the same class of care the completed board takes with the
+streak figure. Guarded on two or more rows, because "you are ahead" in a squad
+of one is the app congratulating somebody for being alone.
+
 Also in this pass: **Settings is its own screen** (`/settings`, behind the gear
 on You) — a move, not a feature; quest difficulty, timezone, notifications, sign
 out and delete account were loose at the foot of a two-and-a-half-screen tab.
