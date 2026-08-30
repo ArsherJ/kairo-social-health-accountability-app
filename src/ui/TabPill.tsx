@@ -1,11 +1,15 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { colors, font, radius, ramp, space } from '../theme.ts';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { colors, font, ramp, space } from '../theme.ts';
 import { useChromeStore } from './chrome.ts';
 import { Glass } from './Glass.tsx';
 import { Gradient } from './Gradient.tsx';
 import type { Stop } from './gradient.ts';
+import { animationDuration } from './motion-policy.ts';
+import { useReduceMotionState } from './motion.ts';
+import { tabPillGeometry } from './tab-pill-geometry.ts';
 import { Text } from './Text.tsx';
 
 /**
@@ -66,7 +70,9 @@ const ICONS: Record<
  *
  * Module-level constants on purpose — `Gradient` re-ramps when the array
  * identity changes, so a literal in the render body would recompute every band
- * on every navigation.
+ * on every navigation. All four are mounted inside the moving pill at once and
+ * crossfaded by opacity as it travels, so a tab switch is one continuous move
+ * and colour change rather than a fill that pops.
  */
 const TODAY_FILL: Stop[] = [
   { color: '#ff8a4c', at: 0 },
@@ -104,6 +110,16 @@ const FILLS: Record<string, Stop[]> = {
  * deviation forbade. The selected pill is not a disc and is not raised: it is a
  * fill inside the bar, and it moves.
  *
+ * **The pill is one overlay that travels**, not a fill re-drawn under whichever
+ * tab is focused. On a tab switch its left edge and width spring to the new
+ * slot's geometry (`tabPillGeometry`, tested), the resting glyph it lands on is
+ * covered, and the four stacked ramps crossfade to the destination's. This is
+ * the one motion in the bar and it is deliberately short: a tab switch is a
+ * hundred-times-a-day gesture, so the move has to read as continuity — "the
+ * selection went there" — not as a transition to sit through. Under Reduce
+ * Motion, and until the first placement resolves, the pill cuts rather than
+ * travels — the same gate every hook in `motion.ts` takes.
+ *
  * `NAV_HEIGHT` is unchanged at 96, so `TAB_PILL_CLEARANCE` does not move and no
  * screen's bottom padding changes with this. That has now survived three
  * redesigns and is worth keeping true.
@@ -122,17 +138,112 @@ const ICON_SIZE = 23;
  */
 const BAR_INSET = 16;
 
+/**
+ * The row's inter-item gap and the selected item's flex weight. Shared between
+ * the stylesheet (the real touch targets) and `tabPillGeometry` (the moving
+ * overlay) so the two cannot drift apart.
+ */
+const GAP = 6;
+const FOCUSED_FLEX = 1.5;
+
+/** How long the pill takes to cross to a new tab. See the component note. */
+const TRAVEL_MS = 160;
+const EASE = Easing.out(Easing.cubic);
+const PILL_RADIUS = 26;
+
 export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
   // Create and join are full-screen tasks. `Screen` drops its clearance on the
   // same flag, so the two stay in step.
   const navHidden = useChromeStore((s) => s.navHidden);
-  if (navHidden) return null;
+  const { reduce: reduceMotion, ready: motionReady } = useReduceMotionState();
 
   // The bar's order, which the navigator's need not match and does not.
   const order = ['index', 'sky', 'flock', 'profile'];
   const routes = order
     .map((name) => state.routes.find((r) => r.name === name))
     .filter((r): r is NonNullable<typeof r> => r !== undefined);
+
+  const activeKey = state.routes[state.index]?.key;
+  const focusedIndex = routes.findIndex((r) => r.key === activeKey);
+  const focusedName = focusedIndex >= 0 ? routes[focusedIndex]?.name : undefined;
+
+  // The row's measured content box. Until this arrives the pill is not drawn —
+  // a pill placed at a guessed width would jump on the first real layout.
+  const [row, setRow] = useState({ w: 0, h: 0 });
+
+  const left = useRef(new Animated.Value(0)).current;
+  const width = useRef(new Animated.Value(0)).current;
+  const didPlace = useRef(false);
+
+  // One opacity per destination ramp, rebuilt only if the route set changes.
+  const routeKey = routes.map((r) => r.name).join(',');
+  const fillOpacity = useMemo(() => {
+    const m: Record<string, Animated.Value> = {};
+    for (const name of routeKey.split(',')) m[name] = new Animated.Value(0);
+    return m;
+  }, [routeKey]);
+
+  useEffect(() => {
+    if (row.w <= 0 || focusedIndex < 0 || !focusedName) return;
+
+    const geo = tabPillGeometry(focusedIndex, row.w, routes.length, GAP, FOCUSED_FLEX);
+
+    // No travel before the Reduce Motion state resolves, and none for the first
+    // placement — a pill sliding in from the row's left edge on launch is an
+    // entrance nobody asked for, not continuity.
+    const instant = !didPlace.current || !motionReady;
+    const ms = instant ? 0 : animationDuration(TRAVEL_MS, reduceMotion);
+
+    if (ms === 0) {
+      left.setValue(geo.left);
+      width.setValue(geo.width);
+      for (const [name, value] of Object.entries(fillOpacity)) {
+        value.setValue(name === focusedName ? 1 : 0);
+      }
+      if (motionReady) didPlace.current = true;
+      return;
+    }
+
+    const anim = Animated.parallel([
+      Animated.timing(left, {
+        toValue: geo.left,
+        duration: ms,
+        easing: EASE,
+        useNativeDriver: false,
+      }),
+      Animated.timing(width, {
+        toValue: geo.width,
+        duration: ms,
+        easing: EASE,
+        useNativeDriver: false,
+      }),
+      ...Object.entries(fillOpacity).map(([name, value]) =>
+        Animated.timing(value, {
+          toValue: name === focusedName ? 1 : 0,
+          duration: ms,
+          easing: EASE,
+          useNativeDriver: true,
+        }),
+      ),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [
+    focusedIndex,
+    focusedName,
+    row.w,
+    reduceMotion,
+    motionReady,
+    fillOpacity,
+    routes.length,
+    left,
+    width,
+  ]);
+
+  // After every hook, so hiding the bar never changes the hook count.
+  if (navHidden) return null;
+
+  const showPill = row.w > 0 && focusedIndex >= 0 && Boolean(focusedName);
 
   return (
     <Glass
@@ -142,9 +253,16 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
         { bottom: insets.bottom + space.sm, left: BAR_INSET, right: BAR_INSET },
       ]}
     >
-      <View accessibilityRole="tablist" style={styles.row}>
+      <View
+        accessibilityRole="tablist"
+        style={styles.row}
+        onLayout={(e) => {
+          const { width: w, height: h } = e.nativeEvent.layout;
+          setRow((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+        }}
+      >
         {routes.map((route) => {
-          const focused = state.routes[state.index]?.key === route.key;
+          const focused = route.key === activeKey;
           const label = LABELS[route.name] ?? route.name;
 
           return (
@@ -161,52 +279,76 @@ export function TabPill({ state, navigation, insets }: BottomTabBarProps) {
               // ~1.3x Dynamic Type, in a new place.
               style={[styles.item, focused && styles.itemOn]}
             >
-              {focused && (
-                <Gradient
-                  stops={FILLS[route.name] ?? TODAY_FILL}
-                  // 10 bands across 58pt. The ramp is between two neighbouring
-                  // hues and the pill is short; more is invisible and costs a
-                  // view per band on a surface that repaints on every tap.
-                  steps={10}
-                  style={styles.fill}
-                />
-              )}
-              {/*
-                Both halves of the grouping fix. The `Pressable` already names
-                itself, so the glyph and the painted label must not be reachable
-                as their own stops — otherwise a four-tab bar is eight.
-              */}
+              {/* Just the resting glyph. The selected tab's ink glyph and its
+                  label ride the moving pill drawn on top, which covers this one
+                  when it arrives. Both halves of the grouping fix stay: the
+                  Pressable already names itself, so its glyph must not be
+                  reachable as its own stop. */}
               <View
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 style={styles.itemBody}
               >
-                {/* **Ink on the fill, never cream.** Every one of these
-                    gradients is a bright fill, and cream on the lightest of
-                    them measures 1.67:1 — invisible, while rendering
-                    perfectly. That is `colors.accent`'s own trap one surface
-                    over, and the palette's standing answer applies: a bright
-                    fill takes ink. The design draws these labels white; on
-                    these hues that is not a style choice this app can make. */}
                 <MaterialCommunityIcons
                   name={ICONS[route.name] ?? 'account'}
                   size={ICON_SIZE}
-                  color={focused ? colors.text : ramp.neutral[600]}
+                  color={ramp.neutral[600]}
                 />
-                {/*
-                  Painted on the selected tab alone. `numberOfLines={1}` and
-                  `flexShrink` so that at the 1.4x cap the word truncates rather
-                  than pushing the glyph out of its own pill.
-                */}
-                {focused && (
-                  <Text scale="chrome" numberOfLines={1} style={styles.label}>
-                    {label}
-                  </Text>
-                )}
               </View>
             </Pressable>
           );
         })}
+
+        {/* Drawn last so it paints over the resting glyphs; `pointerEvents`
+            off so the taps still land on the Pressables beneath it. */}
+        {showPill && focusedName && (
+          <Animated.View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[styles.pill, { left, width, height: row.h }]}
+          >
+            {routes.map((route) => (
+              <Animated.View
+                key={route.key}
+                style={[
+                  StyleSheet.absoluteFill,
+                  styles.pillFill,
+                  { opacity: fillOpacity[route.name] },
+                ]}
+              >
+                <Gradient
+                  stops={FILLS[route.name] ?? TODAY_FILL}
+                  // 10 bands across ~85pt. The ramp is between two neighbouring
+                  // hues and the pill is short; more is invisible and costs a
+                  // view per band on a surface that repaints on every tap.
+                  steps={10}
+                  style={styles.pillFill}
+                />
+              </Animated.View>
+            ))}
+            {/* **Ink on the fill, never cream.** Every one of these gradients
+                is a bright fill, and cream on the lightest of them measures
+                1.67:1 — invisible, while rendering perfectly. That is
+                `colors.accent`'s own trap one surface over, and the palette's
+                standing answer applies: a bright fill takes ink. The design
+                draws these labels white; on these hues that is not a style
+                choice this app can make. */}
+            <View style={styles.pillBody}>
+              <MaterialCommunityIcons
+                name={ICONS[focusedName] ?? 'account'}
+                size={ICON_SIZE}
+                color={colors.text}
+              />
+              {/* `numberOfLines={1}` and `flexShrink` so that at the 1.4x cap
+                  the word truncates rather than pushing the glyph out of its
+                  own pill. */}
+              <Text scale="chrome" numberOfLines={1} style={styles.label}>
+                {LABELS[focusedName] ?? focusedName}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
       </View>
     </Glass>
   );
@@ -218,22 +360,41 @@ const styles = StyleSheet.create({
     height: BAR_HEIGHT,
     padding: space.sm,
   },
-  row: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  row: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: GAP,
+    // The travelling pill is an absolute child of this row.
+    position: 'relative',
+  },
   item: {
     flex: 1,
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 26,
+  },
+  itemOn: { flex: FOCUSED_FLEX },
+  pill: {
+    position: 'absolute',
+    top: 0,
+    zIndex: 1,
+    borderRadius: PILL_RADIUS,
     borderCurve: 'continuous',
-    // Clips the banded fill to the pill. Safe here where it is not safe on
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Clips the banded fills to the pill. Safe here where it is not safe on
     // `Panel`: this view carries no shadow of its own, so there is no Android
     // elevation for the clip to eat.
     overflow: 'hidden',
   },
-  itemOn: { flex: 1.5 },
-  fill: { borderRadius: 26, borderCurve: 'continuous' },
+  pillFill: { borderRadius: PILL_RADIUS, borderCurve: 'continuous' },
   itemBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillBody: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
