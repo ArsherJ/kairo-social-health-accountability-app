@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
 import { CORE_STATS, ratingForStatPoints } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
@@ -127,19 +128,30 @@ export function LeaderboardRow({
           )}
         </View>
 
-        <View style={styles.metaLine}>
-          <Text scale="chrome" style={styles.meta}>
-            Lv {row.level}
-          </Text>
+        {/* Glyphs, not sentences.
 
+            This line said "Lv 15 · 12-day streak · AGI 41 STR 27 MND 18" and
+            is now a run of coloured chips. Nothing is lost to a screen reader:
+            `leaderboardRowLabel` speaks all of it in the row's own order, and
+            it always did — the words here were a second, worse copy of that
+            sentence, squeezed to 11pt and truncating on a long name.
+
+            The stat glyphs take their own hues (`STAT_COLORS`, no `color`
+            override) because at 11pt with no words beside them, shape alone
+            does not separate three things at a glance. That is the whole
+            reason `STAT_COLORS` exists — see `StatIcon`. */}
+        <View style={styles.metaLine}>
           {/* The RPC returns TODAY's streak whatever day is ranked, so on the
               completed board the number and the date would disagree. Showing
               it only on the live board removes the mismatch at zero cost —
               a deliberate choice, not an omission. */}
           {mode === 'current' && row.current_streak > 0 && (
-            <Text scale="chrome" style={styles.meta}>
-              · {row.current_streak}-day streak
-            </Text>
+            <View style={styles.ratingPair}>
+              <MaterialCommunityIcons name="fire" size={13} color={colors.accent} />
+              <Text scale="fixed" style={styles.rating}>
+                {row.current_streak}
+              </Text>
+            </View>
           )}
 
           {mode === 'completed' && row.status === 'provisional' && (
@@ -172,7 +184,7 @@ export function LeaderboardRow({
                 // stat names still reach a screen reader — through
                 // `leaderboardRowLabel`, in the row's own order.
                 <View key={stat} style={styles.ratingPair}>
-                  <StatIcon stat={stat} size={11} color={ramp.neutral[700]} />
+                  <StatIcon stat={stat} size={13} />
                   <Text scale="fixed" style={styles.rating}>
                     {rating}
                   </Text>

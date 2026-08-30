@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { RACE_FINISH_LINE, type Racer } from '@kairo/core';
 import { colors, font, ramp, space } from '@/theme.ts';
-import { Meter, Panel, Text } from '@/ui/index.ts';
+import { Glass, Meter, Panel, Text } from '@/ui/index.ts';
 
 /**
  * Where you stand, under the corridor (`Canvas.dc.html` 2c).
@@ -13,8 +13,21 @@ import { Meter, Panel, Text } from '@/ui/index.ts';
  *
  * One accessibility element: a headline, a rank, a bar and a sentence read as
  * four stops for a card that makes one statement.
+ *
+ * `floating` puts it on glass instead of a card, for the Sky tab, where it is
+ * pinned over the flight rather than sitting under it. Same content, same
+ * label, same single element — only the surface changes, which is why this is a
+ * prop rather than a second component that would drift.
  */
-export function SkyStanding({ me, racers }: { me: Racer; racers: readonly Racer[] }) {
+export function SkyStanding({
+  me,
+  racers,
+  floating = false,
+}: {
+  me: Racer;
+  racers: readonly Racer[];
+  floating?: boolean;
+}) {
   const ahead = racers.find((r) => r.rank === me.rank - 1);
   const gap = ahead ? ahead.cappedSteps - me.cappedSteps : 0;
 
@@ -31,8 +44,10 @@ export function SkyStanding({ me, racers }: { me: Racer; racers: readonly Racer[
     importantForAccessibility: 'no-hide-descendants',
   } as const;
 
+  const Surface = floating ? FloatingSurface : Panel;
+
   return (
-    <Panel variant="lift">
+    <Surface variant="lift">
       <View accessible accessibilityLabel={`${headline}. Position ${position}.`}>
         <View {...hidden} style={styles.head}>
           <Text scale="fixed" style={styles.headline}>
@@ -51,7 +66,22 @@ export function SkyStanding({ me, racers }: { me: Racer; racers: readonly Racer[
           />
         </View>
       </View>
-    </Panel>
+    </Surface>
+  );
+}
+
+/**
+ * `Glass` wearing `Panel`'s signature, so the two are interchangeable above.
+ *
+ * `variant` is accepted and dropped: glass has one look, and the alternative —
+ * branching on the surface at three separate places in the JSX — is how the two
+ * renderings start disagreeing about the label.
+ */
+function FloatingSurface({ children }: { variant?: string; children: React.ReactNode }) {
+  return (
+    <Glass tone="light" style={styles.floating}>
+      {children}
+    </Glass>
   );
 }
 
@@ -62,4 +92,5 @@ const styles = StyleSheet.create({
   headline: { flex: 1, ...font.display.minor, color: colors.text },
   position: { ...font.body.label, color: ramp.neutral[500], flexShrink: 0 },
   meter: { marginTop: space.md },
+  floating: { padding: space.md + 2 },
 });

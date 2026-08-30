@@ -5,23 +5,30 @@ import { colors, earnedColor, ramp, radius, shadow, space } from '../theme.ts';
 /**
  * The only card in the app.
  *
- * On Sunlit a card is separated from the ground by **shadow**, not by tint:
- * `colors.surface` and `colors.bg` differ by a hair on purpose. That is a
- * change from the warm system that preceded it, where the tint did the work —
- * so `plain` carries an elevation now, and anything reaching for a darker
- * surface to make a card legible is working against the system twice over.
+ * A card is separated from the ground by **shadow**, never by a border — that
+ * has held since Sunlit and Playful leans on it harder, because a Playful card
+ * is plain white on cream and has no other edge at all. A `borderColor` on a
+ * card therefore means *selected* (the picked quest tier, your own row), never
+ * *contained*; reaching for one to make a card legible is working against the
+ * system twice over.
  *
- * - `plain` — the default. Card tint plus a small shadow: it sits on the page.
- * - `lift` — leaves the page. White plus a real shadow, for chrome floating
- *   over content.
- * - `earned` — sage, with an amber top edge. The glow rule's one expression on
- *   a card, and it belongs to a banked Streak Shield and the squad leader's
- *   row, nothing else.
- * - `sky` — the warm field the character occupies. **Not a card**: no shadow,
+ * What Playful changed is the geometry, not the rule: `radius.xl` is 30 now and
+ * every variant is `borderCurve: 'continuous'`, because at this radius a
+ * circular corner is visibly not the shape the design draws.
+ *
+ * - `plain` — the default. White plus a soft shadow: it sits on the page.
+ * - `lift` — leaves the page. The same white under a real shadow, for a card
+ *   that has to out-rank the cards around it. For chrome floating over
+ *   *content*, use `Glass` instead — that is a different job.
+ * - `earned` — the violet wash under a gold top edge. Playful is the first
+ *   palette where "earned" and "you" are different hues rather than two steps
+ *   of one, so this finally reads as its own thing: a banked Streak Shield and
+ *   the squad leader's row, nothing else.
+ * - `sky` — the field the character occupies. **Not a card**: no shadow,
  *   because it is a place rather than an object, and nothing that is not the
  *   character's own sky may use it.
- * - `tint` — the amber wash that means *this one is you*. The self row on a
- *   board, and the name block on the onboarding meet screen.
+ * - `tint` — the orange wash that means *this one is you*. The self row on a
+ *   board, and the name block on the onboarding name screen.
  */
 export function Panel({
   variant = 'plain',
@@ -45,15 +52,16 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     padding: space.lg,
     borderRadius: radius.xl,
+    borderCurve: 'continuous',
     overflow: 'hidden',
   },
-  plain: { backgroundColor: colors.surface, ...shadow.sm },
+  plain: { backgroundColor: colors.surface, ...shadow.md },
   // `overflow: 'hidden'` on `base` clips a shadow on Android, where elevation
   // is drawn by the platform rather than composited outside the bounds. iOS
   // ships first (§15) and renders this correctly; if Android matters later,
   // these variants need a wrapper view to carry the shadow.
-  lift: { backgroundColor: colors.surfaceLift, ...shadow.md },
-  earned: { backgroundColor: ramp.sage[200] },
+  lift: { backgroundColor: colors.surfaceLift, ...shadow.lg },
+  earned: { backgroundColor: ramp.sage[200], ...shadow.md },
   /** No shadow, deliberately. A place does not float. */
   sky: { backgroundColor: colors.sky },
   tint: { backgroundColor: ramp.accent[200] },

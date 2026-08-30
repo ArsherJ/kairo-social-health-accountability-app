@@ -53,7 +53,7 @@ export type RouteGroup = '(auth)' | '(onboard)' | '(tabs)';
 export function redirectTarget(input: {
   route: AppRoute;
   group: string | undefined;
-}): '/sign-in' | '/connect' | '/name' | '/' | null {
+}): '/sign-in' | '/welcome' | '/connect' | '/name' | '/' | null {
   switch (input.route) {
     case 'loading':
     case 'profile-error':
@@ -63,17 +63,25 @@ export function redirectTarget(input: {
     case 'signed-out':
       return input.group === '(auth)' ? null : '/sign-in';
     case 'needs-profile':
-      // The *first* onboarding screen: `/connect` → `/name`, two screens as
-      // of 2026-08-27 (deviation #55 retired the species picker between them).
-      // Health is asked first so the name screen can land on a home tab with
-      // real numbers rather than zeros. The name screen is reached by pushing,
-      // never by this gate, which only knows "has no profile row yet".
+      // The *first* onboarding screen. The run is six beats as of Playful
+      // (deviation #58): `/welcome` → `/one-sky` → `/connect` → `/difficulty`
+      // → `/privacy` → `/name`. Only the first is named here; the rest are
+      // reached by pushing, and this gate only knows "has no profile row yet".
+      //
+      // **The entry moved from `/connect` to `/welcome`**, which is the point
+      // of the two value cards: the very first thing a brand-new account saw
+      // used to be a permission request, before anything had said what it was
+      // for — the worst possible order for the one dialog whose refusal cannot
+      // be undone from inside the app.
       //
       // Every step stays *before* the name screen on purpose. The profile row
-      // commits exactly once, there; anything asked after that INSERT flips
+      // commits exactly once, there; anything **asked** after that INSERT flips
       // resolveRoute to 'ready' under an unfinished screen and needs deviation
-      // #22's deleted `finishingOnboarding` flag back.
-      return input.group === '(onboard)' ? null : '/connect';
+      // #22's deleted `finishingOnboarding` flag back. The difficulty and
+      // privacy beats ask early and are *written* by the name screen — see
+      // `useOnboardingAnswers` for why that is the only arrangement that
+      // satisfies both that rule and the column-level grants.
+      return input.group === '(onboard)' ? null : '/welcome';
     case 'ready':
       // Anywhere except the two shells a ready user has finished with. Written
       // as a denylist rather than `group === '(tabs)'` on purpose: stacked

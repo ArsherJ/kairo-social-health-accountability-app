@@ -88,21 +88,22 @@ describe('redirectTarget', () => {
     expect(at('signed-out', '(auth)')).toBeNull();
   });
 
-  it('sends a user with no profile to the connect screen, the first onboarding step', () => {
-    // Onboarding is /connect -> /character -> /name. The gate only ever knows
-    // "has no profile row yet", so it targets the first, and the (onboard)
-    // branch covers all three.
+  it('sends a user with no profile to the welcome screen, the first onboarding step', () => {
+    // The run is /welcome -> /one-sky -> /connect -> /difficulty -> /privacy
+    // -> /name (deviation #58). The gate only ever knows "has no profile row
+    // yet", so it targets the first, and the (onboard) branch covers the rest.
     //
-    // Health moved to the front on 2026-08-17 so the name screen lands on a
-    // home tab with real numbers rather than a dashboard of zeroes.
-    expect(at('needs-profile', '(auth)')).toBe('/connect');
-    expect(at('needs-profile', '(tabs)')).toBe('/connect');
-    expect(at('needs-profile', undefined)).toBe('/connect');
+    // **Not /connect.** Health used to be the first beat, which meant the very
+    // first thing a brand-new account saw was a permission request, before
+    // anything had said what it was for. Two value cards come first now.
+    expect(at('needs-profile', '(auth)')).toBe('/welcome');
+    expect(at('needs-profile', '(tabs)')).toBe('/welcome');
+    expect(at('needs-profile', undefined)).toBe('/welcome');
   });
 
   it('leaves a user already inside the onboarding group alone', () => {
-    // /connect pushes to /character which pushes to /name. The gate must not
-    // bounce anyone back to step one mid-flow.
+    // Each beat pushes the next. The gate must not bounce anyone back to step
+    // one mid-flow.
     //
     // Every step stays *before* the name screen, where the profile row commits
     // exactly once. Deviation #22 deleted the `finishingOnboarding` flag

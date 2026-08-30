@@ -17,18 +17,26 @@ import { speciesFigureLabel } from './species-label.ts';
  * that place. Everything else on the screen is deliberately quiet so this can
  * be the thing you remember.
  *
- * The sky is a sage gradient rather than a literal outdoors: a photographic
+ * The sky is a gradient rather than a literal outdoors: a photographic
  * landscape would date instantly and fight the flat character art. Deviation
  * #40 briefly painted per-species habitat art over it; those backdrops were
- * retired on 2026-08-28 alongside the move to the static base render, so the
- * sage gradient is the backdrop again until the Rive character lands.
+ * retired on 2026-08-28 alongside the move to the static base render, so a
+ * gradient is the backdrop again until the Rive character lands.
+ *
+ * **It is an actual sky now** (Playful, deviation #58), where it was a sage
+ * field before. The character is a bird and the tab beside this one is a
+ * flight: a green-ish ground under the same animal that climbs a blue corridor
+ * on the next screen was the one place the two halves of the metaphor
+ * disagreed. The ramp runs blue at the top to cream at the foot, so the page
+ * below still opens out of it rather than starting under a band.
  */
 
-/** Sage, deepening toward the horizon. */
+/** Daylight, paling toward the ground. Ends on `colors.bg` so the page emerges. */
 const SKY: Stop[] = [
-  { color: ramp.sage[200], at: 0 },
-  { color: ramp.sage[300], at: 0.46 },
-  { color: ramp.sage[400], at: 1 },
+  { color: ramp.sky[400], at: 0 },
+  { color: '#8fe0ff', at: 0.42 },
+  { color: ramp.sky[200], at: 0.74 },
+  { color: colors.bg, at: 1 },
 ];
 
 /**
@@ -40,11 +48,13 @@ const SKY: Stop[] = [
  * has that the silhouette does not, so the light on the day changes instead of
  * the animal in it.
  *
- * Amber's wash and 200-step, held to the same contract every other surface
- * reads: 200 is a wash you can set text on, so the HUD sitting over this stays
- * legible without a single one of its own colours changing. It reads as late
- * afternoon rather than as an alert, which is the intent — this is a good day
- * finishing, not a notification.
+ * Held to the same contract every other surface reads: these are 200- and
+ * 300-step washes, so the HUD sitting over this stays legible without a single
+ * one of its own colours changing. It reads as late afternoon rather than as an
+ * alert, which is the intent — this is a good day finishing, not a
+ * notification. Under Playful that reading is if anything clearer, because the
+ * ordinary sky is now unmistakably *daytime* and the crest is unmistakably
+ * *evening*, where sage-into-amber was two washes of similar warmth.
  *
  * **It is always paired with a sentence** (`ceilingLine`). An unexplained
  * change to the one screen somebody opens first is indistinguishable from a
@@ -52,9 +62,9 @@ const SKY: Stop[] = [
  * a new one silently would be an odd way to end it.
  */
 const CREST_SKY: Stop[] = [
-  { color: ramp.accent[200], at: 0 },
+  { color: ramp.gold[300], at: 0 },
   { color: ramp.accent[300], at: 0.5 },
-  { color: ramp.sage[300], at: 1 },
+  { color: colors.bg, at: 1 },
 ];
 
 /**
@@ -64,8 +74,8 @@ const CREST_SKY: Stop[] = [
  * banner sitting on top of it.
  */
 const FADE: Stop[] = [
-  { color: '#f5ead800', at: 0 },
-  { color: '#f5ead859', at: 0.55 },
+  { color: '#fff6ec00', at: 0 },
+  { color: '#fff6ec59', at: 0.55 },
   { color: colors.bg, at: 1 },
 ];
 
@@ -98,33 +108,48 @@ export function Diorama({
    * Defaults false so every existing caller is unaffected.
    */
   crest?: boolean;
-  /** The floating HUD. Absolutely positioned by the caller. */
+  /**
+   * The floating HUD.
+   *
+   * Flows from the top of the sky, because the figure above it is absolutely
+   * positioned and takes no space in the layout. It used to say "absolutely
+   * positioned by the caller"; that is what the 2026-08-14 device pass found
+   * overlapping at large Dynamic Type, and the fix — a flowing column, no `top`
+   * on any child — is now the contract rather than the caller's option. Pass a
+   * `flex: 1` column and space it with flex, never with offsets.
+   */
   children?: ReactNode;
 }) {
   return (
     <View style={[styles.sky, { height }]}>
       <Gradient stops={crest ? CREST_SKY : SKY} />
 
-      {/* Two soft bodies behind the figure. They give the sky somewhere to be
-          — a flat ramp reads as a swatch — and they are placed off both edges
-          so neither resolves into a shape you could name. */}
+      {/* The sun, and three clouds drifting behind the figure.
+
+          These replace the two anonymous soft bodies that stood here while the
+          sky was a sage field. The bodies existed so the ramp would not read as
+          a swatch, and they were deliberately unnameable — placed off both
+          edges so neither resolved into a shape. A blue sky does not need that
+          hedge: it can carry the literal objects, and a sun and a few clouds
+          are what stop it reading as a gradient.
+
+          All four are `pointerEvents="none"` by virtue of sitting under the
+          figure and the HUD, and all four are decoration — the sky's meaning is
+          carried by `crest` and by `ceilingLine`, never by the weather here. */}
+      <View style={[styles.sun, { top: -height * 0.16, right: -60 }]} />
+      <View
+        style={[styles.cloud, { top: height * 0.19, left: -40, width: 180, height: 62 }]}
+      />
       <View
         style={[
-          styles.body,
-          { top: height * 0.3, left: -62, width: 210, height: 210, opacity: 0.55 },
+          styles.cloud,
+          { top: height * 0.33, right: -30, width: 150, height: 52, opacity: 0.7 },
         ]}
       />
       <View
         style={[
-          styles.body,
-          {
-            top: height * 0.44,
-            right: -70,
-            width: 240,
-            height: 240,
-            backgroundColor: ramp.sage[100],
-            opacity: 0.45,
-          },
+          styles.cloud,
+          { top: height * 0.53, left: 44, width: 120, height: 40, opacity: 0.55 },
         ]}
       />
 
@@ -193,6 +218,37 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radius.lg * 1.6,
     overflow: 'hidden',
   },
-  body: { position: 'absolute', borderRadius: radius.pill, backgroundColor: ramp.sage[200] },
+  /**
+   * A cloud: a white capsule, not a circle.
+   *
+   * The design blurs these; there is no blur here (see `Glass` for why the app
+   * owns no native blur) and none is needed — at 46% white on a saturated blue
+   * a hard capsule edge is already soft enough to read as vapour, and the
+   * figure sits in front of all three.
+   */
+  cloud: {
+    position: 'absolute',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  /**
+   * The sun, mostly off the top-right corner.
+   *
+   * Gold rather than the accent: this is warmth in the scene and not a figure
+   * about the player, and putting `colors.accent` in the sky would be the one
+   * orange on this screen that does not mean "you" — which is the distinction
+   * `earnedColor`'s own comment spends a paragraph on. A flat disc rather than
+   * the design's radial gradient: `Gradient` bands only linearly, and a radial
+   * one built from concentric views is a great deal of machinery for a shape
+   * that is three-quarters off-screen.
+   */
+  sun: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.gold[300],
+    opacity: 0.85,
+  },
   stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
 });

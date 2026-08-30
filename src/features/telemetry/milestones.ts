@@ -19,4 +19,16 @@ export type Milestone =
    * would re-fire on every launch after the threshold, turning an unlock into a
    * launch counter.
    */
-  | 'disclosure_unlocked';
+  | 'disclosure_unlocked'
+  /**
+   * The three welcome pop-ups have been seen (deviation #58).
+   *
+   * Once-ever, and MMKV rather than a `profiles` column for the same reason
+   * `first_sync_seen` is: it is a fact about this *install* showing something,
+   * not about the account, and a column would need a migration and a grant to
+   * record a thing no server-side logic reads. The cost is that a reinstall
+   * shows them again, which is the right side to err on — a returning user
+   * seeing three cards once beats a new user on a second device never being
+   * told the rule of the game.
+   */
+  | 'welcome_seen';

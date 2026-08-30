@@ -15,6 +15,9 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { DEFAULT_SPECIES, SPECIES } from '@/features/character/species.ts';
 import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
+import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
+import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { Button, Label, Panel, Text } from '@/ui/index.ts';
 import { colors, font, radius, space } from '@/theme.ts';
 
@@ -39,6 +42,8 @@ export default function MeetYourKairo() {
   const router = useRouter();
   const session = useSessionStore((s) => s.session);
   const createProfile = useCreateProfile(session?.user.id);
+  const updateProfile = useUpdateProfile(session?.user.id);
+  const answers = useOnboardingAnswers();
   const [name, setName] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
 
@@ -62,10 +67,41 @@ export default function MeetYourKairo() {
       // real column and a null here would be a second way of saying "eagle".
       { name, species: DEFAULT_SPECIES },
       {
-        // The profile row now exists, so the route gate reads this user as
-        // onboarded and would send them here on its own. Replacing explicitly
-        // keeps the transition predictable and one frame earlier.
-        onSuccess: () => router.replace('/'),
+        onSuccess: () => {
+          /*
+            The two answers the earlier beats collected, written now.
+
+            **This is not "asking something after the INSERT"** — deviation
+            #22's rule is about *asking*, and nothing is asked here: the
+            difficulty and the sharing choice were both made two screens ago
+            and have been sitting in `useOnboardingAnswers` since. The row
+            still commits exactly once, on this screen, and the user is not
+            standing on an unfinished screen when `resolveRoute` flips to
+            'ready' — they are done.
+
+            It has to be an UPDATE rather than part of the INSERT because
+            `quest_tier_override` and `squad_data_consent_at` are in
+            `profiles`' column-level UPDATE grant and not its INSERT grant.
+            Naming them in the insert would be rejected outright.
+
+            Fire-and-forget, and deliberately not awaited before navigating:
+            both columns have defaults that match the screens' own defaults
+            (automatic difficulty, sharing on), so a dropped update leaves the
+            account in exactly the state a user who accepted both would be in.
+            Blocking the last step of onboarding on a second round trip — and
+            showing an error for it — would be a worse trade than that.
+          */
+          updateProfile.mutate({
+            quest_tier_override: answers.questTier,
+            squad_data_consent_at: answers.shareTotals ? new Date().toISOString() : null,
+          });
+          answers.reset();
+
+          // The profile row now exists, so the route gate reads this user as
+          // onboarded and would send them here on its own. Replacing
+          // explicitly keeps the transition predictable and one frame earlier.
+          router.replace('/');
+        },
         onSettled: () => {
           submitting.current = false;
         },
@@ -92,6 +128,13 @@ export default function MeetYourKairo() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* The rail, closed out. This is the last beat, so all four segments
+            are full — a run that never shows its own completion is a run that
+            felt longer than it was. */}
+        <View style={styles.rail}>
+          <OnboardingRail filled={4} tone="dark" onBack={() => router.back()} />
+        </View>
+
         <Panel variant="sky" style={styles.stage}>
           <Image
             source={SPECIES_FIGURES[DEFAULT_SPECIES]}
@@ -160,6 +203,7 @@ export default function MeetYourKairo() {
 }
 
 const styles = StyleSheet.create({
+  rail: { paddingBottom: space.md },
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingHorizontal: space.lg, gap: space.sm },
   stage: {
@@ -178,7 +222,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     color: colors.text,
     fontSize: 28,
-    fontFamily: 'Figtree-Bold',
+    fontFamily: font.body.body.fontFamily,
     paddingVertical: space.sm,
   },
   error: { color: colors.damage, ...font.body.body, marginTop: space.md },

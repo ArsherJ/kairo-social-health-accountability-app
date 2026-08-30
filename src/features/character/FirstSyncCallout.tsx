@@ -75,8 +75,8 @@ const styles = StyleSheet.create({
     borderColor: colors.accentDeep,
   },
   label: { color: colors.accentDeep, ...font.body.label },
-  headline: { color: colors.text, fontSize: 16, fontFamily: 'Figtree-Bold', marginTop: space.xs, lineHeight: 22 },
+  headline: { color: colors.text, fontSize: 16, fontFamily: font.body.body.fontFamily, marginTop: space.xs, lineHeight: 22 },
   dismiss: { alignSelf: 'flex-start', marginTop: space.sm, paddingVertical: space.xs },
-  dismissLabel: { color: colors.subtle, fontSize: 13, fontFamily: 'Figtree-SemiBold' },
+  dismissLabel: { color: colors.subtle, fontSize: 13, fontFamily: font.body.quiet.fontFamily },
   pressed: { opacity: 0.85 },
 });

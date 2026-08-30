@@ -25,6 +25,15 @@ export type ProfileEdit = {
    * the same as omitting the key, which leaves whatever is stored.
    */
   quest_tier_override?: 'starter' | 'steady' | 'strong' | null;
+  /**
+   * Squad data consent (deviation #47). Granted by 20260829090000.
+   *
+   * An ISO timestamp to grant, `null` to withdraw — the column records *when*
+   * consent was given, which is what makes a withdrawal distinguishable from
+   * never having been asked. Written by the onboarding privacy beat through
+   * the name screen, and by the consent sheet on the Flock tab.
+   */
+  squad_data_consent_at?: string | null;
 };
 
 const INSUFFICIENT_PRIVILEGE = '42501';

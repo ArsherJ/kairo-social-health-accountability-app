@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { CoreStat } from '@kairo/core';
+import { colors, ramp } from '../theme.ts';
 
 /**
  * The stats as glyphs.
@@ -11,18 +12,13 @@ import type { CoreStat } from '@kairo/core';
  * once painted the same stat two different colours because each owned its own
  * copy of the mapping.
  *
- * **Why this is MaterialCommunityIcons when everything else is Feather.**
- * Not because Feather lacks a bicep — though it does. The split is by register:
- *
- *   - **Feather, 2px hairline** — chrome. Nav discs, back arrows, chevrons.
- *     Things you *operate*.
- *   - **MaterialCommunityIcons, solid** — character data. Things you *are*.
- *
- * The coin is Caprasimo, a fat display face, and a hairline glyph sitting
- * beside a Caprasimo numeral reads as a clerical annotation of a number rather
- * than as part of it. A solid glyph is in the same ink-weight class as the type
- * it stands with. Keep the split total in both directions — a solid glyph in
- * the nav, or a hairline one on a stat, and this stops reading as a decision.
+ * **MaterialCommunityIcons, which is now the app's only icon family.** From
+ * 2026-08-11 this file was the *exception* — solid glyphs for character data
+ * against Feather's hairlines for chrome. Playful retired that split by
+ * following its own reasoning to the other end: the argument was that a 2px
+ * hairline glyph beside a fat display numeral reads as a clerical annotation
+ * rather than as part of it, and Playful sets the entire surface in that
+ * register. `TabPill` carries the full account.
  */
 const ICONS = {
   // Steps and distance. Deliberately *not* `run-fast`: the character screen's
@@ -51,6 +47,39 @@ const ICONS = {
 export { STAT_NAMES, dominanceName } from './stat-names.ts';
 
 /**
+ * The stats as colours, which Sunlit deliberately did not have.
+ *
+ * Through Sunlit the rule here was "there is no per-stat hue and there should
+ * not be one" — four colours competing is what buried the tier coins the stat
+ * rail replaced, and that palette's three families were all spoken for.
+ *
+ * Playful reverses it, because Playful asks the glyphs to do a job Sunlit never
+ * did. A Flock row carries four stat figures at 11pt with no words beside them;
+ * a quest is a ring with a glyph in it and no headline. At that size and that
+ * density, shape alone is not enough to tell three things apart at a glance —
+ * `shoe-print`, `arm-flex` and `brain` are distinguishable when you look and
+ * not when you scan. Colour is what makes the row scannable, and the design
+ * assigns one per stat throughout.
+ *
+ * The hues are **not new**, which is what keeps this from being the four-way
+ * competition the old rule guarded against: Motion takes the accent (you, your
+ * day), Body takes coral (the streak's hue, and the one that means effort), and
+ * Mind takes sage — which Sunlit already spent on rest-adjacent surfaces and
+ * Playful renders violet. No stat gets gold, because gold means *earned* and a
+ * stat is not an achievement.
+ *
+ * **These are fills and glyph colours, never text colours.** `colors.accent`
+ * and `colors.coral` both fail as body text on cream — `contrast.test.ts` pins
+ * that — so a caller wanting to *write* a stat's name in its colour needs the
+ * matching ink (`accentDeep`, `damage`, `ramp.sage[700]`), not this table.
+ */
+export const STAT_COLORS = {
+  AGI: colors.accent,
+  STR: colors.coral,
+  MND: ramp.sage[500],
+} as const satisfies Record<CoreStat, string>;
+
+/**
  * One stat glyph.
  *
  * Hidden from assistive tech by default: every caller either sits inside a
@@ -58,10 +87,9 @@ export { STAT_NAMES, dominanceName } from './stat-names.ts';
  * an icon that announced its own name would double-read both cases. A caller
  * that genuinely needs the glyph announced passes its own label instead.
  *
- * Colour is always the caller's — there is no per-stat hue and there should not
- * be one. Four colours competing is what buried the tier coins this rail
- * replaced, and the system reserves its three hues for other jobs entirely
- * (terracotta = you, sage = your lane, burnt = a battle slipping).
+ * Colour defaults to the stat's own hue (`STAT_COLORS`); passing `color`
+ * overrides it, which is what a glyph inside an already-coloured surface needs
+ * — a white icon on a filled pill.
  */
 export function StatIcon({
   stat,
@@ -70,13 +98,14 @@ export function StatIcon({
 }: {
   stat: CoreStat;
   size: number;
-  color: string;
+  /** Defaults to the stat's own hue. Pass one to override on a filled ground. */
+  color?: string;
 }) {
   return (
     <MaterialCommunityIcons
       name={ICONS[stat]}
       size={size}
-      color={color}
+      color={color ?? STAT_COLORS[stat]}
       accessibilityElementsHidden
       importantForAccessibility="no"
     />

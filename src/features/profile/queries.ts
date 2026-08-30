@@ -44,6 +44,12 @@ export type Profile = {
    */
   mnd_total: number;
   /**
+   * When the account was created. Rendered as "Joined August 2026" on the You
+   * tab and nowhere else, so only the month and year are ever shown — a join
+   * *date* is a precise fact about a person that no surface here needs.
+   */
+  created_at: string;
+  /**
    * Observed by `sync-health` from the presence of sleep data, not claimed by
    * the client — the column has no client write grant.
    */
@@ -106,7 +112,7 @@ export function useProfile(userId: string | undefined) {
             'agi_total, str_total, mnd_total, ' +
             'is_legendary, height_cm, weight_kg, birth_year, sex, ' +
             'trains_run, trains_strength, species, quest_tier_override, ' +
-            'has_sleep_source',
+            'has_sleep_source, created_at',
         )
         .eq('id', userId as string)
         .maybeSingle();

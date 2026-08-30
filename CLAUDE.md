@@ -646,6 +646,104 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
+**Kairo is Playful as of 2026-08-30** (deviation #58), which supersedes Sunlit's
+palette and type. The block below on Sunlit is kept because its *reasoning* is
+what this pass followed; only its values are stale. Same move a third time:
+**every token in `src/theme.ts` kept its name and changed its value**, so around
+ninety call sites re-skinned without being edited. A token names a *role*, never
+a hue — `ramp.sage[500]` is a violet now and still means "your lane". Two
+families are new: **gold** (earned) and **sky** (the flight). Fredoka and Nunito
+replace Caprasimo and Figtree. Six things break easily:
+
+- **A bright fill takes ink, never cream.** Sunlit's accent was amber and
+  cream-on-amber was already impossible, so nobody had written it; Playful's is
+  orange, which *looks* dark enough to take a cream label and measures
+  **2.65:1**. Coral is 2.93 and gold is **1.52**. Four call sites shipped that
+  pairing in this redesign's own first pass — the active tab pill, the board's
+  day toggle, the streak chip and `CtaPill` — and every one of them rendered
+  perfectly. `contrast.test.ts` now asserts the rule for every fill in the
+  system *including the failures*, so a palette that later made one dark enough
+  for cream fails loudly rather than silently becoming allowed. **`coralEdge`
+  carries neither** ink nor cream and is pinned as such: it is a 3px lip, and
+  the only wrong thing to do with it is set a word on it.
+- **`Glass` is not a blur and must not become one.** `backdrop-filter` has no
+  RN equivalent and `expo-blur` is a native module: it would move the
+  fingerprint, spend one of the month's fifteen builds and withhold every OTA
+  until that build landed. Same trade the Sky corridor already refused for
+  `react-native-svg` (#56), and the reason this whole redesign shipped over the
+  air. `Gradient` gained a `direction` and is now used ~20 times rather than
+  twice; `experimental_backgroundImage` is deliberately unused, because its
+  failure mode is a *transparent* view and an invisible active tab is worse
+  than a banded one.
+- **The corridor climbs now.** `sky-path.ts` went 402×520 → 393×1560 and two
+  cubics became three. **`x` is no longer monotonic** — the flight weaves, and
+  that assertion was replaced rather than left to rot; `dy < 0` is the
+  invariant. `SkyCorridor`'s `BAND` was `0.11` of the *height*, which was the
+  narrow axis when the race ran left-to-right and is the long one now: left
+  alone it drew a 158pt band down a 361pt screen. Segment length is measured off
+  the path now instead of approximated from the box, which is what stopped being
+  right when the aspect inverted. **Nothing about the race's mechanics moved** —
+  same payload, same client-side re-rank by capped steps, same derived finish
+  line, same reciprocal consent gate.
+- **The "Did you know?" beat is a phase of `/connect`, not a route, and its
+  floor is deliberate.** It covers the real `readStepsToday` between the grant
+  and the step reveal. Two things are easy to get wrong: the window opens when
+  **`connectHealth` resolves, not at tap** — iOS has the permission sheet up
+  during `connectHealth`, so a beat started at tap spends its whole minimum
+  behind that sheet and vanishes in the frame it is dismissed — and the card
+  comes down at the **later** of "minimum served" and "read finished", never the
+  earlier, or a slow read hands over to a reveal with no number in it.
+  `hatching-window.ts` is pure and tested on both. `trivia.ts` picks by a hash
+  of the account (a `Math.random()` in a render body would swap the card's text
+  mid-read, the same reason `pickQuests` is a hash) and states **no effect
+  size** — every number in it is the app's own constant or the size of an
+  action, and a test bans a bare `%`.
+- **Onboarding is six beats and the last one is still the name.** `/welcome` →
+  `/one-sky` → `/connect` → `/difficulty` → `/privacy` → `/name`. The design
+  puts difficulty and privacy *after* the name, which is deviation #22's trap
+  exactly. They ask before it — but `quest_tier_override` and
+  `squad_data_consent_at` are in `profiles`' column-level **UPDATE** grant and
+  not its INSERT grant, so there is nothing to write to until the row exists.
+  `useOnboardingAnswers` holds both and the name screen writes them *after* the
+  insert. Nothing is **asked** after the INSERT, the row still commits exactly
+  once, and both grants are respected. Read that store before touching the flow.
+  The entry moved from `/connect`, so `redirectTarget` returns `/welcome` now.
+- **The disclosure gate did not move, and Today's hero is where it nearly
+  did.** The three glass stat coins on the sky are the same
+  `ratingForStatPoints` over the same lifetime rollups the You tab's rail reads,
+  so they carry the same `full` gate — an ungated copy on the screen a brand-new
+  account opens first would have undone deviation #37 by the back door. The
+  sleep and lane tiles are the Strain/Sleep rows in a fourth dress and keep
+  theirs. Quests, the hero, the race line and the Daily Walk stay ungated.
+- **One icon family.** The Feather/MDI split (hairline = things you operate,
+  solid = things you are) is **retired**. Its stated reason was that a hairline
+  glyph beside a fat display numeral reads as a clerical annotation; Playful
+  sets the whole surface in that register, so the reason points the same way and
+  the surface it points at changed. All six Feather call sites moved.
+  Reintroducing a second family is a design decision, not a convenience.
+  Relatedly, `STAT_COLORS` **reverses** Sunlit's "no per-stat hue" rule: a Flock
+  row carries four stat figures at 11pt with no words beside them, and shape
+  alone does not separate three things at a glance. The hues are not new ones.
+
+Also in this pass: **Settings is its own screen** (`/settings`, behind the gear
+on You) — a move, not a feature; quest difficulty, timezone, notifications, sign
+out and delete account were loose at the foot of a two-and-a-half-screen tab.
+**`src/theme.ts` is the only file that may name a typeface**, which was not being
+kept — seven call sites still said `'Figtree-Bold'` as a string literal, and RN's
+answer to an unknown family is a silent fallback to the system face, invisible on
+a simulator that has the old font and visible only on a clean device.
+`type-faces.test.ts` scans for it and also checks every named face is actually
+loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
+`character-assets.ts` says the cosmetic PNGs are flattened full-character
+previews, not composable layers, so a four-slot tray has no assets behind it.
+
+**This whole redesign shipped over the air, and that was verified rather than
+assumed**: the tree's fingerprint is `324fba3e`, byte-identical to the last
+build's. Fredoka and Nunito are copied into `assets/fonts/` and loaded through
+`useFonts`, *not* added as npm dependencies — `package.json` is a fingerprint
+input and adding two lines to it would have cost one of the month's fifteen
+builds to ship a font.
+
 **Kairo is Sunlit as of 2026-08-27** (deviations #53, #54). The palette shifted
 in place — every token in `src/theme.ts` kept its name and changed its value, so
 around ninety call sites re-skinned without being edited. The tabs are

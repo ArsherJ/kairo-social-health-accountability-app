@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,9 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { connectHealth } from '@/features/health/connect-health.ts';
 import { healthSource } from '@/features/health/health-source.ts';
 import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
+import { HatchingBeat } from '@/features/onboarding/HatchingBeat.tsx';
+import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { hatchingWindow, msUntilNextChange } from '@/features/onboarding/hatching-window.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
@@ -28,7 +31,15 @@ import { colors, font, ramp, space } from '@/theme.ts';
  * deviation #22 deleted the `finishingOnboarding` flag, and asking anything
  * after that INSERT needs it back.
  */
-type Phase = 'asking' | 'revealed';
+/**
+ * `hatching` is the "Did you know?" beat, and it is a **phase rather than a
+ * route** on purpose. The design draws it as its own screen and visually it is
+ * one — full bleed, its own ground, its own rail position — but the work it
+ * covers is the `readStepsToday` call below, and a route boundary in the middle
+ * of an in-flight promise buys a back-swipe into a screen whose work has
+ * already moved on. See `HatchingBeat`.
+ */
+type Phase = 'asking' | 'hatching' | 'revealed';
 
 export default function Connect() {
   const insets = useSafeAreaInsets();
@@ -38,6 +49,28 @@ export default function Connect() {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [steps, setSteps] = useState<number | null>(null);
+
+  /*
+    The beat's two clocks.
+
+    `openedAt` is when `connectHealth` resolved — **not** when the button was
+    tapped, which is the load-bearing detail: iOS presents the Health sheet
+    during `connectHealth`, and a beat started at tap would spend its whole
+    minimum behind that sheet. Somebody who took ten seconds over the
+    permissions would dismiss it and watch the card vanish in the same frame,
+    having never seen it.
+
+    `finishedAt` is when the step read landed. `hatching-window.ts` turns the
+    pair into "is the card up, and may we move on", and holds it for whichever
+    of the two comes later.
+  */
+  const [openedAt, setOpenedAt] = useState<number | null>(null);
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  // The read's result, parked until the beat is done with it. Held in a ref
+  // rather than state because nothing renders from it — writing it through
+  // `setSteps` early would let the reveal paint under the card.
+  const pendingSteps = useRef<number | null>(null);
 
   // Names the start of onboarding, not this particular screen — it moved here
   // from `/character` when the order changed.
@@ -64,20 +97,71 @@ export default function Connect() {
         return;
       }
 
+      // The permission sheet is down and the grant landed. From here the work
+      // is ours rather than the user's, so this is the moment the beat can
+      // honestly claim to be visible — see `openedAt` above.
+      setOpenedAt(Date.now());
+      setNow(Date.now());
+      setPhase('hatching');
+
       // A read that throws and a phone with no steps are the same thing *here*,
       // below a successful connect — both mean "nothing to show yet", and
       // neither is a failure. That is only true because the failure case
       // returned above.
       const today = await healthSource.readStepsToday(deviceTimeZone()).catch(() => null);
-      setSteps(today);
-      setPhase('revealed');
+      pendingSteps.current = today;
+      setFinishedAt(Date.now());
+      setNow(Date.now());
     } finally {
       setBusy(false);
     }
   }
 
+  /*
+    One timer, not a render loop.
+
+    `msUntilNextChange` says when the answer can next change on the clock alone
+    and returns null when it cannot — the read has not landed, so the next
+    change comes from the promise rather than from time passing. Waking on a
+    schedule the pure module computes is what keeps this to a single `setNow`
+    per transition instead of a 60Hz tick behind a static card.
+  */
+  const window = hatchingWindow({ openedAt, finishedAt, now });
+  useEffect(() => {
+    if (phase !== 'hatching') return;
+    const wait = msUntilNextChange({ openedAt, finishedAt, now: Date.now() });
+    // `<= 0` as well as null. A zero means the window has already passed, and
+    // scheduling `setTimeout(0)` for it would set `now`, re-run this effect,
+    // compute zero again and spin — the advance effect below is what handles
+    // an already-due window, and it fires off the same comparison.
+    if (wait === null || wait <= 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), wait);
+    return () => clearTimeout(timer);
+  }, [phase, openedAt, finishedAt, now]);
+
+  // The handover. Both halves come off one comparison inside `hatchingWindow`,
+  // so there is no frame in which the card is down and the reveal has not been
+  // handed its number.
+  useEffect(() => {
+    if (phase !== 'hatching' || !window.mayAdvance) return;
+    setSteps(pendingSteps.current);
+    setPhase('revealed');
+  }, [phase, window.mayAdvance]);
+
+  // Full bleed and above everything: this beat is its own screen in every way
+  // except the route it lives on.
+  if (phase === 'hatching') return <HatchingBeat userId={userId} />;
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space.xl }]}>
+    <View style={[styles.container, { paddingTop: insets.top + space.md }]}>
+      {/* The same four-segment rail every other beat carries. Without it this
+          screen — the one that asks for something — would be the only step in
+          the run with no sense of how much is left, which is exactly backwards.
+          `tone="dark"` because this beat sits on the cream ground. */}
+      <View style={styles.rail}>
+        <OnboardingRail filled={1} partial={0.5} tone="dark" onBack={() => router.back()} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.top}>
         <Label>
           {healthSource.policy.supportsPermission
@@ -155,7 +239,7 @@ export default function Connect() {
           <Button
             label="Continue"
             variant="primary"
-            onPress={() => router.push('/name')}
+            onPress={() => router.push('/difficulty')}
           />
         ) : phase === 'asking' ? (
           <>
@@ -167,10 +251,10 @@ export default function Connect() {
             />
             {/* A deferral, not a refusal — `PermissionAsks` asks again later,
                 and nothing downstream depends on the answer. */}
-            <Button label="Not now" variant="ghost" onPress={() => router.push('/name')} />
+            <Button label="Not now" variant="ghost" onPress={() => router.push('/difficulty')} />
           </>
         ) : (
-          <Button label="Continue" variant="primary" onPress={() => router.push('/name')} />
+          <Button label="Continue" variant="primary" onPress={() => router.push('/difficulty')} />
         )}
       </View>
     </View>
@@ -178,6 +262,7 @@ export default function Connect() {
 }
 
 const styles = StyleSheet.create({
+  rail: { paddingBottom: space.lg },
   container: {
     flex: 1,
     justifyContent: 'space-between',

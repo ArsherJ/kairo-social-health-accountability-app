@@ -1,6 +1,6 @@
 import { Fragment, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
@@ -43,14 +43,21 @@ export default function RootLayout() {
   // A font error proceeds rather than blocking: RN falls back to the system
   // face for an unknown family, and a degraded screen beats a dead app.
   const [fontsLoaded, fontError] = useFonts({
-    'Caprasimo-Regular': require('../assets/fonts/Caprasimo-Regular.ttf'),
-    'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
-    'Figtree-SemiBold': require('../assets/fonts/Figtree-SemiBold.ttf'),
-    'Figtree-Bold': require('../assets/fonts/Figtree-Bold.ttf'),
-    // The nav, the empty seat and the streak shield are all Feather glyphs.
-    // Loading the face here rather than letting the icon component do it
-    // lazily is what stops the first paint flashing a missing-glyph box.
-    ...Feather.font,
+    // Playful's two faces (deviation #58). Caprasimo and Figtree are gone
+    // from the bundle with the Sunlit palette that named them; `src/theme.ts`
+    // is the only file that may name a family, so nothing else had to change.
+    'Fredoka-SemiBold': require('../assets/fonts/Fredoka-SemiBold.ttf'),
+    'Fredoka-Bold': require('../assets/fonts/Fredoka-Bold.ttf'),
+    'Nunito-SemiBold': require('../assets/fonts/Nunito-SemiBold.ttf'),
+    'Nunito-Bold': require('../assets/fonts/Nunito-Bold.ttf'),
+    'Nunito-ExtraBold': require('../assets/fonts/Nunito-ExtraBold.ttf'),
+    // The app's one icon family, since Playful retired the Feather/MDI split
+    // (see `TabPill`). Loading it here rather than letting the icon component
+    // do it lazily is what stops the first paint flashing missing-glyph boxes,
+    // and Playful needs that more than Sunlit did — a glyph stands in for text
+    // on nearly every row now, so a late face is a screen of empty squares
+    // rather than one decoration arriving a beat late.
+    ...MaterialCommunityIcons.font,
   });
 
   // Started here rather than in `Gate`, which is the whole point: `Gate` does
@@ -66,7 +73,7 @@ export default function RootLayout() {
   // plugin holding anything over it, so this *was* the cream nothing the user
   // stared at. A spinner needs no typeface, which is exactly why it is the only
   // thing that can be drawn here — a wordmark would render in the system face
-  // and then snap to Caprasimo, trading a blank screen for a flicker.
+  // and then snap to Fredoka, trading a blank screen for a flicker.
   if (!fontsLoaded && !fontError) {
     return (
       <View style={[styles.overlay, styles.centered]}>

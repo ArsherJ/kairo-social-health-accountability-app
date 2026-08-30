@@ -1,4 +1,4 @@
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet } from 'react-native';
 import { Text } from './Text.tsx';
 import { colors, font, space } from '../theme.ts';
@@ -34,7 +34,7 @@ export function BackRow({
         pressed && { opacity: 0.6 },
       ]}
     >
-      <Feather name="chevron-left" size={20} color={colors.subtle} />
+      <MaterialCommunityIcons name="chevron-left" size={20} color={colors.subtle} />
       <Text style={styles.label}>Back</Text>
     </Pressable>
   );

@@ -18,15 +18,15 @@ function arc(from: number, to: number, samples = 400): number {
   return total;
 }
 
-describe('the corridor runs from the near corner to the far one', () => {
+describe('the corridor climbs from the ground to the ridge', () => {
   it('starts and ends where the design puts it', () => {
-    // Bottom left to top right, in normalised viewBox coordinates. y grows
+    // Bottom centre to top centre, in normalised viewBox coordinates. y grows
     // downward, as it does in the SVG this was transcribed from and as it does
-    // in React Native's layout.
-    expect(pointAt(0).x).toBeCloseTo(18 / 402, 3);
-    expect(pointAt(0).y).toBeCloseTo(470 / 520, 3);
-    expect(pointAt(1).x).toBeCloseTo(384 / 402, 3);
-    expect(pointAt(1).y).toBeCloseTo(152 / 520, 3);
+    // in React Native's layout — so the *start* is the large y.
+    expect(pointAt(0).x).toBeCloseTo(196 / 393, 3);
+    expect(pointAt(0).y).toBeCloseTo(1420 / 1560, 3);
+    expect(pointAt(1).x).toBeCloseTo(196 / 393, 3);
+    expect(pointAt(1).y).toBeCloseTo(150 / 1560, 3);
   });
 
   it('clamps a t from outside 0 to 1 rather than extrapolating', () => {
@@ -37,14 +37,18 @@ describe('the corridor runs from the near corner to the far one', () => {
     expect(pointAt(9)).toEqual(pointAt(1));
   });
 
-  it('climbs the whole way — x rises and y falls, monotonically', () => {
+  it('climbs the whole way — y falls monotonically', () => {
     // The one property a reader takes from the picture without being told:
-    // further along is further up and further right. A curve that dipped would
-    // show somebody moving backwards while their steps went up.
+    // further along is further up. A curve that dipped would show somebody
+    // moving backwards while their steps went up.
+    //
+    // **Only y.** The vertical re-cut weaves left and right as it climbs, so x
+    // is deliberately *not* monotonic — that weave is the whole visual
+    // character of the flight, and the horizontal corridor's "x rises too" is
+    // the assertion this replaces rather than one that quietly still holds.
     let prev = pointAt(0);
     for (let i = 1; i <= 100; i++) {
       const next = pointAt(i / 100);
-      expect(next.x).toBeGreaterThan(prev.x);
       expect(next.y).toBeLessThan(prev.y);
       prev = next;
     }
@@ -79,29 +83,37 @@ describe('tangentAt and angleAt', () => {
     }
   });
 
-  it('points up and to the right the whole way', () => {
+  it('points up the whole way, and never down', () => {
+    // `dx` is deliberately unasserted: the corridor weaves, so the horizontal
+    // component changes sign three times. `dy < 0` is the invariant — a bird
+    // is never drawn heading back toward midnight.
     for (let i = 0; i <= 20; i++) {
-      const { dx, dy } = tangentAt(i / 20);
-      expect(dx).toBeGreaterThan(0);
+      const { dy } = tangentAt(i / 20);
       expect(dy).toBeLessThan(0);
     }
   });
 
-  it('is continuous across the join between the two curves', () => {
-    // The design's path uses an `S` command, whose first control point is the
-    // reflection of the previous segment's second. Getting that reflection
-    // wrong produces a visible kink and nothing else fails.
-    const before = angleAt(0.49);
-    const after = angleAt(0.51);
-    expect(Math.abs(after - before)).toBeLessThan(5);
+  it('is continuous across both joins between the three curves', () => {
+    // The design's path uses two `S` commands, whose first control point is
+    // each time the reflection of the previous segment's second. Getting a
+    // reflection wrong produces a visible kink and nothing else fails.
+    for (const join of [1 / 3, 2 / 3]) {
+      const before = angleAt(join - 0.01);
+      const after = angleAt(join + 0.01);
+      expect(Math.abs(after - before)).toBeLessThan(12);
+    }
   });
 
-  it('gives a negative angle in degrees, since the path climbs', () => {
+  it('gives an angle near straight up, since the corridor climbs', () => {
     // Screen coordinates: y grows downward, so a rising path has a negative
-    // rotation. Stated as a test because getting the sign wrong mirrors every
-    // segment of the band and still renders.
-    expect(angleAt(0.5)).toBeLessThan(0);
-    expect(angleAt(0.5)).toBeGreaterThan(-90);
+    // rotation, and a vertical one sits near -90. Stated as a test because
+    // getting the sign wrong mirrors every segment of the band and still
+    // renders.
+    for (let i = 0; i <= 20; i++) {
+      const angle = angleAt(i / 20);
+      expect(angle).toBeLessThan(0);
+      expect(angle).toBeGreaterThan(-180);
+    }
   });
 });
 
@@ -158,6 +170,8 @@ describe('placeRacers', () => {
 
 describe('SKY_PATH_ASPECT', () => {
   it('is the design viewBox, so the component can size its own box', () => {
-    expect(SKY_PATH_ASPECT).toBeCloseTo(402 / 520, 6);
+    // Tall, not wide: the flight is scrolled rather than taken in at a glance.
+    expect(SKY_PATH_ASPECT).toBeCloseTo(393 / 1560, 6);
+    expect(SKY_PATH_ASPECT).toBeLessThan(1);
   });
 });

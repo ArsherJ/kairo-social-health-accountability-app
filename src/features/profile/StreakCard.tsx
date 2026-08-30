@@ -1,4 +1,4 @@
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Label, Text } from '@/ui/index.ts';
@@ -86,8 +86,8 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
       <View style={[styles.shield, shieldBanked && styles.shieldBanked]}>
         {/* The sentence beside it already says whether the shield is banked,
             so an announced glyph would prefix every reading with "shield". */}
-        <Feather
-          name="shield"
+        <MaterialCommunityIcons
+          name="shield-check"
           size={19}
           color={ramp.sage[700]}
           accessibilityElementsHidden

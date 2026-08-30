@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { signOut, useSessionStore } from '@/features/auth/session.ts';
+import { useSessionStore } from '@/features/auth/session.ts';
 import { seedTodayHealthData } from '@/features/health/dev-seed.ts';
 import { healthSource } from '@/features/health/health-source.ts';
 import { notifyHealthPermissionGranted } from '@/features/health/useHealthSync.ts';
@@ -18,20 +18,47 @@ import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { useStatRecords } from '@/features/profile/records.ts';
 import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
-import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
+import { ClearedCalendar } from '@/features/profile/ClearedCalendar.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
-import { useUpdateProfile } from '@/features/profile/update-profile.ts';
-import { Button, Label, Panel, Screen, STAT_NAMES, Text } from '@/ui/index.ts';
+import { useWalkHistory } from '@/features/train/queries.ts';
+import { Button, Label, Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import {
   CORE_STATS,
   currentLocalDate,
   ratingForStatPoints,
   type CoreStat,
-  type QuestTier,
 } from '@kairo/core';
+
+/**
+ * `@bagwis` from "Bagwis".
+ *
+ * Derived, never stored: Kairo has no handle concept and adding a column for
+ * one would be a new unique-namespace problem (and a new way to be squatted on)
+ * for a string that is only ever decoration. Lowercased and stripped to word
+ * characters so a name with a space or an emoji still yields something that
+ * reads as a handle rather than as a broken one.
+ */
+function handleFor(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return slug.length > 0 ? `@${slug}` : '@kairo';
+}
+
+/**
+ * "Joined August 2026" from a timestamptz.
+ *
+ * Month and year only. A join *date* is a precise fact about a person that no
+ * surface here needs, and this one is rendered beside their character's name on
+ * a screen they may hand to a friend.
+ */
+function joinedLabel(createdAt: string | undefined): string | null {
+  if (!createdAt) return null;
+  const at = new Date(createdAt);
+  if (Number.isNaN(at.getTime())) return null;
+  return `Joined ${new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(at)}`;
+}
 
 /** The human-readable line under each bar, once the rail is expanded. */
 const STAT_LABELS: Record<CoreStat, string> = {
@@ -40,25 +67,6 @@ const STAT_LABELS: Record<CoreStat, string> = {
   MND: 'Sleep duration',
 };
 
-/**
- * The four choices, in ascending order with the automatic rule first.
- *
- * `null` is a real value, not an absent one — it means "use `questTier()`'s
- * trailing-scored-days rule", which is what every account starts on. Sending it
- * through the mutation is how somebody gets *back* to automatic.
- */
-const QUEST_TIER_CHOICES: readonly [QuestTier | null, string][] = [
-  [null, 'Automatic'],
-  ['starter', 'Starter'],
-  ['steady', 'Steady'],
-  ['strong', 'Strong'],
-];
-
-const QUEST_TIER_NAMES: Record<QuestTier, string> = {
-  starter: 'Starter',
-  steady: 'Steady',
-  strong: 'Strong',
-};
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -66,7 +74,6 @@ export default function ProfileTab() {
   const userId = session?.user.id;
   const profile = useProfile(userId);
   const streak = useStreak(userId);
-  const update = useUpdateProfile(userId);
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
 
   // The rail and the block it opens came here when the character screen
@@ -132,6 +139,13 @@ export default function ProfileTab() {
     STAT_NAMES,
   );
 
+  // The same rows the Daily Walk streak counts, on the same key — already in
+  // cache from the Today tab, so the calendar adds no request there and one
+  // here for an account that opened You first. `met` is the walk clearing,
+  // read from `tiers->>'AGI_base'` in the query rather than re-derived.
+  const walk = useWalkHistory(userId, profile.data?.timezone);
+  const clearedDates = (walk.data ?? []).filter((d) => d.met).map((d) => d.localDate);
+
   async function seed() {
     const timeZone = profile.data?.timezone;
     if (!timeZone) return;
@@ -152,7 +166,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <Screen>
+    <Screen bleed>
       {profile.isPending && (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accentDeep} />
@@ -165,9 +179,13 @@ export default function ProfileTab() {
               as a page title above a bar that said the same numbers. */}
           <ProfileHeader
             name={profile.data.character_name}
+            handle={handleFor(profile.data.character_name)}
             totalXp={profile.data.total_xp}
             species={SPECIES[displaySpecies(profile.data.species)].name}
+            joined={joinedLabel(profile.data.created_at)}
           />
+
+          <View style={styles.page}>
 
           {/* Streak errors are silent by design: a failed streak fetch must
               not stop the rest of the screen rendering, and StreakCard reads
@@ -244,82 +262,25 @@ export default function ProfileTab() {
 
           <BodyMetricsCard userId={userId} profile={profile.data} />
 
-          {/* Above Timezone because it is the one on this screen that can be
-              wrong without the user knowing: the zone follows the device, but a
-              notification permission revoked in iOS Settings is silent. */}
-          <NotificationSettingsCard />
+          {/* The month, as a run of cleared days — the one genuinely new
+              surface on this tab. A cleared day is a cleared Daily Walk, read
+              from the same `useWalkHistory` rows the streak counts, so the
+              calendar and the streak cannot disagree about a day.
 
-          {/* Above Timezone, because this one is a choice and that one is an
-              observation.
-
-              The copy names the automatic rule's *actual* input, and that
-              sentence is doing real work. `questTier()` keys off how many days
-              have scored, which measures engagement rather than fitness — so it
-              is wrong by construction for a long-standing gentle user and for a
-              brand-new athlete alike. A user who finds their quests too easy
-              needs to understand why, rather than assume the app measured them
-              and got it wrong. That is also why the override **wins outright**
-              (see `questTier`): a rule that could veto it would make it a hint.
-          */}
-          <Panel>
-            <Label>Quest difficulty</Label>
-            <Text style={styles.value}>
-              {profile.data.quest_tier_override === null
-                ? 'Automatic'
-                : QUEST_TIER_NAMES[profile.data.quest_tier_override]}
-            </Text>
-            <Text style={styles.help}>
-              Kairo picks a difficulty from how long you have been here. If the
-              quests feel wrong, choose your own.
-            </Text>
-            {/* Wraps, because four chips do not fit one line past about 1.3x
-                Dynamic Type and a row that cannot fit is the permission
-                sheet's 2026-08-17 failure in a new place. */}
-            <View style={styles.chips}>
-              {QUEST_TIER_CHOICES.map(([value, label]) => {
-                const current = (profile.data?.quest_tier_override ?? null) === value;
-                return (
-                  <Pressable
-                    key={label}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: current }}
-                    accessibilityLabel={`Quest difficulty: ${label}`}
-                    disabled={update.isPending}
-                    onPress={() => update.mutate({ quest_tier_override: value })}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      current && styles.chipOn,
-                      pressed && styles.chipPressed,
-                    ]}
-                  >
-                    <Text scale="chrome" style={[styles.chipLabel, current && styles.chipLabelOn]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Panel>
-
-          <Panel>
-            <Label>Timezone</Label>
-            <Text style={styles.value}>{profile.data.timezone}</Text>
-            {/* Read-only on purpose. §2 ranks everyone on their own local day,
-                and the zone follows the device so travelling does not need a
-                settings visit — or let anyone shop for a longer day. */}
-            <Text style={styles.help}>
-              Follows your device. Your day runs midnight to midnight here, so
-              travelling moves your day with you.
-            </Text>
-          </Panel>
+              Ungated on purpose. It is the honest picture of a short history as
+              much as a long one: a new account sees a month with two gold
+              squares in it and the rest still to come, which is a truthful and
+              rather encouraging thing to show somebody on day two. */}
+          <ClearedCalendar today={localToday} clearedDates={clearedDates} />
+          </View>
         </>
       )}
 
+      {/* Simulator affordance only. A fresh simulator's Health app is empty,
+          so without this a working ingest pipeline and a broken one both render
+          zero. Compiled out of release builds. */}
       {__DEV__ && (
-        // Simulator affordance only. A fresh simulator's Health app is empty,
-        // so without this a working ingest pipeline and a broken one both
-        // render zero. Compiled out of release builds.
-        <>
+        <View style={styles.page}>
           {healthSource.policy.supportsReads && (
             <>
               <Button
@@ -331,29 +292,18 @@ export default function ProfileTab() {
             </>
           )}
           <DemoToggle />
-        </>
+        </View>
       )}
-
-      <Button
-        label="Sign out"
-        onPress={() => void signOut()}
-        variant="ghost"
-      />
-
-      {/* Below sign-out, and only reachable through a screen that explains
-          what it does. Apple requires an in-app path for this; putting it
-          anywhere more prominent would make the reversible action compete
-          with the irreversible one. */}
-      <Button
-        label="Delete account"
-        onPress={() => router.push('/delete-account')}
-        variant="ghost"
-      />
     </Screen>
   );
 }
-
 const styles = StyleSheet.create({
+  /**
+   * Everything below the header, which bleeds. The header pads its own name and
+   * handle rows and lets only the scene band run to the edge, so this wrapper
+   * starts under it rather than around it.
+   */
+  page: { paddingHorizontal: space.lg },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   detailBlock: { marginTop: space.md, gap: space.md },
   /**

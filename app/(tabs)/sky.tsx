@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  RACE_FINISH_LINE,
   SKY_PATH_ASPECT,
   currentLocalDate,
   ghostRivals,
   placeRacers,
+  pointAt,
   rankRacers,
   type RacerInput,
 } from '@kairo/core';
@@ -16,14 +19,31 @@ import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
+import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
 import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { claimDaily } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { Label, Panel, Screen, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Gradient, Glass, Panel, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
+import type { Stop } from '@/ui/gradient.ts';
+import { colors, font, radius, ramp, space } from '@/theme.ts';
+
+/**
+ * The flight, from the ground at midnight to the ridge at the top.
+ *
+ * Read bottom-to-top, which is why the stops run in that order visually: the
+ * warm end is at the *foot* of the content, where the day starts.
+ */
+const FLIGHT: Stop[] = [
+  { color: ramp.sky[500], at: 0 },
+  { color: ramp.sky[400], at: 0.26 },
+  { color: '#8fe0ff', at: 0.52 },
+  { color: '#cff1ff', at: 0.74 },
+  { color: '#ffe9c4', at: 0.92 },
+  { color: '#ffc58a', at: 1 },
+];
 
 /**
  * The Sky — the daily race, as one shared corridor (roadmap deviation #56).
@@ -52,7 +72,11 @@ import { colors, font, space } from '@/theme.ts';
  * to MMKV and `track` writes a row.
  */
 export default function Sky() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  // The flight bleeds to every edge, so the pinned chrome takes the insets
+  // itself. There is no `Screen` here: this tab is a picture the size of the
+  // glass with things floating on it, not a scrolling column of cards.
+  const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -104,59 +128,174 @@ export default function Sky() {
     if (claimDaily(userId, 'race_seen', localToday)) void track(userId, 'race_seen');
   }, [userId, localToday, sawRace]);
 
-  // The corridor's box. Full width less the screen's padding, and its height
-  // follows from the design's aspect rather than from a second constant.
-  const boxWidth = width - space.lg * 2;
+  // The corridor is the whole screen wide and four times as tall — the flight
+  // is scrolled, not glanced at. Its height follows from the design's aspect
+  // rather than from a second constant.
+  const boxWidth = width;
   const boxHeight = boxWidth / SKY_PATH_ASPECT;
 
   const placements = placeRacers(racers.map((r) => r.progress));
 
+  /**
+   * Where to open the flight.
+   *
+   * On your own bird, a third of the way down the viewport — the design's
+   * `componentDidMount` does the same thing, and for the same reason: a flight
+   * that opens at the ground shows a brand-new day's worth of empty sky, and
+   * one that opens at the ridge shows the flag to somebody who has not reached
+   * it. Opening on the reader puts what they came for on screen and leaves the
+   * climb above them visible as the thing to do.
+   *
+   * `contentOffset` rather than a `scrollTo` in an effect: the effect version
+   * paints at the ground for one frame and then jumps, which reads as the
+   * screen glitching every single time it is opened.
+   */
+  const myY = me ? pointAt(me.progress).y * boxHeight : boxHeight;
+  const openAt = Math.max(0, Math.min(boxHeight - height, myY - height / 3));
+
   return (
-    <Screen>
-      <Label>Today&apos;s sky</Label>
+    <View style={styles.screen}>
+      <ScrollView
+        contentOffset={{ x: 0, y: openAt }}
+        showsVerticalScrollIndicator={false}
+        style={StyleSheet.absoluteFill}
+      >
+        <View style={{ width: boxWidth, height: boxHeight }}>
+          <Gradient stops={FLIGHT} steps={40} />
 
-      {/* `isSuccess && !consented`, never `!consented` alone: the query reads
-          false while in flight, which is indistinguishable from a refusal
-          (deviation #37's lesson again). And this sits below every hook above
-          it — an early return placed higher would be a conditional hook, and
-          the count would change on the frame consent lands. */}
-      {consent.isSuccess && !consent.consented && squad.data && (
-        <Panel variant="tint">
-          <Text style={styles.note}>
-            You are not sharing your totals, so the sky is empty. Turn sharing on
-            from the Flock tab to fly with them.
-          </Text>
-        </Panel>
-      )}
-
-      <Panel variant="sky" style={styles.field}>
-        <SkyCorridor width={boxWidth}>
-          {racers.map((racer, i) => (
-            <SkyMarker
-              key={racer.userId}
-              racer={racer}
-              placement={placements[i] as (typeof placements)[number]}
-              boxWidth={boxWidth}
-              boxHeight={boxHeight}
+          {/* Clouds, thinning as the flight climbs. Decoration only — the
+              race's meaning is entirely in the birds and the ridge. */}
+          {CLOUDS.map((cloud, i) => (
+            <View
+              key={i}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.cloud,
+                {
+                  top: boxHeight * cloud.at,
+                  left: cloud.left === null ? undefined : boxWidth * cloud.left,
+                  right: cloud.right === null ? undefined : boxWidth * cloud.right,
+                  width: cloud.w,
+                  height: cloud.h,
+                  opacity: cloud.opacity,
+                },
+              ]}
             />
           ))}
-        </SkyCorridor>
-      </Panel>
 
-      {me && <SkyStanding me={me} racers={racers} />}
+          <SkyCorridor width={boxWidth}>
+            {racers.map((racer, i) => (
+              <SkyMarker
+                key={racer.userId}
+                racer={racer}
+                placement={placements[i] as (typeof placements)[number]}
+                boxWidth={boxWidth}
+                boxHeight={boxHeight}
+              />
+            ))}
+          </SkyCorridor>
 
-      <Text style={styles.quiet}>{syncedLabel}</Text>
+          {/* The ridge, named once, beside the line the corridor draws.
 
-      {/* Below the picture, because they have no position to draw — putting
-          them on the corridor would imply one. */}
-      {withheld.map((r) => (
-        <Text key={r.user_id} style={styles.quiet}>
-          {`${r.character_name} is not sharing their totals.`}
-        </Text>
-      ))}
-    </Screen>
+              `RACE_FINISH_LINE` **is** `DAILY_STEP_BASELINE` by derivation, so
+              this figure and the Daily Walk's are one number with two readings.
+              No literal appears here and none may — and note the race reaches
+              it through raw steps rather than through a tier, which is what
+              keeps the whole screen clear of the `AGI`/`AGI_base` trap. */}
+          <View
+            accessible
+            accessibilityLabel={`The ridge, ${RACE_FINISH_LINE.toLocaleString()} steps`}
+            style={[styles.ridge, { top: pointAt(1).y * boxHeight - 14 }]}
+          >
+            <Text
+              scale="fixed"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.ridgeText}
+            >
+              {`${(RACE_FINISH_LINE / 1000).toFixed(0)}k · ridge`}
+            </Text>
+          </View>
+
+          {/* The ground the day started from. */}
+          <View
+            accessible
+            accessibilityLabel="Midnight, where the day started"
+            style={[styles.ground, { top: pointAt(0).y * boxHeight + 24 }]}
+          >
+            <Text
+              scale="fixed"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.groundText}
+            >
+              midnight
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Pinned over the flight, so scrolling moves the climb underneath it. */}
+      <View
+        pointerEvents="box-none"
+        style={[styles.pinnedTop, { top: insets.top + space.sm }]}
+      >
+        <SkyFlockRail racers={racers} withheld={withheld} />
+
+        {/* `isSuccess && !consented`, never `!consented` alone: the query reads
+            false while in flight, which is indistinguishable from a refusal
+            (deviation #37's lesson again). And this sits below every hook above
+            it — an early return placed higher would be a conditional hook, and
+            the count would change on the frame consent lands. */}
+        {consent.isSuccess && !consent.consented && squad.data && (
+          <Panel variant="tint" style={styles.consent}>
+            <Text style={styles.note}>
+              You are not sharing your totals, so the sky is empty. Turn sharing
+              on from the Flock tab to fly with them.
+            </Text>
+          </Panel>
+        )}
+      </View>
+
+      <View
+        pointerEvents="box-none"
+        style={[styles.pinnedFoot, { bottom: insets.bottom + TAB_PILL_CLEARANCE }]}
+      >
+        {me && <SkyStanding me={me} racers={racers} floating />}
+
+        {/* Your own sync time, and it says "your" for a reason — squadmates'
+            is not knowable from here, because the RPC projects totals and not
+            sync times. On glass rather than on the page, because there is no
+            page: the flight runs the full height of the screen. */}
+        <Glass tone="dark" radius={radius.lg} style={styles.freshness}>
+          <Text
+            scale="chrome"
+            numberOfLines={1}
+            style={styles.freshnessText}
+          >
+            {syncedLabel}
+          </Text>
+        </Glass>
+      </View>
+    </View>
   );
 }
+
+/**
+ * Where the clouds sit, as fractions of the flight.
+ *
+ * A module constant rather than a literal in the render body: this array is
+ * mapped on every scroll frame's re-render, and a fresh array each time is a
+ * fresh key set for React to reconcile.
+ */
+const CLOUDS = [
+  { at: 0.1, left: -0.1, right: null, w: 190, h: 66, opacity: 0.5 },
+  { at: 0.23, left: null, right: -0.1, w: 210, h: 70, opacity: 0.55 },
+  { at: 0.42, left: -0.13, right: null, w: 220, h: 74, opacity: 0.6 },
+  { at: 0.6, left: null, right: 0.05, w: 170, h: 58, opacity: 0.65 },
+  { at: 0.78, left: 0.1, right: null, w: 240, h: 78, opacity: 0.7 },
+] as const;
 
 /**
  * Who is on the corridor.
@@ -219,7 +358,46 @@ function buildRacers(input: {
 }
 
 const styles = StyleSheet.create({
-  field: { paddingHorizontal: 0, paddingVertical: space.md, overflow: 'hidden' },
-  note: { ...font.body.body, fontSize: 14, color: colors.text, lineHeight: 20 },
-  quiet: { ...font.body.strong, color: colors.muted, marginTop: space.sm },
+  screen: { flex: 1, backgroundColor: colors.night },
+  cloud: {
+    position: 'absolute',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  /**
+   * The ridge and the ground labels sit on the right and centre respectively,
+   * clear of the corridor, which runs up the middle. Both are absolutely
+   * positioned against the flight — this is drawn geometry, the one place the
+   * flow-layout rule does not apply, exactly as `SkyMarker` documents.
+   */
+  ridge: {
+    position: 'absolute',
+    right: space.md,
+    backgroundColor: ramp.gold[400],
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+  },
+  ridgeText: { ...font.display.label, fontSize: 13, color: colors.night },
+  ground: { position: 'absolute', alignSelf: 'center' },
+  groundText: {
+    ...font.body.label,
+    color: colors.text,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    overflow: 'hidden',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+  },
+
+  // `box-none` on both pinned layers so a touch that misses the chrome reaches
+  // the flight behind it — otherwise two invisible full-width bars would eat
+  // the scroll at the top and bottom of the screen.
+  pinnedTop: { position: 'absolute', left: space.md, right: space.md },
+  consent: { marginTop: space.sm },
+  pinnedFoot: { position: 'absolute', left: space.lg, right: space.lg, gap: space.sm },
+  freshness: { paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center' },
+  freshnessText: { ...font.body.strong, fontSize: 11, color: colors.bg },
+
+  note: { ...font.body.body, fontSize: 13.5, color: colors.text, lineHeight: 19 },
 });

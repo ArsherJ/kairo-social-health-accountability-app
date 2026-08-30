@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
@@ -24,7 +25,25 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Label, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
+import { Button, Gradient, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
+import type { Stop } from '@/ui/gradient.ts';
+
+/**
+ * The squad's band: violet into pink.
+ *
+ * `sage` into `coral` — the squad's warmth and the streak's heat. Deliberately
+ * **not** the accent: orange means "you" everywhere else in the app, and a
+ * whole field of it at the top of the one tab explicitly about other people
+ * would be the palette saying the wrong thing loudest.
+ */
+const BAND: Stop[] = [
+  { color: ramp.sage[600], at: 0 },
+  // `damage`, not `coral`. The band carries cream type over its whole height —
+  // the squad's name at the top, the standing at the foot — and cream on
+  // `colors.coral` is 2.93:1. One step deeper is still unmistakably the same
+  // pink and reads at 6.47:1.
+  { color: colors.damage, at: 1 },
+];
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },
@@ -166,7 +185,7 @@ function InviteCode({ code, squadName }: { code: string; squadName: string }) {
         onPress={() => void shareInvite({ squadName, inviteCode: code })}
         style={({ pressed }) => [styles.shareRow, pressed && styles.pressedRow]}
       >
-        <Feather name="share" size={14} color={ramp.sage[700]} />
+        <MaterialCommunityIcons name="share-variant" size={14} color={ramp.sage[700]} />
         <Text style={styles.shareLabel}>Share invite</Text>
       </Pressable>
     </Panel>
@@ -185,6 +204,9 @@ export function Leaderboard({
 }) {  // The live board is the default: §2's hooks assume a board you check during
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
   const router = useRouter();
+  // The band bleeds under the status bar, so its content takes the inset —
+  // `Screen bleed` hands that back rather than guessing.
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
   const leave = useLeaveSquad(userId);
@@ -271,6 +293,7 @@ export function Leaderboard({
 
   return (
     <Screen
+      bleed
       refreshControl={
         <RefreshControl
           refreshing={board.isRefetching}
@@ -284,20 +307,85 @@ export function Leaderboard({
         />
       }
     >
-      <View style={styles.header}>
-        <Text style={styles.squadName} numberOfLines={1}>
-          {squad.name}
-        </Text>
-        {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
+      {/* The squad's own band: name, week, standing, on one field.
+
+          Violet into pink, which is `sage` into `coral` — the squad's warmth
+          and the streak's heat, and deliberately **not** the accent. Orange
+          means "you" everywhere else in the app, and a whole screen of it at
+          the top of the one tab that is explicitly about other people would be
+          the palette saying the wrong thing loudest. The band bleeds to every
+          edge and under the status bar, so its content takes the inset. */}
+      <View style={styles.band}>
+        <Gradient stops={BAND} steps={24} />
+
+        <View style={[styles.bandBody, { paddingTop: insets.top + space.sm }]}>
+          <View style={styles.header}>
+            <Text style={styles.squadName} numberOfLines={1}>
+              {squad.name}
+            </Text>
+            <View
+              accessible
+              accessibilityLabel={`${memberCount.data ?? 0} members`}
+              style={styles.countChip}
+            >
+              <MaterialCommunityIcons
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                name="account-multiple"
+                size={15}
+                color={colors.bg}
+              />
+              <Text
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                scale="fixed"
+                style={styles.countLabel}
+              >
+                {memberCount.data ?? 0}
+              </Text>
+            </View>
+          </View>
+
+          {/* Your last seven days, on the band rather than under a `Label`.
+              The eyebrow went with the move: the strip sits directly under the
+              squad's name on a field of its own, and "Your week" over seven
+              obvious day boxes was labelling a picture that reads itself. It is
+              still spoken — `WeekStrip` names each day. */}
+          <WeekStrip days={weekFrom(days.data ?? [], localToday, profile.data?.timezone)} />
+
+          {/* A pending standing query must never render a claim: nothing beats
+              a placeholder or a dash, both of which would state something
+              false. */}
+          {heroValue != null && (
+            // One baseline, not two lines: "2nd" and what it costs you are a
+            // single claim, and stacking them made the subline read as a
+            // caption for the ordinal rather than as the other half of it.
+            <View style={styles.hero}>
+              <Numeral
+                value={heroValue}
+                size="hero"
+                color={colors.bg}
+                style={styles.heroValue}
+              />
+              {subline != null && (
+                <Text style={styles.standing} numberOfLines={1}>
+                  {subline.map((part, index) => (
+                    <Text key={index} style={part.emphasis ? styles.standingGap : undefined}>
+                      {part.text}
+                    </Text>
+                  ))}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
       </View>
 
-      {/* Your last seven days. Drawn under the squad header because the week
-          is the frame the day below it sits in — 2d's composition. */}
-      <Label>Your week</Label>
-      <WeekStrip days={weekFrom(days.data ?? [], localToday, profile.data?.timezone)} />
-
-      {/* The program is the board's rule, so it belongs in the header rather
-          than in a settings screen nobody opens. */}
+      <View style={styles.page}>
+      {/* The program is the board's rule, so it belongs with the board rather
+          than in a settings screen nobody opens. Below the band and not on it:
+          the band is the squad's identity and this is the squad's *setting*,
+          and the two read as one claim when stacked. */}
       <View style={styles.programLine}>
         <Text style={styles.program}>{programLabel(squad.program)}</Text>
         {boost && (
@@ -305,32 +393,9 @@ export function Leaderboard({
             <Text style={styles.boostLabel}>{boost}</Text>
           </View>
         )}
+        {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
       </View>
 
-      {/* A pending standing query must never render a claim: nothing beats a
-          placeholder or a dash, both of which would state something false. */}
-      {heroValue != null && (
-        // One baseline, not two lines: "2nd" and what it costs you are a
-        // single claim, and stacking them made the subline read as a caption
-        // for the ordinal rather than as the other half of the sentence.
-        <View style={styles.hero}>
-          <Numeral
-            value={heroValue}
-            size="hero"
-            color={ramp.accent[700]}
-            style={styles.heroValue}
-          />
-          {subline != null && (
-            <Text style={styles.standing} numberOfLines={1}>
-              {subline.map((part, index) => (
-                <Text key={index} style={part.emphasis ? styles.standingGap : undefined}>
-                  {part.text}
-                </Text>
-              ))}
-            </Text>
-          )}
-        </View>
-      )}
       <View style={styles.toggle}>
         {MODES.map(({ mode: value, label }) => (
           <Pressable
@@ -438,39 +503,60 @@ export function Leaderboard({
           busy={leave.isPending}
         />
       </View>
+      </View>
     </Screen>  );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: space.sm,
+  /**
+   * The band has no fixed height: it is as tall as the name, the week and the
+   * standing make it. A fixed one is what would clip the week strip at large
+   * Dynamic Type, and the rounded foot is what makes the page below open out of
+   * it rather than start under a rectangle.
+   */
+  band: {
+    borderBottomLeftRadius: 44,
+    borderBottomRightRadius: 44,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
   },
-  squadName: { color: colors.text, ...font.display.major, fontSize: 27, flexShrink: 1 },
-  date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0 },
-  hero: {
-    marginTop: space.md,
+  bandBody: { paddingHorizontal: space.lg, paddingBottom: space.lg, gap: space.md },
+  /** Everything below the band, which is where the page's own padding lives. */
+  page: { paddingHorizontal: space.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  squadName: { color: colors.bg, ...font.display.major, fontSize: 26, flexShrink: 1 },
+  countChip: {
+    marginLeft: 'auto',
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: space.sm,
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
-  heroValue: { fontSize: 66 },
-  // Caprasimo at 66 carries a deep descender box, so a flex-end row would hang
-  // the subline below the ordinal's visual baseline without this.
+  countLabel: { ...font.display.label, color: colors.bg },
+  date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0, marginLeft: 'auto' },
+  hero: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm },
+  heroValue: { fontSize: 58 },
+  // A fat display face at 58 carries a deep descender box, so a flex-end row
+  // would hang the subline below the ordinal's visual baseline without this.
   standing: {
-    color: ramp.neutral[700],
+    color: 'rgba(255,255,255,0.82)',
     ...font.body.body,
     paddingBottom: 8,
     flexShrink: 1,
   },
   // Family off the token rather than a string literal: weights are chosen by
-  // face here, never by `fontWeight`, and `title` is the bold Figtree cut.
+  // face here, never by `fontWeight`. Gold for the gap, because on this band
+  // it is the one figure that has to lift off a saturated ground — and gold on
+  // violet is the only pairing in the palette that does at this size.
   standingGap: {
     ...font.body.body,
     fontFamily: font.body.title.fontFamily,
-    color: ramp.accent[700],
+    color: ramp.gold[300],
   },
   programLine: {
     flexDirection: 'row',
@@ -537,7 +623,10 @@ const styles = StyleSheet.create({
   },
   toggleActive: { backgroundColor: colors.accent },
   toggleLabel: { ...font.display.small, fontSize: 14, color: ramp.neutral[700] },
-  toggleLabelActive: { color: colors.bg },
+  // Ink on the orange, not cream: `colors.accent` is a fill and cream on it is
+  // 2.65:1. The token's own doc comment says so, and this is the site that
+  // most looked fine while being wrong.
+  toggleLabelActive: { color: colors.text },
   note: { ...font.body.body, fontSize: 12, color: colors.muted, marginTop: space.sm, lineHeight: 18 },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   error: { color: colors.damage, ...font.body.body, textAlign: 'center' },

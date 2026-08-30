@@ -22,7 +22,10 @@ export function CtaPill({ label, tone = 'accent' }: { label: string; tone?: 'acc
           around this is the `Pressable`, so VoiceOver should reach one
           element that ends "…Start a battle", not a button nested in a button.
           Same reasoning as the comment above about overlapping targets. */}
-      <Text scale="chrome" style={styles.label}>
+      <Text
+        scale="chrome"
+        style={[styles.label, tone === 'sage' ? styles.sageInk : styles.accentInk]}
+      >
         {label}
       </Text>
     </View>
@@ -40,6 +43,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.accent,
   },
+  // `colors.sage` is a deep violet and carries cream; `colors.accent` is a
+  // bright orange and does not (2.65:1). So the ink is per tone rather than
+  // one value — see `contrast.test.ts`, "a bright fill takes ink".
   sage: { backgroundColor: colors.sage },
-  label: { ...font.display.action, fontSize: 14, color: colors.bg },
+  label: { ...font.display.action, fontSize: 14 },
+  accentInk: { color: colors.text },
+  sageInk: { color: colors.bg },
 });

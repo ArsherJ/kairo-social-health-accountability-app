@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.xs,
   },
-  previewProgram: { color: colors.subtle, fontSize: 14, fontFamily: 'Figtree-SemiBold' },
+  previewProgram: { color: colors.subtle, fontSize: 14, fontFamily: font.body.quiet.fontFamily },
   boostChip: {
     borderWidth: 1,
     borderColor: colors.accentDeep,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  boostLabel: { color: colors.accentDeep, fontSize: 11, fontFamily: 'Figtree-Bold' },
+  boostLabel: { color: colors.accentDeep, fontSize: 11, fontFamily: font.body.body.fontFamily },
   previewCount: { color: colors.muted, fontSize: 12, marginLeft: 'auto' },
   previewNote: { color: colors.muted, fontSize: 12, marginTop: space.sm, lineHeight: 18 },
   previewFull: { color: colors.damage, fontSize: 12, marginTop: space.sm },

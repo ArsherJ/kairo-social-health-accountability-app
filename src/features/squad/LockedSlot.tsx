@@ -1,4 +1,4 @@
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { font, ramp, radius, space } from '@/theme.ts';
 import { Panel, Text } from '@/ui/index.ts';
@@ -38,7 +38,7 @@ export function LockedSlot({
       <Text style={styles.rank}>{rank}</Text>
 
       <View style={styles.disc}>
-        <Feather name="plus" size={20} color={ramp.neutral[600]} />
+        <MaterialCommunityIcons name="plus" size={20} color={ramp.neutral[600]} />
       </View>
 
       <View style={styles.middle}>

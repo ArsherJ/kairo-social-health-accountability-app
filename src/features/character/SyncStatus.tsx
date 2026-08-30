@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/index.ts';
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useScoredDayCount } from '@/features/character/queries.ts';
 import { requestSync, useSyncStatusStore } from '@/features/health/status-store.ts';
@@ -85,7 +85,7 @@ export function SyncStatus({
 
   return (
     <View style={styles.row}>
-      <Feather name={icon} size={12} color={tone} style={styles.icon} />
+      <MaterialCommunityIcons name={icon} size={12} color={tone} style={styles.icon} />
       <Text style={[styles.message, { color: tone }]} numberOfLines={1}>
         {status.message}
       </Text>
@@ -111,18 +111,21 @@ export function SyncStatus({
   );
 }
 
-/** Feather throughout: this is chrome you operate, not a stat you are. */
+/**
+ * One icon family, since Playful retired the hairline/solid split — see
+ * `TabPill` for why the argument that created it now points the other way.
+ */
 const ICONS = {
-  syncing: 'refresh-cw',
-  never: 'clock',
+  syncing: 'refresh',
+  never: 'clock-outline',
   fresh: 'check',
-  stale: 'clock',
+  stale: 'clock-outline',
   failed: 'alert-circle',
   // Not `alert-circle`. This state is the app saying it has nothing, not the
   // app saying something broke — and reusing the failure glyph would put back
   // the technical-error reading the state exists to remove.
-  'no-data': 'inbox',
-} as const satisfies Record<string, React.ComponentProps<typeof Feather>['name']>;
+  'no-data': 'inbox-outline',
+} as const satisfies Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']>;
 
 const styles = StyleSheet.create({
   row: {

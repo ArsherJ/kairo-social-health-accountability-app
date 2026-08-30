@@ -1,17 +1,26 @@
 /**
- * The sky corridor's geometry (roadmap deviation #56).
+ * The sky corridor's geometry (roadmap deviation #56; re-cut vertical by #58).
  *
  * The daily race is drawn as one shared lane everybody flies rather than as six
  * parallel bars. The path is the design's own, transcribed from
- * `Canvas.dc.html` screen 2c:
+ * `Kairo Playful.dc.html` screen 4a:
  *
- *     viewBox="0 0 402 520"
- *     d="M18 470 C 96 452, 128 336, 208 268 S 318 176, 384 152"
+ *     viewBox="0 0 393 1560"
+ *     d="M196 1420 C 120 1250, 268 1120, 188 960 S 118 700, 210 560 S 246 300, 196 150"
  *
- * Two cubic segments. The `S` command's first control point is the reflection
- * of the previous segment's second control point about the join — `(288, 200)`
- * — and getting that reflection wrong produces a visible kink that nothing else
- * catches, which is why a test asserts continuity there.
+ * **The corridor climbs now, where it used to run left to right.** That is the
+ * substantive change in this re-cut, and it is why the box went from 402x520 to
+ * 393x1560: the race is no longer a strip you take in at a glance but a flight
+ * you *scroll*, from the ground at midnight to the ridge at the top. Nothing
+ * about the race's mechanics moved with it — same payload, same client-side
+ * re-rank by capped steps, same derived finish line, same reciprocal consent
+ * gate. Only the shape of the drawing did.
+ *
+ * Three cubic segments. Each `S` command's first control point is the
+ * reflection of the previous segment's second control point about the join —
+ * `(108, 800)` and `(302, 420)` — and getting a reflection wrong produces a
+ * visible kink that nothing else catches, which is why a test asserts
+ * continuity at both joins.
  *
  * **Why this is in the keystone rather than in the component.** Two renderings
  * read it (the band and the markers), a third will if the race ever appears in
@@ -31,8 +40,8 @@
  * module is one layer further removed than that.
  */
 
-const VIEW_W = 402;
-const VIEW_H = 520;
+const VIEW_W = 393;
+const VIEW_H = 1560;
 
 /** Width ÷ height of the drawing box, so a component can size itself. */
 export const SKY_PATH_ASPECT = VIEW_W / VIEW_H;
@@ -50,11 +59,13 @@ function n(x: number, y: number): Point {
 }
 
 const CURVES: readonly Cubic[] = [
-  [n(18, 470), n(96, 452), n(128, 336), n(208, 268)],
-  // (288, 200) is the reflection of (128, 336) about the join at (208, 268),
+  [n(196, 1420), n(120, 1250), n(268, 1120), n(188, 960)],
+  // (108, 800) is the reflection of (268, 1120) about the join at (188, 960),
   // which is what the `S` command means. Written out rather than computed so
   // the constant is greppable against the design's path string.
-  [n(208, 268), n(288, 200), n(318, 176), n(384, 152)],
+  [n(188, 960), n(108, 800), n(118, 700), n(210, 560)],
+  // (302, 420) is the reflection of (118, 700) about the join at (210, 560).
+  [n(210, 560), n(302, 420), n(246, 300), n(196, 150)],
 ];
 
 function cubicAt(c: Cubic, u: number): Point {
@@ -77,8 +88,8 @@ function cubicAt(c: Cubic, u: number): Point {
  * racers a thousand steps apart appear a different distance apart depending on
  * where they are. A race picture that does that is worse than no picture.
  *
- * 512 samples across both curves puts the interpolation error well under a
- * pixel at any phone width, and the table is 512 floats built once.
+ * 512 samples across all three curves puts the interpolation error well under
+ * a pixel at any phone width, and the table is 512 floats built once.
  */
 const SAMPLES = 512;
 
@@ -95,7 +106,7 @@ const TABLE: readonly Sample[] = (() => {
 
   for (let i = 0; i <= SAMPLES; i++) {
     const global = i / SAMPLES;
-    // Two curves, each taking half the parameter space before arc-length
+    // Each curve takes an equal share of the parameter space before arc-length
     // correction. `Math.min` keeps the last sample on the final curve rather
     // than indexing past the end.
     const which = Math.min(CURVES.length - 1, Math.floor(global * CURVES.length));
@@ -172,9 +183,11 @@ export function tangentAt(t: number): { dx: number; dy: number } {
 /**
  * The tangent as a rotation in **degrees**.
  *
- * Negative all the way along, because the path climbs and screen `y` grows
- * downward. A test asserts the sign: getting it wrong mirrors every segment of
- * the band and still renders.
+ * Roughly -90 all the way along, because the corridor climbs and screen `y`
+ * grows downward. It swings either side of vertical as the path weaves, which
+ * is the whole visual character of the flight — but it never points *down*, and
+ * a test asserts that: getting the sign wrong mirrors every segment of the band
+ * and still renders.
  */
 export function angleAt(t: number): number {
   const { dx, dy } = tangentAt(t);

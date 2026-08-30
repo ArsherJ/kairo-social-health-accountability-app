@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   DAILY_STEP_BASELINE,
@@ -36,7 +37,7 @@ import {
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
-import { QuestList } from '@/features/quests/QuestList.tsx';
+import { QuestRings } from '@/features/quests/QuestRings.tsx';
 import { todayQuests, useQuestCompletions } from '@/features/quests/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
@@ -49,8 +50,13 @@ import {
 } from '@/features/telemetry/milestone-store.ts';
 import { DailyWalkCard } from '@/features/train/DailyWalkCard.tsx';
 import { TrainEntry } from '@/features/train/TrainEntry.tsx';
-import { Meter, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { TodayChips, TodayCount, TodayStatCoins } from '@/features/character/TodayHud.tsx';
+import { TodayTiles } from '@/features/character/TodayTiles.tsx';
+import { RaceLine } from '@/features/squad/RaceLine.tsx';
+import { WelcomePopups } from '@/features/onboarding/WelcomePopups.tsx';
+import { STAT_NAMES } from '@/ui/StatIcon.tsx';
+import { Screen, Text } from '@/ui/index.ts';
+import { colors, font, space } from '@/theme.ts';
 
 /**
  * Distinct from `first_sync_seen` (`markFirstSyncSeen` in `useHealthSync.ts`,
@@ -108,6 +114,18 @@ function countWord(n: number): string {
 }
 
 /**
+ * How tall the sky is.
+ *
+ * Fixed rather than a fraction of the screen, because the figure inside it is
+ * sized from this (`Diorama` draws the character at `height * 0.6`) and a bird
+ * that changed size between a 320pt and a 440pt phone would read as a different
+ * bird. 452 is the design's, and it leaves the quest rings half on screen at
+ * the fold on the shortest supported device — which is the point: the rings are
+ * what tell you the screen scrolls.
+ */
+const HERO_HEIGHT = 452;
+
+/**
  * Today — the character and the day, on one screen (`Canvas.dc.html` 2b).
  *
  * The character tab and the Today tab merged here on 2026-08-27. They were
@@ -138,6 +156,9 @@ function countWord(n: number): string {
  */
 export default function Today() {
   const router = useRouter();
+  // The sky bleeds under the status bar, so the HUD takes the inset itself —
+  // `Screen bleed` deliberately hands that back rather than guessing.
+  const insets = useSafeAreaInsets();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -235,7 +256,10 @@ export default function Today() {
     // no Mind at all, and `finalize-days` grades by the same rule.
     sleepMinutes: vitals.data?.sleepMinutes ?? null,
   });
-  const lane = laneLine({ characterName, lane: laneStat(dominance.data) });
+  // Hoisted, because the tile needs the stat itself as well as the sentence
+  // about it — calling `laneStat` twice would be two chances to disagree.
+  const laneOf = laneStat(dominance.data);
+  const lane = laneLine({ characterName, lane: laneOf });
 
   // The shift the scorer actually applied to Motion today, read through the
   // same `spreadShift` rather than restated — a sentence quoting a ladder the
@@ -280,279 +304,208 @@ export default function Today() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, localToday, metSlots]);
 
+  // The night as a figure, for the sleep tile. Read through the same
+  // `vitals.sleepMinutes` the sentence beside it reads, so the two cannot
+  // disagree — and `null` stays `null` all the way to the tile, which prints
+  // no figure at all rather than "0h 00" on a night nothing measured.
+  const sleepFigure =
+    vitals.data?.sleepMinutes == null
+      ? null
+      : `${Math.floor(vitals.data.sleepMinutes / 60)}h ${String(
+          Math.round(vitals.data.sleepMinutes % 60),
+        ).padStart(2, '0')}`;
+
   return (
-    <Screen>
-      {/* The bird, in its sky. `Diorama` already owns the figure, the ground
-          shadow, the habitat and the presence ring; this screen supplies the
-          field it sits in and nothing else. `padding: 0` because the sky runs
-          to the card's edge — it is a place, not a card with a margin. */}
-      <Panel variant="sky" style={styles.stage}>
-        <Diorama
-          height={300}
-          level={level}
-          stage={stage}
-          dominance={dominance.data}
-          species={profile.data?.species}
-          lifetimePoints={lifetime}
-          crest={ceilingReached}
-        />
-      </Panel>
+    <Screen bleed>
+      {/* The bird, in its sky, running to the edge of the glass.
 
-      {/* Level and streak, in flow rather than floating. They were an
-          absolutely-positioned HUD over the diorama while it was full-bleed at
-          the top of the screen; the sky is a card now, and a row under it says
-          the same two things without the offsets that stacked pills on top of
-          each other at large Dynamic Type. */}
-      <View style={styles.pills}>
-        <View
-          accessible
-          accessibilityLabel={
-            `Level ${level}, ${xp.intoLevel.toLocaleString()} of ` +
-            `${xp.neededForNext.toLocaleString()} XP`
-          }
-          style={styles.levelPill}
-        >
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.levelDisc}
-          >
-            <Text scale="fixed" style={styles.levelNumber}>
-              {level}
-            </Text>
-          </View>
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.levelBody}
-          >
-            <Meter fraction={xp.fraction} color={ramp.accent[500]} height={9} />
-            <Text scale="fixed" style={styles.levelMeta}>
-              {xp.intoLevel.toLocaleString()} / {xp.neededForNext.toLocaleString()} XP
-            </Text>
-          </View>
-        </View>
-
-        {/* "3 day streak", not "3-day": the hyphenated form is right on screen
-            and wrong out loud, the same rule `row-label.ts` tests. */}
-        {(streak.data?.current_streak ?? 0) > 0 && (
-          <View
-            accessible
-            accessibilityLabel={`${streak.data?.current_streak} day streak`}
-            style={styles.streakPill}
-          >
-            <Text
-              scale="fixed"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={styles.streakNumber}
-            >
-              {streak.data?.current_streak}
-            </Text>
-            <Text
-              scale="fixed"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={styles.streakUnit}
-            >
-              day{streak.data?.current_streak === 1 ? '' : 's'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* The day, in real units. One number per screen — never a score total
-          (deviation #34), and `Numeral` is tabular so a live refetch does not
-          make it jitter.
-
-          One accessible element, not two: ungrouped, VoiceOver stops on the
-          bare numeral and then on the unit. */}
-      <View
-        accessible
-        accessibilityLabel={`${steps.toLocaleString()} steps today`}
-        style={styles.hero}
+          `Diorama` owns the figure, the ground shadow, the sky and its fade;
+          this screen supplies the HUD that floats over it. The HUD is a
+          **flowing column** spaced by flex — the 2026-08-14 rule, and this
+          screen is where it was learned: the pills were pinned at fixed offsets
+          against heights nothing enforced, and at large Dynamic Type they grew
+          past each other. No child here carries a `top`. */}
+      <Diorama
+        height={HERO_HEIGHT}
+        level={level}
+        stage={stage}
+        dominance={dominance.data}
+        species={profile.data?.species}
+        lifetimePoints={lifetime}
+        crest={ceilingReached}
       >
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={styles.heroRow}
-        >
-          <Numeral value={steps} size="hero" color={colors.accentInk} animate />
-          <Text scale="fixed" style={styles.heroUnit}>
-            STEPS TODAY
-          </Text>
+        <View style={[styles.hud, { paddingTop: insets.top + space.sm }]}>
+          <TodayChips level={level} xp={xp} streak={streak.data?.current_streak ?? 0} />
+
+          <View style={styles.hudGap} />
+
+          {/* **Gated, same rule as the rail on You** (deviation #37). These are
+              the same three masteries from the same lifetime rollups; an
+              ungated copy on the screen a brand-new account opens first would
+              undo the gate by the back door. */}
+          {disclosure.stage === 'full' && (
+            <TodayStatCoins
+              ratings={
+                profile.data && {
+                  AGI: profile.data.agi_total,
+                  STR: profile.data.str_total,
+                  MND: profile.data.mnd_total,
+                }
+              }
+            />
+          )}
+
+          <View style={styles.hudGap} />
+
+          {/* The day, in real units. One number per screen — never a score
+              total (deviation #34). */}
+          <TodayCount steps={steps} />
         </View>
+      </Diorama>
+
+      <View style={styles.page}>
+        {/* Three small things, reset at the player's own local midnight.
+            **Derived, never stored** — `pickQuests()` hashes (account, date,
+            tier), so tomorrow hashes to a different three and there is no job,
+            no row and nothing for a retroactive Apple revision to invalidate.
+            Ungated on purpose: this is what teaches the loop. */}
+        <QuestRings quests={quests} />
+
+        {/* The race, as a line and a door. The picture is on the Sky tab; this
+            names the gap to the bird ahead and opens it. Renders nothing when
+            there is nobody ahead. */}
+        <RaceLine racers={ranked} me={me} ahead={ahead} />
+
+        {/* The bird's reading of the day, under the figures it is about. The
+            hero sentence sits here rather than over the sky: it is prose, and
+            prose on a picture is the one thing `Glass` cannot rescue. */}
+        <Text style={styles.sentence}>
+          {heroSentence({
+            characterName,
+            progress: me?.progress ?? 0,
+            rival: ahead
+              ? {
+                  name: ahead.characterName,
+                  stepsAhead: ahead.cappedSteps - (me?.cappedSteps ?? 0),
+                }
+              : null,
+          })}
+        </Text>
+
+        {/* Why today's Motion is easier than the published number, when it is.
+            **Ungated on purpose**: the shift applies from an account's very
+            first day, and a difficulty change nobody explains reads as a broken
+            score rather than as a gift. A plain line, not a card: it explains
+            the figure above it and a panel would make it a separate subject. */}
+        {spread && <Text style={styles.aside}>{spread}</Text>}
+
+        {/* What the changed sky means. The crest is the one thing that alters
+            the app's centrepiece, so it is also the one that most needs saying
+            out loud — an unexplained change to the screen someone opens first
+            is indistinguishable from a bug. */}
+        {ceilingReached && <Text style={styles.sentence}>{ceilingLine(characterName)}</Text>}
+
+        {/* The Strain/Sleep rows, redrawn as tiles. **Still gated** — same
+            rule, new dress. A `core` account has not produced the nights these
+            read. */}
+        {disclosure.stage === 'full' && (
+          <TodayTiles
+            sleep={{ ...sleep, figure: sleepFigure }}
+            // The lane's figure is the stat's own player-facing word, never
+            // its engine key (deviation #51) and never a number — a lane has no
+            // number, and inventing one is the readout these tiles replace.
+            lane={lane && { ...lane, figure: laneOf ? STAT_NAMES[laneOf] : null }}
+          />
+        )}
+
+        {/* Deliberately outside any gate: "waiting for your first sync" or
+            "couldn't sync" is most useful on exactly the account that has the
+            least else on screen. */}
+        <SyncStatus userId={userId} timeZone={timeZone} />
+
+        {/* The one number in Kairo that never moves, and the run of days
+            against it. It never scales with the user. */}
+        <DailyWalkCard
+          userId={userId}
+          timeZone={timeZone}
+          today={localToday}
+          todaySteps={totals?.steps}
+        />
+
+        {/* The door to Challenges — **the one gated thing below the fold**. A
+            Challenge target is a trailing median over workout sessions a `core`
+            account may have none of.
+
+            Last deliberately: a hidden card at the bottom leaves no hole, where
+            one removed from the middle would.
+
+            `stage`, not `resolved && stage` — this hides a card, it does not
+            navigate. The redirect in `/train` is the one that has to wait. */}
+        {disclosure.stage === 'full' && (
+          <TrainEntry userId={userId} timeZone={timeZone} today={localToday} />
+        )}
+
+        {/* What the gate is building toward. An empty space where a card used
+            to be reads as a missing feature, so `core` says what is coming —
+            counted in "active days" rather than as a bare countdown.
+
+            `resolved` here and nowhere else on this screen. The gated cards
+            above act on the stage alone, which is right — hiding early then
+            revealing is a reveal. This line makes an affirmative claim with a
+            number in it, so an unresolved count would print "Three more active
+            days…" to an established user for a frame. */}
+        {disclosure.resolved && disclosure.stage === 'core' && (
+          <Text style={styles.disclosureNote}>
+            {disclosure.daysToGo === 1
+              ? 'One more active day and challenges and your full stat breakdown open up.'
+              : `${countWord(disclosure.daysToGo)} more active days and challenges ` +
+                'and your full stat breakdown open up.'}
+          </Text>
+        )}
+
+        {/* `/progress` is reached through the expanded stat block on You, which
+            `core` does not have — leaving a first-time user with no explanation
+            of anything on the screen they understand least. So the link renders
+            here instead, at the one stage that needs it most. */}
+        {disclosure.stage === 'core' && (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="How progress works"
+            hitSlop={space.sm}
+            onPress={() => router.push('/progress')}
+            style={({ pressed }) => pressed && { opacity: 0.6 }}
+          >
+            <Text style={styles.helpLink}>How progress works</Text>
+          </Pressable>
+        )}
+
+        <FirstSyncCallout
+          userId={userId}
+          timeZone={timeZone}
+          points={{
+            AGI: today?.agi_points ?? 0,
+            STR: today?.str_points ?? 0,
+            MND: today?.mind_points ?? 0,
+          }}
+          hasScore={today != null}
+        />
       </View>
 
-      {/* The race, as a sentence. The picture is on the Sky tab. */}
-      <Text style={styles.sentence}>
-        {heroSentence({
-          characterName,
-          progress: me?.progress ?? 0,
-          rival: ahead
-            ? {
-                name: ahead.characterName,
-                stepsAhead: ahead.cappedSteps - (me?.cappedSteps ?? 0),
-              }
-            : null,
-        })}
-      </Text>
+      {/* The three cards that land after onboarding. Mounted here because this
+          is where onboarding drops you and because the dim is over *this*
+          screen in the design — the sheet rises over a Today that already has
+          your first numbers on it, which is the whole point of asking for
+          Health before the name.
 
-      {/* Why today's Motion is easier than the published number, when it is.
-          **Ungated on purpose**: the shift applies from an account's very first
-          day, and a difficulty change nobody explains reads as a broken score
-          rather than as a gift — which is exactly what `scoring.ts` warned it
-          would. It is a plain line, not a card: it explains the figure directly
-          above it and a panel would make it a separate subject. */}
-      {spread && <Text style={styles.aside}>{spread}</Text>}
-
-      {/* What the changed sky means. The crest is the one thing in this pass
-          that alters the app's centrepiece, so it is also the one that most
-          needs saying out loud — an unexplained change to the screen someone
-          opens first is indistinguishable from a bug. The permanent half of
-          this day is on You, under Your best days. */}
-      {ceilingReached && <Text style={styles.sentence}>{ceilingLine(characterName)}</Text>}
-
-      {/* The Strain/Sleep rows, redrawn. **Still gated** — same rule, new
-          dress. A `core` account has not produced the nights these read. */}
-      {disclosure.stage === 'full' && (
-        <>
-          <VoiceCard tone="teal" eyebrow={sleep.eyebrow} body={sleep.body} />
-          {lane && <VoiceCard tone="sage" eyebrow={lane.eyebrow} body={lane.body} />}
-        </>
-      )}
-
-      {/* Deliberately outside any gate: "waiting for your first sync" or
-          "couldn't sync" is most useful on exactly the account that has the
-          least else on screen. */}
-      <SyncStatus userId={userId} timeZone={timeZone} />
-
-      {/* Three small things, reset at the player's own local midnight.
-          **Derived, never stored** — `pickQuests()` hashes (account, date,
-          tier), so tomorrow hashes to a different three and there is no job, no
-          row and nothing for a retroactive Apple revision to invalidate.
-          Ungated on purpose: this is what teaches the loop. */}
-      <QuestList quests={quests} />
-
-      {/* The one number in Kairo that never moves, and the run of days against
-          it. It never scales with the user. */}
-      <DailyWalkCard
+          Once ever, on an MMKV marker it claims itself; this screen passes the
+          values and the invite action and knows nothing else about it. */}
+      <WelcomePopups
         userId={userId}
-        timeZone={timeZone}
-        today={localToday}
-        todaySteps={totals?.steps}
-      />
-
-      {/* The door to Challenges — **the one gated thing below the fold**. A
-          Challenge target is a trailing median over workout sessions a `core`
-          account may have none of, so offering it on day one offers depth to
-          somebody who has not produced the data it reads.
-
-          Last deliberately: a hidden card at the bottom leaves no hole, where
-          one removed from the middle would.
-
-          `stage`, not `resolved && stage` — this hides a card, it does not
-          navigate. The redirect in `/train` is the one that has to wait. */}
-      {disclosure.stage === 'full' && (
-        <TrainEntry userId={userId} timeZone={timeZone} today={localToday} />
-      )}
-
-      {/* What the gate is building toward. An empty space where a card used to
-          be reads as a missing feature, so `core` says what is coming —
-          counted in "active days" rather than as a bare countdown, because
-          that is the thing the gate actually counts.
-
-          `resolved` here and nowhere else on this screen. The gated cards above
-          act on the stage alone, which is right — hiding early then revealing
-          is a reveal. This line makes an affirmative claim with a number in it,
-          so an unresolved count would print "Three more active days…" to an
-          established user for a frame, or permanently if the count query errors
-          while the profile query succeeded. */}
-      {disclosure.resolved && disclosure.stage === 'core' && (
-        <Text style={styles.disclosureNote}>
-          {disclosure.daysToGo === 1
-            ? 'One more active day and challenges and your full stat breakdown open up.'
-            : `${countWord(disclosure.daysToGo)} more active days and challenges ` +
-              'and your full stat breakdown open up.'}
-        </Text>
-      )}
-
-      {/* `/progress` is reached through the expanded stat block on You, which
-          `core` does not have — leaving a first-time user with no explanation
-          of anything on the screen they understand least. So the link renders
-          here instead, at the one stage that needs it most. Same destination,
-          not a second help surface. */}
-      {disclosure.stage === 'core' && (
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel="How progress works"
-          hitSlop={space.sm}
-          onPress={() => router.push('/progress')}
-          style={({ pressed }) => pressed && { opacity: 0.6 }}
-        >
-          <Text style={styles.helpLink}>How progress works</Text>
-        </Pressable>
-      )}
-
-      <FirstSyncCallout
-        userId={userId}
-        timeZone={timeZone}
-        points={{
-          AGI: today?.agi_points ?? 0,
-          STR: today?.str_points ?? 0,
-          MND: today?.mind_points ?? 0,
-        }}
-        hasScore={today != null}
+        characterName={characterName}
+        inviteCode={squad.data?.invite_code ?? null}
+        onInvite={() => router.push('/flock')}
       />
     </Screen>
-  );
-}
-
-/**
- * One of the bird's observations, as a card.
- *
- * Two tones, and they are the two families that are not the accent: teal is
- * rest, sage is your lane. Neither is a call to action, which is why neither is
- * amber — the screen spends its one accent on the day's number.
- *
- * One accessibility element with both halves of the grouping fix: an eyebrow
- * and a sentence read as two stops otherwise, and the eyebrow alone is not a
- * sentence.
- */
-function VoiceCard({
-  tone,
-  eyebrow,
-  body,
-}: {
-  tone: 'teal' | 'sage';
-  eyebrow: string;
-  body: string;
-}) {
-  const hidden = {
-    accessibilityElementsHidden: true,
-    importantForAccessibility: 'no-hide-descendants',
-  } as const;
-
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${eyebrow}. ${body}`}
-      style={[styles.voiceCard, tone === 'teal' ? styles.voiceTeal : styles.voiceSage]}
-    >
-      <Text
-        {...hidden}
-        scale="chrome"
-        style={[styles.voiceEyebrow, tone === 'teal' ? styles.inkTeal : styles.inkSage]}
-      >
-        {eyebrow.toUpperCase()}
-      </Text>
-      <Text
-        {...hidden}
-        style={[styles.voiceBody, tone === 'teal' ? styles.inkTeal : styles.inkSage]}
-      >
-        {body}
-      </Text>
-    </View>
   );
 }
 
@@ -623,101 +576,45 @@ function buildRacers(input: {
 }
 
 const styles = StyleSheet.create({
-  stage: { padding: 0, alignItems: 'center', justifyContent: 'flex-end' },
+  /**
+   * The HUD column over the sky. `flex: 1` so it fills the diorama, and spaced
+   * by two flexible gaps rather than by offsets — the 2026-08-14 rule this
+   * screen is the original home of.
+   */
+  hud: { flex: 1, paddingBottom: 22 },
+  hudGap: { flex: 1 },
 
-  pills: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: space.sm,
-    marginTop: space.md,
-  },
-  // Two content-sized pills in a `space-between` row overflow rather than wrap,
-  // and RN defaults `flexShrink` to 0. The level pill is the one that grows (a
-  // long XP line), so it is the one that yields.
-  levelPill: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingVertical: 7,
-    paddingHorizontal: 9,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-  },
-  levelDisc: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ramp.accent[200],
-  },
-  levelNumber: { ...font.display.small, color: ramp.accent[800] },
-  levelBody: { minWidth: 92, flexShrink: 1, gap: 3, paddingRight: space.xs },
-  levelMeta: { ...font.body.strong, fontSize: 10.5, color: ramp.neutral[700] },
-
-  streakPill: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    paddingVertical: 7,
-    paddingHorizontal: space.md,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.sage[200],
-  },
-  streakNumber: { ...font.display.small, color: ramp.sage[800] },
-  streakUnit: { ...font.body.label, color: ramp.sage[800] },
-
-  hero: { marginTop: space.lg },
-  // `flexWrap`, because this row is the widest thing on the screen: six display
-  // glyphs at hero size plus the unit already overflow a 320pt screen before
-  // Dynamic Type touches it. Wrapping puts the unit on its own line.
-  heroRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: space.sm },
-  heroUnit: { ...font.body.label, color: colors.muted, paddingBottom: space.sm },
+  /** Everything below the sky, which is where the page's own padding lives. */
+  page: { paddingHorizontal: space.lg },
 
   sentence: {
     ...font.body.body,
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 14.5,
+    lineHeight: 21,
     color: colors.subtle,
-    marginTop: space.sm,
+    marginTop: 14,
   },
 
   /**
    * The spread line: subordinate to `sentence`, which is the day's headline.
    *
-   * A step down in size and weight rather than a colour change — `colors.muted`
-   * already carries "supporting" here, and reaching for the accent would make a
+   * A step down in size rather than a colour change — `colors.muted` already
+   * carries "supporting" here, and reaching for the accent would make a
    * footnote compete with the figure it is a footnote to. No card, no rule, no
-   * icon: it is one clause of explanation attached to the number above it, and
-   * every container considered made it look like a separate subject.
+   * icon: it is one clause attached to the number above it, and every container
+   * considered made it look like a separate subject.
    */
   aside: {
     ...font.body.body,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.muted,
     marginTop: space.xs,
   },
 
-  voiceCard: {
-    marginTop: space.md,
-    padding: space.lg,
-    borderRadius: 24,
-    borderCurve: 'continuous',
-    gap: space.xs,
-  },
-  voiceTeal: { backgroundColor: colors.tealTint },
-  voiceSage: { backgroundColor: ramp.sage[200] },
-  inkTeal: { color: colors.tealInk },
-  inkSage: { color: ramp.sage[800] },
-  voiceEyebrow: { ...font.body.label },
-  voiceBody: { ...font.body.body, fontSize: 14.5, lineHeight: 20 },
-
   disclosureNote: {
     ...font.body.body,
-    fontSize: 13.5,
+    fontSize: 13,
     lineHeight: 19,
     color: colors.muted,
     marginTop: space.lg,
