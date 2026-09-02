@@ -185,13 +185,27 @@ server than the installed build cannot send anyone somewhere that does not exist
 
 ### The numbers say how old they are
 
-Under the TODAY panel on Character, a status line reports when health data last
-reached the server: `Synced 4 minutes ago` when healthy, `Last synced 3 hours
-ago · Sync now` once it goes stale, and `Couldn't sync. Showing data from 3
-hours ago · Try again` when the last attempt failed. `SyncStatus.tsx` renders
-it, `sync-status.ts` decides the wording, and retry enters the sync policy as a
-`manual` trigger — unthrottled, because it is the escape hatch from exactly the
-state it is reporting.
+A status line reports when health data last reached the server: `Synced 4
+minutes ago` when healthy, `Last synced 3 hours ago · Sync now` once it goes
+stale, and `Couldn't sync. Showing data from 3 hours ago · Try again` when the
+last attempt failed. `SyncStatus.tsx` renders it, `sync-status.ts` decides the
+wording, and retry enters the sync policy as a `manual` trigger — unthrottled,
+because it is the escape hatch from exactly the state it is reporting.
+
+> **Where it sits moved twice, and this paragraph named the first location until
+> 2026-09-02.** It read *"Under the TODAY panel on Character"*: `TodayPanel` was
+> unmounted by deviation #59 and the Character tab was dissolved by #54, so the
+> sentence named a panel inside a tab, neither of which had existed for a week.
+> It lives **inside Today's details sheet** now, in `attentionOnly` mode — silent
+> on a healthy fresh sync, because "synced 3 minutes ago" inside a sheet
+> somebody opened on purpose is a line about the app rather than about their
+> day. **Every state that explains something still speaks.** The decision, the
+> six states and the reasoning below are all unchanged; only the surface moved.
+
+The Sky tab carries a second, different freshness line, and the two are not
+duplicates: this one is a health-pipeline status with a retry, and the Sky's
+says how old *your own* numbers on the corridor are — squadmates' are not
+knowable there, because the RPC projects totals and not sync times.
 
 This is not decoration. Between 9 and 11 August 2026 `sync-health` failed on
 every call while its bucket write kept committing, so the app displayed real,
