@@ -131,6 +131,22 @@ why the player can see rather than one borrowed from a squad. The two social
 reasons are unchanged and still fire earlier; the ordering module is untouched,
 so Health still goes first and two sheets still cannot present in one session.
 
+**The ask's own copy was stale, and this change is what exposed it.** The sheet
+promised "when this one is about to close" and "the two that close out your day,
+which arrive at 11 PM and midnight" — `day_ending_soon` and `day_ends`, both
+retired by deviation #52, emitted by nothing since 2026-08-25. It survived
+because the ask only ever fired for a user with a squad or a live Battle;
+opening it to every solo player would have put a false promise in front of the
+whole new-user cohort. It now describes the Digest and nothing else. It names no
+rank — a solo player is the typical reader now, and `digestCopy()`'s solo branch
+declines to name one on purpose — and it no longer claims "three a day at most",
+which was never guaranteed: `event_completed` is budget-*exempt*, so it is
+admitted without spending the budget and can land on top of a full one. What is
+exact is the 08:00 schedule and the 10 PM–7 AM quiet window, so those are what
+it states. `ask-copy.test.ts` guards it, because this is the second surface in a
+week found promising something the product had stopped doing, and both had
+nothing watching them.
+
 **And the digest now stops.** An account with **no scored day in seven local
 days** is *lapsed*: `users_needing_digest()` sends it nothing, silently, and the
 next scored day resumes it with nothing to reset. One push a day to somebody who

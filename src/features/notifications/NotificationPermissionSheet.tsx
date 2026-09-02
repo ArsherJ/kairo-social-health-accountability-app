@@ -8,15 +8,40 @@ import { registerDeviceToken, requestNotificationPermission } from './permission
 /**
  * The in-context ask (§5), as sheet *content* rather than a sheet.
  *
- * It appears once the user has a squad or has been hit — at which point the
- * "why" is on screen behind it. iOS grants exactly one dialog per install, so
- * spending it during onboarding, before the user has anything to be notified
- * about, is spending it on a no.
+ * It appears once the user has a squad, a live Battle, or a first scored day of
+ * their own — at which point the "why" is on screen behind it. iOS grants
+ * exactly one dialog per install, so spending it during onboarding, before the
+ * user has anything to be notified about, is spending it on a no.
  *
  * *When* it may show is `shouldAskForNotifications` in `ask-policy.ts`; whether
  * it wins the slot against the Health ask is `permissions/ask-order.ts`. Both
  * are pure. This component owns neither — that separation is what stopped the
  * two sheets presenting on top of each other.
+ *
+ * **The copy describes the Digest, and was rewritten on 2026-09-02 because it
+ * had stopped being true.** It promised "when this one is about to close" and
+ * "the two that close out your day, which arrive at 11 PM and midnight" —
+ * `day_ending_soon` and `day_ends`, both retired by deviation #52 when three
+ * pushes a day became one. Nothing has emitted them since 2026-08-25. The
+ * staleness was invisible for a week because the ask only ever fired for a user
+ * with a squad or a live Battle; deviation #60 opened it to every solo player
+ * on their first scored day, which is what put a false promise in front of the
+ * whole new-user cohort.
+ *
+ * Two things the copy deliberately does **not** say. It never names a rank or a
+ * standing: `digestCopy()`'s solo branch says nothing about rank on purpose —
+ * a solo player races their own past days, and "1st of 4" against three ghosts
+ * is a claim about people who do not exist — and this sheet is now read mostly
+ * by exactly that player. And it does **not** promise "three a day at most",
+ * which the old copy did and which was never guaranteed: `event_completed` is
+ * in `BUDGET_EXEMPT`, so it is admitted without spending the budget and can
+ * land on top of a full one. What is exact is the schedule and the quiet
+ * window, so those are what it states.
+ *
+ * `ask-copy.test.ts` guards the retired phrasings. This is the second surface
+ * in a week found making a promise the product had stopped keeping, and the
+ * first — the invite message's privacy clause — went stale for exactly the
+ * same reason: nothing was watching it.
  */
 export function NotificationAsk({
   onAnswered,
@@ -42,15 +67,15 @@ export function NotificationAsk({
 
   return (
     <>
-      <Text style={styles.label}>DON'T LOSE THE DAY</Text>
-      <Text style={styles.title}>Know before your day closes</Text>
+      <Text style={styles.label}>ONE PUSH A DAY</Text>
+      <Text style={styles.title}>Your day, read back each morning</Text>
       <Text style={styles.body}>
-        Get told when a new day starts and when this one is about to close —
-        the hour when there is still time to move the day.
+        At eight, in your own timezone — how yesterday finished and where today
+        has got to. It is the only push Kairo schedules.
       </Text>
       <Text style={styles.fine}>
-        Three a day at most, and nothing between 10 PM and 7 AM — except the
-        two that close out your day, which arrive at 11 PM and midnight.
+        Nothing between 10 PM and 7 AM. A Battle going down or a Challenge
+        clearing can add one; nothing else sends.
       </Text>
 
       <Button

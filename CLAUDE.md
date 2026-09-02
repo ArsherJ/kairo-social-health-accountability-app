@@ -603,6 +603,14 @@ easily:
   lost Mastery, no altered gate, nothing stored, and the player is never told.
   **No Edge Function redeploys** — the function is replaced in place and its
   signature does not move.
+- **The ask sheet's copy describes the Digest and is guarded.** It promised the
+  11 PM and midnight pushes deviation #52 retired, and survived a week only
+  because the ask never reached a solo player. It names no rank (the solo digest
+  branch declines to, and a solo player is now the typical reader) and claims no
+  hard daily cap — `MAX_NOTIFICATIONS_PER_DAY` bounds the *budgeted* triggers
+  and `event_completed` is `BUDGET_EXEMPT`, so "three a day at most" was never
+  guaranteed. `ask-copy.test.ts` reads the `.tsx` off disk, which is the only
+  way to test it: root Vitest cannot parse React Native's Flow syntax.
 - **Two ordering constraints, and both windows are silent.** The migration is
   applied **before** the client ships, or solo players hold tokens against an
   unsuppressed Digest. The landing page is deployed **before** the OTA that
