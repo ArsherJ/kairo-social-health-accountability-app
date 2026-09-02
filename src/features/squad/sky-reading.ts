@@ -105,9 +105,12 @@ export function skyReading(
       // `RACE_FINISH_LINE`, which is the Daily Walk's baseline, so the ridge on
       // this screen and the floor on Today are one number with two readings.
       observation: `You have the sky to yourself. The ridge is the opponent — ${RACE_FINISH_LINE.toLocaleString()} steps, the same every day.`,
+      // Kept short on purpose: this lands in pinned chrome over the flight,
+      // which grows upward against a fixed screen rather than scrolling. Every
+      // extra line costs headroom at the largest text sizes.
       invitation: hasSquad
-        ? 'Bring someone up here with you and the climb has company.'
-        : 'A flock flies the same corridor. Start one and the sky fills up.',
+        ? 'Bring someone up here and the climb has company.'
+        : 'A flock flies the same corridor. Start one.',
       action: hasSquad ? 'Invite a friend' : 'Start a flock',
       intent: hasSquad ? 'share' : 'flock',
     },

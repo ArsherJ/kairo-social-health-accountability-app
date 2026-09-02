@@ -280,8 +280,21 @@ export default function Sky() {
             complete reading rather than a hole. */}
         {reading.solo && !withholding && (
           <Panel variant="tint" style={styles.solo}>
-            <Text style={styles.note}>{reading.solo.observation}</Text>
-            <Text style={styles.soloOffer}>{reading.solo.invitation}</Text>
+            {/* `chrome`, not the default `prose`, and that is the geometry rule
+                rather than a preference. This card sits in `pinnedFoot`, which
+                is absolutely positioned against the bottom of the screen and
+                grows *upward* — a container with no give at all, unlike the
+                scrolling column of cards `prose` is written for. At 1.8× the
+                stack (card + standing + freshness + tab clearance) measures
+                past a 667pt screen and would run under the flock rail and the
+                status bar. Nothing clips, so nothing looks broken until you
+                hold a small phone at the largest text size. */}
+            <Text scale="chrome" style={styles.note}>
+              {reading.solo.observation}
+            </Text>
+            <Text scale="chrome" style={styles.soloOffer}>
+              {reading.solo.invitation}
+            </Text>
             {/* `CtaPill` is a View by design, not a control: the `Pressable`
                 around it is the target, and nesting a touchable inside a
                 touchable gives iOS two overlapping ones where the inner
