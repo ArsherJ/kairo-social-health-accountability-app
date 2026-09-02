@@ -14,6 +14,7 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 - **The palette is Playful** (deviation #58). Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **The Digest reaches solo players and stops for lapsed ones** (deviation #60). The privacy claim is made in **three** places, not four.
+- **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded by `src/features/support/links.test.ts`. The App Store answers are `docs/app-store-privacy.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields, the `NSHealthShareUsageDescription` build.
 
 Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
 
@@ -168,9 +169,12 @@ replay *mechanism* is untouched and is not what the ADR is about. Design:
   table through as a parameter was the first attempt and broke an
   out-of-package caller (`character-resolver.ts`) at *runtime* rather than
   compile time. One module, imported by both.
-- **All five Edge Functions redeploy together.** `sync-health`, `finalize-days`,
-  `replay-scores`, `seed-health` and `dispatch-notifications` all bundle either
-  `core.ts` or `rescore.deno.ts`. Deploying only `sync-health` leaves
+- **All deployed Edge Functions redeploy together.** `sync-health`,
+  `finalize-days`, `replay-scores` and `dispatch-notifications` all bundle
+  either `core.ts` or `rescore.deno.ts` (`seed-health` does too, but is
+  **undeployed as of 2026-09-02** — it fabricates activity and the beta
+  measures real behaviour; it stays in the tree for a project with no real
+  users). Deploying only `sync-health` leaves
   `finalize-days` rescoring days with the *old* model — the split-brain that
   took scoring down for two days in August 2026, in a new place. Verified after
   deploy with `supabase/scripts/smoke-sync.mjs`; a `str_points` that is not
@@ -619,7 +623,16 @@ easily:
   reintroduced by sequencing.
 
 **The privacy claim is made in three places as of 2026-09-02**, and one test
-owns it across two of them. The invite *message* dropped its clause: it read
+owns it across two of them. *Later the same day the policy page became a
+fourth, with its own test:* `src/features/support/links.test.ts` reads
+`web/privacy.html` off disk and pins the contact address against
+`SUPPORT_EMAIL`, the four totals, the pooled-Battle clause, the deletion
+clause, and bans engine keys, tier names, retired promises and `[[TODO`
+placeholders — so the page cannot deploy with a blank in it. The HealthKit
+permission sheet is the other surface corrected that day: `disclosure.ts`
+said "Score your AGI / STR / MND", engine keys on the one screen a 5.1.3
+reviewer reads, invisible to the "Agility" scan because a key is not a word.
+`disclosure.test.ts` bans `\b(AGI|STR|MND)\b` there now. The invite *message* dropped its clause: it read
 "Steps, never Health data", which is self-contradictory (steps *are* Health
 data), subject-less, and stale since deviation #47's consent gate made four
 daily totals visible to a consenting squadmate. **A shorter true clause is not
@@ -1140,8 +1153,11 @@ block; what is #47's own, and still live:
   hook and the count changes the frame consent lands. A row whose `steps` is
   null keeps its place with no position; dropping it looks like the member left,
   and drawing it at zero invents a bad day. **The privacy policy and the App
-  Store privacy answers are not yet updated, and that is a launch blocker** —
-  guideline 5.1.3.
+  Store privacy answers exist as of 2026-09-02** (`web/privacy.html`,
+  `docs/app-store-privacy.md`); entering them in App Store Connect is what is
+  left of the 5.1.3 blocker. **Consent has no in-app withdrawal** — nothing
+  clears `squad_data_consent_at`, so the policy says "email us"; a Settings
+  switch is JS-only and the obvious follow-up.
 
 **JS ships over the air as of 2026-08-25** (roadmap deviation #43). EAS Update
 is installed, so a change under `app/`, `src/` or `packages/kairo-core` reaches

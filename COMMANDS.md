@@ -162,11 +162,13 @@ no Docker). Everything below goes over HTTPS.
 supabase functions deploy <name> --project-ref zniopywbwenrzxezolwv
 ```
 
-Functions: `sync-health`, `finalize-days`, `replay-scores`, `seed-health`,
-`dispatch-notifications`.
+Functions: `sync-health`, `finalize-days`, `replay-scores`,
+`dispatch-notifications`. (`seed-health` is still in the tree but was
+**undeployed on 2026-09-02**, before external testers — it fabricates activity.
+Redeploy it only to a project with no real users.)
 
-**The five Edge Functions that bundle `core.ts` / `rescore.deno.ts` redeploy
-together** — `sync-health`, `finalize-days`, `replay-scores`, `seed-health`,
+**The four deployed Edge Functions that bundle `core.ts` / `rescore.deno.ts`
+redeploy together** — `sync-health`, `finalize-days`, `replay-scores`,
 `dispatch-notifications`. Deploying only one leaves the others on the old scoring
 model (split-brain).
 

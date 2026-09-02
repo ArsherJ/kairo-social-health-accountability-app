@@ -68,8 +68,8 @@ export function HealthAsk({
       <Text style={styles.label}>POWER YOUR CHARACTER</Text>
       <Text style={styles.title}>Your real life is the game</Text>
       <Text style={styles.body}>
-        Your activity levels your character and puts you on the squad
-        leaderboard. Here is everything Kairo reads from Apple Health:
+        Your activity levels your character and races your squad. Here is
+        everything Kairo reads from Apple Health:
       </Text>
 
       {/* Rendered from HEALTH_DISCLOSURE rather than written out, so the list

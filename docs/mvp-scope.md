@@ -268,10 +268,11 @@ a movement pattern — and `profiles` is owner-readable only.
 
 This paragraph used to say squadmates "can never reach raw steps". That is no
 longer true, and a stale privacy claim is the worst kind, so the line is
-rewritten rather than annotated. **Still outstanding and blocking launch:** the
-privacy policy and the App Store privacy answers are updated in the same pass
-before any outsider joins a squad. HealthKit data disclosed to other users
-engages App Review guideline 5.1.3.
+rewritten rather than annotated. **The privacy policy exists as of 2026-09-02**
+(`web/privacy.html`, linked from Settings) and the App Store privacy answers
+are derived in `docs/app-store-privacy.md`; entering them in App Store Connect
+is the remaining step before any outsider joins a squad. HealthKit data
+disclosed to other users engages App Review guideline 5.1.3.
 
 ---
 

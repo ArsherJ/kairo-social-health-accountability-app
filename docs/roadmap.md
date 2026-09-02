@@ -746,12 +746,25 @@ phase for the argument and its accepted cost.
   schema and Edge Functions actually do, with the six decisions that are the
   founder's — controller identity, contact address, retention period, DPO,
   jurisdiction, and whether beta data survives — left as visible `[[TODO]]`s
-  rather than guessed. **Still owed: counsel review, and a public URL for the
-  policy** (App Store Connect requires one for any app requesting HealthKit).
+  rather than guessed. **2026-09-02: all six decided** (founder — self as
+  controller and DPO, `arsherjames25@icloud.com`, life-of-account retention,
+  Philippines, beta data may be reset, 13+), the draft replaced by
+  `web/privacy.html` at `/privacy` on the invite host, linked from Settings and
+  guarded by `links.test.ts`; answers in `docs/app-store-privacy.md`. **Still
+  owed: counsel review, the legal name in the page, and the App Store Connect
+  entry.** The ToS draft is deferred behind Apple's standard EULA.
 - ⬜ `app_events` instrumentation
 - ⬜ Internal → external testers, beta ops
-- ⬜ **Undeploy `seed-health` before external testers join** — it fabricates
-  activity, and the beta measures real behaviour
+- 🟨 **Undeploy `seed-health` before external testers join** — it fabricates
+  activity, and the beta measures real behaviour. Docs updated 2026-09-02; the
+  `supabase functions delete` itself is the founder's to run.
+- 🟨 **Launch-readiness pass (2026-09-02).** Found and fixed: the HealthKit
+  permission sheet printed engine keys ("Score your AGI"); `app-store-privacy.md`
+  wrongly said the body-metric columns were never written; the Info.plist
+  string still made the retired "never your raw data" promise (build 23);
+  Supabase was on Free with no backups (moving to Pro); no feedback affordance
+  in the app (Settings row added). Open follow-up: a Settings switch to
+  withdraw squad-data consent, which today needs an email.
 - 🟨 **[SP] Segment beta metrics by squad program and personal focus** —
   the instrumentation is in place (`profiles.focus`, `squads.program`, the
   three `app_events` types) and the four queries are checked in at

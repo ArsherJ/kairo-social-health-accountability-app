@@ -1,6 +1,10 @@
 # Kairo — Privacy Policy
 
-**DRAFT — not reviewed by counsel. See `README.md` in this directory.**
+**SUPERSEDED 2026-09-02 — historical draft.** The policy that ships is
+`web/privacy.html` (live at `https://kairo-teal-nine.vercel.app/privacy`).
+This file is the 2026-08-08 draft it replaced and describes a product that no
+longer exists: Bronze/Silver/Gold shown to squadmates, engine keys, a species
+picker, anonymous beta accounts, a score total. Do not edit it; edit the page.
 
 Last updated: 2026-08-08
 Applies to: Kairo for iOS, including the TestFlight beta.

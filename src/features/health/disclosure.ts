@@ -34,12 +34,18 @@ export const HEALTH_DISCLOSURE: readonly DisclosureGroup[] = [
       'HKQuantityTypeIdentifierDistanceWalkingRunning',
     ],
     label: 'Steps and distance',
-    purpose: 'Score your AGI',
+    // Surface words, never engine keys (deviation #51). This sheet printed
+    // "Score your AGI" for a week after the rename because the old-vocabulary
+    // scan in stat-names.test.ts looks for the retired *word* and cannot see
+    // a three-letter key — and this is the one screen a HealthKit reviewer
+    // reads beside the privacy policy. `disclosure.test.ts` now bans the keys
+    // here by word boundary.
+    purpose: 'Score your Motion',
   },
   {
     types: ['HKQuantityTypeIdentifierActiveEnergyBurned'],
     label: 'Active calories',
-    purpose: 'Score your STR',
+    purpose: 'Score your Body',
   },
   {
     types: ['HKQuantityTypeIdentifierAppleExerciseTime'],
@@ -56,7 +62,7 @@ export const HEALTH_DISCLOSURE: readonly DisclosureGroup[] = [
     // Promoted from the REC bonus to a full stat on 2026-08-20 (deviation
     // #41). This is the one entry where the copy understated what happens to
     // the data rather than overstating it: sleep is now scored.
-    purpose: 'Score your MND',
+    purpose: 'Score your Mind',
   },
   {
     types: [

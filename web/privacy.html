@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairo privacy policy</title>
+    <meta
+      name="description"
+      content="What Kairo reads from Apple Health, what your squad can see, what nobody can, and how to delete all of it."
+    />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5ead8" />
+    <meta name="robots" content="index, follow" />
+
+    <style>
+      /* Same tokens as index.html, on purpose: this page is the landing page's
+         footnote and must read as the same place. No webfonts, no script, no
+         image — a policy page that phones home while explaining that it does
+         not is the wrong first impression, and `links.test.ts` pins it. */
+      :root {
+        color-scheme: light;
+        --bg: #f5ead8;
+        --surface: #ebddc5;
+        --text: #201e1d;
+        --subtle: #5d564e;
+        --muted: #7c736a;
+        --accent: #c67139;
+        --sage: #7a8a5e;
+        --rule: rgba(32, 30, 29, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        /* A long read, so a little more air than the landing page. */
+        line-height: 1.6;
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      main {
+        width: 100%;
+        max-width: 34rem;
+        margin: 0 auto;
+        padding: clamp(2rem, 8vh, 4rem) 1.5rem 2rem;
+        flex: 1;
+      }
+
+      .mark {
+        font-size: 0.8125rem;
+        font-weight: 800;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .mark a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      h1 {
+        margin: 1.25rem 0 0;
+        font-size: clamp(2rem, 8vw, 2.75rem);
+        line-height: 1.08;
+        letter-spacing: -0.022em;
+        font-weight: 800;
+        text-wrap: balance;
+      }
+
+      .dateline {
+        margin: 0.875rem 0 0;
+        font-size: 0.9375rem;
+        color: var(--muted);
+      }
+
+      .lede {
+        margin: 1.75rem 0 0;
+        font-size: 1.0625rem;
+        color: var(--subtle);
+      }
+
+      /* The one thing on this page that is not prose. Kairo's privacy story is
+         a projection — a small set of database functions each deciding what it
+         may hand to whom — and a table shows a projection better than any
+         paragraph can. Everything below it is the same table, spelled out. */
+      .who {
+        margin: 2rem 0 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        min-width: 30rem;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+
+      caption {
+        text-align: left;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        padding: 0 0 0.75rem;
+      }
+
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 0.625rem 0.75rem 0.625rem 0;
+        border-top: 1px solid var(--rule);
+      }
+
+      thead th {
+        border-top: 0;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-bottom: 0.5rem;
+      }
+
+      tbody th {
+        font-weight: 600;
+        width: 46%;
+        padding-right: 1rem;
+      }
+
+      td.always {
+        color: var(--sage);
+        font-weight: 700;
+      }
+
+      td.never {
+        color: var(--muted);
+      }
+
+      td.if {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .who p {
+        margin: 0.75rem 0 0;
+        font-size: 0.875rem;
+        color: var(--muted);
+      }
+
+      section {
+        margin: 2.75rem 0 0;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--rule);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      h3 {
+        margin: 1.5rem 0 0;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      p,
+      li {
+        font-size: 0.9375rem;
+        color: var(--subtle);
+      }
+
+      p {
+        margin: 0.75rem 0 0;
+      }
+
+      ul {
+        margin: 0.75rem 0 0;
+        padding-left: 1.25rem;
+      }
+
+      li {
+        margin-top: 0.375rem;
+      }
+
+      strong {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      a {
+        color: var(--accent);
+        text-underline-offset: 0.15em;
+      }
+
+      dl {
+        margin: 0.75rem 0 0;
+      }
+
+      dt {
+        margin-top: 0.875rem;
+        font-weight: 700;
+        color: var(--text);
+        font-size: 0.9375rem;
+      }
+
+      dd {
+        margin: 0.125rem 0 0;
+        font-size: 0.9375rem;
+        color: var(--subtle);
+      }
+
+      footer {
+        max-width: 34rem;
+        width: 100%;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 2.5rem;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+
+      footer a {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <p class="mark"><a href="/">Kairo</a></p>
+
+      <h1>Privacy policy</h1>
+      <p class="dateline">
+        Effective 2 September 2026. Applies to Kairo for iPhone, including the
+        TestFlight beta.
+      </p>
+
+      <p class="lede">
+        Kairo reads your activity from Apple Health, turns it into a character
+        that levels up, and races your character against your friends. This page
+        says exactly what is read, who can see what, and how to delete all of
+        it. Nothing here is sold, used for advertising, or shown to anyone you
+        have not chosen to race with.
+      </p>
+
+      <div class="who">
+        <table>
+          <caption>Who can see what</caption>
+          <thead>
+            <tr>
+              <th scope="col">What</th>
+              <th scope="col">You</th>
+              <th scope="col">Your squad</th>
+              <th scope="col">Anyone else</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">
+                Your character's name, level, streak, Mastery, and your place in
+                the day's race
+              </th>
+              <td class="always">Always</td>
+              <td class="always">Always</td>
+              <td class="never">Never</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                Your daily totals: steps, distance, active calories, minutes
+                slept
+              </th>
+              <td class="always">Always</td>
+              <td class="if">Only if you have both agreed</td>
+              <td class="never">Never</td>
+            </tr>
+            <tr>
+              <th scope="row">The squad's pooled calories during a Battle</th>
+              <td class="always">Always</td>
+              <td class="always">Everyone on the Battle</td>
+              <td class="never">Never</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                Hour-by-hour movement, heart rate, workouts, pace, height,
+                weight, birth year
+              </th>
+              <td class="always">Always</td>
+              <td class="never">Never</td>
+              <td class="never">Never</td>
+            </tr>
+            <tr>
+              <th scope="row">Your email address</th>
+              <td class="always">Always</td>
+              <td class="never">Never</td>
+              <td class="never">Never</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          "Never" is not a setting. It means no function in Kairo's database can
+          return that data to anyone but you.
+        </p>
+      </div>
+
+      <section id="who-we-are">
+        <h2>1. Who is responsible for your data</h2>
+        <p>
+          Kairo is made in the Philippines by
+          <strong>Arsher James Basilio</strong> ("we", "us"), who is the Personal
+          Information Controller under the
+          <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong> and
+          its implementing rules, and who acts as Data Protection Officer.
+        </p>
+        <p>
+          For privacy questions, access requests, corrections, complaints, or
+          anything else on this page, email
+          <a href="mailto:arsherjames25@icloud.com">arsherjames25@icloud.com</a>.
+          We answer from that address, and we keep our replies to the subject you
+          wrote about.
+        </p>
+      </section>
+
+      <section id="what-we-collect">
+        <h2>2. What we collect</h2>
+
+        <h3>2.1 From Apple Health, with your permission</h3>
+        <p>
+          Kairo asks Apple Health for read access to eight kinds of data. It
+          never writes anything to Apple Health, and it asks for nothing beyond
+          this list.
+        </p>
+        <dl>
+          <dt>Steps and walking or running distance</dt>
+          <dd>
+            Score your Motion. Distance is also used as a cross-check that a step
+            count is real.
+          </dd>
+          <dt>Active calories</dt>
+          <dd>Score your Body.</dd>
+          <dt>Exercise minutes</dt>
+          <dd>
+            Shown to you in your day, and used to adjust how your Motion score is
+            judged. Not a score of their own.
+          </dd>
+          <dt>Sleep</dt>
+          <dd>
+            Score your Mind. Only read where your device provides it, typically
+            an Apple Watch. A night you typed into Apple Health by hand is kept
+            out of scoring.
+          </dd>
+          <dt>Heart rate and resting heart rate</dt>
+          <dd>
+            Your Strain figure. Shown only to you, never scored, never shown to a
+            squadmate.
+          </dd>
+          <dt>Workouts</dt>
+          <dd>
+            Your Challenges, and to confirm a strength session was real before it
+            counts towards Body.
+          </dd>
+        </dl>
+        <p>
+          Under the Data Privacy Act this is <strong>sensitive personal
+          information</strong>, and we treat it as such.
+        </p>
+        <p>
+          <strong>How it is stored.</strong> Movement is stored as hourly totals
+          for your own local day, for example "412 steps between 9 and 10 in the
+          morning on 2 September": steps, distance, active calories, exercise
+          minutes and an average heart rate per hour. Sleep is one total per
+          night, with Apple's flag for whether it was typed in by hand. Resting
+          heart rate is one figure per day. A workout is one record per session:
+          when it started and ended, how long it lasted, its distance and
+          calories, and Apple's numeric code for the kind of activity. We do not
+          store routes, locations, workout names, or anything else from Apple
+          Health.
+        </p>
+
+        <h3>2.2 What you tell us</h3>
+        <ul>
+          <li>
+            <strong>A character name.</strong> It does not have to be your real
+            name, and we suggest it isn't. It is the name your squad sees.
+          </li>
+          <li>
+            <strong>Optionally, your height, weight and year of birth</strong>,
+            entered in Settings. Kairo never asks for them during sign-up and
+            never blocks you on them. Birth year backs the estimate of your
+            maximum heart rate behind the Strain figure. Only you can ever read
+            them.
+          </li>
+          <li>
+            <strong>Squad names, and the name and description of a Battle</strong>
+            you create for your squad.
+          </li>
+          <li>
+            <strong>Your decision on sharing daily totals</strong> with your
+            squad, and your quest difficulty if you set one.
+          </li>
+          <li>
+            <strong>Your time zone</strong>, taken from your device, because your
+            day runs from midnight to midnight where you are.
+          </li>
+        </ul>
+
+        <h3>2.3 From Sign in with Apple</h3>
+        <p>
+          Signing in gives us an account identifier and an email address, which
+          may be Apple's private relay address rather than your own. We do not
+          show it to anyone, and we do not send mail to it. Apple also offers
+          your name at sign-in; Kairo does not keep it, because your character is
+          named separately.
+        </p>
+
+        <h3>2.4 What the app generates</h3>
+        <ul>
+          <li>
+            <strong>Daily scores</strong> for Motion, Body and Mind, and the
+            level, XP, Mastery and streak that follow from them.
+          </li>
+          <li>
+            <strong>Squad membership</strong>, invite codes, each finished day's
+            race standings for your squad, and which quests, Challenges and
+            Battles you completed.
+          </li>
+          <li>
+            <strong>A push notification token</strong> for your device, if you
+            turn notifications on, and a log of which notifications we sent you
+            and when.
+          </li>
+          <li>
+            <strong>Usage events</strong>: that the app was opened, which
+            onboarding steps were completed, that your first sync and first
+            score arrived, that you looked at the race or the day's details, and
+            that your character reacted to something. Two events record a
+            failure, with the error message, so a bug that is invisible to you
+            is at least visible to us. <strong>No usage event carries a health
+            figure.</strong>
+          </li>
+        </ul>
+
+        <h3>2.5 What we do not collect</h3>
+        <p>
+          No location. No contacts, photos or microphone. No advertising
+          identifier. No analytics, advertising or crash-reporting software from
+          any other company is in the app. This website sets no cookies and runs
+          no scripts of its own.
+        </p>
+      </section>
+
+      <section id="who-can-see">
+        <h2>3. Who can see what</h2>
+        <p>This is the table above, spelled out.</p>
+
+        <p>
+          <strong>Your squadmates always see</strong> your character's name and
+          look, your level, your streak, your Mastery, and where you placed in
+          the day's race and on the squad's board. To place you, their app
+          receives the day's score and per-stat bands the ranking is computed
+          from, together with a flag if a day tripped our cheating checks.
+        </p>
+
+        <p>
+          <strong>Your squadmates see your daily totals only if you have both
+          agreed.</strong> Steps, distance, active calories and minutes slept for
+          the day are shown for a member who has turned sharing on, and only to
+          a viewer who has turned it on themselves. Nobody can see anyone's
+          totals without showing their own. If you have not agreed, your
+          squadmates see your bird with no position and the words "not sharing",
+          and you see the same of everyone else. You are asked when you create
+          or join a squad. To withdraw, email us and we switch it off from our
+          side; your totals stop appearing to squadmates at once.
+        </p>
+
+        <p>
+          <strong>One figure is shared without that agreement.</strong> While
+          your squad is fighting a Battle, everyone on it sees the squad's
+          pooled calorie total for the day, one number for the whole squad. Your
+          own share of it stays behind the agreement above. A shared fight you
+          cannot see the state of is not a shared fight, and joining one is
+          itself a decision to take part.
+        </p>
+
+        <p>
+          <strong>In a squad of two, that pooled number can be worked
+          backwards.</strong> Subtracting your own contribution leaves your
+          partner's. There is no version of a shared total that avoids this, so
+          we are naming it: in a squad of two, your daily calorie total is
+          effectively visible to the other person while a Battle is running.
+        </p>
+
+        <p>
+          <strong>Your squadmates never see</strong> your hour-by-hour movement,
+          any timestamp of when you moved, your heart rate, your workouts, your
+          pace, your height, your weight, your birth year, or your email. None of
+          these is behind a setting. There is no code path that returns them to
+          anyone but you.
+        </p>
+
+        <p>
+          That separation is enforced by the database, not by the app. Squad
+          data is served by a small number of read-only functions, each deciding
+          for itself what it may return and to whom, and the sharing agreement is
+          applied inside them, per person. A modified copy of the app cannot
+          obtain anything those functions will not hand over. Hourly movement is
+          treated as the most sensitive thing here on purpose: it reveals when
+          you sleep, when you work and when you are away, which is a great deal
+          more than a daily total does.
+        </p>
+      </section>
+
+      <section id="why">
+        <h2>4. Why we process it, and on what basis</h2>
+        <dl>
+          <dt>Scoring your day and racing your squad, which is the service</dt>
+          <dd>
+            Your consent, given when you connect Apple Health on a screen that
+            lists everything read, and necessary to provide what you asked for.
+          </dd>
+          <dt>Showing daily totals to squadmates</dt>
+          <dd>
+            Your separate, explicit consent, asked when you create or join a
+            squad, and withdrawable as described in section 3.
+          </dd>
+          <dt>Checking that a day's activity is real</dt>
+          <dd>Our legitimate interest in a race that means something.</dd>
+          <dt>Sending you notifications</dt>
+          <dd>
+            Your consent at the iOS permission prompt, revocable in iOS Settings
+            at any time. At most one daily digest, plus a message when a
+            Challenge or Battle is completed.
+          </dd>
+          <dt>Recording the two failure events</dt>
+          <dd>Our legitimate interest in the app working.</dd>
+        </dl>
+        <p>
+          Consent to health data is asked for in context, never during sign-up.
+          If you decline, Kairo still runs; your scores stay at zero.
+        </p>
+      </section>
+
+      <section id="where">
+        <h2>5. Where it goes</h2>
+        <p>
+          <strong>Supabase</strong> hosts our database and server code, in
+          Singapore (Amazon Web Services, region ap-southeast-1). Supabase
+          processes data only on our instruction, as a Personal Information
+          Processor.
+        </p>
+        <p>
+          <strong>Expo's push service and Apple's notification service</strong>
+          deliver notifications. They see your device token and the text of each
+          message. A message can name your character, the day's result, your
+          place in the race, XP earned, or the distance or calories a Challenge
+          was cleared at. It never contains your step count, sleep or heart rate.
+        </p>
+        <p>
+          <strong>Vercel</strong> serves this website and the invite page. It
+          keeps ordinary web server logs and sees no app data.
+        </p>
+        <p>
+          <strong>Apple</strong> operates Sign in with Apple, Apple Health, and
+          the TestFlight beta program. What Apple collects through those is
+          covered by Apple's own privacy policy, not this one.
+        </p>
+        <p>
+          Some of these providers operate outside the Philippines. We remain
+          accountable for your data wherever it is processed, as the Data
+          Privacy Act requires.
+        </p>
+        <p>
+          <strong>We do not sell your data. We do not share it with advertisers,
+          data brokers or analytics companies. We do not use health data for
+          advertising or marketing, and we do not use it to train machine
+          learning models.</strong> Apple's HealthKit rules forbid the first
+          three independently of this policy, and we have no interest in any of
+          them.
+        </p>
+      </section>
+
+      <section id="how-long">
+        <h2>6. How long we keep it</h2>
+        <p>
+          <strong>For as long as your account exists.</strong> There is no
+          rolling window: the character is a record of everything you have done,
+          and deleting part of it would delete part of the character.
+        </p>
+        <p>
+          <strong>To delete everything, open Settings in the app and choose
+          Delete account.</strong> It takes effect immediately and needs no
+          email. We erase your profile, your health data, your scores, your
+          streaks, your squad memberships, your device tokens, your notification
+          log, and your quest, Challenge and Battle completions. If you led a
+          squad, leadership passes to another member first, so your squad is not
+          deleted with you. If you were its last member, the squad goes too.
+        </p>
+        <p>Three things survive a deletion, and none of them can be linked back to you:</p>
+        <ul>
+          <li>
+            A Battle you created for your squad keeps its name and description,
+            with no record of who wrote it, so the squad's fight does not vanish
+            with you.
+          </li>
+          <li>
+            A finished race day keeps its standings for the rest of the squad, as
+            account identifiers with no name attached. Once your account is
+            deleted, nothing links that identifier to you.
+          </li>
+          <li>
+            Usage events are kept with the account identifier removed, so they
+            count towards how the app is used and towards nothing else.
+          </li>
+        </ul>
+        <p>
+          Our host keeps routine database backups for up to seven days. Deleted
+          data leaves those on that schedule and is not restored from them.
+        </p>
+        <p>
+          If you revoke Kairo's access in iOS Settings instead of deleting your
+          account, new data stops arriving at once. Data already scored stays
+          until you delete your account.
+        </p>
+      </section>
+
+      <section id="rights">
+        <h2>7. Your rights</h2>
+        <p>
+          Under the Data Privacy Act you have the right to be informed, to
+          object, to access your data, to correct it, to have it erased or
+          blocked, to data portability, and to damages. In practice:
+        </p>
+        <ul>
+          <li>
+            <strong>Access and portability:</strong> email us and we will send
+            you everything we hold about you in a machine-readable form, within
+            the period the law allows.
+          </li>
+          <li>
+            <strong>Correction:</strong> your character name, height, weight and
+            birth year are editable in the app.
+          </li>
+          <li>
+            <strong>Erasure:</strong> delete your account in the app. It is
+            immediate.
+          </li>
+          <li>
+            <strong>Withdrawing consent to health data:</strong> iOS Settings,
+            Privacy &amp; Security, Health, Kairo.
+          </li>
+          <li>
+            <strong>Withdrawing consent to sharing daily totals:</strong> email
+            us. See section 3.
+          </li>
+          <li>
+            <strong>Notifications:</strong> iOS Settings, Notifications, Kairo.
+          </li>
+          <li>
+            <strong>Complaints:</strong> write to us first if you like, and to
+            the <strong>National Privacy Commission</strong> of the Philippines
+            regardless.
+          </li>
+        </ul>
+      </section>
+
+      <section id="children">
+        <h2>8. Children</h2>
+        <p>
+          Kairo is not for anyone under 13. We do not knowingly collect data from
+          children. If you believe a child has an account, email us and we will
+          delete it.
+        </p>
+      </section>
+
+      <section id="security">
+        <h2>9. Security</h2>
+        <p>
+          Access is enforced at the database row: your rows are readable by you.
+          The app itself holds no permission to write health data or scores at
+          all. Every write goes through server code that checks who you are
+          first, and every score is recomputed from the stored data rather than
+          adjusted in place. Data is encrypted in transit and encrypted at rest
+          by our host.
+        </p>
+        <p>
+          No system is perfectly secure. If a personal data breach occurs, we
+          will notify the National Privacy Commission and the people affected
+          within the period the Data Privacy Act requires.
+        </p>
+      </section>
+
+      <section id="beta">
+        <h2>10. The beta</h2>
+        <p>
+          Kairo is currently distributed through Apple's TestFlight, by
+          invitation. Everything on this page applies during the beta. Two things
+          are specific to it:
+        </p>
+        <ul>
+          <li>
+            <strong>Beta data may be reset</strong> when the public version
+            ships. Scoring is still being tuned, and history recorded under an
+            older rule may be cleared rather than carried across. We will say so
+            in the app before it happens.
+          </li>
+          <li>
+            Feedback and crash reports you send through TestFlight go to Apple
+            first and are shared with us under Apple's TestFlight terms. Feedback
+            you send by email comes to us directly.
+          </li>
+        </ul>
+      </section>
+
+      <section id="not-medical">
+        <h2>11. Not medical advice</h2>
+        <p>
+          Kairo turns activity data into a game. It is not medical advice, not a
+          training programme and not a diagnostic tool, and it knows nothing of
+          your medical history. Consult a doctor before starting or changing an
+          exercise routine, and stop if you are in pain. A broken streak is a
+          game mechanic; an injury is not.
+        </p>
+      </section>
+
+      <section id="changes">
+        <h2>12. Changes to this policy</h2>
+        <p>
+          We will post changes here and update the date at the top. For anything
+          that changes what your squad can see or what we collect, we will tell
+          you in the app before it takes effect.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Kairo · Philippines · <a href="/">Home</a>
+    </footer>
+  </body>
+</html>

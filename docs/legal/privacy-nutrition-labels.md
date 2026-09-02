@@ -1,6 +1,12 @@
 # App Store privacy nutrition labels — the answers
 
-**DRAFT — see `README.md` in this directory.** These follow from
+**SUPERSEDED 2026-09-02.** The answers that go into App Store Connect are in
+`docs/app-store-privacy.md` §2, derived from the code that day. This file is
+the 2026-08-08 version and disagrees with it in several rows (it declares the
+character name under Contact Info → Name and omits email, birth year and the
+Battle text). Kept as history; do not file from it.
+
+ These follow from
 `privacy-policy.md`; if you change one, change the other in the same sitting. A
 label that disagrees with the policy is the kind of inconsistency App Review
 notices and the NPC would notice later.

@@ -1,5 +1,21 @@
 # Legal drafts
 
+**Superseded on 2026-09-02.** The privacy policy that ships is
+`web/privacy.html`, served at `https://kairo-teal-nine.vercel.app/privacy` and
+guarded by `src/features/support/links.test.ts`; the App Store answers are in
+`docs/app-store-privacy.md`. Every decision in the table below was taken that
+day (founder): controller is the founder personally, by legal name; contact is
+`arsherjames25@icloud.com`; the founder is DPO; retention is the life of the
+account; jurisdiction is the Philippines; beta data may be reset at public
+release. `privacy-policy.md` here is the 2026-08-08 draft it replaced, kept as
+history — it names tiers, engine keys, a species picker and anonymous beta
+accounts, none of which exist. `terms-of-service.md` is deferred: the beta ships
+under Apple's standard EULA, and its one load-bearing term ("not medical
+advice") is §11 of the policy.
+
+---
+
+
 Workstream D6. §15 lists the privacy policy and ToS under **V1**, but external
 TestFlight testers need both and they have a lead time measured in days — so
 they are drafted here now, during D, rather than written at the Apple gate (E7).

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { QuestTier } from '@kairo/core';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
@@ -8,6 +8,7 @@ import { NotificationSettingsCard } from '@/features/notifications/NotificationS
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
+import { feedbackMailto, PRIVACY_POLICY_URL } from '@/features/support/links.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { BackRow, Screen, Text } from '@/ui/index.ts';
 
@@ -161,6 +162,28 @@ export default function Settings() {
 
       <Group title="Other stuff">
         <View style={styles.list}>
+          {/* The two ways out to a person, above the two ways out of the app.
+              Feedback first because during the beta it is the row that earns
+              its place: TestFlight's own feedback is a screenshot gesture most
+              testers never find. Both open something outside the app, and
+              `Linking` swallows an unhandled scheme rather than throwing, so
+              a device with no mail account configured simply does nothing —
+              acceptable for a `mailto:`, and the address is on the policy
+              page one row down. */}
+          <Row
+            icon="message-reply-text-outline"
+            tint={colors.accent}
+            label="Send feedback"
+            onPress={() => void Linking.openURL(feedbackMailto())}
+          />
+          <View style={styles.divider} />
+          <Row
+            icon="shield-check-outline"
+            tint={ramp.sky[600]}
+            label="Privacy policy"
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+          />
+          <View style={styles.divider} />
           <Row
             icon="logout"
             tint={ramp.neutral[600]}

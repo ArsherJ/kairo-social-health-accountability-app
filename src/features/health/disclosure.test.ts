@@ -49,6 +49,18 @@ describe('health disclosure', () => {
     }
   });
 
+  it('speaks the surface words, never an engine key', () => {
+    // Deviation #51 renamed the stats to Body, Motion and Mind on every
+    // surface, and this sheet kept saying "Score your AGI" for a week: the
+    // guard in stat-names.test.ts scans for "Agility", which a three-letter
+    // key does not contain. Word-bounded and case-sensitive, like every
+    // engine-key guard in the repo — a loose /str/i would match "strain".
+    for (const group of HEALTH_DISCLOSURE) {
+      expect(group.purpose).not.toMatch(/\b(AGI|STR|MND)\b/);
+      expect(group.label).not.toMatch(/\b(AGI|STR|MND)\b/);
+    }
+  });
+
   it('scores sleep, and says so', () => {
     // Sleep was promoted from a bonus to a full stat. This entry is the one
     // that understated what happens to the data rather than overstating it,
@@ -56,7 +68,7 @@ describe('health disclosure', () => {
     const sleep = HEALTH_DISCLOSURE.find((g) =>
       g.types.includes('HKCategoryTypeIdentifierSleepAnalysis'),
     );
-    expect(sleep?.purpose).toMatch(/MND/);
+    expect(sleep?.purpose).toMatch(/Mind/);
   });
 
   it('says out loud that heart rate is not scored', () => {

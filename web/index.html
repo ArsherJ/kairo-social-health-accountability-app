@@ -295,6 +295,11 @@
         color: var(--muted);
       }
 
+      footer a {
+        color: var(--muted);
+        text-underline-offset: 0.15em;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .fill {
           animation: none;
@@ -388,7 +393,10 @@
 
     <!-- 16.4 matches the IPHONEOS_DEPLOYMENT_TARGET produced by the current
          Expo/CNG toolchain. Re-check this footer when that generated target moves. -->
-    <footer>Kairo · Philippines · iPhone, iOS 16.4 and later</footer>
+    <footer>
+      Kairo · Philippines · iPhone, iOS 16.4 and later ·
+      <a href="/privacy">Privacy policy</a>
+    </footer>
 
     <!-- Show the reader their own code.
          =============================

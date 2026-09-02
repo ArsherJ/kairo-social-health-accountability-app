@@ -9,6 +9,12 @@ Everything below is derived from the code on 2026-09-02, with the file that
 decides each fact named. When the code moves, this moves with it — the same
 rule the HealthKit disclosure already follows.
 
+**Status, end of 2026-09-02:** the policy exists — `web/privacy.html`, served
+at `https://kairo-teal-nine.vercel.app/privacy`, linked from Settings and from
+the landing page's footer, and guarded by `src/features/support/links.test.ts`.
+The first version of this file said the body-metric columns were never written;
+that was wrong (§1, §6) and the answers in §2 now declare them.
+
 > **Not legal advice.** This is an accurate inventory of what the app does and a
 > mapping onto Apple's questionnaire. The policy wording, and whether Philippine
 > law needs more of you (see the last section), is your call and possibly a
@@ -47,11 +53,13 @@ Identity is an `auth.users` row from **Sign in with Apple** — one email today,
 and it may be an Apple private-relay address. Character name and squad name are
 user-supplied. `device_tokens` holds an Expo push token per device.
 
-**Not collected, despite the columns existing:** `height_cm`, `weight_kg`,
-`birth_year`, `sex` on `profiles` are **all null for every account** and nothing
-in `app/` or `src/` writes them. Declare them as not collected — but see
-§6, because a column nothing writes is one refactor away from being collected
-without anyone revisiting this file.
+**Optional, and collected when entered:** `height_cm`, `weight_kg` and
+`birth_year` on `profiles` are written by `BodyMetricsCard` (mounted in
+Settings, through `update-profile.ts`), and `birth_year` feeds `strain.ts`.
+They are null on every live account today only because nobody has typed one.
+**Declare them.** The first draft of this file said nothing writes them; it
+had grepped for the columns in the wrong place. `sex` genuinely has no writer
+and no reader and stays "not collected".
 
 **Not collected at all:** location, contacts, photos, browsing or search
 history, financial data, purchases.
@@ -97,7 +105,9 @@ For every type below the answers to the last two questions are the same:
 | Identifiers → **User ID** | Yes | App Functionality | The account id every row hangs off |
 | Identifiers → **Device ID** | Yes | App Functionality | The Expo push token in `device_tokens` |
 | Contact Info → **Email Address** | Yes | App Functionality | From Sign in with Apple; may be private relay |
-| User Content → **Other User Content** | Yes | App Functionality | Character name, squad name |
+| Health & Fitness → **Health** (again) | Yes | App Functionality | Height and weight, optional, entered in Settings |
+| Other Data → **Other Data Types** | Yes | App Functionality | Birth year, optional, entered in Settings; backs the max-heart-rate estimate behind Strain |
+| User Content → **Other User Content** | Yes | App Functionality | Character name, squad name, Battle name and description |
 | Usage Data → **Product Interaction** | Yes | Analytics, App Functionality | `app_events` |
 | Diagnostics → **Other Diagnostic Data** | Yes | Analytics, App Functionality | Failure events (`timezone_sync_failed`, `health_permission_failed`) carry an error string |
 
@@ -124,7 +134,7 @@ Three notes on the choices:
 
 | Requirement | Status |
 | --- | --- |
-| Privacy policy exists and is linked | ❌ **This is the blocker.** §4 |
+| Privacy policy exists and is linked | ✅ `web/privacy.html`, Settings row, landing footer. **Still to enter in App Store Connect** (§4) |
 | No HealthKit data for advertising or use-based data mining | ✅ No ad SDK, no data broker, no such use |
 | No writing false data to HealthKit | ✅ Read-only — no `toShare` list at all |
 | HealthKit data not shared with third parties without consent | ✅ Shared only with squadmates, behind the reciprocal consent gate |
@@ -132,25 +142,43 @@ Three notes on the choices:
 | In-app account deletion | ✅ `delete_account()` + `app/delete-account.tsx` (5.1.1(v)) |
 
 Also worth knowing before review: **background delivery is declared and used**,
-so expect the reviewer to exercise the Health flow. The permission sheet's
-copy is accurate; the `Info.plist` string is not — see §6.
+so expect the reviewer to exercise the Health flow. The permission sheet's copy
+is accurate as of 2026-09-02 — until then it printed "Score your AGI", an
+engine key on the one screen a 5.1.3 reviewer reads, and `disclosure.test.ts`
+now bans the keys there. The `Info.plist` string is corrected in the same pass
+(§6) and ships with the next build.
 
 ---
 
 ## 4. The privacy policy — what to do
 
-**Where:** `web/` already serves the domain root on Vercel with
-`cleanUrls: true`, so a new `web/privacy.html` is reachable at
-`https://kairo-teal-nine.vercel.app/privacy` with no new infrastructure and no
-build step. That is the cheapest correct answer and keeps the one privacy
-surface a stranger can already reach on the same origin as the invite page.
+**Where:** `web/privacy.html`, reachable at
+`https://kairo-teal-nine.vercel.app/privacy` through `cleanUrls: true` — no new
+infrastructure, no build step, no script, no external request. It keeps the one
+privacy surface a stranger can already reach on the same origin as the invite
+page. `PRIVACY_POLICY_URL` in `src/features/support/links.ts` derives it from
+`INVITE_HOST`, and `links.test.ts` reads the page off disk to assert the
+contact address, the four daily totals, the pooled-Battle clause, the
+deletion clause, no engine key, no retired tier name, no retired promise and no
+`[[TODO` placeholder — the same structural guard `invite-message.test.ts` puts
+on the landing page.
+
+**The decisions the legal drafts left blank were all taken on 2026-09-02**
+(founder): controller is Arsher James Basilio personally; contact is
+`arsherjames25@icloud.com`; the founder is DPO; retention is the life of the
+account; Supabase moves to Pro so "backups up to seven days" is true; minimum
+age 13 with no in-app gate; beta data may be reset at public release; the ToS
+draft is deferred and the beta ships under Apple's standard EULA, with the
+"not medical advice" term folded into the policy's §11.
 
 **Where it must be entered:**
 
 1. App Store Connect → **App Information** → *Privacy Policy URL*.
 2. App Store Connect → **App Privacy** → the answers in §2.
-3. A link **inside the app**. Settings (`app/settings.tsx`) is the obvious home,
-   beside delete-account.
+3. A link **inside the app** — done: a "Privacy policy" row in Settings, beside
+   a "Send feedback" row that opens mail to the contact address.
+4. TestFlight → **Test Information**: the same URL and the same feedback email,
+   both required before external testers can be added.
 
 **What it must say**, given the inventory above:
 
@@ -175,15 +203,16 @@ of which does not:
 
 ## 5. Order of operations
 
-1. Write `web/privacy.html`; deploy `web/` (`vercel deploy --prod`).
-2. Add the in-app link in Settings — **JS only, ships over the air.**
-3. Fix `NSHealthShareUsageDescription` (§6) — **native, costs a build.** Batch
-   it with any other native change rather than spending a build on one string.
-4. Fill in App Privacy in App Store Connect (§2) and set the Privacy Policy URL.
+1. ✅ `web/privacy.html` written and deployed (`vercel deploy --prod`,
+   2026-09-02). `links.test.ts` fails on any `[[TODO` left in the page, which
+   is how the controller's name was kept from shipping blank.
+2. ✅ The Settings rows — **JS only, ships over the air.** Publish the OTA
+   *before* step 3, while the tree's fingerprint still matches build 22.
+3. Fix `NSHealthShareUsageDescription` (§6) — **native, costs a build.** Cut it
+   now; it is the string a reviewer reads beside the policy.
+4. Fill in App Privacy in App Store Connect (§2), set the Privacy Policy URL,
+   and fill TestFlight's Test Information.
 5. Re-read §3 against the built binary before submitting.
-
-Steps 1, 2 and 4 are independent of 3 and can go first; the policy being live
-is what unblocks everything else.
 
 ---
 
@@ -206,9 +235,15 @@ So do not fix it in isolation. It is the string a 5.1.3 reviewer is most likely
 to read alongside the policy, so it should be corrected before submission —
 batched with any other native work.
 
-**Four columns nothing writes.** `height_cm`, `weight_kg`, `birth_year` and
-`sex` are null for every account and are declared "not collected" above. If a
-future feature starts writing any of them, the App Privacy answers become wrong
-and the policy becomes incomplete — and nothing in the test suite would notice,
-because they are legitimate columns. Treat writing one as a change that comes
-back to this file.
+**The body-metric columns are written, and this file said they were not.**
+`height_cm`, `weight_kg` and `birth_year` are optional inputs behind Settings,
+declared in §2 and in the policy's §2.2 since 2026-09-02. `sex` has no writer
+and no reader. The lesson is the one that matters: a "not collected" answer has
+to be checked against the *screens*, not the row counts — the live counts were
+zero, and the card was one tap away.
+
+**Consent to share daily totals has no in-app withdrawal.** `useSquadDataConsent`
+sets `squad_data_consent_at` and nothing clears it; the policy therefore says
+"email us and we switch it off from our side", which is true and is a manual
+step. A Settings switch is JS-only (the column is in the UPDATE grant) and is
+the obvious follow-up.
