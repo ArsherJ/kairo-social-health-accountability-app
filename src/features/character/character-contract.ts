@@ -8,6 +8,18 @@ export const KAIRO_POSES = [
   'workout',
   'race_victory',
 ] as const;
+/**
+ * **`tired` has no producer, deliberately.** `living-reaction.ts` builds no
+ * candidate for it: sleepiness is a *daily Mind state*, not an event, and it is
+ * already carried by the `sleepy` state image that `staticFigureSelection`
+ * picks. A one-shot celebration of somebody being tired is also the wrong
+ * register for this app.
+ *
+ * It stays in the enum because this is the manifest contract Rive binds to —
+ * `data/animations.json` declares it and `validateCharacterManifests` asserts
+ * all five — and removing a value from a shared enum to re-add it at
+ * integration is churn.
+ */
 export const KAIRO_REACTIONS = ['happy', 'excited', 'tired', 'victory', 'level_up'] as const;
 export const COSMETIC_SLOTS = ['body', 'feet', 'back', 'neck', 'face', 'head', 'effect'] as const;
 

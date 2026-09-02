@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { statPointsForRating } from '@kairo/core';
 import {
-  reactionForLevelChange,
   resolveKairoSelection,
   sanitizeCosmetics,
   sleepStateFor,
@@ -40,21 +39,6 @@ describe('strengthTierFor', () => {
     expect(strengthTierFor(statPointsForRating(6))).toBe('fit');
     expect(strengthTierFor(statPointsForRating(21) - 1)).toBe('fit');
     expect(strengthTierFor(statPointsForRating(21))).toBe('strong');
-  });
-});
-
-describe('reactionForLevelChange', () => {
-  it('does not fire on initial data resolution', () => {
-    expect(reactionForLevelChange(null, 8)).toBeUndefined();
-  });
-
-  it('creates a stable occurrence only for a real increase', () => {
-    expect(reactionForLevelChange(8, 9)).toEqual({
-      id: 'level_up',
-      occurrence: 'level:8->9',
-    });
-    expect(reactionForLevelChange(9, 9)).toBeUndefined();
-    expect(reactionForLevelChange(9, 8)).toBeUndefined();
   });
 });
 

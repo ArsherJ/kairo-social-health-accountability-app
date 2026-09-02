@@ -79,14 +79,17 @@ export function strengthTierFor(points: number | null | undefined): StrengthTier
   return 'strong';
 }
 
-/** Creates a stable one-shot occurrence only when an observed level increases. */
-export function reactionForLevelChange(
-  previous: number | null,
-  current: number | null,
-): KairoSelection['reaction'] {
-  if (previous == null || current == null || current <= previous) return undefined;
-  return { id: 'level_up', occurrence: `level:${previous}->${current}` };
-}
+/**
+ * There is deliberately no level-change reaction producer here.
+ *
+ * `reactionForLevelChange()` lived at this spot until deviation #59 and emitted
+ * the identical `level:a->b` occurrence string that `living-reaction.ts` now
+ * produces. Two producers of one occurrence id is how they drift apart — one
+ * changes its format, the other keeps writing the old one, and a level-up
+ * either replays forever or never fires again. `living-reaction.ts` is the only
+ * producer; `resolveKairoSelection` still *carries* a caller's reaction
+ * unchanged, which is a different job.
+ */
 
 function cosmeticCandidates(input: CosmeticInput): readonly { id: unknown; slot: unknown }[] {
   if (Array.isArray(input)) return input;
