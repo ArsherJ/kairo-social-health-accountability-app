@@ -111,7 +111,49 @@ export type AppEventType =
    * Once per local day per slot, so re-opening the tab in the afternoon does
    * not count a quest twice.
    */
-  | 'quest_cleared';
+  | 'quest_cleared'
+  // ---------------------------------------------------------------------
+  // The Living Mirror beta (deviation #59). Today stopped being a dashboard,
+  // so the questions changed: does the one visible next step get acted on, and
+  // does anybody open the details they used to be shown unasked?
+  //
+  // **Category only, never a figure.** The rule `quest_cleared` set — it
+  // carries `{ tier }` and never a quest id — applies here in a stricter form:
+  // no payload may carry a health value, an occurrence id, **or the Motion
+  // location**, because a five-band location is a coarse step count. If
+  // band-level breakdown turns out to matter after the week-one interviews,
+  // that is a deliberate decision with a privacy review attached.
+  //
+  // `kairo_retention()` is deliberately not re-pointed at any of these, for
+  // the same reason it was not re-pointed at the pivot's four: it measures
+  // whether a `daily_scores` row exists on cohort day + N, and what counts as
+  // an active day did not move.
+  // ---------------------------------------------------------------------
+  /**
+   * The Living Mirror was on screen with its three quests resolved. **Once per
+   * the account's own local day** — the denominator the two below are read
+   * against. Fired on render it would measure scrolling.
+   */
+  | 'today_seen'
+  /**
+   * The one visible prompt named a step. Payload `{ category }`, one of
+   * `motion`, `body` or `none` — `none` being the rest sentence, which is a
+   * real and deliberate state rather than a missing value. **Once per local
+   * day**, so re-opening the tab in the afternoon does not count twice.
+   */
+  | 'next_step_shown'
+  /**
+   * Somebody opened the details sheet. **Per tap**, not per day: the question
+   * is whether the complete day is wanted at all, and how often.
+   */
+  | 'today_details_opened'
+  /**
+   * A bounded reaction was actually presented. Payload `{ kind }` — `level`,
+   * `record`, `daily_walk`, `workout` or `motion_location`. **Per
+   * occurrence**, because that is what one reaction is, and it is emitted from
+   * the hook that presents it rather than from a render.
+   */
+  | 'character_reaction_seen';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

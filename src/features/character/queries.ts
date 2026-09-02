@@ -172,42 +172,10 @@ export function useScoredDayCount(userId: string | undefined) {
 }
 
 /**
- * Today's step count, summed from the caller's own hourly buckets.
+ * **There is no `useTodaySteps()` any more** (deviation #59).
  *
- * Only the first-sync callout needs this — `daily_scores` stores points and
- * tiers, not raw measurements, and "4,300 steps" is the number a person
- * recognises as their day. The caller's own `health_buckets` rows only; §5's
- * projection exists precisely so nobody else's are reachable.
+ * It existed only for the first-sync callout, which is deleted. Today's steps
+ * come from `useTodayBuckets`, which every surface on the screen already reads
+ * — a second query for the same figure is a second chance for two parts of one
+ * screen to disagree in one frame.
  */
-export function todayStepsKey(
-  userId: string | undefined,
-  localDate: string | undefined,
-) {
-  return ['today-steps', userId ?? 'none', localDate ?? 'none'] as const;
-}
-
-export function useTodaySteps(
-  userId: string | undefined,
-  timeZone: string | undefined,
-  enabled: boolean,
-) {
-  const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
-
-  return useQuery({
-    queryKey: todayStepsKey(userId, localDate),
-    enabled: enabled && Boolean(userId && localDate),
-    queryFn: async (): Promise<number> => {
-      const { data, error } = await supabase
-        .from('health_buckets')
-        .select('steps')
-        .eq('user_id', userId as string)
-        .eq('local_date', localDate as string);
-
-      if (error) throw new Error(error.message);
-      return ((data ?? []) as ReadonlyArray<{ steps: number }>).reduce(
-        (sum, row) => sum + Number(row.steps),
-        0,
-      );
-    },
-  });
-}

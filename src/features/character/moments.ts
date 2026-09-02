@@ -54,21 +54,3 @@ export function readObservedLevel(userId: string): number | null {
 export function writeObservedLevel(userId: string, level: number): void {
   storage.set(levelKey(userId), level);
 }
-
-/**
- * The retired first-sync callout's marker. Its sole consumer is
- * `FirstSyncCallout.tsx`, which deviation #59 deletes; these two go with it in
- * the same change. Not to be confused with `useHealthSync.ts`'s private
- * `markFirstSyncSeen`, which is the once-ever *telemetry* milestone and stays.
- */
-function firstSyncKey(userId: string): string {
-  return `first-sync-seen.v1.${userId}`;
-}
-
-export function hasSeenFirstSync(userId: string): boolean {
-  return storage.getBoolean(firstSyncKey(userId)) === true;
-}
-
-export function markFirstSyncSeen(userId: string): void {
-  storage.set(firstSyncKey(userId), true);
-}

@@ -32,7 +32,13 @@ const storage = createMMKV({ id: 'kairo.telemetry' });
  * catalogue entry in storage and, worse, invite the id into the payload, which
  * would make `app_events` a per-quest leaderboard nobody asked for.
  */
-export type DailyMarker = 'race_seen' | `quest_cleared.${0 | 1 | 2}`;
+export type DailyMarker =
+  | 'race_seen'
+  | `quest_cleared.${0 | 1 | 2}`
+  // The Living Mirror's two daily events (deviation #59). Same storage shape —
+  // one key holding the last local date — so the key version does not move.
+  | 'today_seen'
+  | 'next_step_shown';
 
 /** Everything this store knows about, so `clearDailyMarkers` can enumerate it. */
 const ALL_MARKERS: readonly DailyMarker[] = [
@@ -40,6 +46,8 @@ const ALL_MARKERS: readonly DailyMarker[] = [
   'quest_cleared.0',
   'quest_cleared.1',
   'quest_cleared.2',
+  'today_seen',
+  'next_step_shown',
 ];
 
 function key(userId: string, marker: DailyMarker): string {

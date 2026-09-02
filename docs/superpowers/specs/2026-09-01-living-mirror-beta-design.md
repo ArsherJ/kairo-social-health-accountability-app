@@ -40,9 +40,18 @@ placement only. It supersedes:
   `docs/superpowers/specs/2026-08-25-the-today-tab-design.md` §7; and
 - any earlier character-surface decision that places Mastery on Today.
 
+In roadmap terms, deviation #59 supersedes **#50**'s Today composition (the
+three visible quest rings and the Challenge door) and **#57**'s race sentence on
+Today. It must name both in its row: a deviation that does not say what it
+retires is what let the three-ring arrangement outlive its own design.
+
 It does **not** supersede the quest engine, quest XP, Daily Walk rules, race,
 scoring, Mastery, disclosure capability, health ingestion or character identity.
-Those existing decisions remain authoritative.
+Nor does it touch **#37** — the disclosure threshold, the `total > 0` scored-day
+filter and the `resolved && stage` navigation rule are all unchanged; only the
+list of surfaces the gate covers on Today gets shorter. It also does not
+supersede the character asset system design (§4.4), which remains authoritative
+for V1. Those existing decisions remain authoritative.
 
 ## 3. Product principles
 
@@ -91,10 +100,20 @@ Daily Walk and Sky race. There is no second Motion target.
 | 0–24% | Branch |
 | 25–49% | Treeline |
 | 50–74% | Valley |
-| 75–99% | Ridge |
-| 100%+ | Cleared |
+| 75–99% | Climb |
+| 100%+ | Ridge |
 
-The scene caps at Cleared just as the race caps at its finish. Running can
+**The Ridge is the finish, and it already means that everywhere else in the
+app.** `RACE_FINISH_LINE` *is* `DAILY_STEP_BASELINE`, the Sky tab's finish
+marker reads `10k · ridge`, the onboarding trivia card says "steps to the
+ridge", and `kairo-voice.ts` reserves "cleared the ridge" for progress ≥ 1 —
+which is also why `spreadLine` is forbidden from using the word for a shifted
+band. Assigning "Ridge" to a 75–99% band would put two values behind one noun,
+so the fourth band is **Climb** and the top band keeps the word the app has
+always used for it. One number, four readings: the Daily Walk's baseline, the
+race's finish, the Motion scene's summit and the ridge the character clears.
+
+The scene caps at the Ridge just as the race caps at its finish. Running can
 select a more energetic available pose, but does not add a running meter or
 separate reward.
 
@@ -141,6 +160,18 @@ Motion location remains visible through the scene even when Mind owns the
 figure. Body remains visible through the independent presence treatment. This
 is the beta-pragmatic route approved for the current art boundary.
 
+**This priority is the part Rive replaces, and nothing else is.** The approved
+character asset system (`docs/superpowers/specs/2026-08-27-kairo-character-asset-system-design.md`)
+is authoritative for V1 and its architecture is one embedded `kairo_v1.riv`
+bound to the semantic contract already in `src/features/character/character-contract.ts`.
+The beta ships static PNGs because that file is still being authored; the
+living-mirror resolver's five outputs are the seam, so the swap replaces
+`staticFigureSelection` and touches nothing else. Two beta-only mechanisms die
+with it and are marked as such in place: the fixed reaction timer (§8), because
+Rive signals its own completion and the asset spec forbids a timeout that
+guesses, and the flattened pose/state selection itself. Nothing in this design
+may assume the static boundary is permanent.
+
 ## 5. Today information hierarchy
 
 ### 5.1 Always visible
@@ -156,6 +187,13 @@ The approved **Balanced mirror** hierarchy is:
 The step figure is the only large reading. KAIRO remains the largest visual
 element. The visible sentence names an attainable action without urgency,
 medical advice or a fabricated time estimate.
+
+**The location name is always rendered, Branch included.** A label that appears
+at 2,500 steps and not before reads as a rendering fault, and Branch is where
+KAIRO lives rather than a failure state. The five words are the enum values
+capitalised — Branch, Treeline, Valley, Climb, Ridge — with no second table
+mapping one to the other, because a parallel table of the same five words is
+stale by construction.
 
 ### 5.2 Removed or merged from Today
 
@@ -190,24 +228,42 @@ Selection is deterministic and uses this order:
    sleep was decided before waking and cannot be repaired during the day. The
    quest remains a neutral observation under More for today and can still clear
    if delayed verified data arrives.
-4. Prefer a Body quest when it is one of today's three, aligns with an opted-in
-   Strength Challenge and remains attainable. The selector never synthesizes a
-   Challenge-specific quest.
-5. Otherwise prefer the incomplete Motion quest nearest completion by its
-   existing raw-unit progress fraction.
-6. If none of those rules chooses one, select the nearest incomplete attainable
-   quest across the remaining stats, breaking ties by the stable daily quest
-   order.
-7. If all actionable quests are complete—or the only incomplete quest is a Mind
+4. Prefer a Body quest when it is one of today's three, is incomplete, and the
+   account has opted into a Strength Challenge (`profiles.trains_strength`).
+   This override **wins outright** — it is the one case where the selector
+   deliberately passes over a nearer step, because opting in is an explicit
+   statement about what the player is training. The selector never synthesizes
+   a Challenge-specific quest.
+5. Otherwise select the **incomplete quest nearest completion across Motion and
+   Body together**, by its existing raw-unit progress fraction, breaking ties by
+   the stable daily quest order.
+6. If all actionable quests are complete—or the only incomplete quest is a Mind
    observation the player cannot change—replace the prompt with permission to
    stop and no new task.
+
+**"Attainable" means `!met` and nothing more.** Every incomplete quest is
+arithmetically reachable until midnight, and a time-of-day or pace heuristic
+would be exactly the fabricated time estimate §5.1 forbids.
+
+**One nearest rule, not a Motion rule and then a fallback.** An earlier draft
+preferred the nearest incomplete *Motion* quest before considering anything
+else, which meant a Body quest at 95% lost to a Motion quest at 80% — the
+selector routinely passing over the step the player was closest to clearing.
+"One gentle next step" is only honest if it is the nearest one.
+
+Quest metrics map to two categories: `steps`, `distance_m` and `active_hours`
+are **Motion**; `active_kcal` is **Body**; `sleep_minutes` is Mind and is
+excluded by rule 3. `active_hours` sits with Motion because in the engine it is
+an AGI threshold shift, not a stat of its own.
 
 The selector never invents a fourth quest, changes a target or pays separate XP.
 It does not convert steps to minutes without measured personal pace.
 
-Reaching the Daily Walk finish clears the Motion scene. The stronger sentence
-"KAIRO has everything today can give it" remains reserved for the existing
-whole-day scoring ceiling; the two conditions are not aliases.
+Reaching the Daily Walk finish *is* reaching the Ridge — one threshold, one
+arrival, and §8 gives it one reaction. The stronger sentence "KAIRO has
+everything today can give it" remains reserved for the existing whole-day
+scoring ceiling; those two conditions are not aliases, and a day can reach the
+ceiling with a quest still open.
 
 ## 7. Optional details bottom sheet
 
@@ -227,8 +283,31 @@ reading rather than flashing zero.
 
 The compact header keeps the existing personal Streak. The Daily Walk run is a
 different value and is named **Daily Walk run** inside Motion's details; the two
-must never share one label or figure. The Challenges link follows the existing
-disclosure gate and appears only at the `full` stage.
+must never share one label or figure.
+
+**Motion's details keep one sentence explaining what the Daily Walk is**, reusing
+`daily-walk.ts`'s existing sentence rather than writing new copy. Deleting `DailyWalkCard`
+otherwise removes the only place in the running app that says the baseline is
+fixed and does not grow with the player — after which the number appears
+nowhere but a trivia card seen once during onboarding. The surviving sentence
+must read the baseline from `DAILY_STEP_BASELINE`; the two `'10,000 steps'`
+literals in that function are replaced in the same commit, its cold-start
+"start a streak" becomes "start a run" — the personal Streak and the Daily Walk
+run must never share a word, and this sentence now sits below a header showing
+the Streak — and the now-unused headline half is deleted with the card.
+
+The Challenges link follows the existing disclosure gate and appears only at the
+`full` stage. That link is the **only** surface the gate still hides on Today:
+`StatRail` has moved to You and the Strain, Sleep and Challenge-entry cards are
+deleted, so `core` and `full` accounts otherwise see an identical screen and
+`/train`'s own redirect is the real door. `useDisclosure`'s doc comment is the
+written-down list of gated surfaces and is rewritten to say exactly that.
+
+**The details trigger is hidden, not disabled, until confirmed or cached totals
+exist.** A dead control with nothing explaining it is the same false accusation
+`QUIET_GRACE_MS` exists to prevent; a control that is not there yet reads as
+"not yet". Everything above it renders from cached or neutral state, so nothing
+is left behind.
 
 The sheet is one accessible modal surface. It must respect the project's
 single-modal convention and cannot be presented while a permission ask owns the
@@ -238,21 +317,59 @@ modal host.
 
 KAIRO's reactions recognize changes rather than demand care.
 
-| Trigger | Beta presentation | Stable occurrence |
-|---|---|---|
-| New Motion location | Brief happy/energetic response | local date + location |
-| Verified strength session | Workout/proud pose | workout identity |
-| Daily Walk or personal record | Victory pose and specific sentence | date + achievement |
-| Level increase | Level-up sentence with victory fallback pose | previous level → current level |
+| Trigger | Beta presentation | Animation id | Stable occurrence |
+|---|---|---|---|
+| New Motion location (Treeline, Valley, Climb) | Brief happy response | `happy` | local date + location |
+| Verified strength session | Workout/proud pose | `excited` | workout identity |
+| Reaching the Ridge — the Daily Walk cleared | Victory pose, "cleared the ridge" | `victory` | local date |
+| Personal record | Victory pose and specific sentence | `victory` | date + achievement |
+| Level increase | Level-up sentence with victory fallback pose | `level_up` | previous level → current level |
 
-Priority is Level increase → personal record/Daily Walk → verified workout →
-Motion location. Only the highest unseen occurrence is presented per opening;
-lower-priority changes are acknowledged by the resulting scene rather than
-queued into a celebration reel.
+**The Ridge belongs to the Daily Walk, not to the location ladder.** `dailyWalkMet`
+and `location === 'ridge'` are the same comparison against the same constant, so
+a location candidate at the top band would be a second reaction for one arrival —
+firing minutes later, after the walk had already been celebrated. The location
+trigger therefore covers Treeline, Valley and Climb only, and the Ridge arrival
+is spoken with the sentence the app already had: *"cleared the ridge. The Daily
+Walk is done."*
 
-An occurrence is marked seen when its presentation starts. Reopening does not
-replay it. After the bounded response, KAIRO returns to the current valid static
-selection with the latest inputs reapplied.
+**Two vocabularies, deliberately.** The trigger names above are what the model
+decides; `KairoReactionId` in `character-contract.ts` is what the renderer
+plays, and the table maps one to the other. Keeping them separate is what lets
+Rive take over the right-hand column unchanged (§4.4). `reactionForLevelChange()`
+in `character-resolver.ts` is deleted rather than kept alongside — it produces
+the identical `level:a->b` occurrence string, and two producers of one id is how
+they drift. `tired` stays in `KAIRO_REACTIONS` with no producer and a comment
+saying why: sleepiness is a daily Mind state rather than an event, and the value
+is part of the manifest contract Rive binds to.
+
+Priority is Level increase → personal record → Daily Walk → verified workout →
+Motion location. Only the highest unseen occurrence is presented per opening.
+
+**Only the presented occurrence is marked seen.** Lower-priority unseen changes
+survive and can present on a later opening the same day; they are not discarded.
+Consuming them all would mean a level-up permanently swallowed the Daily Walk
+clear and a personal best on the same afternoon — one reaction per opening is
+the rule, and silently destroying the others is a different rule that was never
+argued for. Occurrence ids are date-keyed, so yesterday's unshown occurrence
+simply fails to match today's candidate and no pruning is needed.
+
+**An opening is a screen focus or an app foreground, not a mount.** Today is a
+tab screen in a persistent navigator, so a mount-scoped guard means one
+evaluation per app launch: walking four thousand steps and returning from the
+Sky tab would show nothing, while cold-launching twice in a minute would fire
+twice. Focus plus `AppState` `active` is what "opening Today" means to a person.
+
+**A reaction fires only if the previous one ended at least 30 seconds ago.**
+Focus-driven openings plus surviving occurrences would otherwise drip four
+celebrations through ninety seconds of tab-flicking. The floor preserves the
+drip across a real day and kills it inside one session; it is one constant, and
+the week-one interviews are what should move it.
+
+After the bounded response, KAIRO returns to the current valid static selection
+with the latest inputs reapplied. The bound is a fixed timer **only because the
+art is static** — see §4.4; Rive signals its own completion and the asset spec
+forbids a timeout that guesses at it.
 
 The existing `tired` reaction is not triggered in the beta. Sleepy remains a
 daily Mind state; inactivity uses calm idle. Reduced-motion mode skips the
@@ -327,15 +444,23 @@ Daily Walk literal. Those remain imported from their current authorities.
 
 Tests should pin:
 
-- all five Motion location boundaries and the derived Daily Walk constant;
+- all five Motion location boundaries and the derived Daily Walk constant, plus
+  the assertion that the top band is reached at exactly `DAILY_STEP_BASELINE`
+  and that no Living Mirror module contains a literal `10000`;
 - next-step capability filtering, completion filtering, immutable Mind exclusion,
-  active Strength Challenge precedence and deterministic tie-breaking;
+  the Strength Challenge override winning outright over a nearer quest, nearest
+  selection across Motion and Body together, and deterministic tie-breaking;
+- the metric-to-category map, including `active_hours` as Motion;
 - all-complete behavior;
 - missing/unknown Mind behavior;
 - static-selection priority across reaction, Mind and Motion;
-- reaction priority, stable occurrence ids and no replay;
+- reaction priority, stable occurrence ids, no replay, and that a location
+  candidate is never built for the Ridge;
+- that only the presented occurrence is consumed and the rest survive;
 - midnight and backfill policy;
-- no score total, tier name or engine key in player copy; and
+- no score total, tier name or engine key in player copy — guarded
+  **case-sensitively and word-bounded** (`/\b(AGI|STR|MND)\b/`), because a loose
+  `/str/i` matches "strength session" and a loose `/agi/i` matches "Dagit"; and
 - accessibility labels for Today and every details row.
 
 Representative integration combinations include neutral and extreme Body
@@ -355,8 +480,13 @@ three, not whether it maximizes launch count. Measure D21 alongside:
   causation.
 
 Telemetry payloads contain categories and occurrence kinds, not raw health
-figures. Existing `race_seen`, `quest_cleared` and first-score milestones retain
-their historical meanings.
+figures. **A reaction impression carries its kind and never its location**: a
+Motion band is a five-bucket step count, and shipping it would be a raw health
+figure in a coarser dress. `quest_cleared` already sets the precedent by
+carrying `{ tier }` and never a quest id. If band-level breakdown turns out to
+matter after the week-one interviews, that is a deliberate decision with a
+privacy review attached, not something added quietly. Existing `race_seen`,
+`quest_cleared` and first-score milestones retain their historical meanings.
 
 Interview beta users at weeks one and three about:
 
@@ -385,5 +515,8 @@ or guilt caused by inactivity, fails the design even if opens rise.
 - Rive integration or a new native dependency.
 
 The V1 upgrade path is deliberate: replace the beta's static-selection priority
-with composable layered art while keeping the living-mirror resolver and its
-semantic outputs unchanged.
+with the embedded `kairo_v1.riv` and its composable layered art, while keeping
+the living-mirror resolver, its five semantic outputs and the trigger vocabulary
+in §8 unchanged. The fixed reaction timer goes at the same time. Rive is out of
+scope for the beta because the file is still being authored, not because the
+static boundary is the destination.

@@ -30,23 +30,29 @@ import { useScoredDayCount } from './queries.ts';
  * indistinguishable from the feature being gone. Hide on `stage`, navigate on
  * `resolved && stage`.
  *
- * **What `core` hides, as of 2026-08-27.** The list moved file twice in the
- * redesign and nothing else records it:
+ * **What `core` hides, as of deviation #59 — one item.**
  *
- *   - `StatRail` and its expanded per-stat block — now on
- *     `app/(tabs)/profile.tsx` (was the character screen)
- *   - The sleep and lane cards — now on `app/(tabs)/index.tsx`, drawn as the
- *     bird's observations (they were `TodayPanel`'s Strain/Sleep rows)
- *   - `TrainEntry` — `app/(tabs)/index.tsx`, unchanged
+ *   - The **Challenge link inside Today's details sheet**
+ *     (`TodayDetailsSheet`, mounted by `app/(tabs)/index.tsx`), hidden on
+ *     `stage` alone because it hides a link rather than navigating
  *   - `/train`'s redirect — unchanged, and the one that gates on
- *     `resolved && stage` rather than on `stage` alone
+ *     `resolved && stage` rather than on `stage` alone. **That redirect is the
+ *     real door**: push routing and deep links reach the route regardless of
+ *     what any screen chooses to draw.
  *
- * **Nothing was added and nothing was taken out.** The constant, the
- * `total > 0` filter and the lifetime-not-recent rule are all unchanged, and
- * quests are still simply *built* outside the gate — a fact about a surface
- * rather than a change to this rule. It is written down here because it never
- * was, and that absence is what let a wider reading of the parent spec's §4.4
- * look plausible.
+ * The list used to have four entries. `StatRail` and the expanded per-stat
+ * block moved to `app/(tabs)/profile.tsx` and keep their gate there; the sleep
+ * and lane cards and the `TrainEntry` card are **deleted**, not gated. So a
+ * `core` and a `full` account now see an identical Today apart from that one
+ * link — the Living Mirror is ungated by construction, because the scene, the
+ * step figure, the next step and the Daily Walk are what teach the loop.
+ *
+ * **Nothing was added and nothing was taken out of the rule itself.** The
+ * constant, the `total > 0` filter, the lifetime-not-recent reading and the
+ * `resolved && stage` navigation rule are all unchanged; deviation #37 is
+ * untouched. Only the list of surfaces got shorter. It is written down here
+ * because it never was, and that absence is what let a wider reading of the
+ * parent spec's §4.4 look plausible.
  *
  * The distinction, because it is the one a reader will want to undo: a quest is
  * what teaches the loop, so gating it is backwards. A Challenge is a trailing
