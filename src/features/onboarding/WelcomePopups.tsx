@@ -1,11 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { RACE_FINISH_LINE } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { hasReached, markReached } from '@/features/telemetry/milestone-store.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
+import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import type { Stop } from '@/ui/gradient.ts';
 import { OnboardingCta } from './OnboardingCta.tsx';
 
@@ -63,13 +64,31 @@ export function WelcomePopups({
   });
   const [index, setIndex] = useState(0);
 
+  // The welcome cards lease the same root view controller the permission asks
+  // and Today's details sheet do — see `modal-owner.ts`. Above the early return
+  // on purpose: a hook below one is a conditional hook, and the release has to
+  // run on the frame `open` turns false.
+  const owner = useModalOwner((state) => state.owner);
+
+  useEffect(() => {
+    if (open && owner === null) claimModal('welcome');
+    if (!open && owner === 'welcome') releaseModal('welcome');
+  }, [open, owner]);
+
+  useEffect(() => () => releaseModal('welcome'), []);
+
   if (!open || !userId) return null;
 
   const card = CARDS[index] as (typeof CARDS)[number];
   const last = index === CARDS.length - 1;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+    <Modal
+      visible={open && owner === 'welcome'}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setOpen(false)}
+    >
       {/* The dim. Not pressable to dismiss: three cards is a short read and a
           stray tap on the scrim would skip the one rule of the game. */}
       <View style={styles.scrim}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Panel } from '@/ui/index.ts';
+import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import { colors, space } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
 import { healthSource } from '@/features/health/health-source.ts';
@@ -89,6 +90,12 @@ export function PermissionAsks({
   // exists for a frame or two before the redirect to sign-in lands — and
   // without this guard the Health sheet would present over it, asking for
   // HealthKit on behalf of nobody.
+  // Which native modal currently owns the root view controller. A permission
+  // ask claims it when one is due and releases it when the ask ends; Today's
+  // details sheet and the welcome cards lease the same host. See
+  // `modal-owner.ts` for what UIKit does when two of them present in one frame.
+  const owner = useModalOwner((state) => state.owner);
+
   const ask =
     userId === undefined || health === null || notification === null
       ? null
@@ -102,8 +109,18 @@ export function PermissionAsks({
           answeredAnAskThisSession,
         });
 
+  // The effect owns the lease, not the callbacks: a native dismissal and a
+  // button dismissal both land on `ask` becoming null, and releasing from each
+  // call site is how the two diverge.
+  useEffect(() => {
+    if (ask !== null && owner === null) claimModal('permissions');
+    if (ask === null && owner === 'permissions') releaseModal('permissions');
+  }, [ask, owner]);
+
+  useEffect(() => () => releaseModal('permissions'), []);
+
   return (
-    <Modal visible={ask !== null} transparent animationType="slide">
+    <Modal visible={ask !== null && owner === 'permissions'} transparent animationType="slide">
       <View style={styles.backdrop}>
         {/* The sheet is bounded and its contents scroll.
 
