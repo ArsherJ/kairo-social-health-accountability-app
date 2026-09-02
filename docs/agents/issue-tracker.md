@@ -13,7 +13,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
-`gh` is installed at `/opt/homebrew/bin/gh` but was **not authenticated** as of 2026-09-02. Every operation above fails with _"To get started with GitHub CLI, please run: gh auth login"_ until that is done once — it is interactive, so the user runs it, not the agent.
+`gh` is installed at `/opt/homebrew/bin/gh` and is **authenticated** as of 2026-09-02 (account `ArsherJ`, token in the keyring) — issues #11–#16 were read, commented and closed through it. If it ever lapses, every operation above fails with _"To get started with GitHub CLI, please run: gh auth login"_, and that is interactive, so the user runs it rather than the agent. Check with `gh auth status` before concluding the tracker is unreachable.
 
 ## Pull requests as a triage surface
 
