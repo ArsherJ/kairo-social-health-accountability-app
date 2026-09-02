@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together. iOS first via Expo; Supabase backend.
 
+**Current state (2026-09-02) — the ground truth a fresh session needs first:**
+
+- **Tabs** are **Today · Sky · Flock · You** — `app/(tabs)/` is `index` (Today) · `sky` · `flock` · `profile` (You). There is no character tab.
+- **Onboarding** is six screens: `/welcome → /one-sky → /connect → /difficulty → /privacy → /name`. The profile row commits exactly once, on `/name` (deviation #58; see its block below).
+- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level/Streak, one Motion figure, one next step, a details sheet. No race copy, no Mastery coins, no quest rings on it.
+- **The palette is Playful** (deviation #58). Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
+- **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
+
+Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
+
 **Kairo is a race as of 2026-08-25** (roadmap deviation #44) — the pivot, now
 complete across all five sub-projects. Your real life powers your character;
 your character races your friends. **The scoring engine is untouched** and still
@@ -402,9 +412,9 @@ reverse. Four things break easily:
   cold-launches into `/train` has no cached count, and bouncing a `full` user
   home on that frame reads exactly like the feature being removed. Hide on
   `stage`, navigate on `resolved && stage`.
-- **Onboarding is `/connect` → `/name`** (two screens since deviation #55; the
-  species picker sat between them), and the profile row still commits exactly
-  once, on the last screen. Add steps *before* the name,
+- **Onboarding is the six-beat flow** (deviation #58 — see its block below for
+  the ordered list), and the profile row still commits exactly once, on the
+  final `/name` screen. Add steps *before* the name,
   never after — that is still deviation #22's deleted flag. `/connect` reads
   HealthKit **locally** via `readStepsToday` against the *device* zone, because
   no profile row and therefore no `profiles.timezone` exists yet; that is the
@@ -543,12 +553,12 @@ stored buckets. Four things break easily:
   — a `ready` user inside `(onboard)` is bounced to `/`, a `needs-profile` user
   outside it to `/connect` — and that is worth remembering the next time a
   screen has to serve both cohorts, not for this one.
-- **Onboarding is `/connect` → `/name`, and the profile row still commits
-  exactly once**, on the name screen — two screens since #55, and still
-  load-bearing. Deviation #22 deleted the `finishingOnboarding` flag when
-  onboarding collapsed to one step; asking anything *after* the INSERT flips
-  `resolveRoute` to `'ready'` under the unfinished screen and needs that flag
-  back. Add onboarding steps *before* the name, never after.
+- **The profile row commits exactly once, on the `/name` screen** — still
+  load-bearing however many screens precede it (six since deviation #58; see its
+  block below). Deviation #22 deleted the `finishingOnboarding` flag when
+  onboarding briefly collapsed to one step; asking anything *after* the INSERT
+  flips `resolveRoute` to `'ready'` under the unfinished screen and needs that
+  flag back. Add onboarding steps *before* the name, never after.
 - **The picker's layout lessons outlived it and now live on `/name`**: it
   scrolls, and its text sits in a `View` with a real width. Both are the
   permission sheet's 2026-08-17 lessons, and on a screen carrying a 28pt input
@@ -647,8 +657,9 @@ So `supabase db push`, `psql`, and `supabase start` all fail. What works, all ov
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
 **Kairo is Playful as of 2026-08-30** (deviation #58), which supersedes Sunlit's
-palette and type. The block below on Sunlit is kept because its *reasoning* is
-what this pass followed; only its values are stale. Same move a third time:
+palette and type. Sunlit's stale values (amber accent, the `#c9721c` display
+ink, Caprasimo/Figtree) are in `docs/archive/design-history.md`; the reasoning
+they followed is what this pass followed too. Same move a third time:
 **every token in `src/theme.ts` kept its name and changed its value**, so around
 ninety call sites re-skinned without being edited. A token names a *role*, never
 a hue — `ramp.sage[500]` is a violet now and still means "your lane". Two
@@ -775,29 +786,24 @@ build's. Fredoka and Nunito are copied into `assets/fonts/` and loaded through
 input and adding two lines to it would have cost one of the month's fifteen
 builds to ship a font.
 
-**Kairo is Sunlit as of 2026-08-27** (deviations #53, #54). The palette shifted
-in place — every token in `src/theme.ts` kept its name and changed its value, so
-around ninety call sites re-skinned without being edited. The tabs are
-**Today · Sky · Flock · You**, flat, and the character tab is gone. Three things
-break easily:
+**Kairo is Sunlit as of 2026-08-27** (deviations #53, #54). *Palette values and
+the icon family are superseded by the Playful block above (#58) and the era
+detail is in `docs/archive/design-history.md`; the token roles, the
+`/today`→`/`, `/squad`→`/flock` routing, `NAV_HEIGHT` and the flat-bar tab shape
+below are still live.* The tabs are **Today · Sky · Flock · You**, flat, and the
+character tab is gone. Three things break easily:
 
-- **`colors.accent` is a fill and never text.** It is `#f5a623`, which measures
-  **1.9:1** on the cream ground — invisible, and it renders perfectly while
-  being so. The terracotta it replaced measured 4.7:1 and could do both jobs,
-  which is why 53 call sites had to be classified by hand rather than
-  find-and-replaced: the prop is named `color` whether it is `<Meter>`'s fill or
-  `<Feather>`'s ink. Body-size accent text is **`colors.accentDeep`**; large
-  display type is **`colors.accentInk`** (3.3:1, so 24pt and up only). The guard
-  is `src/ui/contrast.test.ts`, which asserts `accent` *fails* as text — so the
-  test goes red if the value ever drifts back into a range that would tempt
-  somebody.
-- **The ramps' step contract is ink strength, and 37 call sites depend on it.**
+- **The accent token has three roles and only one is text-safe.** `colors.accent`
+  is fill-only — `src/ui/contrast.test.ts` asserts it *fails* as text, so the
+  value can't drift back into a tempting range. Body-size accent text is
+  **`colors.accentDeep`**; large display type (24pt+) is **`colors.accentInk`**.
+  The prop is named `color` whether it is a fill or ink, which is why the split
+  is a rule and not a lint. (Sunlit's amber values: archive file above.)
+- **The ramps' step contract is ink strength, and ~37 call sites depend on it.**
   200 is a wash you set text on, 500 is a fill, 700 and 800 are inks.
   `ramp.accent[700]` in particular must stay at or above 4.5:1 on `colors.bg`,
-  because `Label`'s accent eyebrow is 10pt and reads it — that is why the
-  design's own `#c9721c` is *not* a ramp step but a separate large-text-only
-  role. Change a step's strength and every site reading it goes wrong at once,
-  silently.
+  because `Label`'s accent eyebrow is 10pt and reads it. Change a step's
+  strength and every site reading it goes wrong at once, silently.
 - **`NAV_HEIGHT` stays 96 and there is no raised disc.** The discs became a flat
   bar; the bar's height did not move, so `TAB_PILL_CLEARANCE` and every screen's
   bottom padding are unchanged. The raised disc meant *anchor* and the anchor
@@ -822,12 +828,13 @@ break easily:
   is deleting one line. Six call sites resolve through it and each lost its
   `Avatar` fallback, `CharacterFigure`'s View primitives with them; `Build` now
   holds only `shade` and `weight`, the pair the ground shadow reads.
-- **Onboarding is `/connect` → `/name`, two screens.** The picker sat between
-  them. This *removes* a step, so deviation #22's rule is strengthened rather
-  than merely respected: the profile row still commits exactly once, on the last
-  screen. Add onboarding steps **before** the name, never after — anything after
-  the INSERT flips `resolveRoute` to `'ready'` under an unfinished screen and
-  needs the deleted `finishingOnboarding` flag back.
+- **Retiring the picker removed a screen** (it sat before `/name`). This
+  *strengthens* deviation #22's rule rather than merely respecting it: the
+  profile row still commits exactly once, on `/name`, whatever precedes it (the
+  flow is six screens as of deviation #58 — see its block below). Add onboarding
+  steps **before** the name, never after — anything after the INSERT flips
+  `resolveRoute` to `'ready'` under an unfinished screen and needs the deleted
+  `finishingOnboarding` flag back.
 - **`kairo-voice.ts` owns what the bird says**, and it is zero-runtime-import so
   root Vitest can test it — it reaches `stat-names.ts` by relative path, exactly
   as `program-copy.ts` does, because the `@/ui` barrel does not resolve there.
@@ -972,21 +979,11 @@ derived finish line, same reciprocal consent gate. Five things break easily:
   squadmates' is not knowable from there, because the RPC projects totals and
   not sync times.
 
-**Kairo had four tabs from 2026-08-25 to 2026-08-27** (deviation #50) — Character · Today ·
-Squad · You. The Today tab is the present moment: a race summary card, three
-quests, the Daily Walk and the Challenge door, in that order. The character
-screen kept its hero, `TodayPanel`, `SyncStatus` and the disclosure note and
-shed the other two. Six things break easily:
+**Quests are derived, and `recalculate_user_xp` is a full recompute** — the
+mechanics shipped with the four-tab Character · Today · Squad · You layout
+(deviation #50, 2026-08-25 to 08-27; that layout and its `TabPill` raised-disc
+geometry are in `docs/archive/design-history.md`). Four things break easily:
 
-- **`TabPill` is hand-built and its geometry is load-bearing.** Orbits are 52,
-  the centre is 68, the bar gap is `space.md`: `3 × 52 + 68 + 3 × 16 = 272`
-  against 320pt on the narrowest supported screen. `NAV_HEIGHT` stays 96, so
-  `TAB_PILL_CLEARANCE` is unchanged — the discs got smaller, not the bar. Order
-  is `['squad', 'index', 'today', 'profile']` so Squad stays leftmost and You
-  stays rightmost and **no existing thumb target moved to the other end**.
-  **The character keeps the raised disc and is no longer geometrically
-  centred**: raised means *anchor*, not *middle*, a raised third-of-four would
-  be arbitrary, and two raised discs is no anchor at all. Do not add a second.
 - **A quest is derived, never stored.** `pickQuests()` is a pure hash of
   `(userId, localDate, tier)` — no table, no midnight job, no cron, and nothing
   stateful for a retroactive Apple revision to invalidate, exactly as a
@@ -1017,46 +1014,23 @@ shed the other two. Six things break easily:
   deployed database stays correct, which no test in this repo would catch.
   Quest XP never touches `daily_scores.xp_awarded` (a rescore replays it) or
   the three stat rollups (a cleared quest is not activity in a stat).
-- **The disclosure gate keeps the stat rail, the Strain/Sleep rows,
-  `TrainEntry` and `/train`'s redirect** — the list is now written down in
-  `useDisclosure`'s doc comment, because it never was, and that is what let a
-  wider reading look plausible. Quests are built outside it; **nothing was
-  taken out of it**. The constant, the `total > 0` filter, the
-  `resolved && stage` navigation rule and the retention measurement are all
-  unchanged. The Challenge door is last on the tab deliberately: a hidden card
-  at the bottom leaves no hole, where one removed from the middle would.
-- **The Today tab adds no requests.** Every hook on it resolves to a key the
-  character or squad screen already uses, so the two cannot disagree in one
-  frame. `RaceCard` re-ranks the board payload by capped steps on the client,
-  exactly as `RaceTrack` does — `squad_leaderboard()` orders by the
-  program-weighted total, and ranking once in SQL silently deletes the program
-  feature (deviation #11).
+- **Quests are built outside the disclosure gate**, and the gate's own surface
+  list is in `useDisclosure`'s doc comment. The constant, the `total > 0`
+  filter, the `resolved && stage` navigation rule and the retention measurement
+  are unchanged — see "The disclosure gate did not move" above for the current
+  Today-tab list.
 
-**The squad board was a race from 2026-08-26 to 2026-08-27** (roadmap
-deviations #46, #47; the six lanes are superseded by #56 above).
-The daily leaderboard became a track: six characters running horizontal lanes
-at one shared flag, drawn over the same payload the board already fetched.
-Nothing about the scoring engine changed. Five things break easily:
+**The reciprocal per-row squad-data consent gate** (deviation #47). It shipped
+with the six-lane squad race (deviation #46, 2026-08-26 to 08-27), which the sky
+corridor superseded (#56 above) — the lane layout and its flow-based mechanics
+are in `docs/archive/design-history.md`. The `RACE_FINISH_LINE`,
+`squad_leaderboard()` ordering and `cappedSteps` rules moved intact into the #56
+block; what is #47's own, and still live:
 
-- **`RACE_FINISH_LINE` is `DAILY_STEP_BASELINE`, derived and never a literal**,
-  so crossing the line *is* clearing the Daily Walk — one number, two readings,
-  social here and personal in the streak. `10_000` must not appear in
-  `packages/kairo-core/src/race.ts` or in `src/features/squad/Sky*.tsx`. The
-  race is clear of the `AGI`/`AGI_base` trap **only because it never reads a
-  tier**: it takes raw steps from the widened projection. Anything that later
-  decides "did they cross the line" from `daily_scores.tiers` must read
-  `tiers->>'AGI_base'`, or the flag moves with the user's active hours.
-- **The cap *is* the anti-cheat.** `cappedSteps` stops at the line, so past it
-  extra steps buy nothing — which restores the resistance the tier ladder
-  already had and a raw-step race would have given away. It also means two
-  active people are tied on the primary key **by construction**, so the
-  tie-break through daily score and then `user_id` is the common path, not an
-  edge case. Drop the `user_id` key and the board twitches on every poll.
-- **`squad_leaderboard()` orders by the weighted total, not by steps.** The
-  race re-ranks on the client — two orderings, one payload, and a schema test
-  pins it on a fixture where the two genuinely disagree. Ranking once in SQL is
-  the obvious "improvement" and it silently deletes the program feature
-  (deviation #11).
+- **The cap is the anti-cheat.** `cappedSteps` stops at the finish line, so past
+  it extra steps buy nothing — restoring the resistance the tier ladder had and
+  a raw-step race would have given away. (The tie-on-the-primary-key consequence
+  and the `user_id` tie-break are in the #56 `placeRacers` bullet.)
 - **The consent gate is reciprocal and per row**, refining the parent spec's
   whole-squad rule: whole-squad gating leaks the holdout's decision to the five
   people who agreed. `useSquadDataConsent` exposes **`isSuccess`** and callers
@@ -1064,18 +1038,10 @@ Nothing about the scoring engine changed. Five things break easily:
   refusal (deviation #37's lesson again). Gate on `isSuccess && !consented`,
   and put the early return **below every hook**: above one it is a conditional
   hook and the count changes the frame consent lands. A row whose `steps` is
-  null keeps its lane with no position; dropping it looks like the member left,
+  null keeps its place with no position; dropping it looks like the member left,
   and drawing it at zero invents a bad day. **The privacy policy and the App
   Store privacy answers are not yet updated, and that is a launch blocker** —
   guideline 5.1.3.
-- **A lane is one accessibility element and needs both halves** of the
-  2026-08-14 grouping fix, and the whole track is **flow-based** — the figure
-  is placed by two flex spacers, and `flex: 0` on either is the bug (it refuses
-  to shrink as well as to grow, so the figure is squeezed at 0% and 100%). The
-  finish line is drawn per lane as a right-edge rule with **no vertical gap
-  between lanes**, so the segments abut into one continuous line; adding a
-  `gap` or a `marginBottom` there breaks the one picture that makes this a race
-  rather than six bars.
 
 **JS ships over the air as of 2026-08-25** (roadmap deviation #43). EAS Update
 is installed, so a change under `app/`, `src/` or `packages/kairo-core` reaches
