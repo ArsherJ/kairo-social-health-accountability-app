@@ -208,8 +208,8 @@ of which does not:
    is how the controller's name was kept from shipping blank.
 2. ✅ The Settings rows — **JS only, ships over the air.** Publish the OTA
    *before* step 3, while the tree's fingerprint still matches build 22.
-3. Fix `NSHealthShareUsageDescription` (§6) — **native, costs a build.** Cut it
-   now; it is the string a reviewer reads beside the policy.
+3. ✅ `NSHealthShareUsageDescription` corrected (§6) — **build 23**, 2026-09-02,
+   fingerprint `9d76c5d3`, auto-submitted to TestFlight.
 4. Fill in App Privacy in App Store Connect (§2), set the Privacy Policy URL,
    and fill TestFlight's Test Information.
 5. Re-read §3 against the built binary before submitting.
@@ -231,9 +231,11 @@ so changing that string moves `runtimeVersion` and therefore:
 - costs one of the month's fifteen EAS builds, and
 - **withholds every OTA update** from installed builds until that build lands.
 
-So do not fix it in isolation. It is the string a 5.1.3 reviewer is most likely
-to read alongside the policy, so it should be corrected before submission —
-batched with any other native work.
+Corrected on 2026-09-02 as build 23 (fingerprint `9d76c5d3`), on its own —
+nothing else native was within a week of ready, and it is the string a 5.1.3
+reviewer is most likely to read alongside the policy. The OTA carrying the
+Settings rows and the sheet fix was published to `324fba3e` *first*, so build
+22 devices got it before the runtime moved.
 
 **The body-metric columns are written, and this file said they were not.**
 `height_cm`, `weight_kg` and `birth_year` are optional inputs behind Settings,

@@ -893,8 +893,10 @@ loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
 previews, not composable layers, so a four-slot tray has no assets behind it.
 
 **This whole redesign shipped over the air, and that was verified rather than
-assumed**: the tree's fingerprint is `324fba3e`, byte-identical to the last
-build's. Fredoka and Nunito are copied into `assets/fonts/` and loaded through
+assumed**: the tree's fingerprint was `324fba3e`, byte-identical to build 22's.
+(**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in
+`NSHealthShareUsageDescription`, and nothing else; every OTA since targets the
+new runtime.) Fredoka and Nunito are copied into `assets/fonts/` and loaded through
 `useFonts`, *not* added as npm dependencies — `package.json` is a fingerprint
 input and adding two lines to it would have cost one of the month's fifteen
 builds to ship a font.
