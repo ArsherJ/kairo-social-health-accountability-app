@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance } from '@kairo/core';
-import { SPECIES_NAMES, displaySpecies, type SpeciesId } from './species.ts';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
-import { STAT_NAMES } from '@/ui/StatIcon.tsx';
 import type { Stop } from '@/ui/gradient.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
-import { speciesFigureLabel } from './species-label.ts';
+import { MotionScenery } from './MotionScenery.tsx';
+import type { BodyPresence, MotionLocation, StaticFigureSelection } from './living-mirror.ts';
 
 /**
  * The world the character stands in.
@@ -43,7 +42,8 @@ const SKY: Stop[] = [
  * The crest sky — a day that reached the ceiling.
  *
  * **The sky changes, never the bird.** The figure already says four things by
- * shape alone (species, level band, build, presence ring), and a fifth would
+ * shape alone (the animal, the level band, Body's weight on the ground, the
+ * presence ring), and a fifth would
  * make the app's centrepiece a readout. Weather is the one register a diorama
  * has that the silhouette does not, so the light on the day changes instead of
  * the animal in it.
@@ -83,8 +83,11 @@ export function Diorama({
   height,
   level,
   stage,
+  location,
+  figure,
+  body,
+  figureLabel,
   dominance,
-  species,
   lifetimePoints,
   crest = false,
   children,
@@ -97,8 +100,23 @@ export function Diorama({
    */
   level: number;
   stage: 1 | 2 | 3 | 4;
+  /** Which Motion band the scenery draws. Resolved by `living-mirror.ts`. */
+  location: MotionLocation;
+  /** Which single PNG the figure draws. Resolved by `staticFigureSelection`. */
+  figure: StaticFigureSelection;
+  /** Body's contribution to the ground shadow. */
+  body: BodyPresence;
+  /**
+   * The figure's accessible name, composed by `livingCharacterLabel`.
+   *
+   * Supplied rather than built here for the reason `speciesFigureLabel` existed:
+   * the conditionals read as obviously right and are wrong at the edges, so they
+   * belong in a pure module tested in Node. This renderer interprets nothing.
+   */
+  figureLabel: string;
+  /** Undefined while in flight; null for an unstarted character. Only the
+   *  All-Rounder's unconditional presence ring reads it. */
   dominance?: Dominance;
-  species?: SpeciesId | null;
   /** Lifetime per-stat points, for the presence ring. See `aura.ts`. */
   lifetimePoints?: Record<CoreStat, number>;
   /**
@@ -153,36 +171,31 @@ export function Diorama({
         ]}
       />
 
+      {/* Where KAIRO is standing today. Under the fade and the figure, over the
+          sky: it is the ground, not weather. Decorative — the location is also
+          printed as a word in the HUD. */}
+      <MotionScenery location={location} />
+
       <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
 
       <View
         // The figure is the app's centrepiece and it is drawn, not written —
         // four things are said by shape alone (§6): which animal you are, the
-        // ground shadow by level band, the build proportions by dominant stat,
-        // the presence ring by mastery. Without a name it is invisible
-        // to a screen reader, and the character screen becomes a HUD floating
-        // over nothing.
+        // ground shadow by level band, the Body weight and tint on that shadow,
+        // the presence ring by mastery. Without a name it is invisible to a
+        // screen reader, and Today becomes a HUD floating over nothing.
         //
-        // Composed in `species-label.ts` rather than here: the conditionals
-        // read as obviously right and are wrong at the edges — no dominance
-        // yet, and no species at all — so they are a pure module tested in
-        // Node, the same treatment `row-label.ts` got. `SPECIES_NAMES` and
-        // `STAT_NAMES` are injected, so that module imports no UI and stays
-        // loadable by root Vitest.
+        // Composed by `livingCharacterLabel` and passed in, not built here: the
+        // conditionals read as obviously right and are wrong at the edges — no
+        // Mind reading, no capability — so they are a pure module tested in
+        // Node, the same treatment `row-label.ts` got.
         //
-        // Deliberately said in the app's own vocabulary: a species or "your
-        // character", never a Hunter (deviation #26).
+        // Deliberately said in the app's own vocabulary: the character's name
+        // and where it is standing, never a Hunter (deviation #26) and never a
+        // physique tier.
         accessible
         accessibilityRole="image"
-        accessibilityLabel={speciesFigureLabel({
-          // The drawn species, not the stored one — the name has to match the
-          // picture (deviation #55).
-          species: displaySpecies(species ?? null),
-          level,
-          dominance: dominance ?? null,
-          speciesNames: SPECIES_NAMES,
-          statNames: STAT_NAMES,
-        })}
+        accessibilityLabel={figureLabel}
         style={[styles.stage, { bottom: height * 0.12 }]}
       >
         {/* `accessible` on the wrapper should collapse this on iOS and did
@@ -193,8 +206,9 @@ export function Diorama({
           <CharacterFigure
             level={level}
             stage={stage}
+            figure={figure}
+            body={body}
             dominance={dominance}
-            species={species}
             height={height * 0.6}
             lifetimePoints={lifetimePoints}
           />

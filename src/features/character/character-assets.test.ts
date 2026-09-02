@@ -16,6 +16,13 @@ const { PNG } = loadModule('pngjs') as {
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const REGISTRY_PATH = resolve(REPO_ROOT, 'src/features/character/character-assets.ts');
 const THUMBNAIL_PATH = resolve(REPO_ROOT, 'src/features/character/KairoThumbnail.tsx');
+/**
+ * Today's full-character surface. It is the *only* screen that mounts
+ * `CharacterFigure` — You draws the decorative `KairoThumbnail` — so this is
+ * where the base render, the pose set and the Mind state set all have to be
+ * reachable, and where the static boundary has to hold.
+ */
+const TODAY_FIGURE_PATH = resolve(REPO_ROOT, 'src/features/character/CharacterFigure.tsx');
 const COMPACT_SURFACE_PATHS = [
   resolve(REPO_ROOT, 'src/features/squad/SkyMarker.tsx'),
   resolve(REPO_ROOT, 'src/features/squad/LeaderboardRow.tsx'),
@@ -193,6 +200,16 @@ describe('KAIRO character assets', () => {
     for (const source of [thumbnailSource, ...compactSources]) {
       expect(source).not.toMatch(/KairoRenderer|@rive-app\/react-native|\.riv/);
     }
+  });
+
+  it('draws Today from all three approved registries and stays Rive-free', () => {
+    const todayFigureSource = readFileSync(TODAY_FIGURE_PATH, 'utf8');
+    // `staticFigureSelection` resolves reaction pose -> non-neutral Mind state
+    // -> Motion pose -> base, so all three registries have to be in reach here.
+    expect(todayFigureSource).toContain('KAIRO_BASE_ASSET');
+    expect(todayFigureSource).toContain('KAIRO_POSE_ASSETS');
+    expect(todayFigureSource).toContain('KAIRO_STATE_ASSETS');
+    expect(todayFigureSource).not.toMatch(/KairoRenderer|@rive-app\/react-native|\.riv/);
   });
 
   it('registers every checked-in PNG with literal React Native requires', () => {

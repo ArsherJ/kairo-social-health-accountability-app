@@ -9,6 +9,14 @@ import { Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { Diorama } from './Diorama.tsx';
 import { ceilingLine, spreadLine } from './kairo-voice.ts';
+import {
+  MOTION_LOCATIONS,
+  livingCharacterLabel,
+  locationName,
+  resolveLivingMirror,
+  type LivingReaction,
+  type MotionLocation,
+} from './living-mirror.ts';
 import { resolveStatDetail, statDetailLine } from './stat-detail.ts';
 import {
   KAIRO_BASE_ASSET,
@@ -148,13 +156,125 @@ function CopySurfaces() {
 
       <View style={styles.entry}>
         <Text style={styles.entryTitle}>Sky — ordinary day</Text>
-        <Diorama height={200} level={7} stage={2} dominance="AGI" />
+        <MirrorSky location="treeline" />
       </View>
 
       <View style={styles.entry}>
         <Text style={styles.entryTitle}>Sky — crest day</Text>
-        <Diorama height={200} level={7} stage={2} dominance="AGI" crest />
+        <MirrorSky location="ridge" crest />
       </View>
+    </Section>
+  );
+}
+
+/**
+ * One Living Mirror preview, built the way Today builds it.
+ *
+ * **Every preview goes through `resolveLivingMirror`.** Hand-building renderer
+ * props here would make the lab a second implementation of the thing it exists
+ * to check, and it would keep passing after the resolver changed.
+ */
+function MirrorSky({
+  location,
+  hasSleepSource = true,
+  sleepMinutes = 420,
+  lifetimeBodyPoints = 3_000,
+  reaction = null,
+  crest = false,
+}: {
+  location: MotionLocation;
+  hasSleepSource?: boolean;
+  sleepMinutes?: number | null;
+  lifetimeBodyPoints?: number;
+  reaction?: LivingReaction | null;
+  crest?: boolean;
+}) {
+  // The band's own floor, so the resolver picks the location rather than being
+  // told it — that is the property the preview is checking.
+  const steps = { branch: 0, treeline: 2_500, valley: 5_000, climb: 7_500, ridge: 10_000 }[location];
+  const mirror = resolveLivingMirror({
+    steps,
+    hasSleepSource,
+    sleepMinutes,
+    lifetimeBodyPoints,
+    nextStep: { kind: 'rest' },
+    reaction,
+  });
+
+  return (
+    <Diorama
+      height={200}
+      level={7}
+      stage={2}
+      location={mirror.motion.location}
+      figure={mirror.figure}
+      body={mirror.body}
+      dominance="AGI"
+      figureLabel={livingCharacterLabel({
+        characterName: 'Dagit', level: 7, location: mirror.motion.location, mind: mirror.mind,
+      })}
+      crest={crest}
+    />
+  );
+}
+
+const LEVEL_UP: LivingReaction = {
+  kind: 'level', occurrence: 'level:6->7', pose: 'race_victory', animation: 'level_up',
+  sentence: 'Dagit noticed the change. Level 7 suits you.', priority: 50,
+};
+
+/**
+ * The Living Mirror beta, as a **priority ladder** rather than a cross-product.
+ *
+ * Five locations × three Mind states × three Body tiers × six reaction states is
+ * 270 cells nobody reads. What a simulator pass actually has to check is that
+ * `staticFigureSelection` resolves in the right order, and that is four rows —
+ * plus the five scenery bands and the no-capability state.
+ *
+ * It stays correct when Rive replaces the selection, because every row is
+ * produced by the resolver rather than by hand.
+ */
+function LivingMirrorMatrix() {
+  const ladder = [
+    { title: '1 · Reaction present — the reaction pose wins over everything',
+      props: { location: 'valley' as const, sleepMinutes: 300, reaction: LEVEL_UP } },
+    { title: '2 · No reaction, sleepy Mind — the Mind image wins over the Motion pose',
+      props: { location: 'valley' as const, sleepMinutes: 300 } },
+    { title: '3 · No reaction, neutral Mind — the Motion pose wins',
+      props: { location: 'valley' as const, sleepMinutes: 400 } },
+    { title: '4 · No reaction, no capability, Branch — the base fallback',
+      props: { location: 'branch' as const, hasSleepSource: false, sleepMinutes: null } },
+  ];
+
+  return (
+    <Section title="Living Mirror beta — static selection ladder">
+      {ladder.map((row) => (
+        <View key={row.title} style={styles.entry}>
+          <Text style={styles.entryTitle}>{row.title}</Text>
+          <MirrorSky {...row.props} />
+        </View>
+      ))}
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>
+          No sleep source — Mind is absent, never rendered as zero
+        </Text>
+        <MirrorSky location="climb" hasSleepSource={false} sleepMinutes={null} />
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>
+          Sleep source, no reading yet — same neutral presentation
+        </Text>
+        <MirrorSky location="climb" sleepMinutes={null} />
+      </View>
+
+      {MOTION_LOCATIONS.map((location) => (
+        <View key={location} style={styles.entry}>
+          <Text style={styles.entryTitle}>{`Scenery: ${locationName(location)}`}</Text>
+          <MirrorSky location={location} />
+        </View>
+      ))}
     </Section>
   );
 }
@@ -181,6 +301,8 @@ export function KairoLab() {
       </Text>
 
       <CopySurfaces />
+
+      <LivingMirrorMatrix />
 
       <Section title="Base">
         <CatalogEntry source={KAIRO_BASE_ASSET} title="Base character">

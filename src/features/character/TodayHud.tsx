@@ -1,9 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
-import { CORE_STATS, ratingForStatPoints, type CoreStat } from '@kairo/core';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
-import { Glass, Meter, Numeral, STAT_COLORS, StatIcon, Text } from '@/ui/index.ts';
-import { STAT_NAMES } from '@/ui/StatIcon.tsx';
+import { Glass, Meter, Numeral, Text } from '@/ui/index.ts';
 
 /**
  * The HUD that floats over the character's sky.
@@ -102,54 +100,15 @@ export function TodayChips({
 }
 
 /**
- * The three masteries, as a column of glass coins down the right of the sky.
+ * **There are no Mastery coins on Today** (deviation #59).
  *
- * **Gated to `full` by the caller** (deviation #37), and that gate is the whole
- * reason this is its own component rather than three more children of
- * `TodayChips`: the stat rail moved to the You tab when the character and Today
- * screens merged, and putting an ungated copy of the same three figures on the
- * screen a brand-new account opens first would quietly undo the disclosure
- * rule. What is drawn here is the same `ratingForStatPoints` over the same
- * lifetime rollups the rail reads — one source, two surfaces.
- *
- * One element for the column, not three: three coins are one proposition
- * ("where you are strong"), and the same reasoning `StatRail` applies to its
- * own row. `StatCoin` is deliberately not reused — it is built for the cream
- * ground and carries its own fill, where these have to be glass on a picture.
+ * `TodayStatCoins` stood here and drew the same three
+ * `ratingForStatPoints` figures the You tab's `StatRail` reads. The Living
+ * Mirror puts one figure on this screen — today's steps — and Mastery is a
+ * lifetime readout that belongs on You with the rail and the records. Do not
+ * add a second copy back; if it returns it inherits the `full` gate, which is
+ * what its own doc comment spent a paragraph on.
  */
-export function TodayStatCoins({
-  ratings,
-}: {
-  ratings: Partial<Record<CoreStat, number>> | undefined;
-}) {
-  const spoken = CORE_STATS.map(
-    (stat) => `${STAT_NAMES[stat]} ${ratingForStatPoints(ratings?.[stat] ?? 0)}`,
-  ).join(', ');
-
-  return (
-    <View accessible accessibilityLabel={spoken} style={styles.coins}>
-      {CORE_STATS.map((stat) => (
-        <Glass
-          key={stat}
-          tone="light"
-          radius={22}
-          style={styles.coin}
-        >
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.coinBody}
-          >
-            <StatIcon stat={stat} size={19} color={STAT_COLORS[stat]} />
-            <Text scale="fixed" style={styles.coinNumber}>
-              {ratingForStatPoints(ratings?.[stat] ?? 0)}
-            </Text>
-          </View>
-        </Glass>
-      ))}
-    </View>
-  );
-}
 
 /**
  * The day, in real units, at the foot of the sky.
@@ -225,11 +184,6 @@ const styles = StyleSheet.create({
     ...shadow.md,
   },
   streakNumber: { ...font.display.small, fontSize: 16, color: colors.text },
-
-  coins: { alignSelf: 'flex-end', gap: 10, paddingRight: space.lg },
-  coin: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
-  coinBody: { alignItems: 'center', justifyContent: 'center', gap: 1 },
-  coinNumber: { ...font.display.label, fontSize: 15, color: colors.text },
 
   count: { paddingHorizontal: space.lg },
   countRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: space.sm },
