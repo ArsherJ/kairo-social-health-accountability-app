@@ -839,13 +839,97 @@ break easily:
 - **The Today tab is the character screen and the old Today tab merged**, and
   the race on it is a *sentence*, not a card. The card is gone; the picture is
   the Sky tab, and `race_seen` fires there — the marker measures looking at the
-  race, and this screen no longer shows one. The
-  disclosure gate did not move — the sleep and lane cards are the Strain/Sleep
-  rows in a new dress and keep their `full` gate, `StatRail` and its per-stat
-  block moved to You with the same gate, and `useDisclosure`'s doc comment now
-  names every gated surface and which file mounts it. `TodayPanel`,
-  `character/standing.ts` and `character/stat-detail.ts` are unmounted by the
-  merge and still on disk with their tests.
+  race, and this screen no longer shows one. **Deviation #59 removes even the
+  sentence** — see the Living Mirror block below for what Today is now.
+  `TodayPanel`, `character/standing.ts`, `character/stat-detail.ts` and
+  `character/species-label.ts` are unmounted and still on disk with their tests.
+
+**Today is the Living Mirror as of deviation #59** (2026-09-01). Its
+always-visible order is the KAIRO scene, compact Level/personal Streak, Motion
+location plus one step figure, one quest-backed next step, then **See today's
+details**. The Sky owns the race; You owns Mastery and records. Do not put race
+copy, Mastery coins, three quest rings, sleep/lane tiles, a Daily Walk card, or
+a Challenge card back on Today. Nine things break easily:
+
+- **The visible next step never changes the quest contract.** `todayQuests()`
+  still resolves exactly three entries from account + local date + tier +
+  `has_sleep_source`; `selectNextStep()` only ranks those entries. The server
+  grades the same set and completion XP still latches. It is the **nearest
+  incomplete quest across Motion and Body together** — deliberately not
+  Motion-first with a fallback, which let a Body quest at 95% lose to a Motion
+  quest at 80%. The Strength Challenge opt-in (`profiles.trains_strength`) is
+  the sole override and wins outright; "attainable" means `!met` and nothing
+  more, because a pace or time-of-day heuristic is the fabricated time estimate
+  the design forbids. An incomplete sleep quest is an observation in details,
+  never a daytime action.
+- **The personal Streak and the Daily Walk run are different.** The HUD reads
+  `streaks.current_streak`; Motion details reads `dailyWalkState().streak`.
+  Never alias either value or label — `walkNote()` says "run" and a test pins
+  it, because that sentence now lands on a screen whose header shows the other
+  figure.
+- **The Motion ladder is `branch → treeline → valley → climb → ridge`, and
+  `ridge` is 100%.** "Ridge" already names `RACE_FINISH_LINE`, which *is*
+  `DAILY_STEP_BASELINE` — the Sky tab draws `10k · ridge`, `trivia.ts` says
+  "steps to the ridge", and `spreadLine` is forbidden the word for exactly this
+  reason. Never move it to a lower band and never introduce "Cleared" or
+  "Clearing" as a second name for the finish. It follows that `dailyWalkMet` and
+  `location === 'ridge'` are the same fact: the arrival gets **one** reaction,
+  owned by `daily_walk`, and `reactionCandidates` builds no location candidate
+  for the top band.
+- **The presence ring is `auraStrength()`'s, not Body's.** Peak rating across
+  all three stats, with the All-Rounder's ring unconditional — the argument is
+  in `aura.ts` and predates the Living Mirror. Body drives the ground shadow's
+  weight and tint only. Deriving the ring from `str_total` deletes it for every
+  Motion- or Mind-dominant player and every All-Rounder, and since Today is the
+  only screen mounting `CharacterFigure`, that is the whole app. This is why
+  Today still queries `dominance` and passes `lifetimePoints`.
+- **Static Living Mirror art is priority, not composition.** Current PNGs are
+  flattened full-character images. Render one of reaction pose → non-neutral
+  Mind state → Motion pose → base. Body uses the ground shadow; do not distort
+  the canonical figure or manufacture pose × state × Body exports. **This
+  priority and `REACTION_HOLD_MS` are the only two things Rive replaces** — the
+  character asset system design stays authoritative for V1, `kairo_v1.riv` is
+  being authored, and the trigger vocabulary (`ReactionKind`) is kept separate
+  from the animation vocabulary (`KairoReactionId`) precisely so the swap
+  touches no trigger rule. Rive signals its own completion, so the fixed timer
+  dies with the static art. `tired` is in `KAIRO_REACTIONS` with **no
+  producer**, deliberately: sleepiness is a daily Mind state, not an event.
+- **Only the presented reaction is consumed, and an opening is a focus or a
+  foreground.** Marking every unseen candidate seen means a level-up
+  permanently swallows the Daily Walk clear and a personal best on the same
+  afternoon. Today is a persistent tab, so a mount-scoped guard is one
+  evaluation per app launch; `useFocusEffect` plus `AppState` is what "opening
+  Today" means to a person, and `REACTION_FLOOR_MS` (30s) is what stops
+  tab-flicking dripping four celebrations in ninety seconds. `moments.ts` is a
+  **fixed-size** store — five kind keys plus one observed level per account,
+  each holding the last occurrence id — never an append-only ledger; occurrence
+  ids are date-keyed so nothing needs pruning.
+- **`living-reaction.ts` is the only producer of a `level:a->b` occurrence.**
+  `reactionForLevelChange()` in `character-resolver.ts` emitted the identical
+  string and is deleted; two producers of one occurrence id is how they drift.
+- **Today now adds two owner-only reads deliberately:** today's verified
+  strength-session evidence (`useTodayStrengthSummary`) and personal records.
+  Neither reaches a projection or telemetry. The strength display predicate is
+  contract-tested against the server allowlist (`WORKOUT_SOURCE_ALLOWLIST`), and
+  `summarizeTodayStrength` tie-breaks on `hkUuid` because PostgREST guarantees no
+  row order and a flipping `latestOccurrence` re-fires a celebrated reaction.
+  Scoring remains server-authoritative. In exchange the leaderboard, recent-day
+  and race-rank reads are gone from this screen.
+- **Native modals lease `src/ui/modal-owner.ts`.** Permission asks, welcome
+  cards and Today details must never be visible under different owners in the
+  same frame — a `<Modal>` presents on the root view controller wherever it is
+  mounted, and UIKit refuses the second silently and wedges the window. Each
+  surface claims in an effect and releases in the same effect, never from a
+  close callback, so a native dismissal and a button dismissal cannot diverge.
+
+**The disclosure gate did not move, and its list on Today is now one item.**
+Same `DISCLOSURE_THRESHOLD_DAYS`, same `total > 0` filter, same lifetime
+reading, same `resolved && stage` navigation rule — deviation #37 is untouched.
+What got shorter is the list of surfaces: the only gated thing on Today is the
+**Challenge link inside the details sheet**, hidden on `stage` alone. `StatRail`
+is on You with its own gate; the Strain/Sleep rows and the Challenge-entry card
+are *deleted*, not ungated. `/train`'s own `resolved && stage` redirect is the
+real door.
 
 **The race is one shared sky as of 2026-08-27** (deviation #56, superseding
 #46's six lanes). **Nothing about the scoring engine changed, and nothing about
@@ -1106,7 +1190,7 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 - **`aps-environment` is generated from Expo config.** Expo's notifications plugin defaults it to `development` (the APNs sandbox), so `app.config.ts` declares `['expo-notifications', { mode: 'production' }]` explicitly and EAS CNG carries that into the distribution entitlement. Never patch the ignored generated entitlements. Do not treat the declaration as proof push works: Expo's service relays to both environments. **And do not try to read the value back on TestFlight** — `expo-application` parses `embedded.mobileprovision`, App Store distribution strips that file from the bundle, and the answer is `null` there structurally (the library's own `appReleaseType` has an explicit branch for the file's absence). A diagnostic built on it shipped on 2026-08-14 and told a healthy TestFlight device it was a simulator. What `NotificationSettingsCard` reports instead is **registration**, which is knowable everywhere and the stronger signal anyway: `getExpoPushTokenAsync` fails with *"no valid aps-environment entitlement string found"* when the entitlement is wrong, so a token that exists is evidence the entitlement is right. Simulator is decided by the release type, never by a null environment. The line ships in **Release** on purpose — `__DEV__` would hide it from TestFlight.
 - **The app icon is an Icon Composer bundle, and nothing in JS validates it.** `assets/Kairo.icon/` holds a *transparent* terracotta symbol plus an `icon.json` declaring the cream ground as `fill`; iOS renders the light, dark and tinted appearances from that one layered source, which is what a flat PNG cannot do. Four things break it silently. **It must sit on `ios.icon` as a plain string** — `@expo/prebuild-config` warns and falls back if a `.icon` path is given to the *root* `icon` field or to the light/dark/tinted object form, so the root `icon` stays a PNG serving Android, web and pre-iOS-26. **Expo copies the directory verbatim** into `ios/<App>/Kairo.icon` and sets `ASSETCATALOG_COMPILER_APPICON_NAME`; the schema is Apple's and is only ever checked by `actool` at Xcode/EAS build time, so a malformed edit passes `prebuild` and every local check and fails in CI — the `aps-environment` failure shape again. Validate locally instead of guessing, with `mkdir -p /tmp/out && xcrun actool --compile /tmp/out --platform iphoneos --minimum-deployment-target 26.0 --target-device iphone --app-icon Kairo --output-partial-info-plist /tmp/out/p.plist assets/Kairo.icon` (the `mkdir` is load-bearing — `actool` errors rather than creating the output directory), which exits non-zero on a bad schema and otherwise writes the real rendered PNGs — the only way to *see* the glass treatment without a device. **`fill` colours are `<colour-space>:r,g,b,a` floats, not hex** (`extended-srgb:0.96078,0.91765,0.84706,1.00000` is `colors.bg`). And **the basename is the icon name**, so renaming the directory renames the build setting. **Editing the artwork without editing `app.config.ts` leaves the native copy stale and silent** — `npm run ios` does not re-sync `ios/Kairo/Kairo.icon`, because the config *value* is unchanged and only the bytes it points at moved, so the build succeeds against the previous icon (hit on 2026-08-25: the simulator kept rendering the ink mark after the terracotta one was installed). After changing icon artwork run `npx expo prebuild -p ios --no-install`, then `xcrun simctl uninstall` before reinstalling, since SpringBoard caches icons across reinstalls — and diff the native copy rather than trusting the build. **The Dark appearance is auto-derived, which constrains the symbol colour** — with one layer declared, iOS darkens the cream ground and keeps the symbol unchanged, so the symbol has to work on both. That is why it is terracotta (`colors.accent`) and not the far higher-contrast ink (`colors.text`): ink measured 13.95:1 on cream but **1.00:1** on the darkened ground, invisible, confirmed on the simulator 2026-08-25; terracotta reads 3.03:1 and 4.60:1, and Dark was then checked by hand and reads correctly. Darkening the symbol for a punchier Default silently destroys the Dark appearance. The override mechanism is the `*-specializations` family (`fill-specializations`, `image-name-specializations`, `glass-specializations`, …) keyed by `light-color` / `dark-color` / `dark-tint` / `dark-clear`, but **do not hand-write it from that vocabulary**: an invented nesting is a silent no-op, proven by pointing a specialization at a nonexistent file and still getting exit 0, where the same trick on the *primary* `image-name` fails the build. Author it in Apple's Icon Composer, which writes canonical JSON, or pick a mid-tone symbol that survives both grounds. And note `actool` is **nondeterministic** — identical input yields different `Assets.car` digests — so diffing the compiled output cannot tell you whether an edit landed. The fallback `assets/icon.png` has its own trap: it carries **no alpha channel** (PNG colour type 2), because Apple rejects an App Store icon that has one even when every pixel is opaque (ITMS-90717, raised at upload rather than at build) — most re-exports silently add it back, so check with `sips -g hasAlpha`.
 - **The HealthKit disclosure is derived, not written.** `src/features/health/read-types.ts` is the single list of requested types; `disclosure.ts` maps each to user-facing copy, and `disclosure.test.ts` fails if either side names something the other does not. That list lives apart from `permission.ts` because anything importing `@kingstinct/react-native-healthkit` drags in React Native's Flow syntax that root Vitest cannot parse — the same constraint `sync-state.ts` records. The `NSHealthShareUsageDescription` string in `app.config.ts` covers the same types and is the one half no test can lock; update it by hand when the list changes.
-- **Telemetry's decisions live in zero-import modules, for the same parse-failure reason as the HealthKit disclosure.** `src/features/telemetry/buffer.ts` (the pre-sign-in event queue) and `milestones.ts` (the once-ever rule) import nothing, so root Vitest — no `@/` alias, no MMKV — can load and test them directly; the MMKV-backed store and the Supabase write sit in separate files that pull those dependencies in. `first_sync_seen` and `first_score_seen` are gated on an MMKV once-ever marker in `milestone-store.ts`, claimed before the write and released via `markUnreached` if it fails — **not** the per-session marker `useAppOpenTelemetry` (`src/features/notifications/useNotifications.ts`) uses, which fires every relaunch on purpose and would silently overcount activation if reused here. `public.kairo_retention()` is admin analytics with EXECUTE revoked from `public`, `anon` and `authenticated` — it is run through `remote-sql.sh` against the live project, never from a client. Runbook: `docs/beta-measurement.md`.
+- **Telemetry's decisions live in zero-import modules, for the same parse-failure reason as the HealthKit disclosure.** `src/features/telemetry/buffer.ts` (the pre-sign-in event queue) and `milestones.ts` (the once-ever rule) import nothing, so root Vitest — no `@/` alias, no MMKV — can load and test them directly; the MMKV-backed store and the Supabase write sit in separate files that pull those dependencies in. `first_sync_seen` and `first_score_seen` are gated on an MMKV once-ever marker in `milestone-store.ts`, claimed before the write and released via `markUnreached` if it fails — **not** the per-session marker `useAppOpenTelemetry` (`src/features/notifications/useNotifications.ts`) uses, which fires every relaunch on purpose and would silently overcount activation if reused here. `public.kairo_retention()` is admin analytics with EXECUTE revoked from `public`, `anon` and `authenticated` — it is run through `remote-sql.sh` against the live project, never from a client. Runbook: `docs/beta-measurement.md`. **Deviation #59 adds four types with three different lifetimes**: `today_seen` and `next_step_shown` are **once per the account's own local day** on `daily-marker.ts` (`ALL_MARKERS` grew with them, so `clearDailyMarkers` still reaches everything on sign-out); `today_details_opened` is **per tap**, because the question is how often the complete day is actually wanted; `character_reaction_seen` is **per occurrence**, emitted from the hook that presents the reaction rather than from a render. **Every payload is category-only** — `{ category }` of `motion`/`body`/`none`, or `{ kind }` — and no payload may carry a health figure, an occurrence id, a quest id, **or the Motion location**, because a five-band location is a coarse step count. `living-mirror-events.test.ts` scans `app/(tabs)/index.tsx` for all three bans.
 
 ### Per-user local days
 
@@ -1122,6 +1206,20 @@ Every player's day runs midnight-to-midnight in **their own** timezone (§2), so
 ## Testing
 
 Strict TDD on scoring, day boundaries, Events, streaks and anti-cheat — the logic where a bug corrupts real leaderboards. UI is verified by hand on device.
+
+**A module tested by root Vitest may not value-import through the `@/` alias.**
+`vitest.config.ts` defines no alias, so a value import through it is a load
+failure — `import type` is erased and is fine. Reach sideways by relative path,
+exactly as `kairo-voice.ts` reaches `stat-names.ts` and `living-mirror.ts` and
+`today-details.ts` reach `theme.ts` and `quest-copy.ts`. The include pattern is
+`src/**/*.test.ts` and not `.tsx`, which is the other half of the same rule:
+nothing under test may pull in React Native's Flow syntax.
+
+**Engine-key guards are case-sensitive and word-bounded** — `/\b(AGI|STR|MND)\b/`.
+A loose `/str/i` matches "Verified strength session", which is copy a test
+elsewhere *requires*, and a loose `/agi/i` matches "Dagit", a perfectly good name
+for a Philippine eagle. A guard that fails on real input gets loosened until it
+guards nothing.
 
 `supabase/tests/harness.ts` applies every migration to **PGlite** (real Postgres in WASM) with stubbed `auth` and `realtime` schemas, then asserts behaviour under the non-owner `authenticated` role. Runs in ~1.5s with no Docker.
 

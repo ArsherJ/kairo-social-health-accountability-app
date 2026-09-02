@@ -30,9 +30,8 @@ Three surfaces are **built, tested, reachable and hidden** until then:
 
 | Surface | Where |
 |---|---|
-| Challenges — `TrainEntry` and the `/train` route | `src/features/train/` |
-| Per-stat ability detail — `StatRail` and the bars it expands | `src/features/character/` |
-| Strain and Sleep | `TodayPanel` |
+| Challenges — the link in Today's details sheet, and the `/train` route | `src/features/character/TodayDetailsSheet.tsx`, `src/features/train/` |
+| Per-stat detail — `StatRail` and the bars it expands, **on the You tab** | `src/features/character/` |
 
 They are **not out of scope, and not deferred.** A QA pass that reports
 Challenges missing on a fresh install is describing the design working, and
@@ -41,10 +40,13 @@ change `DISCLOSURE_THRESHOLD_DAYS`, which is one constant precisely so this
 stays cheap to verify and cheap to reverse.
 
 What a `core` account *does* see is the whole of `### Solo, and first-class`
-below minus those rows: the day in real units, the character, its level, the
-squad gap, the Daily Walk and its streak — **and, since deviation #50, the
-Today tab's race card and its three quests**. Quests were built outside the
-gate rather than taken out of it; nothing on the table above moved.
+below minus those rows: the character in its Motion location, its Level and
+Streak, the day in real units, one quest-backed next step, and the whole
+details sheet apart from the Challenge link — the complete raw-unit day, all
+three quest states, and the Daily Walk with its run. Quests were built outside
+the gate rather than taken out of it. Deviation #59 shortened the table above
+by *deleting* the Strain/Sleep surface and moving the stat rail to You, not by
+ungating either.
 
 ### Solo, and first-class
 Kairo is **solo-first**. Everything below works with zero friends, and the
@@ -151,11 +153,12 @@ product that no longer exists.
 
 ### Today — the tab, and quests
 
-Since 2026-08-25 (deviation #50) Kairo has **four tabs — Character · Today ·
-Squad · You** — and the daily loop lives on the second. The Today tab is, in
-order: a **race summary card**, **three quests**, the **Daily Walk**, and the
-**Challenge door**. The character screen kept its hero, the TODAY panel, the
-sync status and the disclosure note, and shed the last two.
+Today is the **Living Mirror**: KAIRO remains the largest visual, standing in a Motion location derived from live steps against `DAILY_STEP_BASELINE`. Compact Level and personal Streak remain in the scene; the day has one large raw reading (steps), one gentle next step selected from the unchanged three daily quests, and **See today's details**. Details contains Motion steps/distance/Daily Walk run, Body active energy and verified strength minutes when present, verified Mind sleep only when capable and measured, every quest state, relevant sync help, progress help, and the `full`-gated Challenge link. The Sky tab owns the race, You owns Mastery and records, and opening Kairo is never required for activity to count.
+
+The tabs are **Today · Sky · Flock · You** (deviation #54). Deviation #59
+replaced Today's dashboard — three quest rings, a race line, Mastery coins, the
+sleep and lane tiles, the Daily Walk card and the Challenge card — with the
+scene, one figure, one sentence and the details sheet.
 
 - **Three quests a day**, from a hand-authored catalogue at three difficulty
   tiers. They are **derived, never stored**: a pure hash of (account, local
@@ -176,10 +179,12 @@ sync status and the disclosure note, and shed the last two.
   with a **manual override in Profile that wins outright**. The override is in
   Phase 1 rather than deferred precisely because the automatic rule is wrong by
   construction for part of the cohort.
-- **Quests are outside the disclosure gate**, and are the only thing that is. A
-  brand-new account with zero scored days sees the race card, three quests and
-  the Daily Walk on day one. **The gate's own subject list did not shrink** —
-  Challenges, the stat rail and Strain/Sleep all stay in it.
+- **Quests are outside the disclosure gate.** A brand-new account with zero
+  scored days sees the scene, its steps, its next step and the whole details
+  sheet on day one. Since deviation #59 the gate's list on Today is **one
+  item** — the Challenge link inside details. That is not the gate shrinking:
+  the stat rail moved to You and keeps its gate there, and the Strain/Sleep
+  rows and the Challenge card are *deleted* rather than ungated.
 - **No coins.** A currency with no sink is a countdown to disappointment.
   Quest completion pays XP.
 
@@ -188,8 +193,10 @@ Event completions and Challenge completions. Any brief describing XP as coming
 from days and Events alone is stale.
 
 ### Train — the Daily Walk and Challenges
-- **Daily Walk** — 10,000 steps a day, **on the Today tab** since deviation #50
-  (it was on the home shelf before), with a streak of days cleared. **Flat and permanent**: it never scales up as the user improves,
+- **Daily Walk** — 10,000 steps a day, **in Today's details sheet** since
+  deviation #59 (a card on the Today tab from #50, the home shelf before that),
+  with a **run** of days cleared — deliberately never called a streak, which is
+  the separate personal figure in the scene's HUD. **Flat and permanent**: it never scales up as the user improves,
   because it is a public-health number rather than a personal-progress one. A
   missed day breaks the streak and costs nothing else — there is no penalty.
 - **Challenges** — one live target per opted-in area, on `/train`

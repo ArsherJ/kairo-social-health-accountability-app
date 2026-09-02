@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-01
 
-**Status:** Design approved; awaiting written-spec review
+**Status:** Implemented in the current beta; automated suite green (1,343 schema/app + 456 core). The simulator visual, Dynamic Type and VoiceOver matrix in Task 10 Step 6 of the plan is outstanding — it needs a hand pass on a booted simulator, which this machine cannot drive.
 
 **Proposes roadmap deviation:** **#59**
 **Vocabulary:** `CONTEXT.md`

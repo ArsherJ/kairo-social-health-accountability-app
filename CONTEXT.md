@@ -31,6 +31,10 @@ current form.
 > is precisely what a monotone lifetime figure cannot measure. Same mechanic,
 > honest label.
 
+**Living Mirror** — the character as the interface: the day read back as where
+the character is standing, how heavily it stands there, and how it slept, rather
+than as a list of figures beside it. What the player sees first every day.
+
 ---
 
 ## The three stats
@@ -85,6 +89,18 @@ bands easier to reach, up to a limit. It is a *consequence the player is told
 about*, not a hidden modifier: an unexplained difficulty change reads as a bug in
 the score.
 
+**Motion location** — where the character is standing today, from the day's
+steps against the **Daily Walk** figure: **branch**, **treeline**, **valley**,
+**climb**, **ridge**. Five bands, one number, said as a place rather than a
+percentage.
+
+**Climb** — the fourth band, three quarters of the way. Named so that **ridge**
+keeps its one meaning.
+
+**Ridge** — the top band, and the day's finish. It is the same figure as the
+**Daily Walk** and the race's **finish line** — one number with three readings,
+never a shifted one. Reaching it is spoken once, by the walk.
+
 **Capability** — whether a stat can be earned at all. Only Mind can lack it.
 A stat the player cannot earn is never asked of them — not by a quest, not by a
 prompt, and not by a blank card that reads as an accusation.
@@ -96,7 +112,7 @@ prompt, and not by a blank card that reads as an accusation.
 **Squad** — up to six people. Never a barkada, party, clan or team.
 
 **Race** — the day drawn as one shared sky, everyone flying at one **finish
-line**, which is the same figure as the Daily Walk. Ranked by **capped** steps:
+line**, which is the same figure as the Daily Walk and the **ridge**. Ranked by **capped** steps:
 past the line, more steps buy nothing.
 
 **Ghost** — one of your own past days, raced when you have no squad.
@@ -116,8 +132,12 @@ per person: you see theirs when they have agreed *and* you have.
 ## Alone
 
 **Daily Walk** — a flat, permanent daily step figure. A public-health number, so
-it never scales with the player. Missing it breaks the **streak** and costs
-nothing else.
+it never scales with the player. The same figure as the **ridge** and the race's
+finish line. Missing it breaks the **run** and costs nothing else.
+
+**Daily Walk run** — consecutive days the Daily Walk was cleared. **Not the
+streak**, and never called one: they are different values, and one screen shows
+both.
 
 **Streak** — consecutive days that scored. A **shield** covers one miss so a rest
 day does not undo a month.
