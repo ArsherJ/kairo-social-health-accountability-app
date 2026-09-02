@@ -22,6 +22,7 @@ import {
   type SyncPolicyInput,
   type SyncPolicyState,
 } from './sync-policy.ts';
+import { todayStrengthKey } from '@/features/train/useTodayStrengthSummary.ts';
 import { runHealthSync } from './sync.ts';
 
 /**
@@ -171,6 +172,12 @@ export function useHealthSync(
         });
         void queryClient.invalidateQueries({
           queryKey: todayVitalsKey(userId, localDate),
+        });
+        // Today's verified strength evidence moves with the same payload: a
+        // session finished mid-morning lands here, and left stale it withholds
+        // both the Body detail row and the one workout reaction it earns.
+        void queryClient.invalidateQueries({
+          queryKey: todayStrengthKey(userId, localDate),
         });
 
         // The scored-day count moves with every sync too, and it drives two
