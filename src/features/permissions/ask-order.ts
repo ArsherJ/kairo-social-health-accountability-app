@@ -43,6 +43,13 @@ export interface PermissionAskInput {
   hasSquad: boolean;
   hasEvent: boolean;
   /**
+   * Whether the account has ever scored a day above zero — the notification
+   * ask's third reason, and the only one a solo player can reach. Ordering is
+   * untouched by it: Health still goes first, and this composes exactly as the
+   * other two do.
+   */
+  hasScoredDay: boolean;
+  /**
    * Whether the user has already answered *an* ask this session. Answering
    * Health makes the notification ask eligible in the same frame, and a second
    * sheet arriving as the first slides away reads as a permission gauntlet —
@@ -64,6 +71,7 @@ export function nextPermissionAsk(input: PermissionAskInput): PermissionAsk {
       permission: input.notification,
       hasSquad: input.hasSquad,
       hasEvent: input.hasEvent,
+      hasScoredDay: input.hasScoredDay,
       dismissedThisSession: input.notificationDismissed,
     })
   ) {

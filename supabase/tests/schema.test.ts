@@ -5285,8 +5285,23 @@ describe('the digest ledger (deviation #52)', () => {
     expect(rows[0]!.n).toBe(2);
   });
 
+  /**
+   * A scored day inside the seven-day window, so the recipient passes the
+   * activity predicate added 2026-09-02. Every selection case below needs one:
+   * an account with no scored day is suppressed, deliberately, and without this
+   * the cases about the *hour* and the *cap* would be passing for the wrong
+   * reason.
+   */
+  const scoreDay = (userId: string, daysAgo: number) =>
+    h.asService(
+      `insert into public.daily_scores (user_id, local_date, agi_points, total)
+       values ($1, (now() at time zone 'Asia/Manila')::date - $2::int, 1200, 1200)`,
+      [userId, daysAgo],
+    );
+
   it('selects a user living at the given local hour', async () => {
     const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 0);
     const hour = await h.asService<{ h: number }>(
       `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
     );
@@ -5303,6 +5318,7 @@ describe('the digest ledger (deviation #52)', () => {
     // The exclusion IS the cap. The index behind it only ever fires when this
     // has already gone wrong.
     const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 0);
     const hour = await h.asService<{ h: number }>(
       `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
     );
@@ -5320,6 +5336,7 @@ describe('the digest ledger (deviation #52)', () => {
 
   it('does not exclude somebody whose only digest was yesterday', async () => {
     const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 0);
     const hour = await h.asService<{ h: number }>(
       `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
     );
@@ -5343,6 +5360,94 @@ describe('the digest ledger (deviation #52)', () => {
       h.asUser(user, 'select * from public.users_needing_digest(8)'),
       /permission denied/i,
     );
+  });
+
+  /**
+   * The lapse predicate (deviation #60).
+   *
+   * The window is exactly seven local days ending today, so a scored day six
+   * days ago qualifies and one seven days ago does not. That boundary is the
+   * thing a future edit is most likely to move by one, and moving it by one in
+   * the wrong direction silences an active cohort — hence a case on each side
+   * of it rather than a single "recent" assertion.
+   *
+   * `total > 0` is the same reading of "scored" the client uses: `sync-health`
+   * writes a row per date in the payload whether or not it scored, so a bare
+   * row count would call every synced account active forever.
+   */
+  const digestUsers = async (userId: string) => {
+    const hour = await h.asService<{ h: number }>(
+      `select extract(hour from (now() at time zone 'Asia/Manila'))::int as h`,
+    );
+    const rows = await h.asService<{ user_id: string }>(
+      'select * from public.users_needing_digest($1)',
+      [hour[0]!.h],
+    );
+    return rows.some((r) => r.user_id === userId);
+  };
+
+  it('sends to somebody whose last scored day was six days ago', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 6);
+    expect(await digestUsers(user)).toBe(true);
+  });
+
+  it('stops at seven days, and stays stopped at eight', async () => {
+    const seven = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(seven, 7);
+    expect(await digestUsers(seven)).toBe(false);
+
+    const eight = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(eight, 8);
+    expect(await digestUsers(eight)).toBe(false);
+  });
+
+  it('suppresses an account that has never scored', async () => {
+    // Deliberate, and it reads like a bug that deletes somebody's first digest.
+    // It is not: the notification ask now fires on the *first scored day*
+    // (`ask-policy.ts`), so an account with no scored day holds no push token
+    // and there is nothing to suppress. The two rules meet at the same boundary
+    // from opposite sides. A young-account exemption here would be a second
+    // rule to disagree with the first.
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    expect(await digestUsers(user)).toBe(false);
+  });
+
+  it('ignores a row that scored zero, which is how a synced quiet day lands', async () => {
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, total)
+       values ($1, (now() at time zone 'Asia/Manila')::date, 0)`,
+      [user],
+    );
+    expect(await digestUsers(user)).toBe(false);
+  });
+
+  it('resumes by itself when a lapsed account scores again', async () => {
+    // Nothing is stored and nothing is reset: the predicate is a read over
+    // scores, so the first scored day after a lapse ends it with no setting and
+    // no support step.
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 30);
+    expect(await digestUsers(user)).toBe(false);
+    await scoreDay(user, 0);
+    expect(await digestUsers(user)).toBe(true);
+  });
+
+  it('leaves the account itself untouched', async () => {
+    // Lapse stops the digest and nothing else — no demotion, no lost Mastery,
+    // no altered gate, and no column recording it. Suppression is derivable
+    // from scores whenever the question is asked, so a row per user per morning
+    // to record a non-event would be writes for nothing.
+    const user = await h.createUser({ timezone: 'Asia/Manila' });
+    await scoreDay(user, 30);
+    expect(await digestUsers(user)).toBe(false);
+
+    const rows = await h.asService<{ total_xp: number; agi_total: number }>(
+      'select total_xp, agi_total from public.profiles where id = $1',
+      [user],
+    );
+    expect(rows[0]!.agi_total).toBeGreaterThan(0);
   });
 
   it('did not drop users_at_local_hour', async () => {

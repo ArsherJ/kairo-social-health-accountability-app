@@ -4,6 +4,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useTimezoneSync } from '@/features/profile/timezone-sync.ts';
 import { useHealthSync } from '@/features/health/useHealthSync.ts';
+import { useScoredDayCount } from '@/features/character/queries.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { usePendingInvite } from '@/features/squad/usePendingInvite.ts';
 import { useSquadEvents } from '@/features/events/queries.ts';
@@ -49,6 +50,14 @@ export default function TabsLayout() {
   const squad = useMySquad(session?.user.id);
   const events = useSquadEvents(squad.data?.id);
 
+  // The notification ask's third reason, and the only one a solo player can
+  // reach (deviation #60). The same query the disclosure gate reads, on the
+  // same TanStack key, so this costs no extra request and the two cannot
+  // disagree about whether the account has ever scored. `data` is undefined
+  // while it is in flight, which reads as "not yet" — the safe direction, since
+  // the ask is deferred rather than spent.
+  const scoredDays = useScoredDayCount(session?.user.id);
+
   return (
     <Fragment>
       <Tabs
@@ -73,6 +82,7 @@ export default function TabsLayout() {
         userId={session?.user.id}
         hasSquad={Boolean(squad.data)}
         hasEvent={(events.data ?? []).length > 0}
+        hasScoredDay={(scoredDays.data ?? 0) > 0}
       />
     </Fragment>
   );

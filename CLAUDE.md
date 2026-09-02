@@ -13,6 +13,7 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 - **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level/Streak, one Motion figure, one next step, a details sheet. No race copy, no Mastery coins, no quest rings on it.
 - **The palette is Playful** (deviation #58). Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
+- **The Digest reaches solo players and stops for lapsed ones** (deviation #60). The privacy claim is made in **three** places, not four.
 
 Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
 
@@ -563,6 +564,83 @@ stored buckets. Four things break easily:
   scrolls, and its text sits in a `View` with a real width. Both are the
   permission sheet's 2026-08-17 lessons, and on a screen carrying a 28pt input
   they are not optional.
+
+**The Digest is reachable and bounded as of 2026-09-02** (deviation #60). Two
+halves that correct each other and must never ship apart. `shouldAskForNotifications`
+gains the account's **first scored day** as a third reason beside a squad and a
+live Battle — the two social reasons are unchanged, `nextPermissionAsk`'s
+ordering is unchanged, and Health still goes first. `users_needing_digest()`
+gains an activity predicate: **no scored day in seven local days** and the
+account gets nothing, silently, until its next scored day. Five things break
+easily:
+
+- **Opening the ask without the suppression is worse than shipping neither.**
+  It gives a lapsed solo player thirty pushes a month they would never
+  previously have received; deviation #52's whole argument was that volume is
+  not urgency. Applying the suppression without the ask changes nothing for
+  the population it was written for, because they hold no token. One deviation
+  row, deliberately, so nobody implements one half.
+- **An account that has never scored is suppressed, and that is not a bug that
+  eats a first Digest.** The ask fires on the first scored day, so such an
+  account holds no push token; the two rules meet at the same boundary from
+  opposite sides. The reasoning is in the function body because the next reader
+  will otherwise "fix" it with a young-account exemption, and a redundant second
+  rule is how two rules later disagree.
+- **The window is `> today - 7`, not `>=`.** Six days ago qualifies; seven and
+  eight do not. The schema suite pins both sides, because an off-by-one here
+  silences an active cohort. `total > 0` is the same reading of "scored" every
+  other surface uses — `sync-health` writes a row per date in the payload
+  whether or not it scored.
+- **The 7 is a commented literal and stays one.** SQL cannot import from the
+  keystone and a mirrored TypeScript constant would have no reader: no client
+  asks whether it is suppressed. Deliberately unlike `DAILY_STEP_BASELINE`,
+  which is derived precisely because two places read it. Suppression is not
+  recorded either — `notification_log` says who was *sent*, and the suppressed
+  population is derivable from scores, which is `kairo_retention()`'s job.
+- **A lapse is not a quiet week and `CONTEXT.md` now defines the two against
+  each other.** A player scoring little still scores, so they pass the
+  predicate every day. Lapse stops the Digest and nothing else: no demotion, no
+  lost Mastery, no altered gate, nothing stored, and the player is never told.
+  **No Edge Function redeploys** — the function is replaced in place and its
+  signature does not move.
+- **Two ordering constraints, and both windows are silent.** The migration is
+  applied **before** the client ships, or solo players hold tokens against an
+  unsuppressed Digest. The landing page is deployed **before** the OTA that
+  drops the invite message's privacy clause, or the claim briefly exists on no
+  surface a non-user can reach — the very failure this pass corrects,
+  reintroduced by sequencing.
+
+**The privacy claim is made in three places as of 2026-09-02**, and one test
+owns it across two of them. The invite *message* dropped its clause: it read
+"Steps, never Health data", which is self-contradictory (steps *are* Health
+data), subject-less, and stale since deviation #47's consent gate made four
+daily totals visible to a consenting squadmate. **A shorter true clause is not
+the fix** — the compression is the cause, and the next one fails the same way.
+The claim lives on the landing page instead, and `invite-message.test.ts` reads
+`web/index.html` to assert it: that is the structural answer to how one claim
+went stale in four places at once. Three more things:
+
+- **The landing page shows the recipient their own code**, revealed by an
+  inline script that validates six characters *before* filling the box. Hidden
+  in the markup, so a bare address, a mangled one, a crawler and a browser with
+  scripting off all render the page unchanged rather than an empty box. It had
+  promised the code would be waiting in the app; it never was, and that was the
+  only path in the product where somebody who wanted to join could silently
+  fail to.
+- **The page's six-character check is a necessary second copy** of
+  `isValidInviteCode`, since standalone HTML cannot import it. The guard catches
+  deletion, not divergence. No build step and no external request — both are
+  properties of that page worth keeping for one rule.
+- **The Sky says something true when a player is alone on it.** `sky-empty.ts`
+  is a pure module tested in Node (the screen is a component file the runner
+  cannot load) and owns both halves of what was one condition on the screen:
+  whether a race exists — which also gates `race_seen` — and what to say when
+  it does not. The corridor still draws, because the ridge is a real opponent;
+  the observation comes first and the offer second; it **names no rank and
+  invents no rival**, and ghost racing counts as a race so it never fires for a
+  player with scored history. The offer shares the squad's own invite through
+  `shareInvite`, so the message and the code cannot fork, and sends a squadless
+  account to the Flock tab instead of offering an invite it has no code for.
 
 **Two documents hold the decisions. Read them before proposing changes.**
 

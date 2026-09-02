@@ -36,10 +36,15 @@ export function PermissionAsks({
   userId,
   hasSquad,
   hasEvent,
+  hasScoredDay,
 }: {
   userId: string | undefined;
   hasSquad: boolean;
   hasEvent: boolean;
+  /** The notification ask's third reason — see `ask-policy.ts`. Read from the
+   *  same lifetime scored-day count the disclosure gate uses, so a solo player
+   *  is asked on the first morning the Digest has anything true to say. */
+  hasScoredDay: boolean;
 }) {
   const [health, setHealth] = useState<HealthPermissionState | null>(null);
   const [notification, setNotification] = useState<NotificationPermission | null>(null);
@@ -106,6 +111,7 @@ export function PermissionAsks({
           notificationDismissed,
           hasSquad,
           hasEvent,
+          hasScoredDay,
           answeredAnAskThisSession,
         });
 

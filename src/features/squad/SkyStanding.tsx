@@ -37,7 +37,19 @@ export function SkyStanding({
       ? `${gap.toLocaleString()} steps behind ${ahead.characterName}`
       : `${(RACE_FINISH_LINE - me.cappedSteps).toLocaleString()} steps to the flag`;
 
-  const position = `${me.rank} of ${racers.length}`;
+  /**
+   * **Null when there is nobody to be ranked against** (2026-09-02).
+   *
+   * A lone racer read "1 of 1" — an ordinal whose only possible meaning is that
+   * they beat nobody, which is precisely what the Sky's solo state exists to
+   * stop the screen saying. The same mistake `SoloBoard` made with `1st` over
+   * `of 1` and was rewritten to remove.
+   *
+   * Only the position drops. The headline is the distance to the flag, which is
+   * a complete and true reading of a day flown alone, and the whole point of
+   * still drawing the corridor is that the ridge is a real opponent.
+   */
+  const position = racers.length > 1 ? `${me.rank} of ${racers.length}` : null;
 
   const hidden = {
     accessibilityElementsHidden: true,
@@ -48,14 +60,21 @@ export function SkyStanding({
 
   return (
     <Surface variant="lift">
-      <View accessible accessibilityLabel={`${headline}. Position ${position}.`}>
+      <View
+        accessible
+        accessibilityLabel={
+          position ? `${headline}. Position ${position}.` : `${headline}.`
+        }
+      >
         <View {...hidden} style={styles.head}>
           <Text scale="fixed" style={styles.headline}>
             {headline}
           </Text>
-          <Text scale="fixed" style={styles.position}>
-            {position}
-          </Text>
+          {position !== null && (
+            <Text scale="fixed" style={styles.position}>
+              {position}
+            </Text>
+          )}
         </View>
 
         <View {...hidden} style={styles.meter}>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   RACE_FINISH_LINE,
@@ -22,11 +23,13 @@ import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
+import { shareInvite } from '@/features/squad/share-invite.ts';
+import { skyReading } from '@/features/squad/sky-reading.ts';
 import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { claimDaily } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { Gradient, Glass, Panel, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
+import { CtaPill, Gradient, Glass, Panel, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 
@@ -121,12 +124,21 @@ export default function Sky() {
   );
 
   const me = racers.find((r) => r.isSelf);
-  const sawRace = racers.length > 1;
+
+  // Whether the corridor holds a race, and what the screen says when it does
+  // not — one decision, in a module tested in Node, because this is a component
+  // file the runner cannot load at all. The screen only performs the result.
+  const reading = skyReading(racers, Boolean(squad.data));
 
   useEffect(() => {
-    if (!userId || !localToday || !sawRace) return;
+    if (!userId || !localToday || !reading.raceExists) return;
     if (claimDaily(userId, 'race_seen', localToday)) void track(userId, 'race_seen');
-  }, [userId, localToday, sawRace]);
+  }, [userId, localToday, reading.raceExists]);
+
+  // The consent note already explains an empty sky, and says something the solo
+  // card cannot: that the emptiness is the reader's own setting. Two cards
+  // offering different accounts of one screen is the failure this replaces.
+  const withholding = consent.isSuccess && !consent.consented && Boolean(squad.data);
 
   // The corridor is the whole screen wide and four times as tall — the flight
   // is scrolled, not glanced at. Its height follows from the design's aspect
@@ -262,6 +274,43 @@ export default function Sky() {
         pointerEvents="box-none"
         style={[styles.pinnedFoot, { bottom: insets.bottom + TAB_PILL_CLEARANCE }]}
       >
+        {/* The observation first and the offer second, so the screen is about
+            today rather than about what is missing. The corridor is still drawn
+            behind it: the ridge is a real opponent, and a lone flight is a
+            complete reading rather than a hole. */}
+        {reading.solo && !withholding && (
+          <Panel variant="tint" style={styles.solo}>
+            <Text style={styles.note}>{reading.solo.observation}</Text>
+            <Text style={styles.soloOffer}>{reading.solo.invitation}</Text>
+            {/* `CtaPill` is a View by design, not a control: the `Pressable`
+                around it is the target, and nesting a touchable inside a
+                touchable gives iOS two overlapping ones where the inner
+                swallows the press. Reused rather than re-cut so there is one
+                pill geometry and one answer to "a bright fill takes ink". */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={reading.solo.action}
+              onPress={() => {
+                // Deliberately the Flock tab's own `shareInvite` — the share
+                // call, the message and the code are one behaviour, and a
+                // second copy here is how the link and the code fork. The
+                // *presentation* is not reused: `InviteCode` is a card in a
+                // list of cards, and this is a gradient with a bird on it.
+                if (reading.solo?.intent === 'share' && squad.data) {
+                  void shareInvite({
+                    squadName: squad.data.name,
+                    inviteCode: squad.data.invite_code,
+                  });
+                  return;
+                }
+                router.push('/flock');
+              }}
+            >
+              <CtaPill label={reading.solo.action} />
+            </Pressable>
+          </Panel>
+        )}
+
         {me && <SkyStanding me={me} racers={racers} floating />}
 
         {/* Your own sync time, and it says "your" for a reason — squadmates'
@@ -396,6 +445,8 @@ const styles = StyleSheet.create({
   pinnedTop: { position: 'absolute', left: space.md, right: space.md },
   consent: { marginTop: space.sm },
   pinnedFoot: { position: 'absolute', left: space.lg, right: space.lg, gap: space.sm },
+  solo: { gap: space.xs },
+  soloOffer: { ...font.body.body, fontSize: 13.5, color: colors.subtle, lineHeight: 19 },
   freshness: { paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center' },
   freshnessText: { ...font.body.strong, fontSize: 11, color: colors.bg },
 

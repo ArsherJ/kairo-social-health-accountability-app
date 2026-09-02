@@ -169,6 +169,45 @@
         color: var(--muted);
       }
 
+      /* The code the reader came for, directly under the hero.
+
+         Hidden in the markup and revealed by the inline script at the foot of
+         the page, so a visitor with no code, a crawler, and a browser with
+         scripting off all get the page as it reads without it — rather than an
+         empty box where a code should be, which is worse than no box at all. */
+      .code {
+        margin: 2rem 0 0;
+        padding: 1.25rem 1.375rem 1.375rem;
+        background: var(--surface);
+        border-radius: 1rem;
+      }
+
+      .code-name {
+        margin: 0;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .code-value {
+        margin: 0.5rem 0 0;
+        font-size: clamp(2rem, 11vw, 2.75rem);
+        font-weight: 800;
+        /* Six characters read aloud and retyped, so they are set wide and
+           monospaced: 0/O and 1/I are the whole reason this ever fails. */
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+      }
+
+      .code-note {
+        margin: 0.75rem 0 0;
+        font-size: 0.875rem;
+        color: var(--subtle);
+      }
+
       .points {
         margin: 2.5rem 0 0;
         padding: 0;
@@ -201,6 +240,31 @@
       .points strong {
         color: var(--text);
         font-weight: 700;
+      }
+
+      /* Promoted out of the three-point list. It is not one feature among
+         three: it is the whole privacy promise for the entire invite flow, and
+         the sentence most likely to decide whether a stranger installs. Since
+         2026-09-02 it is also the *only* place the claim is made before the
+         app's own permission sheet — the invite message no longer attempts it,
+         because no honest version fits in the room it had. */
+      .privacy {
+        margin: 2.5rem 0 0;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--rule);
+      }
+
+      .privacy h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .privacy p {
+        margin: 0.5rem 0 0;
+        font-size: 0.9375rem;
+        color: var(--subtle);
       }
 
       .status {
@@ -248,8 +312,25 @@
       <p class="lede">
         Kairo reads the activity your phone already records and turns it into a
         character that levels up. Your day lands on a leaderboard your squad can
-        see — nobody sees your steps.
+        see.
       </p>
+
+      <!-- The code the reader came for, ahead of anything explaining the
+           product. They arrived from a friend with one thing to do.
+
+           `hidden` in the markup, revealed by the script at the foot of the
+           page once it has read a valid six-character code out of the address.
+           Nothing is written into the box before it validates: a mangled link
+           must show nothing rather than show garbage in a box that looks
+           authoritative. -->
+      <section class="code" id="code" hidden>
+        <p class="code-name">Your squad code</p>
+        <p class="code-value" id="code-value"></p>
+        <p class="code-note">
+          Install Kairo, then tap this link again — it fills the code in for
+          you. Or type it into the app by hand.
+        </p>
+      </section>
 
       <!-- One element with a composed label, matching the app's own rule: the
            bar and its numbers mean one thing together, and read as three
@@ -276,25 +357,31 @@
         <li>
           <span
             ><strong>A squad is a daily leaderboard.</strong> Up to six people,
-            ranked on the day. Set shared goals over a month or a year.</span
-          >
-        </li>
-        <li>
-          <span
-            ><strong>Your health data stays yours.</strong> Squadmates see a
-            rank and a rating. They never see your steps, your heart rate or
-            when you moved.</span
+            ranked on the day.</span
           >
         </li>
       </ul>
+
+      <!-- Promoted out of the list above, and since 2026-09-02 this is the only
+           statement of it a person reads before installing: the invite message
+           dropped its own clause, because no honest version of this fit in the
+           twenty-five characters it had. The app's HealthKit permission sheet —
+           which nobody can avoid — says the same thing. -->
+      <section class="privacy">
+        <h2>What your squadmates can see</h2>
+        <p>
+          Your daily totals: steps, distance, calories and sleep — and only
+          where you have both agreed to share with each other. They never see
+          your heart rate, your workouts, or when in the day you moved.
+        </p>
+      </section>
 
       <section class="status">
         <h2>Kairo is in a closed beta</h2>
         <p>
           It runs on iPhone and is not on the App Store yet. Ask whoever sent
           you this link to add you to the TestFlight — you'll get an email from
-          Apple with the invite, and your squad code will still be waiting when
-          you open the app.
+          Apple with the invite.
         </p>
       </section>
     </main>
@@ -302,5 +389,43 @@
     <!-- 16.4 matches the IPHONEOS_DEPLOYMENT_TARGET produced by the current
          Expo/CNG toolchain. Re-check this footer when that generated target moves. -->
     <footer>Kairo · Philippines · iPhone, iOS 16.4 and later</footer>
+
+    <!-- Show the reader their own code.
+         =============================
+
+         The invite link is `/join/<code>`, rewritten to this page by
+         `vercel.json`, so the code is in the address and nowhere else. Until
+         2026-09-02 nothing here read it, and the page promised the visitor
+         their code would be held for them in the app. It never was: the code is
+         only ever captured by a route *inside* the app, and nothing carries it
+         across an install. This is the one path in the product where somebody
+         who wants to join could silently fail to.
+
+         Inline, no build step and no external request, because both are
+         properties of this page worth keeping for one rule.
+
+         **Validation before reveal.** The regex is a second copy of the app's
+         `isValidInviteCode`, which standalone HTML cannot import. The
+         duplication is accepted rather than solved with a build step for one
+         rule, and the guard in `invite-message.test.ts` catches this being
+         *deleted*, not it diverging — that limit is recorded rather than
+         hidden. Normalisation matches the app's: case and the dashes people add
+         to break up six characters. -->
+    <script>
+      (function () {
+        var match = /\/join\/([^/?#]+)/.exec(window.location.pathname);
+        if (!match) return;
+
+        var code = decodeURIComponent(match[1]).replace(/[\s-]/g, "").toUpperCase();
+        if (!/^[A-Z0-9]{6}$/.test(code)) return;
+
+        var value = document.getElementById("code-value");
+        var block = document.getElementById("code");
+        if (!value || !block) return;
+
+        value.textContent = code;
+        block.hidden = false;
+      })();
+    </script>
   </body>
 </html>

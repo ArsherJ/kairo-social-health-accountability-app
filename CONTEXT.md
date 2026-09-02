@@ -23,9 +23,8 @@ character speaks in sentences about itself; the app does not speak as an app.
 **Level** — all-time progression from XP, stat-agnostic. What the character *is*.
 
 **Mastery** — per-stat lifetime accumulation, one figure per stat. It never
-falls, because a number that falls punishes the quiet week and the quiet week is
-who this product is for. It therefore measures *accumulated practice*, not
-current form.
+falls, because a number that falls punishes the **quiet week**. It therefore
+measures *accumulated practice*, not current form.
 
 > Superseded: **ability rating**. The old name asserted current capability, which
 > is precisely what a monotone lifetime figure cannot measure. Same mechanic,
@@ -151,4 +150,14 @@ account rather than stored. A garnish on the loop, never a cheaper route through
 it.
 
 **Digest** — the one scheduled push a day, in the morning, in the player's own
-timezone.
+timezone. It reaches a solo player too, and says nothing about rank to one.
+
+**Lapsed** — an account with no scored day in seven local days. It stops the
+**Digest** and nothing else: the account is not degraded, not demoted and not
+told, and the first scored day ends it, with nothing stored to reset. Not a
+**quiet week**.
+
+**Quiet week** — a player who is here and scoring little. The product is built
+for them, and three things say so: **Mastery** never falls, a **Challenge**
+moves down as readily as up, and the **shield** covers a missed day. A quiet
+week scores, so it is never **lapsed**.

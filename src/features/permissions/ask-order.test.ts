@@ -8,6 +8,7 @@ const base: PermissionAskInput = {
   notificationDismissed: false,
   hasSquad: true,
   hasEvent: false,
+  hasScoredDay: false,
   answeredAnAskThisSession: false,
 };
 
@@ -42,10 +43,35 @@ describe('which permission Kairo asks for', () => {
     expect(nextPermissionAsk({ ...base, healthDismissed: true })).toBe('notifications');
   });
 
+  it('still puts Health first for a solo player whose first day scored', () => {
+    // The notification ask's third reason (2026-09-02) composes exactly as the
+    // other two do — it makes the notification ask *eligible*, and ordering is
+    // untouched. Health is the data source that produced the scored day in the
+    // first place, so on the rare install where it is still unanswered it
+    // continues to win the slot.
+    expect(
+      nextPermissionAsk({ ...base, hasSquad: false, hasScoredDay: true }),
+    ).toBe('health');
+    expect(
+      nextPermissionAsk({
+        ...base,
+        health: 'asked',
+        hasSquad: false,
+        hasScoredDay: true,
+      }),
+    ).toBe('notifications');
+  });
+
   it('asks for nothing when Health is answered and the user has no why yet', () => {
     // §5: every ask has a visible why. No squad and no battle — nothing to ask.
     expect(
-      nextPermissionAsk({ ...base, health: 'asked', hasSquad: false, hasEvent: false }),
+      nextPermissionAsk({
+        ...base,
+        health: 'asked',
+        hasSquad: false,
+        hasEvent: false,
+        hasScoredDay: false,
+      }),
     ).toBe(null);
   });
 
