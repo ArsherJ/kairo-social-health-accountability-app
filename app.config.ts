@@ -233,8 +233,15 @@ const config: ExpoConfig = {
         // `src/features/health/disclosure.ts` carries the in-app half and is
         // test-locked to the request list; this string cannot be, so it has to
         // be changed by hand whenever that list changes.
+        //
+        // It also carries the privacy claim, and until 2026-09-02 it was the
+        // last surface still promising "never your raw data" — false since
+        // deviation #47's consent gate, and missed because it is native config
+        // rather than copy. Expensive to correct: `expoConfig` is a fingerprint
+        // input, so this string moved runtimeVersion and cost build 23. Keep
+        // it in agreement with `web/privacy.html` §3.
         NSHealthShareUsageDescription:
-          'Kairo reads steps, active calories and sleep to score your character, with distance as an anti-cheat cross-check; active minutes appear in your daily breakdown; heart rate and resting heart rate show your strain; and workouts confirm a hard session was real. Heart rate is never scored, and your squad sees scores only — never your raw data.',
+          'Kairo reads steps, active calories and sleep to score your character, with distance as an anti-cheat cross-check; active minutes appear in your daily breakdown; heart rate and resting heart rate show your strain; and workouts confirm a hard session was real. Heart rate is never scored and never shared. Squadmates see your daily totals only if you both agree, and never when you moved, your heart rate or your workouts.',
         // Declared because iOS requires the string whenever the entitlement is
         // present. Shipped builds never request write access at all — only the
         // `__DEV__` simulator seeder in src/features/health/dev-seed.ts does,
