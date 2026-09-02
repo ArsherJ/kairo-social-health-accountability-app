@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { colors, earnedColor, font, radius, ramp, space } from '@/theme.ts';
 import { Label, Meter, Text } from '@/ui/index.ts';
-import { dailyWalkState, walkLines } from './daily-walk.ts';
+import { dailyWalkState, walkNote } from './daily-walk.ts';
 import { useWalkHistory } from './queries.ts';
 
 /**
@@ -46,7 +46,16 @@ export function DailyWalkCard({
   if (!today || !history.isSuccess) return null;
 
   const state = dailyWalkState({ todaySteps, today, days: history.data });
-  const lines = walkLines(state);
+  // **This whole component is deleted by deviation #59** — the Daily Walk moves
+  // into Today's details sheet, which reuses `walkNote()` and drops the
+  // headline. The headline is composed inline here for the interim rather than
+  // kept in `daily-walk.ts`, so nothing outside this dying file depends on it.
+  const lines = {
+    headline: state.streak === 0
+      ? `${state.baseline.toLocaleString()} steps`
+      : `${state.streak} ${state.streak === 1 ? 'day' : 'days'} in a row`,
+    body: walkNote(state),
+  };
 
   return (
     // One element, one meaning. The meter is unlabelled and therefore hidden by

@@ -27,9 +27,20 @@ import { colors, font, space } from '@/theme.ts';
 export function SyncStatus({
   userId,
   timeZone,
+  attentionOnly = false,
 }: {
   userId: string | undefined;
   timeZone: string | undefined;
+  /**
+   * Say nothing when the sync is healthy and fresh.
+   *
+   * For the Living Mirror's details sheet, which somebody opened on purpose:
+   * "synced 3 minutes ago" there is a line about the app rather than about the
+   * day. Every state that *explains* something — syncing, never, stale, failed,
+   * no-data — still renders, because those are the reason this component
+   * exists. Default false, so every other caller is unaffected.
+   */
+  attentionOnly?: boolean;
 }) {
   const { syncing, lastSyncedAt, firstSyncedAt, lastError } = useSyncStatusStore();
 
@@ -79,6 +90,8 @@ export function SyncStatus({
     everReceivedData,
     now: Date.now(),
   });
+
+  if (attentionOnly && status.kind === 'fresh') return null;
 
   const icon = ICONS[status.kind];
   const tone = status.attention ? colors.text : colors.muted;

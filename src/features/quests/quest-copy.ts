@@ -25,8 +25,14 @@ const VERBS: Record<QuestMetric, string> = {
   sleep_minutes: 'Sleep',
 };
 
-/** Minutes as a person says them. 420 is "7 hours", 450 is "7h 30m". */
-function durationWords(minutes: number): string {
+/**
+ * Minutes as a person says them. 420 is "7 hours", 450 is "7h 30m".
+ *
+ * Exported since deviation #59: Today's details sheet reports the same raw
+ * units in the same words, and a second formatter would be a second way to
+ * render one night.
+ */
+export function durationWords(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   if (rest === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
@@ -34,7 +40,7 @@ function durationWords(minutes: number): string {
 }
 
 /** Metres as kilometres, trimmed. 5,000 is "5 km", 7,500 is "7.5 km". */
-function distanceWords(metres: number): string {
+export function distanceWords(metres: number): string {
   const km = metres / 1_000;
   return `${Number.isInteger(km) ? km : km.toFixed(1)} km`;
 }

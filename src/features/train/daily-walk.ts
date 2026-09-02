@@ -78,36 +78,38 @@ export function dailyWalkState({
 }
 
 /**
- * The card's two lines: the run of days, and what the walk actually is.
+ * The one sentence that says what the Daily Walk is.
  *
- * Pure and tested because the branches have real edges — the plural at one day,
- * and the cold start where there is no streak to name yet.
+ * Pure and tested because the branches have real edges — the cold start where
+ * there is no run to name yet, and the cleared day.
  *
  * It deliberately **never states today's step count or the gap to the
- * baseline**. The home hero already sets today's steps at 64pt, and
- * `detailCopy` on the same screen already says "1,588 more steps tops out your
- * Motion today" — which is the *same number*, because AGI Gold and
- * `DAILY_STEP_BASELINE` are the same threshold by construction. A third
- * rendering of one figure is what the "read what is already spoken" rule exists
- * to stop. What nothing else on that screen says is the run of days and the
- * fact that the target is fixed, so that is this card's whole job.
+ * baseline**. The Living Mirror already sets today's steps at hero size in the
+ * scene above, and the details sheet's Motion section names the run of days on
+ * the row before this one. What nothing else says is that the target is fixed,
+ * so that is this sentence's whole job.
+ *
+ * **It says "run", never "streak".** The personal Streak in the scene HUD reads
+ * `streaks.current_streak`; the Daily Walk run reads `dailyWalkState().streak`.
+ * They are different values and must never share a word — and this sentence now
+ * lands on a screen whose header shows the other one.
+ *
+ * It was `walkLines()` and returned a headline too. The headline had exactly
+ * one consumer, `DailyWalkCard`, which deviation #59 deletes.
  */
-export function walkLines(state: DailyWalkState): { headline: string; body: string } {
-  const days = `${state.streak} ${state.streak === 1 ? 'day' : 'days'}`;
+export function walkNote(state: DailyWalkState): string {
+  // `DAILY_STEP_BASELINE.toLocaleString()`, never a literal: the baseline is
+  // derived from AGI Gold, and a second number describing the old one is
+  // exactly what the derivation exists to prevent.
+  const baseline = DAILY_STEP_BASELINE.toLocaleString();
 
   if (state.streak === 0) {
-    return {
-      headline: '10,000 steps',
-      body: 'A daily baseline for health, not a target that grows with you. Clear it to start a streak.',
-    };
+    return `${baseline} steps. A daily baseline for health, not a target that grows with you. Clear it to start a run.`;
   }
 
-  return {
-    headline: `${days} in a row`,
-    body: state.met
-      ? 'Cleared today. 10,000 steps — the same tomorrow, and every day after.'
-      : '10,000 steps a day. The baseline never grows, so the run of days is the part that does.',
-  };
+  return state.met
+    ? `Cleared today. ${baseline} steps — the same tomorrow, and every day after.`
+    : `${baseline} steps a day. The baseline never grows, so the run of days is the part that does.`;
 }
 
 function walkStreak({

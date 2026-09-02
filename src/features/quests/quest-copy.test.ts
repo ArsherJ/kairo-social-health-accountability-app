@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { QuestDef, QuestState } from '@kairo/core';
-import { questHeadline, questLabel, questProgressLine } from './quest-copy.ts';
+import {
+  distanceWords,
+  durationWords,
+  questHeadline,
+  questLabel,
+  questProgressLine,
+} from './quest-copy.ts';
 
 const steps: QuestDef = {
   id: 'steady-steps-7000',
@@ -70,5 +76,16 @@ describe('questLabel', () => {
     expect(questLabel(steps, state({ value: 9_000, fraction: 1, met: true }))).toBe(
       'Walk 7,000 steps. Cleared. 15 XP.',
     );
+  });
+});
+
+// Exported for Today's details sheet (deviation #59), which reports the same
+// raw units. Pinned here so the two surfaces cannot render one figure two ways.
+describe('raw-unit formatters', () => {
+  it('says distances and durations the way a person does', () => {
+    expect(distanceWords(5_000)).toBe('5 km');
+    expect(distanceWords(7_500)).toBe('7.5 km');
+    expect(durationWords(420)).toBe('7 hours');
+    expect(durationWords(450)).toBe('7h 30m');
   });
 });

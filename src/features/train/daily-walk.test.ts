@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DAILY_STEP_BASELINE } from '@kairo/core';
-import { dailyWalkState, walkLines, type DailyWalkDay } from './daily-walk.ts';
+import { dailyWalkState, walkNote, type DailyWalkDay } from './daily-walk.ts';
 
 /** Days cleared, newest last. Order is deliberately not what the code relies on. */
 function cleared(...dates: string[]): DailyWalkDay[] {
@@ -151,36 +151,37 @@ describe('dailyWalkState — the streak', () => {
   });
 });
 
-describe('walkLines', () => {
+describe('walkNote', () => {
   const state = (todaySteps: number, days: DailyWalkDay[] = []) =>
     dailyWalkState({ todaySteps, today: TODAY, days });
 
-  it('invites a start when there is no streak yet', () => {
-    const lines = walkLines(state(0));
-    expect(lines.headline).toBe('10,000 steps');
-    expect(lines.body).toContain('start a streak');
+  it('invites a start when there is no run yet', () => {
+    const note = walkNote(state(0));
+    expect(note).toContain(DAILY_STEP_BASELINE.toLocaleString());
+    expect(note).toContain('start a run');
   });
 
-  it('says the singular at exactly one day', () => {
-    expect(walkLines(state(10_000)).headline).toBe('1 day in a row');
-  });
-
-  it('says the plural above one', () => {
-    expect(walkLines(state(10_000, cleared('2026-08-14'))).headline).toBe('2 days in a row');
+  // The personal Streak and the Daily Walk run are different values, and this
+  // sentence lands on a screen whose header shows the other one.
+  it('never says "streak"', () => {
+    for (const s of [state(0), state(10_000), state(4_213, cleared('2026-08-14'))]) {
+      expect(walkNote(s)).not.toMatch(/streak/i);
+    }
   });
 
   it('confirms a cleared day rather than repeating the target', () => {
-    expect(walkLines(state(11_000, cleared('2026-08-14'))).body).toContain('Cleared today');
+    expect(walkNote(state(11_000, cleared('2026-08-14')))).toContain('Cleared today');
   });
 
-  it('never states today’s steps or the gap, which the home hero already says', () => {
-    // The hero sets today's steps at 64pt and `detailCopy` already names the
-    // remaining steps — AGI Gold and the baseline are the same threshold, so a
-    // gap here would be the third rendering of one number.
-    // Stated as the rule itself rather than as a substring search: the only
-    // figures this copy may name are the baseline and the streak length.
-    // Substring matching cannot express that — "1" is inside "1 day in a row",
-    // and "0" is inside "10,000".
+  it('says the baseline never grows on an unfinished day inside a run', () => {
+    expect(walkNote(state(4_213, cleared('2026-08-14')))).toContain('never grows');
+  });
+
+  it('never states today\u2019s steps or the gap, which the scene above already says', () => {
+    // The scene sets today's steps at hero size and the Motion section names
+    // the run of days on the row before this one, so the only figure this copy
+    // may name is the baseline. Stated as the rule itself rather than as a
+    // substring search: "0" is inside "10,000".
     const cases = [
       state(0),
       state(4_213),
@@ -190,11 +191,9 @@ describe('walkLines', () => {
     ];
 
     for (const s of cases) {
-      const lines = walkLines(s);
-      const figures = `${lines.headline} ${lines.body}`.match(/\d[\d,]*/g) ?? [];
-      const allowed = new Set(['10,000', String(s.streak)]);
+      const figures = walkNote(s).match(/\d[\d,]*/g) ?? [];
       for (const figure of figures) {
-        expect(allowed).toContain(figure);
+        expect(figure).toBe(DAILY_STEP_BASELINE.toLocaleString());
       }
     }
   });
