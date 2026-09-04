@@ -5,6 +5,7 @@ import { RACE_FINISH_LINE } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingDots, OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -35,6 +36,7 @@ const FIELD: Stop[] = [
 export default function OneSky() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('one-sky');
 
   return (
     <View style={styles.screen}>
@@ -58,8 +60,8 @@ export default function OneSky() {
         ]}
       >
         <OnboardingRail
-          filled={0}
-          partial={1}
+          filled={beat.filled}
+          partial={beat.partial}
           onBack={() => router.back()}
           onSkip={() => router.replace('/connect')}
         />
@@ -106,7 +108,7 @@ export default function OneSky() {
         <OnboardingDots index={1} count={3} />
 
         <OnboardingCta
-          label="Next"
+          label={beatCta(beat)}
           tone="glass"
           icon="arrow-right"
           onPress={() => router.push('/connect')}

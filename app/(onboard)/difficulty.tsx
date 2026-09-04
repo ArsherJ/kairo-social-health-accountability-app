@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { QUEST_CATALOGUE, type QuestTier } from '@kairo/core';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { compactFigure, questUnit } from '@/features/quests/quest-dial.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
@@ -41,6 +42,7 @@ const BAND: Stop[] = [
 export default function Difficulty() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('difficulty');
   const chosen = useOnboardingAnswers((s) => s.questTier);
   const setQuestTier = useOnboardingAnswers((s) => s.setQuestTier);
 
@@ -49,7 +51,12 @@ export default function Difficulty() {
       <View style={styles.band}>
         <Gradient stops={BAND} steps={20} />
         <View style={[styles.bandBody, { paddingTop: insets.top + space.sm }]}>
-          <OnboardingRail filled={2} partial={0.5} tone="light" onBack={() => router.back()} />
+          <OnboardingRail
+            filled={beat.filled}
+            partial={beat.partial}
+            tone="light"
+            onBack={() => router.back()}
+          />
           <Text scale="chrome" style={styles.headline}>
             Three quests a day.{'\n'}How big?
           </Text>
@@ -98,7 +105,7 @@ export default function Difficulty() {
 
         <View style={{ paddingBottom: space.md }}>
           <OnboardingCta
-            label="Next"
+            label={beatCta(beat)}
             tone="ink"
             icon="arrow-right"
             onPress={() => router.push('/privacy')}

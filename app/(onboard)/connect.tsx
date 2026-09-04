@@ -8,6 +8,7 @@ import { healthSource } from '@/features/health/health-source.ts';
 import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
 import { HatchingBeat } from '@/features/onboarding/HatchingBeat.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
 import { hatchingWindow, msUntilNextChange } from '@/features/onboarding/hatching-window.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
@@ -44,6 +45,7 @@ type Phase = 'asking' | 'hatching' | 'revealed';
 export default function Connect() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const beat = onboardingBeat('connect');
   const userId = useSessionStore((s) => s.session)?.user.id;
   const [phase, setPhase] = useState<Phase>('asking');
   const [busy, setBusy] = useState(false);
@@ -159,7 +161,12 @@ export default function Connect() {
           the run with no sense of how much is left, which is exactly backwards.
           `tone="dark"` because this beat sits on the cream ground. */}
       <View style={styles.rail}>
-        <OnboardingRail filled={1} partial={0.5} tone="dark" onBack={() => router.back()} />
+        <OnboardingRail
+          filled={beat.filled}
+          partial={beat.partial}
+          tone="dark"
+          onBack={() => router.back()}
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.top}>
@@ -244,7 +251,7 @@ export default function Connect() {
         ) : phase === 'asking' ? (
           <>
             <Button
-              label="Connect Apple Health"
+              label={beatCta(beat)}
               variant="primary"
               busy={busy}
               onPress={() => void connect()}

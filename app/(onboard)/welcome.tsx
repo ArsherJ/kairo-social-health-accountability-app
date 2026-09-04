@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { OnboardingDots, OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -37,6 +38,7 @@ const FIELD: Stop[] = [
 export default function Welcome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('welcome');
 
   return (
     <View style={styles.screen}>
@@ -57,7 +59,11 @@ export default function Welcome() {
       />
 
       <View style={[styles.body, { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg }]}>
-        <OnboardingRail filled={0} partial={0.5} onSkip={() => router.replace('/connect')} />
+        <OnboardingRail
+          filled={beat.filled}
+          partial={beat.partial}
+          onSkip={() => router.replace('/connect')}
+        />
 
         <View style={styles.middle}>
           <Text scale="chrome" style={styles.eyebrow}>
@@ -91,7 +97,7 @@ export default function Welcome() {
         <OnboardingDots index={0} count={3} />
 
         <OnboardingCta
-          label="Next"
+          label={beatCta(beat)}
           tone="glass"
           icon="arrow-right"
           onPress={() => router.push('/one-sky')}
