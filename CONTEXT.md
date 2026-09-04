@@ -129,6 +129,32 @@ per person: you see theirs when they have agreed *and* you have.
 
 ---
 
+## Starting out
+
+**Beat** — one screen of the onboarding run. The run is a sequence of beats and
+nothing else: a beat says one thing, and adding a thing means adding a beat.
+
+**Phase** — a stretch of beats that share a purpose: what this is, letting it
+in, your choices, the name. **The progress rail measures phases, not beats**, so
+a run of four and a run of seven both read as four segments and adding a beat
+never makes the run look longer than it is.
+
+**Calibration** — the one-time reading of the player's own recent step history,
+taken on the phone at the moment Health is granted, that proposes how big their
+daily quests should start. It is local: the days it reads are never stored and
+never sent. It can decline to answer — a fortnight with nothing in it means *we
+could not measure you*, which is a different sentence from *we measured you and
+you are starting small*, and the two are never merged.
+
+**Seed** — a value read once at the start and never re-derived. The opposite of
+a **rule**, which recomputes every time it is read and whose bar therefore rises
+as the player improves. Calibration is a seed: the same trailing median that is
+refused as a rule is safe as a seed, because nothing re-reads it. This is the
+distinction that keeps the two consistent, and it is the word to reach for
+before adding anything that "adapts".
+
+---
+
 ## Alone
 
 **Daily Walk** — a flat, permanent daily step figure. A public-health number, so

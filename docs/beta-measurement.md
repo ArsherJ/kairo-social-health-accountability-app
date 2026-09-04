@@ -346,6 +346,64 @@ order by members desc;
 
 ---
 
+## The onboarding run, from 2026-09-04
+
+Every beat records one impression, so the run is a funnel rather than two
+endpoints. Before this, `onboarding_started` fired on the connect beat and
+`profile_created` at the end, which made the cost of adding a beat
+unmeasurable — the thing a curation pass has to be able to see.
+
+```sql
+select payload->>'route' as beat, count(distinct user_id) as accounts
+from public.app_events
+where type = 'onboarding_beat_seen'
+group by 1
+order by 2 desc;
+```
+
+**Count distinct accounts, never rows.** The event is deliberately unguarded
+and fires on every mount, so a back-and-forward navigation lands two rows for
+one person; distinct accounts per beat absorbs that, and the drop between two
+consecutive beats is the number worth reading. The payload is the route name
+and nothing else — one hook takes a beat name, so no screen can attach the
+step figure it happens to be holding.
+
+Calibration is reported separately, once ever per account:
+
+```sql
+select payload->>'outcome' as outcome, count(*) as accounts
+from public.app_events
+where type = 'calibration_completed'
+group by 1
+order by 2 desc;
+```
+
+Two outcomes: `proposed` and `no-history`. The question it answers is whether
+calibration works at all — what fraction of new accounts have a readable
+fortnight on the phone — and nothing else. **It carries neither the median nor
+the tier proposed**, which would be a distribution of the cohort's fitness
+sitting in `app_events` to answer a question nobody asked; a step median is a
+health figure, and `telemetry-payloads.test.ts` fails if one reaches a payload.
+So the tier split is not available here and is not meant to be.
+
+And the flock ask, the fourth welcome card:
+
+```sql
+select payload->>'answer' as answer, count(*) as answers
+from public.app_events
+where type = 'flock_prompt_answered'
+group by 1
+order by 2 desc;
+```
+
+`joined`, `invited` or `skipped` — **which door was taken, not what came of
+it**. `squad_joined` and `squad_created` already say whether a squad resulted,
+and folding the two together would make the card look like it converts far
+better than it does. Its denominator is accounts that saw the run, which is
+`welcome_seen`'s marker rather than anything in this table.
+
+---
+
 ## The notification ask, from 2026-09-04
 
 The ask's why was widened to include a first scored day (`ask-policy.ts`).

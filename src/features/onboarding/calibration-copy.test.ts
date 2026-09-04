@@ -128,16 +128,20 @@ describe('questDifficultyHelp', () => {
   The claim above is only worth making if the code keeps it. `medianSteps`
   exists to be said out loud once and then forgotten: it crosses from the
   connect beat to the difficulty beat in an in-memory store, is never written
-  to `profiles`, and never rides in a telemetry payload. Both halves are a scan
-  rather than a type, because both failures are a field name typed into a call
-  that legitimately takes an object.
+  to `profiles`, and never rides in a telemetry payload.
+
+  Only the first half is here. The payload half lives in
+  `src/features/telemetry/telemetry-payloads.test.ts`, with the rest of the
+  onboarding run's emitters — one rule, one scan, because two scans enforcing
+  the same ban are two chances for one of them to be quietly narrowed. This
+  half stays because it is a different rule: not what leaves the phone, but
+  what the account carries afterwards.
+
+  It is a scan rather than a type for the same reason the other half is: the
+  failure is a field name typed into a call that legitimately takes an object.
 */
-describe('the median never leaves the phone', () => {
+describe('the median is never written to the profile row', () => {
   const CALIBRATION_SITES = [
-    // `calibration.ts` first and load-bearing: it is the **only** file in the
-    // repo that calls `track` with anything a reading produced, so a scan that
-    // omitted it could not fail on the one file capable of breaking the claim.
-    // It did, in this feature's own first pass.
     'src/features/onboarding/calibration.ts',
     'app/(onboard)/connect.tsx',
     'app/(onboard)/difficulty.tsx',
@@ -145,32 +149,18 @@ describe('the median never leaves the phone', () => {
     'src/features/onboarding/answers.ts',
   ];
 
-  it('is never sent to a telemetry event, and neither is the tier it proposed', () => {
-    for (const path of CALIBRATION_SITES) {
-      const source = readFileSync(path, 'utf8');
-      // Every `track(...)` argument list in the file, flattened.
-      const calls = source.match(/track\([^;]*?\);/gs) ?? [];
-      expect(calls.length, `${path} has no track call to scan`).toBeGreaterThanOrEqual(
-        path.endsWith('calibration.ts') ? 1 : 0,
-      );
-      for (const call of calls) {
-        // The median, and **the tier**. A tier breakdown would be a
-        // distribution of the cohort's fitness sitting in `app_events` to
-        // answer a question nobody asked — the outcome is the whole payload.
-        expect(call, `${path} puts a reading in a telemetry payload`).not.toMatch(
-          /median|steps|\btier\b/i,
-        );
-      }
-    }
-  });
-
-  it('is never written to the profile row', () => {
+  it('reaches no profile write', () => {
+    let scanned = 0;
     for (const path of CALIBRATION_SITES) {
       const source = readFileSync(path, 'utf8');
       const writes = source.match(/(?:updateProfile\.mutate|createProfile\.mutate)\([^;]*?\);/gs) ?? [];
+      scanned += writes.length;
       for (const write of writes) {
         expect(write, `${path} persists a step figure`).not.toMatch(/median/i);
       }
     }
+    // A scan over nothing passes, so the write the name beat makes has to be
+    // found: renaming that mutation is what would silently empty this test.
+    expect(scanned, 'no profile write was found to scan').toBeGreaterThan(0);
   });
 });

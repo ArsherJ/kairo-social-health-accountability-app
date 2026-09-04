@@ -7,8 +7,23 @@ iOS first via Expo; Supabase backend.
 Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 **Flock** (the squad) and **You**.
 
-Onboarding is two screens — connect Apple Health, then name your Kairo. The
-player picks no species: every character is the eagle as of 2026-08-27
+Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
+`/difficulty`, `/privacy`, `/name` — grouped into the four phases the progress
+rail draws: what this is, letting it in, your choices, the name. The Health ask
+is fourth, behind the mirror beat, which moves the blame off the player before
+the one dialog whose refusal cannot be undone from inside the app. The profile
+row commits exactly once, on the name beat, so every question is asked before
+it (deviation #22).
+
+The grant also **calibrates** the starting quest size: a fortnight of the
+player's own complete days, read on the phone, medianed, and used to propose a
+tier that `/difficulty` shows pre-selected. It is a **seed** rather than a rule
+— read once and never re-derived — so an onboarded account is not on Automatic
+by default; Automatic survives as the fallback for accounts that predate
+calibration, could not be measured, skipped the beat, or clear their override
+in Settings. Those fourteen days are never stored and never sent.
+
+The player picks no species: every character is the eagle as of 2026-08-27
 (deviation #55), and `profiles.species` still holds every earlier choice so
 the decision is one line to reverse.
 

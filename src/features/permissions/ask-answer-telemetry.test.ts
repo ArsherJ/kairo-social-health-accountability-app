@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * A source scan, on `living-mirror-events.test.ts`'s precedent and for its
+ * A source scan, on `telemetry-payloads.test.ts`'s precedent and for its
  * reason: the emitting component is a `.tsx` reaching React Native, which root
  * Vitest cannot load, and the claim being made is about what a payload may
  * carry rather than about a return value.
