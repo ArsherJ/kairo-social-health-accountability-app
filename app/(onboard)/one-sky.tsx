@@ -5,7 +5,8 @@ import { RACE_FINISH_LINE } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingDots, OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
-import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { beatCta, onboardingBeat, onboardingSkipTarget, valueCardPosition } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -37,6 +38,7 @@ export default function OneSky() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const beat = onboardingBeat('one-sky');
+  useBeatImpression('one-sky');
 
   return (
     <View style={styles.screen}>
@@ -63,7 +65,7 @@ export default function OneSky() {
           filled={beat.filled}
           partial={beat.partial}
           onBack={() => router.back()}
-          onSkip={() => router.replace('/connect')}
+          onSkip={() => router.replace(onboardingSkipTarget())}
         />
 
         <View style={styles.middle}>
@@ -105,13 +107,13 @@ export default function OneSky() {
           </Text>
         </View>
 
-        <OnboardingDots index={1} count={3} />
+        <OnboardingDots {...valueCardPosition(beat)} />
 
         <OnboardingCta
           label={beatCta(beat)}
           tone="glass"
           icon="arrow-right"
-          onPress={() => router.push('/connect')}
+          onPress={() => router.push('/mirror')}
         />
       </View>
     </View>

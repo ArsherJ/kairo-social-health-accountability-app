@@ -9,6 +9,7 @@ import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
 import { HatchingBeat } from '@/features/onboarding/HatchingBeat.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
 import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { hatchingWindow, msUntilNextChange } from '@/features/onboarding/hatching-window.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
@@ -46,6 +47,7 @@ export default function Connect() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const beat = onboardingBeat('connect');
+  useBeatImpression('connect');
   const userId = useSessionStore((s) => s.session)?.user.id;
   const [phase, setPhase] = useState<Phase>('asking');
   const [busy, setBusy] = useState(false);

@@ -89,8 +89,8 @@ describe('redirectTarget', () => {
   });
 
   it('sends a user with no profile to the welcome screen, the first onboarding step', () => {
-    // The run is /welcome -> /one-sky -> /connect -> /difficulty -> /privacy
-    // -> /name (deviation #58). The gate only ever knows "has no profile row
+    // The run is /welcome -> /one-sky -> /mirror -> /connect -> /difficulty
+    // -> /privacy -> /name. The gate only ever knows "has no profile row
     // yet", so it targets the first, and the (onboard) branch covers the rest.
     //
     // **Not /connect.** Health used to be the first beat, which meant the very

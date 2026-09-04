@@ -17,6 +17,7 @@ import { SPECIES_FIGURES } from '@/features/character/species-art.ts';
 import { useCreateProfile } from '@/features/profile/create-profile.ts';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
 import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { Button, Label, Panel, Text } from '@/ui/index.ts';
@@ -42,6 +43,7 @@ export default function MeetYourKairo() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const beat = onboardingBeat('name');
+  useBeatImpression('name');
   const session = useSessionStore((s) => s.session);
   const createProfile = useCreateProfile(session?.user.id);
   const updateProfile = useUpdateProfile(session?.user.id);

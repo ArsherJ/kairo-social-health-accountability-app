@@ -6,6 +6,7 @@ import { QUEST_CATALOGUE, type QuestTier } from '@kairo/core';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
 import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { compactFigure, questUnit } from '@/features/quests/quest-dial.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
@@ -43,6 +44,7 @@ export default function Difficulty() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const beat = onboardingBeat('difficulty');
+  useBeatImpression('difficulty');
   const chosen = useOnboardingAnswers((s) => s.questTier);
   const setQuestTier = useOnboardingAnswers((s) => s.setQuestTier);
 

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ONBOARDING_BEATS } from './beats.ts';
+import { ONBOARDING_BEATS, onboardingSkipTarget } from './beats.ts';
 
 /**
  * Nothing outside the registry writes down where a beat sits, or what its
@@ -52,6 +52,62 @@ describe('the beat registry is the only source', () => {
   it('lets no beat hand-write its button words', () => {
     const offenders = beatSources()
       .filter((f) => /<OnboardingCta[^>]*\blabel="/s.test(f.source))
+      .map((f) => f.path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('lets no screen hand-write which paged dot it lights', () => {
+    // The pair ticket 01 left behind. `index`/`count` are the same arithmetic
+    // as `filled`/`partial` and went wrong the same way — they promised three
+    // cards while two existed — so they read from the registry now, and this
+    // is the guard that keeps a fourth value card from restating them.
+    const offenders = beatSources()
+      .filter((f) => !f.path.endsWith('OnboardingChrome.tsx'))
+      .filter((f) => /<OnboardingDots[^>]*\b(index|count)=\{\d/s.test(f.source))
+      .map((f) => f.path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('lets no screen hand-write where Skip lands', () => {
+    // The two value cards both named `/connect` while the pitch ended there.
+    // A literal here is the drift that sends the people most likely to decline
+    // around the argument written for them — see `onboardingSkipTarget`.
+    const offenders = beatSources()
+      .filter((f) => /onSkip=\{[^}]*['"]\//s.test(f.source))
+      .map((f) => f.path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('gives the beat Skip lands on no skip of its own', () => {
+    const target = ONBOARDING_BEATS.find((b) => b.route === onboardingSkipTarget());
+    const file = beatSources().find((f) => f.path.endsWith(`/${target?.name}.tsx`));
+    expect(file?.source).not.toContain('onSkip');
+  });
+
+  it('records one impression per beat that is its own screen', () => {
+    const sources = beatSources();
+    for (const beat of ONBOARDING_BEATS) {
+      if (beat.route === null) continue;
+      const file = sources.find((f) => f.path.endsWith(`/${beat.name}.tsx`));
+      expect(file?.source, `${beat.name} reports no impression`).toContain(
+        `useBeatImpression('${beat.name}')`,
+      );
+    }
+    // The hatch is a phase of `/connect`, not a screen — `/connect`'s own
+    // impression already covers the moment, and a second one would double-count
+    // the beat the funnel is measuring drop-off across.
+    const hatch = sources.find((f) => f.path.endsWith('HatchingBeat.tsx'));
+    expect(hatch?.source).not.toContain('useBeatImpression');
+  });
+
+  it('lets no screen emit the impression itself', () => {
+    // One emitter, taking a beat name and nothing else, is what makes "the
+    // route name and nothing else" true by construction rather than by review.
+    const offenders = beatSources()
+      .filter((f) => /onboarding_beat_seen/.test(f.source))
       .map((f) => f.path);
 
     expect(offenders).toEqual([]);

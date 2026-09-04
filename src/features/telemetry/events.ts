@@ -170,7 +170,28 @@ export type AppEventType =
    * solo cohort was structurally excluded from this ask, and "more players see
    * it" is only an improvement if they say yes.
    */
-  | 'notification_ask_answered';
+  | 'notification_ask_answered'
+  /**
+   * One beat of the onboarding run was shown. Payload `{ route }` and nothing
+   * else — the route name is the beat's identity and the only thing the funnel
+   * needs.
+   *
+   * **Unguarded, on mount.** Onboarding runs once per account by construction
+   * — the profile row commits on the name beat and `resolveRoute` never sends
+   * a `ready` account back into `(onboard)` — so the funnel is honest without a
+   * marker store, and a duplicate from backing up and forward again is absorbed
+   * by counting *distinct* beats. Seven once-ever milestone keys was the
+   * alternative and buys a guarantee this measurement does not need.
+   *
+   * It exists because the run got longer. `onboarding_started` fires on the
+   * connect beat and `profile_created` at the end, so every beat between them
+   * was invisible: the cost of adding one was unmeasurable, which is exactly
+   * the thing a curation pass has to be able to see.
+   *
+   * The hatch reports nothing — it is a phase of `/connect`, whose own
+   * impression already covers the moment.
+   */
+  | 'onboarding_beat_seen';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

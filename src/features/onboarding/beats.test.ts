@@ -3,9 +3,12 @@ import {
   ONBOARDING_BEATS,
   RAIL_PHASES,
   beatCta,
+  beatRoute,
   onboardingBeat,
+  onboardingSkipTarget,
   railStepLabel,
   resolveBeats,
+  valueCardPosition,
 } from './beats.ts';
 
 describe('the onboarding beat registry', () => {
@@ -13,6 +16,7 @@ describe('the onboarding beat registry', () => {
     expect(ONBOARDING_BEATS.map((b) => b.name)).toEqual([
       'welcome',
       'one-sky',
+      'mirror',
       'connect',
       'hatching',
       'difficulty',
@@ -35,16 +39,19 @@ describe('the onboarding beat registry', () => {
     expect(new Set(labels).size).toBe(labels.length);
   });
 
-  // The one thing this ticket must not move. Every value here is what the
-  // screen hand-wrote before the registry existed; a derivation that is one
-  // step off anywhere redraws a rail nobody asked to redraw.
-  it('derives the rail exactly as the six beats drew it by hand', () => {
+  // The rail still measures four phases; the mirror beat moves only the fills
+  // and partials inside the phase it joined, which is what adding a beat is
+  // supposed to cost. Pinned in full because a derivation one step off
+  // anywhere redraws a rail nobody asked to redraw, and the error is invisible
+  // until somebody watches the bar move on a device.
+  it('spreads the opening phase across three beats and leaves the rest alone', () => {
     const rail = Object.fromEntries(
       ONBOARDING_BEATS.map((b) => [b.name, [b.filled, b.partial]]),
     );
     expect(rail).toEqual({
-      welcome: [0, 0.5],
-      'one-sky': [0, 1],
+      welcome: [0, 1 / 3],
+      'one-sky': [0, 2 / 3],
+      mirror: [0, 1],
       connect: [1, 0.5],
       hatching: [1, 1],
       difficulty: [2, 0.5],
@@ -54,6 +61,17 @@ describe('the onboarding beat registry', () => {
       // fourth at 100% width.
       name: [3, 1],
     });
+  });
+
+  // The dots under the opening value cards promise three cards. They promised
+  // three while two existed; the mirror beat is the third, and the count is
+  // honest now — and derived, so it stays honest.
+  it('opens with exactly the three beats the paged dots promise', () => {
+    expect(ONBOARDING_BEATS.filter((b) => b.phase === 0).map((b) => b.name)).toEqual([
+      'welcome',
+      'one-sky',
+      'mirror',
+    ]);
   });
 
   it('closes every phase out before the next one opens', () => {
@@ -111,6 +129,42 @@ describe('railStepLabel', () => {
 describe('beatCta', () => {
   it('hands back the words, and refuses to invent them', () => {
     expect(beatCta(onboardingBeat('welcome'))).toBe("Let's fly");
+    expect(beatCta(onboardingBeat('mirror'))).toBe('Show me');
     expect(() => beatCta(onboardingBeat('hatching'))).toThrow(/hatching/);
+  });
+});
+
+describe('beatRoute', () => {
+  it('hands back the route, and refuses to invent one', () => {
+    expect(beatRoute(onboardingBeat('mirror'))).toBe('/mirror');
+    expect(() => beatRoute(onboardingBeat('hatching'))).toThrow(/hatching/);
+  });
+});
+
+describe('valueCardPosition', () => {
+  it('numbers each value card against the run rather than against a literal', () => {
+    expect(valueCardPosition(onboardingBeat('welcome'))).toEqual({ index: 0, count: 3 });
+    expect(valueCardPosition(onboardingBeat('one-sky'))).toEqual({ index: 1, count: 3 });
+    expect(valueCardPosition(onboardingBeat('mirror'))).toEqual({ index: 2, count: 3 });
+  });
+
+  it('refuses a beat that is not a value card', () => {
+    expect(() => valueCardPosition(onboardingBeat('privacy'))).toThrow(/privacy/);
+  });
+});
+
+describe('onboardingSkipTarget', () => {
+  // The whole point of the mirror beat: it sits directly above the one dialog
+  // whose refusal cannot be undone from inside the app, and a skip that landed
+  // past it would route the people most likely to decline around the argument
+  // aimed at them.
+  it('lands on the last beat of the pitch, not past it', () => {
+    expect(onboardingSkipTarget()).toBe('/mirror');
+  });
+
+  it('is a beat that carries no skip of its own', () => {
+    const target = ONBOARDING_BEATS.find((b) => b.route === onboardingSkipTarget());
+    expect(target?.phase).toBe(0);
+    expect(ONBOARDING_BEATS.filter((b) => b.phase === 0).at(-1)).toBe(target);
   });
 });

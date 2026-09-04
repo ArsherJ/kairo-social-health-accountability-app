@@ -29,22 +29,40 @@ export const RAIL_PHASES = 4;
 export type BeatName =
   | 'welcome'
   | 'one-sky'
+  | 'mirror'
   | 'connect'
   | 'hatching'
   | 'difficulty'
   | 'privacy'
   | 'name';
 
+/**
+ * The routes the run actually has files for.
+ *
+ * Written out rather than derived as `` `/${BeatName}` ``, because the hatch is
+ * a beat with no route and that template would mint `/hatching` — a path Expo
+ * Router's typed routes correctly refuse, at every call site that passes one of
+ * these to `router`.
+ */
+export type BeatRoute =
+  | '/welcome'
+  | '/one-sky'
+  | '/mirror'
+  | '/connect'
+  | '/difficulty'
+  | '/privacy'
+  | '/name';
+
 export interface BeatSpec {
   name: BeatName;
   /**
-   * The route this beat lives on, and the name beat telemetry reports.
+   * The route this beat lives on, and the name its impression reports.
    *
    * `null` for a beat that is a *phase* of another beat's screen rather than a
    * route of its own — the hatch, which `/connect` swaps to in place. It draws
    * a rail step and has no impression to report.
    */
-  route: `/${BeatName}` | null;
+  route: BeatRoute | null;
   /** Which rail phase this beat belongs to, 0-indexed. */
   phase: number;
   /**
@@ -75,6 +93,7 @@ export interface OnboardingBeat extends BeatSpec {
 const SPECS: readonly BeatSpec[] = [
   { name: 'welcome', route: '/welcome', phase: 0, cta: "Let's fly" },
   { name: 'one-sky', route: '/one-sky', phase: 0, cta: "I'm in" },
+  { name: 'mirror', route: '/mirror', phase: 0, cta: 'Show me' },
   { name: 'connect', route: '/connect', phase: 1, cta: 'Connect Apple Health' },
   { name: 'hatching', route: null, phase: 1, cta: null },
   { name: 'difficulty', route: '/difficulty', phase: 2, cta: 'Lock it in' },
@@ -118,6 +137,62 @@ export function onboardingBeat(name: BeatName): OnboardingBeat {
 export function beatCta(beat: OnboardingBeat): string {
   if (beat.cta === null) throw new Error(`Onboarding beat ${beat.name} has no button`);
   return beat.cta;
+}
+
+/**
+ * A beat's own route, narrowed to a real one.
+ *
+ * The same shape as `beatCta` and for the same reason: `route` is nullable
+ * because the hatch is a phase of `/connect` rather than a screen, and a caller
+ * that navigates or reports an impression should not have to decide what a
+ * missing route means.
+ */
+export function beatRoute(beat: OnboardingBeat): BeatRoute {
+  if (beat.route === null) throw new Error(`Onboarding beat ${beat.name} has no route`);
+  return beat.route;
+}
+
+/**
+ * Where Skip lands.
+ *
+ * **The last beat of the opening phase, derived — never a route written down
+ * twice.** Skip's purpose is getting past the pitch, and the pitch *is* phase
+ * 0, so skipping to the end of that phase is the rule rather than a
+ * coincidence of which screens exist today. Both skip affordances used to name
+ * `/connect`, which was right while the pitch ended there; the mirror beat is
+ * the reason it no longer is, and the argument aimed at the people most likely
+ * to decline is exactly the one a skip must not route around.
+ *
+ * It follows that the destination beat carries no skip of its own: there is
+ * nothing left to skip.
+ */
+export function onboardingSkipTarget(): BeatRoute {
+  const opening = ONBOARDING_BEATS.filter((b) => b.phase === 0);
+  const last = opening.at(-1);
+  if (!last) throw new Error('The onboarding run has no opening phase');
+  return beatRoute(last);
+}
+
+/**
+ * Which of the paged dots this beat lights, and how many there are.
+ *
+ * **The opening phase and the value cards are the same three beats**, so the
+ * dots are derived from the run rather than restated on each card. They were
+ * hand-written — `index={0} count={3}` and `index={1} count={3}` — and had gone
+ * wrong in exactly the way that invites: they promised three cards while two
+ * existed. The mirror beat happens to make that count right again, which is
+ * luck, and luck is not a guard. This is the same move `filled`/`partial`
+ * already made, applied to the one pair of numbers ticket 01 left behind.
+ *
+ * The dots stay, and they do **not** duplicate the rail: the rail answers how
+ * far through the run, the dots answer which value card, and the dots are
+ * hidden from assistive technology so only one of them announces position.
+ */
+export function valueCardPosition(beat: OnboardingBeat): { index: number; count: number } {
+  const cards = ONBOARDING_BEATS.filter((b) => b.phase === 0);
+  const index = cards.findIndex((b) => b.name === beat.name);
+  if (index < 0) throw new Error(`Onboarding beat ${beat.name} is not a value card`);
+  return { index, count: cards.length };
 }
 
 /**

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
 import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -46,6 +47,7 @@ export default function Privacy() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const beat = onboardingBeat('privacy');
+  useBeatImpression('privacy');
   const shareTotals = useOnboardingAnswers((s) => s.shareTotals);
   const setShareTotals = useOnboardingAnswers((s) => s.setShareTotals);
 
