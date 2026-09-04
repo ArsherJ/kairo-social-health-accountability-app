@@ -207,7 +207,25 @@ export type AppEventType =
    * denominator count taps. The payload is built inside `runCalibration` rather
    * than at the call site, so no screen can reach it.
    */
-  | 'calibration_completed';
+  | 'calibration_completed'
+  /**
+   * The flock ask on the last welcome card was answered. Payload `{ answer }`,
+   * one of `joined`, `invited` or `skipped` — and nothing else.
+   *
+   * **It records which door was taken, not what came of it.** `joined` means
+   * the player asked for the join form; `squad_joined` and `squad_created`
+   * already say whether a squad actually resulted, and folding the two
+   * together here would make the card look like it converts far better than it
+   * does.
+   *
+   * **It needs no marker of its own.** The welcome run is once-ever on
+   * `welcome_seen`, claimed when the run opens, so the card cannot be reached
+   * twice — the same guarantee a milestone key buys, already paid for. That is
+   * also why it is the fourth *card* rather than a second first-run sheet: two
+   * surfaces leasing one root view controller would need an ordering rule, and
+   * the loser would reappear later out of context.
+   */
+  | 'flock_prompt_answered';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

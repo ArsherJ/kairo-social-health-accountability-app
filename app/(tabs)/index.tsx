@@ -40,6 +40,7 @@ import { useStatRecords } from '@/features/profile/records.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
 import { nextStepSentence, selectNextStep } from '@/features/quests/next-step.ts';
 import { todayQuests, useQuestCompletions } from '@/features/quests/queries.ts';
+import { flockPaneHref } from '@/features/squad/flock-pane.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { claimDaily, type DailyMarker } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
@@ -205,6 +206,10 @@ export default function Today() {
   const totals = buckets.data?.totals;
   const steps = totals?.steps ?? 0;
   const characterName = profile.data?.character_name ?? 'Your Kairo';
+  // The squad's own code, and the only thing the welcome run's flock card needs
+  // to know about membership — see the card's own note on why a join door is
+  // withheld from somebody who already has a squad.
+  const inviteCode = squad.data?.invite_code ?? null;
   const today = score.data;
 
   // Lifetime rollups, for the presence ring. The rail that reads the same three
@@ -460,15 +465,26 @@ export default function Today() {
           />
         </View>
 
-        {/* The three cards that land after onboarding. Mounted here because
-            this is where onboarding drops you and because the dim is over
-            *this* screen in the design. It leases the same modal host details
-            and the permission asks do, so the three can never compete. */}
+        {/* The four cards that land after onboarding, the last of them the
+            flock ask. Mounted here because this is where onboarding drops you
+            and because the dim is over *this* screen in the design. It leases
+            the same modal host details and the permission asks do, so the
+            three can never compete — which is also why the flock ask is a card
+            in this run rather than a first-run sheet of its own.
+
+            Both doors land on the Flock tab rather than acting from here: one
+            screen owns joining, including the already-in-a-squad case, and one
+            owns the share sheet. A player with no squad cannot invite anybody
+            to nothing, so `invited` opens the create form for them. */}
         <WelcomePopups
           userId={userId}
           characterName={characterName}
-          inviteCode={squad.data?.invite_code ?? null}
-          onInvite={() => router.push('/flock')}
+          inviteCode={inviteCode}
+          onJoin={() => router.push(flockPaneHref('join'))}
+          // One predicate, read from the same value the card branches on: an
+          // invite code *is* the squad, so `squad.data` here and
+          // `inviteCode !== null` there could only agree by coincidence.
+          onInvite={() => router.push(inviteCode ? '/flock' : flockPaneHref('create'))}
         />
       </Screen>
 

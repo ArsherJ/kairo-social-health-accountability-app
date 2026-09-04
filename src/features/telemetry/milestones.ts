@@ -21,15 +21,20 @@ export type Milestone =
    */
   | 'disclosure_unlocked'
   /**
-   * The three welcome pop-ups have been seen (deviation #58).
+   * The welcome run has been opened (deviations #58, #64).
    *
    * Once-ever, and MMKV rather than a `profiles` column for the same reason
    * `first_sync_seen` is: it is a fact about this *install* showing something,
    * not about the account, and a column would need a migration and a grant to
    * record a thing no server-side logic reads. The cost is that a reinstall
    * shows them again, which is the right side to err on — a returning user
-   * seeing three cards once beats a new user on a second device never being
-   * told the rule of the game.
+   * seeing the run once beats a new user on a second device never being told
+   * the rule of the game.
+   *
+   * It is claimed when the run **opens**, and the flock ask is its last card
+   * (deviation #64), so a force-quit part-way through costs that ask. That
+   * loss is known, bounded by the Sky tab's permanent invite slot, and
+   * deliberately not repaired — `WelcomePopups.tsx` records why.
    */
   | 'welcome_seen'
   /**

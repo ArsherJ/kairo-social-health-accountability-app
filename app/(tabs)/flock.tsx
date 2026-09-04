@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { CreateSquadForm } from '@/features/squad/CreateSquadForm.tsx';
 import { JoinSquadForm } from '@/features/squad/JoinSquadForm.tsx';
@@ -8,6 +8,7 @@ import { Leaderboard } from '@/features/squad/Leaderboard.tsx';
 import { SoloBoard } from '@/features/squad/SoloBoard.tsx';
 import { SquadDataConsentSheet } from '@/features/squad/SquadDataConsentSheet.tsx';
 import { useSquadDataConsent } from '@/features/squad/consent.ts';
+import { CONSUMED_PANE_PARAMS, requestedPane } from '@/features/squad/flock-pane.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { colors, font } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
@@ -39,6 +40,21 @@ export default function Flock() {
   const [pane, setPane] = useState<Pane>('choose');
   const { consented, isSuccess } = useSquadDataConsent(userId);
   const [declined, setDeclined] = useState(declinedThisLaunch);
+
+  // **Consumed, not read.** Expo Router keeps tab screens mounted, so a request
+  // left in place would reopen the form on every later visit to this tab —
+  // including a notification tap days afterwards, which reads as the app losing
+  // its place. `flock-pane.ts` owns both halves so the value written back here
+  // and the value the parser rejects cannot drift apart.
+  //
+  // Above every early return, because a hook below one is a conditional hook.
+  const router = useRouter();
+  const asked = requestedPane(useLocalSearchParams<{ pane?: string }>().pane);
+  useEffect(() => {
+    if (asked === null) return;
+    setPane(asked);
+    router.setParams(CONSUMED_PANE_PARAMS);
+  }, [asked, router]);
 
   // Create and join are full-screen: the orbit nav floating over a half-filled
   // form reads as an escape hatch, and it paints over the bottom of it.
