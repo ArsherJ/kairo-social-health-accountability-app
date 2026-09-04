@@ -135,9 +135,8 @@ per person: you see theirs when they have agreed *and* you have.
 nothing else: a beat says one thing, and adding a thing means adding a beat.
 
 **Phase** — a stretch of beats that share a purpose: what this is, letting it
-in, your choices, the name. **The progress rail measures phases, not beats**, so
-a run of four and a run of seven both read as four segments and adding a beat
-never makes the run look longer than it is.
+in, your choices, the name. **Progress is shown in phases, not beats**, so
+adding a beat never makes the run look longer to the person walking it.
 
 **Calibration** — the one-time reading of the player's own recent step history,
 taken on the phone at the moment Health is granted, that proposes how big their
