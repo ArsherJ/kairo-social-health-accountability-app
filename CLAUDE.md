@@ -49,6 +49,23 @@ the app as a leaderboard with goals, it is stale — fix it.
   'well done' is worth waiting for morning"); that is an intent the send path
   does not implement, and a "never overnight" claim shipped on it for one
   review round before being caught.
+- **`shouldAskForNotifications` earns the ask on a squad, a running Battle, or
+  a first scored day, as of 2026-09-04.** The first two are social,
+  which was right while the pushes they enabled were; #52 left one scheduled
+  push and Kairo is solo-first, so `hasSquad || hasEvent` excluded the whole
+  solo cohort from the app's only re-engagement. `hasScoredDay` reads the Today
+  tab's own `useScoredDayCount` key — lifetime, `total > 0`, for that query's
+  reasons — so it costs no request, and a count in flight reads false and
+  withholds the ask for a frame rather than presenting it on a guess. **The
+  widening adds a reason, never a surface**: the primer sheet, the Health-first
+  ordering in `permissions/ask-order.ts`, the one-ask-per-session latch and the
+  single modal host are all untouched, because two `<Modal>`s presenting on one
+  root view controller is the defect that ordering function exists to prevent.
+  `notification_ask_answered` fires **per answer** — `granted`, `declined` or
+  `deferred`, with no other payload, and a test pins that — because "Not now"
+  never reaches the system dialog and so can genuinely recur. The Settings row's
+  undetermined help line is part of the policy: it told solo players they needed
+  a squad to be asked, and `status-copy.test.ts` now holds it honest.
 - **`race_results` has no client grant at all.** Read it through
   `race_result()`, which returns rank and species to anyone in the squad and
   gates capped steps reciprocally (#47). Written **once**, by the **last**

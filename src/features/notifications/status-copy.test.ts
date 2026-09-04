@@ -18,11 +18,26 @@ describe('notificationStatus', () => {
   });
 
   it('does not pre-empt the contextual ask when nothing has been decided', () => {
-    // `shouldAskForNotifications` raises this after squad or battle activity.
-    // A button here would be the onboarding ambush that policy avoids.
+    // `shouldAskForNotifications` raises the ask once there is a why. A button
+    // here would be the onboarding ambush that policy avoids.
     const status = notificationStatus('undetermined');
     expect(status.action).toBeNull();
     expect(status.value).toBe('Not set');
+  });
+
+  it('does not tell a solo player they need a squad to be asked', () => {
+    // False since the ask was widened on 2026-09-04 to include a first scored
+    // day. It read "once you have a squad or a battle to be reminded about",
+    // which told the entire solo cohort — the cohort Kairo is built for — that
+    // the app's only re-engagement was closed to them.
+    const help = notificationStatus('undetermined').help;
+    expect(help).not.toMatch(/squad or a battle/i);
+    expect(help).toMatch(/first scored day/i);
+    // And it must still name the two social whys, which did not go away — a
+    // line that traded one incomplete list for another would be the same
+    // defect pointing the other direction.
+    expect(help).toMatch(/squad/i);
+    expect(help).toMatch(/battle/i);
   });
 
   it('names what arrives rather than selling the feature', () => {

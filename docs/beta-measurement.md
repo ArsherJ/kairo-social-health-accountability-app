@@ -346,6 +346,45 @@ order by members desc;
 
 ---
 
+## The notification ask, from 2026-09-04
+
+The ask's why was widened to include a first scored day (`ask-policy.ts`).
+Until then it gated on `hasSquad || hasEvent`, so the solo cohort — which is
+the cohort Kairo is built for — could never be offered the 08:00 digest at
+all. That is a change to who sees a permission sheet, and it is only an
+improvement if the people newly seeing it say yes, so the answer is now
+recorded:
+
+```sql
+select payload->>'answer' as answer, count(*) as answers
+from public.app_events
+where type = 'notification_ask_answered'
+group by 1
+order by 2 desc;
+```
+
+Three answers: `granted`, `declined` and `deferred`. **`deferred` is "Not
+now"**, which dismisses the sheet without reaching the system dialog, so it is
+neither a grant nor a denial and the player stays askable.
+
+**This event is per answer, not once ever**, and that is why the query counts
+rows rather than distinct users. The dismissal is per-session, so one account
+can defer on many launches and each deferral is a real data point about the
+sheet's timing. `granted` and `declined` are terminal by construction — iOS
+grants one dialog per install, and `shouldAskForNotifications` returns false
+for any permission it has an answer for — so a grant rate is
+`granted / count(distinct user_id) filter (where answer <> 'deferred')`, and
+counting deferrals into the denominator would understate it.
+
+**The payload carries the answer and nothing else.** Not whether the player
+had a squad, not whether they had scored — the eligibility reason is a health
+fact or a name for other accounts, and `ask-answer-telemetry.test.ts` fails if
+anything else is added. The cohort split the widening actually needs is
+available without it: an account with no `squad_joined` or `squad_created` row
+was asked on the scored-day reason.
+
+---
+
 ## What is not measurable, and why
 
 Three things, stated so they are not re-filed as gaps in a later review:

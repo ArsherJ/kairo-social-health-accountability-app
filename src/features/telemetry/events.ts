@@ -153,7 +153,24 @@ export type AppEventType =
    * occurrence**, because that is what one reaction is, and it is emitted from
    * the hook that presents it rather than from a render.
    */
-  | 'character_reaction_seen';
+  | 'character_reaction_seen'
+  /**
+   * The notification ask was answered. Payload `{ answer }`, one of `granted`,
+   * `declined` or `deferred` — `deferred` being "Not now", which dismisses the
+   * sheet without reaching `requestNotificationPermission` and so leaves the
+   * player askable again.
+   *
+   * **Per answer, not once ever.** The sheet's dismissal is per-session, so a
+   * deferral can genuinely recur and a once-ever marker would record only the
+   * first of them. `granted` and `declined` are terminal by construction: iOS
+   * grants one dialog per install, so `shouldAskForNotifications` returns false
+   * for every permission it has an answer for.
+   *
+   * It exists to judge the 2026-09-04 widening against real grant rates — the
+   * solo cohort was structurally excluded from this ask, and "more players see
+   * it" is only an improvement if they say yes.
+   */
+  | 'notification_ask_answered';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

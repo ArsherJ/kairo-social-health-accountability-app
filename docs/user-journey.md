@@ -93,6 +93,26 @@ result when the day closes, and the dispatcher sends it when its reader is
 awake. The cron still fires hourly and twenty-three of those runs send nothing —
 every hour of the day is somebody's 08:00.
 
+**Who is offered the ask, as of 2026-09-04.** `shouldAskForNotifications` gated
+on having a squad or a running Battle, which was right while the pushes it
+enabled were social — and wrong the moment deviation #52 left one scheduled
+push. Kairo is solo-first, so that gate excluded the entire solo cohort from
+the only re-engagement the app has. The why is widened to include **a first
+scored day**: a player with no squad and nothing scored is still not asked, and
+a player whose first day scored is. Nothing else about the ask moved — the
+primer sheet, the Health-first ordering in `permissions/ask-order.ts`, the
+one-ask-per-session latch and the single modal host are untouched, and the
+widening deliberately adds a reason rather than a surface, because two sheets
+presenting on one root view controller is the defect that ordering function
+exists to prevent. `hasScoredDay` comes from the Today tab's own
+`useScoredDayCount` key, so it costs no request; a count still in flight reads
+false and withholds the ask for a frame rather than presenting it on a guess.
+The answer is recorded per answer as `notification_ask_answered` — `granted`,
+`declined` or `deferred` — carrying nothing else, since the widening is judged
+on grant rate and not on why the player became eligible. The Settings row's
+undetermined help line moved with the policy; it had told solo players they
+needed a squad to be asked.
+
 **The ask sheet says this, as of 2026-09-04.** It had gone on offering the
 three retired pushes — "when a new day starts and when this one is about to
 close", under a cap of "three a day … except the two that close out your day,

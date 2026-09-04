@@ -54,12 +54,18 @@ export function notificationStatus(
     };
   }
 
-  // Not asked yet. `PermissionAsks` raises this in context after squad or battle
-  // activity, so pre-empting it here with a button would be the onboarding
-  // ambush that policy exists to avoid.
+  // Not asked yet. `PermissionAsks` raises this in context once there is a why,
+  // so pre-empting it here with a button would be the onboarding ambush that
+  // policy exists to avoid.
+  //
+  // **It named a squad or a battle until 2026-09-04, and that was false for
+  // most of the app's users.** Kairo is solo-first, and the widened policy
+  // includes a first scored day; the old sentence told the solo cohort the
+  // digest was closed to them. It leads with the scored day for that reason —
+  // it is the reason nearly everyone will reach first.
   return {
     value: 'Not set',
-    help: 'Kairo will ask once you have a squad or a battle to be reminded about.',
+    help: 'Kairo will ask once it has something to say — your first scored day, or a squad or battle to follow.',
     action: null,
   };
 }

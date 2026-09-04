@@ -9,10 +9,10 @@ import { registerDeviceToken, requestNotificationPermission } from './permission
 /**
  * The in-context ask (§5), as sheet *content* rather than a sheet.
  *
- * It appears once the user has a squad or a running Battle — at which point
- * the "why" is on screen behind it. iOS grants exactly one dialog per install,
- * so spending it during onboarding, before the user has anything to be
- * notified about, is spending it on a no.
+ * It appears once the user has a squad, a running Battle, or a first scored
+ * day — at which point the "why" is on screen behind it. iOS grants exactly one
+ * dialog per install, so spending it during onboarding, before the user has
+ * anything to be notified about, is spending it on a no.
  *
  * *When* it may show is `shouldAskForNotifications` in `ask-policy.ts`; whether
  * it wins the slot against the Health ask is `permissions/ask-order.ts`. Both

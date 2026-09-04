@@ -7,6 +7,7 @@ import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { usePendingInvite } from '@/features/squad/usePendingInvite.ts';
 import { useSquadEvents } from '@/features/events/queries.ts';
+import { useScoredDayCount } from '@/features/character/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
@@ -49,6 +50,12 @@ export default function TabsLayout() {
   const squad = useMySquad(session?.user.id);
   const events = useSquadEvents(squad.data?.id);
 
+  // The third why the notification ask can be earned (2026-09-04) —
+  // `ask-policy.ts` owns the argument. Here for the same reason the two above
+  // are: it shares the Today tab's query key, so it costs no request and the
+  // two cannot disagree in one frame.
+  const scoredDays = useScoredDayCount(session?.user.id);
+
   return (
     <Fragment>
       <Tabs
@@ -73,6 +80,7 @@ export default function TabsLayout() {
         userId={session?.user.id}
         hasSquad={Boolean(squad.data)}
         hasEvent={(events.data ?? []).length > 0}
+        hasScoredDay={(scoredDays.data ?? 0) > 0}
       />
     </Fragment>
   );
