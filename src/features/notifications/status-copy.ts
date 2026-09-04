@@ -31,13 +31,15 @@ export function notificationStatus(
       // Names the limits rather than selling the feature: someone deciding
       // whether to leave this on wants to know how noisy it gets.
       //
-      // **Two retired claims went from this line.** "Day-end reminders" named
-      // the 23:00 and 00:00 pair, which deviation #52 dropped on 2026-08-25;
-      // "three a day at most" named a cap the engine does not enforce, since
-      // `BUDGET_EXEMPT` sends bypass the budget without consuming it. What is
-      // left is true: one scheduled push, the rest caused by the player, and
-      // quiet hours over all of it (no live trigger is `QUIET_HOURS_EXEMPT`).
-      help: `One digest at ${DIGEST_LOCAL_HOUR}am, plus alerts when a boss goes down or a challenge clears. Never overnight.`,
+      // **Three retired or false claims went from this line.** "Day-end
+      // reminders" named the 23:00 and 00:00 pair, which deviation #52 dropped
+      // on 2026-08-25. "Three a day at most" named a cap the engine does not
+      // enforce, since `BUDGET_EXEMPT` sends bypass the budget without
+      // consuming it. And "never overnight" was the replacement's own mistake:
+      // quiet hours live in `planNotifications`, which `finalize-days` does not
+      // call, so the two alerts named here are exactly the ones that arrive in
+      // the small hours. See `ask-copy.ts`, which carries the argument.
+      help: `One digest at ${DIGEST_LOCAL_HOUR}am, plus alerts when a boss goes down or a challenge clears — those arrive when your day closes.`,
       action: null,
     };
   }

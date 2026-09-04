@@ -40,9 +40,15 @@ the app as a leaderboard with goals, it is stale — fix it.
   state a hard daily cap**, though `MAX_NOTIFICATIONS_PER_DAY` is 3: `BUDGET_EXEMPT`
   sends bypass the budget *without consuming it*, so a digest, a cleared
   challenge and a beaten Event are four, and both surfaces printed "three a day
-  at most" until 2026-09-04. Nor may one claim total silence — `event_completed`
-  and `challenge_cleared` still push, and quiet hours are what make "never
-  overnight" true.
+  at most" until 2026-09-04. **Nor may any surface promise quiet hours.**
+  `QUIET_HOURS` is enforced in `planNotifications`, and `dispatch-notifications`
+  is its only caller — `finalize-days` reaches `sendToUser` directly, and
+  finalization runs `FINALIZATION_GRACE_MS` (2h) after local midnight, so
+  `event_completed` and `challenge_cleared` are the two pushes that *do* arrive
+  overnight. `notifications.ts` argues they should not ("a push at 02:00 to say
+  'well done' is worth waiting for morning"); that is an intent the send path
+  does not implement, and a "never overnight" claim shipped on it for one
+  review round before being caught.
 - **`race_results` has no client grant at all.** Read it through
   `race_result()`, which returns rank and species to anyone in the squad and
   gates capped steps reciprocally (#47). Written **once**, by the **last**
@@ -73,9 +79,12 @@ Apple computes active calories against the body profile in the *Health app*,
 before Kairo sees them, and Kairo's columns are a disconnected second copy. The
 card promised "more accurate Body tracking" for years and that was false; the
 copy is `BODY_METRICS_NOTE` in `body-metrics.ts` now, with a test banning a
-stat name and the word "score". The narrower claim is the true one:
-`birth_year` *is* read, by `maxHeartRateForAge()` in the keystone's
-`strain.ts`, and Strain is display-only. They are never asked in onboarding —
+stat name and any claim of benefit. **`birth_year` has no live reader either**:
+its one consumer is `maxHeartRateForAge()` behind the display-only Strain
+figure, and `TodayPanel` — the only surface that ever rendered Strain — was
+unmounted by deviation #59, so the note names no surface at all and a test
+holds it there. All three fields are inert today. They are never asked in
+onboarding —
 a question that changes nothing does not earn a screen — and the columns,
 constraints, grants and editor are all untouched, so collecting them later is
 adding a screen rather than restoring a schema.

@@ -25,8 +25,15 @@ describe('notificationStatus', () => {
     expect(status.value).toBe('Not set');
   });
 
-  it('names the limits rather than selling the feature', () => {
-    expect(notificationStatus('granted').help).toMatch(/never overnight/i);
+  it('names what arrives rather than selling the feature', () => {
+    // Someone deciding whether to leave this on wants to know how noisy it
+    // gets. It may not answer with a cap ("three a day") or with a promise of
+    // quiet ("never overnight") — the engine enforces neither on the
+    // `finalize-days` send path. What it can honestly say is what the pushes
+    // are and when they land.
+    const help = notificationStatus('granted').help;
+    expect(help).toMatch(new RegExp(`${DIGEST_LOCAL_HOUR}am`));
+    expect(help).not.toMatch(/never overnight/i);
   });
 
   it('describes no push the app retired', () => {

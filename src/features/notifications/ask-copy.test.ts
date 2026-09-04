@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FINALIZATION_GRACE_MS } from '@kairo/core';
 import { DIGEST_HOUR } from '../../../supabase/functions/_shared/notification-plan.ts';
 import {
   DIGEST_LOCAL_HOUR,
@@ -60,10 +61,33 @@ describe('NOTIFICATION_ASK_COPY', () => {
   });
 
   it('does not promise silence it cannot keep', () => {
-    // `event_completed` and `challenge_cleared` still push, from something the
-    // user did. Quiet hours cover them (neither is exempt), so "never
-    // overnight" is true and "that is all" would not be.
-    expect(NOTIFICATION_ASK_COPY.fine).toMatch(/never overnight/i);
+    // The copy said "Never overnight" and it was false. `QUIET_HOURS` covers
+    // 22:00–07:00 and neither trigger is in `QUIET_HOURS_EXEMPT`, which makes
+    // the promise look safe — but quiet hours live in `planNotifications`, and
+    // `finalize-days` reaches `sendToUser` without it. Those two pushes are the
+    // only ones that *do* arrive overnight, so no surface may claim otherwise.
+    for (const sentence of Object.values(NOTIFICATION_ASK_COPY)) {
+      expect(sentence).not.toMatch(/never overnight/i);
+      expect(sentence).not.toMatch(/while you sleep/i);
+    }
+  });
+
+  it('names when the event-driven pushes actually land', () => {
+    // Finalization is FINALIZATION_GRACE_MS after the player's local midnight,
+    // so "a couple of hours after midnight" is the honest description. Pinned
+    // to the constant: change the grace to six hours and this sentence is wrong
+    // in a way nothing else would notice.
+    expect(FINALIZATION_GRACE_MS).toBe(2 * 60 * 60 * 1000);
+    expect(NOTIFICATION_ASK_COPY.fine).toMatch(/after midnight/i);
+  });
+
+  it('schedules nothing at 11pm, which is why it may say so', () => {
+    // The sentence "nothing at 11pm" is true because the only *scheduled* hour
+    // is the digest's, and the event-driven sends ride finalization into the
+    // small hours. Neither is 23:00 — which the retired evening pair was.
+    expect(DIGEST_LOCAL_HOUR).not.toBe(23);
+    const finalizationHour = FINALIZATION_GRACE_MS / (60 * 60 * 1000);
+    expect(finalizationHour).toBeLessThan(23);
   });
 
   it('keeps a decline that is not a system dialog', () => {

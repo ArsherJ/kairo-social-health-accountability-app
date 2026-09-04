@@ -42,6 +42,11 @@ export const DIGEST_LOCAL_HOUR = 8;
  * this schedule — this sheet and the Settings status row — and they went stale
  * together, so they are guarded together.
  *
+ * Enumerated call sites rather than a repo-wide scan, unlike `stat-names.ts`'s
+ * guard: the doc comments in this very file quote the retired copy in order to
+ * explain it, so a scan over `src` would fail on the file that documents the
+ * history. Two surfaces, one list, both tested.
+ *
  * **A hard daily cap is on the list, and that is not an oversight.** Both
  * surfaces used to print "three a day at most". `MAX_NOTIFICATIONS_PER_DAY` is
  * 3, but `BUDGET_EXEMPT` sends bypass the budget without consuming it, so a
@@ -54,7 +59,11 @@ export const RETIRED_PUSH_PHRASES: readonly RegExp[] = [
   /day-end/i,
   /day ending/i,
   /three a day/i,
-  /midnight/i,
+  // The old copy's "arrive at 11 PM and midnight", not the word. "Midnight" is
+  // ordinary prose for the day boundary — `sync-window.ts` and `daily-walk.ts`
+  // both use it, and the fine print above now says "after midnight" truthfully.
+  // A guard that fails on honest copy is one somebody deletes.
+  /arrive.{0,20}midnight/i,
 ];
 
 const arrivesAt = `${DIGEST_LOCAL_HOUR}am`;
@@ -66,17 +75,29 @@ export const NOTIFICATION_ASK_COPY = {
   /**
    * Named rather than waved away, because "that is it" would be the same class
    * of lie this copy replaces: `event_completed` and `challenge_cleared` still
-   * push. Both fire from something the player did, and neither is quiet-hours
-   * exempt (`QUIET_HOURS_EXEMPT` names only the two retired evening triggers),
-   * so "never overnight" is a promise the engine actually keeps.
+   * push.
+   *
+   * **It said "Never overnight" and that was false** — caught in review, and it
+   * is worth recording because the reasoning looked airtight. `QUIET_HOURS`
+   * covers 22:00–07:00 and neither trigger is in `QUIET_HOURS_EXEMPT`, so the
+   * engine appears to forbid an overnight send. But quiet hours are enforced in
+   * `planNotifications`, and **`finalize-days` does not call it** — it reaches
+   * `sendToUser` directly, and finalization runs `FINALIZATION_GRACE_MS` (2h)
+   * after local midnight. The two pushes this sentence names are the only two
+   * that *do* arrive overnight. `notifications.ts` even argues they should not
+   * ("a push at 02:00 to say 'well done' is worth waiting for morning"), which
+   * is an intent the send path does not implement — a real defect, and not one
+   * a copy change may paper over.
+   *
+   * So the sentence states the timing instead of promising its absence.
    */
-  fine: 'The only others are things you did — a boss goes down, a challenge clears. Never overnight.',
+  fine: 'The only others are things you did — a boss goes down, a challenge clears. Those land when your day closes, a couple of hours after midnight.',
   /**
    * The ask, said as the thing being asked for. "Turn on notifications" names
    * the mechanism; this names the one message it buys, which is the whole
    * argument the sheet just made.
    */
-  primary: `Wake me at ${DIGEST_LOCAL_HOUR}`,
+  primary: `Wake me at ${arrivesAt}`,
   /**
    * A soft decline, and it must stay one: it dismisses the sheet without
    * calling `requestNotificationPermission`, so the player can be asked again

@@ -24,19 +24,22 @@
  * changes no score, no rank and no quest, and a prompt implying otherwise sold
  * a benefit the app cannot deliver.
  *
- * `birth_year` is the one with a consumer, and it is display-only:
- * `maxHeartRateForAge()` backs the `220 - age` ceiling Strain is measured
- * against (deviation #24). Strain never touches `daily_scores`, and the note
- * says so in the player's terms — "shows you rather than ranks" — because
- * naming the one field that *is* read, without saying what reads it, invites
- * exactly the belief the rest of this note removes.
+ * **`birth_year` has no live reader either, and the note therefore names
+ * none.** Its one consumer is `maxHeartRateForAge()`, behind the display-only
+ * Strain figure (deviation #24) — and `TodayPanel`, the only surface that ever
+ * rendered Strain, was unmounted by deviation #59 on 2026-09-01. The ticket
+ * behind this copy asked it to name Strain; that instruction was written three
+ * days after the surface stopped existing, and naming a screen the player
+ * cannot reach would be the same class of false claim as the one being fixed.
+ * All three fields are inert today. If Strain returns to a screen,
+ * `body-metrics.test.ts` is the reminder that the note may name it again.
  *
  * Here rather than in the component because root Vitest cannot load a `.tsx`,
  * and a claim the app makes about its own scoring is exactly the sort that
  * should fail a test when it stops being true.
  */
 export const BODY_METRICS_NOTE =
-  'Your own reference — Apple applies your body profile before Kairo ever sees a calorie. Birth year sets the maximum heart rate behind Strain, a figure Kairo shows you rather than ranks.';
+  'Your own reference. Nothing here moves a score, a rank or a quest — Apple applies your body profile before Kairo ever sees a calorie.';
 
 export type BodyMetricField = 'height_cm' | 'weight_kg' | 'birth_year';
 

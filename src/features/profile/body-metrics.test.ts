@@ -84,22 +84,29 @@ describe('BODY_METRICS_NOTE', () => {
     // caught by the phrase ban below rather than by the noun.
     expect(BODY_METRICS_NOTE).not.toMatch(/\bBody\b/);
     expect(BODY_METRICS_NOTE).not.toMatch(/\b(AGI|STR|MND)\b/);
-    expect(BODY_METRICS_NOTE).not.toMatch(/score|scoring|accurate|sharpen|improve/i);
+    // The ban is on a claim of *benefit*, not on the word "score" — the note
+    // has to be able to deny an effect, and denying one means naming it.
+    expect(BODY_METRICS_NOTE).not.toMatch(/sharpen|more accurate|improve|better/i);
+    expect(BODY_METRICS_NOTE).toMatch(/nothing here moves a score/i);
   });
 
   it('says what the fields are actually for', () => {
-    // Birth year's one consumer: `maxHeartRateForAge`, behind display-only
-    // Strain. Height and weight have none at all, so the honest answer for
-    // them is that they are the player's own reference.
-    expect(BODY_METRICS_NOTE).toMatch(/strain/i);
-    expect(BODY_METRICS_NOTE).toMatch(/heart rate/i);
+    // Nothing reads them, so the honest answer is that they are the player's
+    // own record — and the note has to give a reason, or "your own reference"
+    // reads as a shrug.
+    expect(BODY_METRICS_NOTE).toMatch(/your own reference/i);
+    expect(BODY_METRICS_NOTE).toMatch(/apple/i);
   });
 
-  it('says Strain is shown rather than scored', () => {
-    // Naming the one field that *is* read, without saying what reads it,
-    // leaves a reader free to assume Strain ranks them — which would put back
-    // the belief the rest of the note exists to remove. Strain never touches
-    // `daily_scores` (`strain.ts`), and the note has to carry that.
-    expect(BODY_METRICS_NOTE).toMatch(/shows you rather than ranks|never ranked|display/i);
+  it('names no surface the player cannot reach', () => {
+    // `maxHeartRateForAge()` is birth year's only consumer, behind Strain —
+    // and `TodayPanel`, the only surface that ever rendered Strain, was
+    // unmounted by deviation #59. A note pointing at it would be the same
+    // class of false claim as the one this copy replaced.
+    //
+    // **If Strain returns to a screen, delete this test rather than working
+    // around it**: naming a real consumer is better copy than saying nothing,
+    // and this assertion exists only because there is currently no consumer.
+    expect(BODY_METRICS_NOTE).not.toMatch(/strain/i);
   });
 });
