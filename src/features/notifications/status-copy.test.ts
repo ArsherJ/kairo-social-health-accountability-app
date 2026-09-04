@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DIGEST_LOCAL_HOUR, RETIRED_PUSH_PHRASES } from './ask-copy.ts';
 import { deliveryStatus, notificationStatus } from './status-copy.ts';
 
 describe('notificationStatus', () => {
@@ -12,7 +13,7 @@ describe('notificationStatus', () => {
 
   it('says what is lost, not just that something is off', () => {
     const help = notificationStatus('denied').help;
-    expect(help).toMatch(/day-end|battle alerts/i);
+    expect(help).toMatch(/digest|battle alerts/i);
     expect(help).toMatch(/settings/i);
   });
 
@@ -25,7 +26,23 @@ describe('notificationStatus', () => {
   });
 
   it('names the limits rather than selling the feature', () => {
-    expect(notificationStatus('granted').help).toMatch(/three a day|never overnight/i);
+    expect(notificationStatus('granted').help).toMatch(/never overnight/i);
+  });
+
+  it('describes no push the app retired', () => {
+    // The same correction the ask sheet needed, against the same list — two
+    // guards enforcing one rule is how they drift apart. This row called the
+    // remaining push a "day-end reminder", which is the one thing it is not,
+    // and printed a cap of three a day that `BUDGET_EXEMPT` sends can exceed.
+    for (const permission of ['granted', 'denied', 'undetermined'] as const) {
+      for (const phrase of RETIRED_PUSH_PHRASES) {
+        expect(notificationStatus(permission).help).not.toMatch(phrase);
+      }
+    }
+  });
+
+  it('names the hour the digest actually arrives', () => {
+    expect(notificationStatus('granted').help).toMatch(new RegExp(`${DIGEST_LOCAL_HOUR}am`));
   });
 
   it('never apologises or pleads', () => {

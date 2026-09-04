@@ -55,16 +55,18 @@ export default function Settings() {
         <NotificationSettingsCard />
       </Group>
 
-      {/* Height, weight and birth year, moved off the You tab.
+      {/* Height, weight and birth year, moved off the You tab — and the only
+          place in the app they are ever asked for (deviation #60).
 
           They belong here for the same reason everything else on this screen
-          does: they are inputs the app uses, not facts about the player worth
-          putting on the screen they hand to a friend. They stay **optional and
-          never gate anything** (§5) — height and weight sharpen HealthKit's
-          active-calorie estimate, which is Body, and birth year additionally
-          backs the `220 - age` max-heart-rate estimate behind Strain
-          (deviation #24). Both have sane fallbacks, which is why deferring
-          them costs accuracy rather than function.
+          does: they are the player's own record, not a fact worth putting on
+          the screen they hand to a friend. They stay **optional and gate
+          nothing** (§5), and they are **inert**: Apple applies the body
+          profile from the Health app before Kairo sees a calorie, so Kairo's
+          copies of height and weight reach no scoring path at all. Birth year
+          is the one with a consumer, and it is display-only — the `220 - age`
+          max-heart-rate estimate behind Strain (deviation #24). The card's own
+          note says this; `BODY_METRICS_NOTE` is where it is written and tested.
 
           `profile.data &&` because the card takes a loaded row rather than a
           pending query, and says so. */}

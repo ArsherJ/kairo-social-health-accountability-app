@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BODY_METRIC_LIMITS, parseBodyMetric } from './body-metrics.ts';
+import {
+  BODY_METRICS_NOTE,
+  BODY_METRIC_LIMITS,
+  parseBodyMetric,
+} from './body-metrics.ts';
 
 describe('BODY_METRIC_LIMITS', () => {
   // These mirror the CHECK constraints in 20260727120000_init_core.sql. If
@@ -61,5 +65,41 @@ describe('parseBodyMetric', () => {
   it('rejects a fractional birth year', () => {
     expect(parseBodyMetric('birth_year', '1994.5').ok).toBe(false);
     expect(parseBodyMetric('birth_year', '1994')).toEqual({ ok: true, value: 1994 });
+  });
+});
+
+describe('BODY_METRICS_NOTE', () => {
+  it('claims no effect on scoring', () => {
+    // The card used to say height and weight give "more accurate Body
+    // tracking". They do not, in Kairo: Body scores the active calories
+    // HealthKit hands over, already computed by Apple against the body profile
+    // in the Health app, and these columns are a second copy Apple never sees.
+    // Editing them moves no score, so the card must not imply that it does.
+    //
+    // **The stat guard is case-sensitive and that is load-bearing**, the same
+    // rule the engine-key guards follow: the note legitimately says "body
+    // profile", meaning Apple's, and an `/i` here would fail on the honest
+    // sentence — which is how a guard gets loosened until it guards nothing.
+    // Capitalised, "Body" is the stat and nothing else. The claim itself is
+    // caught by the phrase ban below rather than by the noun.
+    expect(BODY_METRICS_NOTE).not.toMatch(/\bBody\b/);
+    expect(BODY_METRICS_NOTE).not.toMatch(/\b(AGI|STR|MND)\b/);
+    expect(BODY_METRICS_NOTE).not.toMatch(/score|scoring|accurate|sharpen|improve/i);
+  });
+
+  it('says what the fields are actually for', () => {
+    // Birth year's one consumer: `maxHeartRateForAge`, behind display-only
+    // Strain. Height and weight have none at all, so the honest answer for
+    // them is that they are the player's own reference.
+    expect(BODY_METRICS_NOTE).toMatch(/strain/i);
+    expect(BODY_METRICS_NOTE).toMatch(/heart rate/i);
+  });
+
+  it('says Strain is shown rather than scored', () => {
+    // Naming the one field that *is* read, without saying what reads it,
+    // leaves a reader free to assume Strain ranks them — which would put back
+    // the belief the rest of the note exists to remove. Strain never touches
+    // `daily_scores` (`strain.ts`), and the note has to carry that.
+    expect(BODY_METRICS_NOTE).toMatch(/shows you rather than ranks|never ranked|display/i);
   });
 });

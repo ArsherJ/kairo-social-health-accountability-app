@@ -41,7 +41,7 @@ The work behind it is real; what `hatching-window.ts` adds is a **floor**, so th
 3. **The HealthKit disclosure** the sheet shows lists **every** type Kairo requests with what each is for, rendered from `HEALTH_DISCLOSURE` rather than written out: `disclosure.test.ts` fails if it and `read-types.ts` disagree in either direction. Prose could not stay honest — the copy named four types while the app asked for eight, and iOS showed the user the true list either way, which is what made it a trust problem rather than a wording one. The `NSHealthShareUsageDescription` in `app.config.ts` carries the same list and is the one half a test cannot lock, so it changes by hand.
 3.5. **Three welcome cards, on Today** (`WelcomePopups`). Onboarding drops you on the home screen, dimmed, and a sheet rises three times: who you are, the one rule of the game, and the ask that makes it social. Once ever, on an MMKV marker — not a `profiles` column, because this is a fact about an install having shown something and no server logic reads it. The marker is claimed on the **first** card rather than the last, so somebody who force-quits half way through is not shown the set again from the top. Only the third card has a second option, because inviting somebody is genuinely optional and pretending otherwise would undo the promise the privacy beat made two screens earlier.
 4. **Notifications**, requested only once a squad or a running battle gives them a reason to exist (§14) — not upfront, and after onboarding rather than in it.
-5. **Body metrics (height/weight/birth year)** deferred to a persistent soft prompt in **Settings** (moved there from the You tab on 2026-08-30 — they are inputs the app uses, not facts about the player worth putting on the screen they hand to a friend) ("Add your height and weight for more accurate Body tracking") rather than blocking onboarding. Height/weight feed active-calorie (Body/`STR`) accuracy; birth year additionally backs the `220 - age` max-heart-rate estimate behind the Strain figure (roadmap deviation #24) — both stay optional, with sane fallbacks.
+5. **Body metrics (height/weight/birth year)** live in **Settings** and are **never asked during onboarding** (roadmap deviation #60; moved off the You tab on 2026-08-30 — they are the player's own record, not a fact worth putting on the screen they hand to a friend). **They are inert, and as of 2026-09-04 the card says so.** It used to read "Add your height and weight for more accurate Body tracking", which was false: HealthKit computes active calories against the body profile held in the *Health app*, before Kairo sees them, and Kairo's `height_cm` / `weight_kg` are a disconnected second copy that no scoring path reads. Birth year is the only one of the three with a consumer and it is display-only — the `220 - age` max-heart-rate estimate behind Strain (roadmap deviation #24). The copy lives in `BODY_METRICS_NOTE` so a test can hold it.
 
 ### What a new account actually sees (§5, deviations #37/#38)
 
@@ -92,6 +92,15 @@ result would arrive at 2am. The two are decoupled: `finalize-days` writes the
 result when the day closes, and the dispatcher sends it when its reader is
 awake. The cron still fires hourly and twenty-three of those runs send nothing —
 every hour of the day is somebody's 08:00.
+
+**The ask sheet says this, as of 2026-09-04.** It had gone on offering the
+three retired pushes — "when a new day starts and when this one is about to
+close", under a cap of "three a day … except the two that close out your day,
+which arrive at 11 PM and midnight" — on the one screen where somebody decides
+whether to spend the single dialog iOS grants per install. `ask-copy.ts` holds
+what it says now (one message a day, at 8am, yesterday's result and today's
+need), pinned to `DIGEST_HOUR` by a test, and the Settings row lost the same
+"day-end reminders" phrasing.
 
 **It is capped in the database, not on the phone.** `users_needing_digest()`
 excludes anyone already sent today in the same query that works out whose local

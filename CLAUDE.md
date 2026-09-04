@@ -27,7 +27,22 @@ the app as a leaderboard with goals, it is stale — fix it.
   it bounds the event-driven pushes, which #52 did not touch. The three retired
   triggers stay in `NotificationTrigger` (free-text `kind`, and a push sent
   before the deploy can be tapped after it), and `users_at_local_hour()` was
-  deliberately not dropped.
+  deliberately not dropped. **What the app *says* about this lives in
+  `src/features/notifications/ask-copy.ts`**, pure and zero-import so root
+  Vitest can hold it: the permission sheet advertised the three retired pushes
+  for ten days after they stopped existing, on the screen that spends the one
+  dialog iOS grants per install. Its `DIGEST_LOCAL_HOUR` is a second copy of
+  `DIGEST_HOUR` — the app cannot import an Edge Function's module, and moving
+  the constant into the keystone would put a five-function redeploy behind a
+  copy fix — so a test imports both and asserts they agree.
+  `RETIRED_PUSH_PHRASES` lives in the same module and both copy surfaces are
+  tested against it, rather than each keeping its own list. **No surface may
+  state a hard daily cap**, though `MAX_NOTIFICATIONS_PER_DAY` is 3: `BUDGET_EXEMPT`
+  sends bypass the budget *without consuming it*, so a digest, a cleared
+  challenge and a beaten Event are four, and both surfaces printed "three a day
+  at most" until 2026-09-04. Nor may one claim total silence — `event_completed`
+  and `challenge_cleared` still push, and quiet hours are what make "never
+  overnight" true.
 - **`race_results` has no client grant at all.** Read it through
   `race_result()`, which returns rank and species to anyone in the squad and
   gates capped steps reciprocally (#47). Written **once**, by the **last**
@@ -51,6 +66,19 @@ the app as a leaderboard with goals, it is stale — fix it.
   `src/features/telemetry/daily-marker.ts`, which is neither the once-ever
   milestone store nor the per-session `app_open` marker; confusing the three is
   how a count becomes a launch counter or a scroll counter.
+
+**Body metrics are inert, and the app says so as of 2026-09-04** (deviation
+#60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
+Apple computes active calories against the body profile in the *Health app*,
+before Kairo sees them, and Kairo's columns are a disconnected second copy. The
+card promised "more accurate Body tracking" for years and that was false; the
+copy is `BODY_METRICS_NOTE` in `body-metrics.ts` now, with a test banning a
+stat name and the word "score". The narrower claim is the true one:
+`birth_year` *is* read, by `maxHeartRateForAge()` in the keystone's
+`strain.ts`, and Strain is display-only. They are never asked in onboarding —
+a question that changes nothing does not earn a screen — and the columns,
+constraints, grants and editor are all untouched, so collecting them later is
+adding a screen rather than restoring a schema.
 
 **Sabotage was removed on 2026-08-09.** It was the original premise (§8, and §20's principle #4 called it "the soul of the product"), so a lot of prose still assumes it. Nothing in the code does. If you find a reference, it is stale — fix it.
 
