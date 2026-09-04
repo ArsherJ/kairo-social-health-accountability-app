@@ -9,6 +9,7 @@ import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { questTierName } from '@/features/quests/quest-copy.ts';
+import { questDifficultyHelp } from '@/features/onboarding/calibration-copy.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { BackRow, Screen, Text } from '@/ui/index.ts';
 
@@ -85,7 +86,12 @@ export default function Settings() {
           grant and seeds `quest_tier_override` with what it measured. So the
           help line describes a **seed** — read once, never re-read, and
           therefore unable to rise as the player improves, which is the whole
-          reason a trailing median was refused as a standing rule.
+          reason a trailing median was refused as a standing rule. It is
+          **conditional on the row's own value**, because one sentence cannot be
+          true of both cohorts: an account on Auto has never been read, and
+          telling it otherwise directly beside a value that says "Auto" is the
+          kind of false claim this screen has already had to be corrected for.
+          `questDifficultyHelp` owns both lines and is tested.
 
           Automatic is still a real choice and still the fallback: accounts that
           predate calibration, that hit the no-history outcome, that skipped the
@@ -111,9 +117,7 @@ export default function Settings() {
           </View>
 
           <Text style={styles.help}>
-            Kairo sized your quests once, from your recent days when you joined,
-            and leaves it there. Automatic instead follows how long you have
-            been here. Change it whenever you like — your choice always wins.
+            {questDifficultyHelp(profile.data?.quest_tier_override ?? null)}
           </Text>
 
           {/* Wraps, because four chips do not fit one line past about 1.3x

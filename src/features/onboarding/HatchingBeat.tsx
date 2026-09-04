@@ -31,8 +31,8 @@ const HATCH = onboardingBeat('hatching');
  * The beat between granting Health and seeing your own step count.
  *
  * **The work behind it is real** — `healthSource.readStepsToday` is running,
- * which on a device with years of Health data and a cold HealthKit daemon is
- * not instant. What `hatching-window.ts` adds is a floor so the sentence can be
+ * and since deviation #63 the calibration read is running beside it, which on a
+ * device with years of Health data and a cold HealthKit daemon is not instant. What `hatching-window.ts` adds is a floor so the sentence can be
  * read rather than flashed; that module carries the full argument for the
  * trade, including the one constant that removes it.
  *

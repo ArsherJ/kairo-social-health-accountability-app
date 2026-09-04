@@ -1,4 +1,4 @@
-import type { QuestCalibration } from '@kairo/core';
+import type { QuestCalibration, QuestTier } from '@kairo/core';
 import { questTierName } from '../quests/quest-copy.ts';
 
 /**
@@ -61,7 +61,13 @@ export function calibrationNote(calibration: QuestCalibration | null): Calibrati
       // States the shortfall and nothing else. Not "we couldn't read your
       // steps", which asserts a failure, and not "you didn't give us access",
       // which asserts a decision — neither is knowable here.
-      line: 'Not enough days on this phone to size your quests yet, so Automatic will grow with you instead.',
+      //
+      // And **not "Automatic will grow with you"**, which was the first
+      // wording: the automatic rule keys off how many days have *scored*, so
+      // it grows with tenure, and selling it as something that follows the
+      // player is the exact conflation `questTier`'s own comment calls wrong
+      // by construction. It says what the rule actually does instead.
+      line: "Not enough days on this phone to size your quests yet, so we'll start you on Automatic — it follows how long you have been here.",
       privacy: CALIBRATION_PRIVACY_NOTE,
     };
   }
@@ -70,4 +76,26 @@ export function calibrationNote(calibration: QuestCalibration | null): Calibrati
     line: `Your typical day is ${stepsWords(calibration.medianSteps)} steps. We'd start you on ${questTierName(calibration.tier)}.`,
     privacy: CALIBRATION_PRIVACY_NOTE,
   };
+}
+
+/**
+ * Settings' quest-difficulty help line.
+ *
+ * **Conditional, because one sentence cannot be true of both accounts.** A
+ * calibrated account was sized once from a reading; an account on Automatic —
+ * one that predates calibration, hit `no-history`, skipped the beat, or cleared
+ * its override — is on the trailing-scored-days rule and has never been read at
+ * all. The unconditional line shipped in this feature's own first pass and told
+ * the second group their recent days had been measured, on the screen sitting
+ * directly beside a value that says "Auto".
+ *
+ * Both halves name what actually decides, for the reason the Settings copy has
+ * always given: somebody whose quests feel wrong needs to know why, rather than
+ * assume the app measured them and got it wrong.
+ */
+export function questDifficultyHelp(override: QuestTier | null): string {
+  if (override === null) {
+    return 'Automatic follows how long you have been here, not how far you walk. If the quests feel wrong, pick a size — your choice always wins.';
+  }
+  return 'Your size was set once, from your days around the time you joined, and stays there. Automatic instead follows how long you have been here. Change it whenever — your choice always wins.';
 }

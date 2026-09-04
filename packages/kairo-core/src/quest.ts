@@ -395,9 +395,14 @@ export const QUEST_TIER_STEP_BANDS: Readonly<Record<QuestTier, number>> = Object
       const targets = QUEST_CATALOGUE.filter(
         (q) => q.tier === tier && q.metric === 'steps',
       ).map((q) => q.target);
-      if (targets.length === 0) {
-        throw new Error(`No steps quest at tier ${tier} to derive a calibration band from`);
-      }
+      // `Math.min()` of nothing is Infinity, which makes a tier with no steps
+      // quest simply unproposable — and that is deliberate rather than lazy.
+      // This table is built at module evaluation, `@kairo/core` bundles into
+      // all five Edge Functions, and a throw here would turn a catalogue edit
+      // into an import-time crash in `sync-health` and `finalize-days` rather
+      // than a red test. The test beside it already fails on exactly this, so
+      // the throw would only widen the blast radius. Inert beats wrong, the
+      // same call `workout-units.ts` makes about a unit it cannot convert.
       return [tier, Math.min(...targets)];
     }),
   ) as Record<QuestTier, number>,

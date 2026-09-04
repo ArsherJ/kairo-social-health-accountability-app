@@ -97,6 +97,7 @@ export default function Difficulty() {
               {note.line}
             </Text>
             <Text
+              scale="chrome"
               style={styles.readingPrivacy}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
@@ -322,6 +323,10 @@ const styles = StyleSheet.create({
     padding: space.md,
     gap: 5,
   },
+  // Both `chrome`, and the pair is the reason. At `prose` (1.8x) the 12pt
+  // privacy line reaches 21.6pt while the 15pt sentence above it caps at 21 —
+  // the fine print outgrowing the claim it qualifies. `Text.tsx` picks a scale
+  // by what the type sits inside, and these sit in one wash.
   readingLine: { ...font.body.strong, fontSize: 15, lineHeight: 21, color: colors.text },
   readingPrivacy: { ...font.body.body, fontSize: 12, lineHeight: 17, color: colors.muted },
 
