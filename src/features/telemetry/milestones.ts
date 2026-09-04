@@ -31,4 +31,14 @@ export type Milestone =
    * seeing three cards once beats a new user on a second device never being
    * told the rule of the game.
    */
-  | 'welcome_seen';
+  | 'welcome_seen'
+  /**
+   * The Health grant's step reading has been reported (deviation #63).
+   *
+   * Once-ever, unlike `onboarding_beat_seen` beside it, and the difference is
+   * the point: a beat impression is honest unguarded because the run happens
+   * once per account, but calibration re-runs whenever `/connect` is re-entered
+   * and granted again. Without the marker the outcome's denominator would count
+   * taps rather than accounts, which is the one thing it is for.
+   */
+  | 'calibration_recorded';

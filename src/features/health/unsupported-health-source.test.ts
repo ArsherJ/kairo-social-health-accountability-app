@@ -21,5 +21,8 @@ describe('unsupported health source', () => {
     await expect(unsupportedHealthSource.readStepsToday('UTC')).rejects.toThrow(
       'Health data is unsupported on this platform',
     );
+    await expect(
+      unsupportedHealthSource.readDailySteps(['2026-09-03'], 'UTC'),
+    ).rejects.toThrow('Health data is unsupported on this platform');
   });
 });

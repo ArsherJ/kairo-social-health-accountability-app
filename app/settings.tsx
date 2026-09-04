@@ -2,12 +2,13 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { QuestTier } from '@kairo/core';
+import { QUEST_TIERS, type QuestTier } from '@kairo/core';
 import { signOut, useSessionStore } from '@/features/auth/session.ts';
 import { NotificationSettingsCard } from '@/features/notifications/NotificationSettingsCard.tsx';
 import { BodyMetricsCard } from '@/features/profile/BodyMetricsCard.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useUpdateProfile } from '@/features/profile/update-profile.ts';
+import { questTierName } from '@/features/quests/quest-copy.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { BackRow, Screen, Text } from '@/ui/index.ts';
 
@@ -78,14 +79,23 @@ export default function Settings() {
 
       <Group title="The game">
         {/*
-          Quest difficulty. **The copy names the automatic rule's actual input**,
-          and that sentence is doing real work: `questTier()` keys off how many
-          days have scored, which measures engagement rather than fitness — so
-          it is wrong by construction for a long-standing gentle user and for a
-          brand-new athlete alike. Somebody who finds their quests too easy needs
-          to understand why, rather than assume the app measured them and got it
-          wrong. That is also why the override **wins outright** (see
-          `questTier`): a rule that could veto it would make it a hint.
+          Quest difficulty. **The copy names the rule that actually applies to
+          this account**, and since deviation #63 that is usually not the
+          automatic one: onboarding reads a fortnight of days behind the Health
+          grant and seeds `quest_tier_override` with what it measured. So the
+          help line describes a **seed** — read once, never re-read, and
+          therefore unable to rise as the player improves, which is the whole
+          reason a trailing median was refused as a standing rule.
+
+          Automatic is still a real choice and still the fallback: accounts that
+          predate calibration, that hit the no-history outcome, that skipped the
+          beat, or that clear their override land back on `questTier()`'s
+          trailing scored days — engagement rather than fitness, wrong by
+          construction for part of the cohort, and named as such so somebody who
+          picks it knows what they picked.
+
+          Either way the override **wins outright** (see `questTier`): a rule
+          that could veto it would make it a hint.
         */}
         <View style={styles.card}>
           <View style={styles.rowHead}>
@@ -95,14 +105,15 @@ export default function Settings() {
             </Text>
             <Text scale="fixed" style={styles.rowValue}>
               {profile.data?.quest_tier_override
-                ? TIER_NAMES[profile.data.quest_tier_override]
+                ? questTierName(profile.data.quest_tier_override)
                 : 'Auto'}
             </Text>
           </View>
 
           <Text style={styles.help}>
-            Kairo picks a difficulty from how long you have been here. If the
-            quests feel wrong, choose your own — your choice always wins.
+            Kairo sized your quests once, from your recent days when you joined,
+            and leaves it there. Automatic instead follows how long you have
+            been here. Change it whenever you like — your choice always wins.
           </Text>
 
           {/* Wraps, because four chips do not fit one line past about 1.3x
@@ -196,16 +207,8 @@ export default function Settings() {
  */
 const TIER_CHOICES: readonly [QuestTier | null, string][] = [
   [null, 'Automatic'],
-  ['starter', 'Starter'],
-  ['steady', 'Steady'],
-  ['strong', 'Strong'],
+  ...QUEST_TIERS.map((tier): [QuestTier, string] => [tier, questTierName(tier)]),
 ];
-
-const TIER_NAMES: Record<QuestTier, string> = {
-  starter: 'Starter',
-  steady: 'Steady',
-  strong: 'Strong',
-};
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (

@@ -10,7 +10,7 @@ import {
   readHealthPermissionState,
   requestHealthPermission,
 } from './permission.ts';
-import { readHealthWindow, readStepsToday } from './read.ts';
+import { readDailySteps, readHealthWindow, readStepsToday } from './read.ts';
 
 export const appleHealthSource: HealthSource = {
   policy: healthSourcePolicy('ios'),
@@ -25,4 +25,5 @@ export const appleHealthSource: HealthSource = {
     ),
   readWindow: readHealthWindow,
   readStepsToday,
+  readDailySteps,
 };

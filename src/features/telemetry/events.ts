@@ -191,7 +191,23 @@ export type AppEventType =
    * The hatch reports nothing — it is a phase of `/connect`, whose own
    * impression already covers the moment.
    */
-  | 'onboarding_beat_seen';
+  | 'onboarding_beat_seen'
+  /**
+   * The Health grant's step reading landed. Payload `{ outcome }`, one of
+   * `proposed` or `no-history` — and **nothing else**.
+   *
+   * Not the median, which never leaves the phone, and **not the tier it
+   * proposed**: the question is whether calibration can read a new account at
+   * all, and a tier breakdown would be a distribution of the cohort's fitness
+   * sitting in `app_events` to answer a question nobody asked. The rule
+   * `quest_cleared` set — a category, never a figure — in its strictest form.
+   *
+   * **Once ever**, on an MMKV marker, because the reading is not: re-entering
+   * `/connect` and granting again re-runs it, and a second row would make the
+   * denominator count taps. The payload is built inside `runCalibration` rather
+   * than at the call site, so no screen can reach it.
+   */
+  | 'calibration_completed';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

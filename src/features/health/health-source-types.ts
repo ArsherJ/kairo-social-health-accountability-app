@@ -21,4 +21,9 @@ export interface HealthSource {
   subscribeToChanges: (onChange: () => void) => HealthSubscription[];
   readWindow: (window: SyncWindow, timeZone: string) => Promise<HealthReadResult>;
   readStepsToday: (timeZone: string) => Promise<number>;
+  /**
+   * Daily step totals for a run of complete local days, aligned to the dates
+   * given. Onboarding calibration only — see `readDailySteps`.
+   */
+  readDailySteps: (localDates: readonly string[], timeZone: string) => Promise<number[]>;
 }

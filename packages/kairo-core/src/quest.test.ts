@@ -6,6 +6,11 @@ import {
   questMet,
   questProgress,
   questTier,
+  CALIBRATION_WINDOW_DAYS,
+  QUEST_TIERS,
+  QUEST_TIER_STEP_BANDS,
+  calibrateQuestTier,
+  calibrationWindow,
   type QuestDay,
 } from './index.ts';
 
@@ -213,5 +218,150 @@ describe('pickQuests — sleep capability', () => {
     const a = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: false });
     const b = pickQuests({ userId: 'u1', localDate: '2026-08-25', tier: 'steady', hasSleep: false });
     expect(a.map((q) => q.id)).toEqual(b.map((q) => q.id));
+  });
+});
+
+describe('calibration bands', () => {
+  it('takes each tier\'s entry bar from the catalogue', () => {
+    for (const tier of QUEST_TIERS) {
+      const stepTargets = QUEST_CATALOGUE.filter(
+        (q) => q.tier === tier && q.metric === 'steps',
+      ).map((q) => q.target);
+      expect(QUEST_TIER_STEP_BANDS[tier]).toBe(Math.min(...stepTargets));
+    }
+  });
+
+  /*
+    Pinned as well as derived, and both halves matter — the same arrangement
+    `DAILY_STEP_BASELINE` has. The derivation stops a catalogue edit leaving a
+    second number describing the old bars; the literals stop the derivation
+    being *too* obedient, since moving a band silently re-sorts every new
+    account into a different starting tier. Move a target and a human decides.
+  */
+  it('pins them as literals so a catalogue edit fails rather than re-sorts', () => {
+    expect(QUEST_TIER_STEP_BANDS).toEqual({
+      starter: 3_000,
+      steady: 7_000,
+      strong: 12_000,
+    });
+  });
+
+  it('rises with the tier, so the highest cleared bar is the highest tier', () => {
+    expect(QUEST_TIER_STEP_BANDS.starter).toBeLessThan(QUEST_TIER_STEP_BANDS.steady);
+    expect(QUEST_TIER_STEP_BANDS.steady).toBeLessThan(QUEST_TIER_STEP_BANDS.strong);
+  });
+});
+
+describe('calibrationWindow', () => {
+  it('covers fourteen complete days ending at the day it is given', () => {
+    const window = calibrationWindow('2026-09-03');
+    expect(window).toHaveLength(CALIBRATION_WINDOW_DAYS);
+    expect(window.at(-1)).toBe('2026-09-03');
+    expect(window[0]).toBe('2026-08-21');
+  });
+
+  it('is ascending and has no gaps or repeats', () => {
+    const window = calibrationWindow('2026-01-05');
+    expect(new Set(window).size).toBe(window.length);
+    expect([...window].sort()).toEqual(window);
+    expect(window[0]).toBe('2025-12-23');
+  });
+});
+
+describe('calibrateQuestTier', () => {
+  const days = (...steps: number[]) => steps;
+
+  it('proposes the highest tier whose entry bar the median clears', () => {
+    expect(calibrateQuestTier(days(7_000, 7_200, 6_800, 7_100))).toEqual({
+      outcome: 'proposed',
+      tier: 'steady',
+      medianSteps: 7_050,
+    });
+  });
+
+  it('proposes Strong only once the median clears the strong bar', () => {
+    expect(calibrateQuestTier(days(12_000, 13_000, 11_000, 14_000))).toMatchObject({
+      tier: 'strong',
+    });
+    expect(calibrateQuestTier(days(11_000, 11_500, 10_000, 11_900))).toMatchObject({
+      tier: 'steady',
+    });
+  });
+
+  /*
+    Nothing is gentler than Starter, so a genuinely quiet fortnight is a
+    proposal rather than an absence — it was measured, and the measurement said
+    "small". `no-history` means the opposite: we could not measure.
+  */
+  it('floors at Starter rather than refusing a quiet fortnight', () => {
+    expect(calibrateQuestTier(days(400, 900, 1_200, 700))).toEqual({
+      outcome: 'proposed',
+      tier: 'starter',
+      medianSteps: 800,
+    });
+  });
+
+  it('takes the median, never the mean, so one hike promotes nobody', () => {
+    // Mean is 8,825 — Steady. Median is 2,100 — Starter.
+    expect(calibrateQuestTier(days(1_800, 2_000, 2_200, 30_300))).toMatchObject({
+      tier: 'starter',
+      medianSteps: 2_100,
+    });
+  });
+
+  it('drops zero days rather than counting them', () => {
+    // Four real days at Steady, ten days the phone spent in a drawer.
+    const withZeroes = days(7_000, 7_200, 6_800, 7_100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    expect(calibrateQuestTier(withZeroes)).toMatchObject({ tier: 'steady' });
+  });
+
+  it('reads a fortnight of zeroes as no-history, not as the lowest tier', () => {
+    expect(calibrateQuestTier(new Array(14).fill(0))).toEqual({ outcome: 'no-history' });
+  });
+
+  it('needs four qualifying days however high they are', () => {
+    expect(calibrateQuestTier(days(20_000, 20_000, 20_000))).toEqual({
+      outcome: 'no-history',
+    });
+    expect(calibrateQuestTier(days(20_000, 20_000, 20_000, 20_000))).toMatchObject({
+      outcome: 'proposed',
+    });
+  });
+
+  it('ignores a reading that is not a finite number', () => {
+    expect(calibrateQuestTier([NaN, 7_000, 7_000, 7_000, 7_000])).toMatchObject({
+      tier: 'steady',
+      medianSteps: 7_000,
+    });
+    expect(calibrateQuestTier([NaN, NaN, NaN, 7_000])).toEqual({ outcome: 'no-history' });
+  });
+
+  it('takes an empty window as no-history', () => {
+    expect(calibrateQuestTier([])).toEqual({ outcome: 'no-history' });
+  });
+});
+
+describe('a calibrated tier is a seed, not a standing rule', () => {
+  /*
+    The whole point of #63: the proposal is written once into
+    `quest_tier_override`, and `questTier` then returns it forever regardless
+    of what the account goes on to do. Nothing re-reads the fortnight, so the
+    bar cannot rise as the player improves — which is the property that made a
+    trailing median wrong as a standing rule and right as a one-shot seed.
+  */
+  it('wins outright over the trailing-scored-days rule, at any day count', () => {
+    const seeded = calibrateQuestTier([7_000, 7_000, 7_000, 7_000]);
+    expect(seeded.outcome).toBe('proposed');
+    if (seeded.outcome !== 'proposed') return;
+
+    for (const trailingScoredDays of [0, 6, 7, 27, 28, 400]) {
+      expect(questTier({ trailingScoredDays, override: seeded.tier })).toBe(seeded.tier);
+    }
+  });
+
+  it('leaves the automatic rule in place for an account that was never seeded', () => {
+    expect(questTier({ trailingScoredDays: 0, override: null })).toBe('starter');
+    expect(questTier({ trailingScoredDays: 7, override: null })).toBe('steady');
+    expect(questTier({ trailingScoredDays: 28, override: null })).toBe('strong');
   });
 });

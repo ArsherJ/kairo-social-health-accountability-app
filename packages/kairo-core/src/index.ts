@@ -11,6 +11,7 @@
 export * from './types.ts';
 export * from './scoring.ts';
 export * from './day.ts';
+export * from './median.ts';
 export * from './profile.ts';
 export * from './squad.ts';
 export * from './program.ts';
