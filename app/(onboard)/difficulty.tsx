@@ -5,7 +5,11 @@ import { useRouter } from 'expo-router';
 import { QUEST_CATALOGUE, type QuestTier } from '@kairo/core';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
+import { calibrationNote } from '@/features/onboarding/calibration-copy.ts';
+import { questTierName } from '@/features/quests/quest-copy.ts';
 import { compactFigure, questUnit } from '@/features/quests/quest-dial.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { Gradient, Screen, Text } from '@/ui/index.ts';
@@ -26,13 +30,21 @@ const BAND: Stop[] = [
  * The answer is therefore held in `useOnboardingAnswers` and written there.
  * See that store; this screen only collects.
  *
- * **The copy names the automatic rule's actual input**, exactly as the Settings
- * screen does, and for the same reason: `questTier()` keys off how many days
- * have scored, which measures engagement rather than fitness, so it is wrong by
- * construction for a long-standing gentle user and a brand-new athlete alike.
- * Somebody who finds their quests too easy needs to understand why rather than
- * assume the app measured them and got it wrong. That is also why the override
- * **wins outright** — a rule that could veto it would make it a hint.
+ * **It opens with a measurement, not a cold list** (deviation #63). The beat
+ * used to present four sizes with no basis for picking one, so the answer was a
+ * guess about a person by that person — and the fallback, `questTier()`'s
+ * automatic rule, keys off how many days have *scored*, which measures
+ * engagement rather than fitness and is therefore wrong by construction for a
+ * long-standing gentle user and a brand-new athlete alike. `/connect` reads the
+ * fortnight behind the grant and proposes; this screen states what it read,
+ * pre-selects the proposal and lets the player disagree. The proposal is a
+ * default and their answer is an answer — which is the same precedence the
+ * override has always had over the rule, and why it **wins outright**.
+ *
+ * The measured figure lives in `useOnboardingAnswers` and goes no further: it
+ * is never written to the profile and never enters a telemetry payload, which
+ * is precisely what the note beneath the sentence claims. `calibration-copy.ts`
+ * owns both, and its test holds them.
  *
  * **The sample targets are real**, read from `QUESTS` rather than typed in. A
  * screen that promised "9,000 steps" while the engine dealt something else
@@ -41,15 +53,23 @@ const BAND: Stop[] = [
 export default function Difficulty() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('difficulty');
+  useBeatImpression('difficulty');
   const chosen = useOnboardingAnswers((s) => s.questTier);
   const setQuestTier = useOnboardingAnswers((s) => s.setQuestTier);
+  const note = calibrationNote(useOnboardingAnswers((s) => s.calibration));
 
   return (
     <Screen bleed>
       <View style={styles.band}>
         <Gradient stops={BAND} steps={20} />
         <View style={[styles.bandBody, { paddingTop: insets.top + space.sm }]}>
-          <OnboardingRail filled={2} partial={0.5} tone="light" onBack={() => router.back()} />
+          <OnboardingRail
+            filled={beat.filled}
+            partial={beat.partial}
+            tone="light"
+            onBack={() => router.back()}
+          />
           <Text scale="chrome" style={styles.headline}>
             Three quests a day.{'\n'}How big?
           </Text>
@@ -57,6 +77,36 @@ export default function Difficulty() {
       </View>
 
       <View style={styles.page}>
+        {/* The reading, above the choices it explains. One accessibility
+            element with both sentences composed, because the measurement and
+            the claim about where it was read are one utterance — split, a
+            screen reader stops twice inside a single thought. Absent entirely
+            when no reading was taken, which is not the same as a thin one. */}
+        {note && (
+          <View
+            style={styles.reading}
+            accessible
+            accessibilityLabel={`${note.line} ${note.privacy}`}
+          >
+            <Text
+              scale="chrome"
+              style={styles.readingLine}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {note.line}
+            </Text>
+            <Text
+              scale="chrome"
+              style={styles.readingPrivacy}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {note.privacy}
+            </Text>
+          </View>
+        )}
+
         <Choice
           tier={null}
           title="Automatic"
@@ -98,7 +148,7 @@ export default function Difficulty() {
 
         <View style={{ paddingBottom: space.md }}>
           <OnboardingCta
-            label="Next"
+            label={beatCta(beat)}
             tone="ink"
             icon="arrow-right"
             onPress={() => router.push('/privacy')}
@@ -146,21 +196,21 @@ const METRIC_ICON: Record<string, string> = {
 const TIERS = [
   {
     tier: 'starter' as const,
-    title: 'Starter',
+    title: questTierName('starter'),
     icon: 'sprout' as const,
     tint: ramp.sage[500],
     wash: ramp.sage[200],
   },
   {
     tier: 'steady' as const,
-    title: 'Steady',
+    title: questTierName('steady'),
     icon: 'walk' as const,
     tint: colors.accent,
     wash: ramp.accent[200],
   },
   {
     tier: 'strong' as const,
-    title: 'Strong',
+    title: questTierName('strong'),
     icon: 'lightning-bolt' as const,
     tint: colors.coral,
     wash: colors.coralTint,
@@ -262,6 +312,23 @@ const styles = StyleSheet.create({
   bandBody: { paddingHorizontal: space.lg, paddingBottom: space.lg, gap: space.lg },
   headline: { ...font.display.major, fontSize: 28, lineHeight: 34, color: colors.bg },
   page: { paddingHorizontal: space.lg, gap: 12, paddingTop: space.lg },
+
+  // A wash rather than a card: this is what the screen was told, not a thing to
+  // operate, and giving it a surface and a shadow would make it compete with
+  // the four things that are.
+  reading: {
+    backgroundColor: ramp.teal[200],
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    padding: space.md,
+    gap: 5,
+  },
+  // Both `chrome`, and the pair is the reason. At `prose` (1.8x) the 12pt
+  // privacy line reaches 21.6pt while the 15pt sentence above it caps at 21 —
+  // the fine print outgrowing the claim it qualifies. `Text.tsx` picks a scale
+  // by what the type sits inside, and these sit in one wash.
+  readingLine: { ...font.body.strong, fontSize: 15, lineHeight: 21, color: colors.text },
+  readingPrivacy: { ...font.body.body, fontSize: 12, lineHeight: 17, color: colors.muted },
 
   choice: {
     flexDirection: 'row',

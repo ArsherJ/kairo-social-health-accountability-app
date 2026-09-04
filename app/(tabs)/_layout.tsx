@@ -50,12 +50,10 @@ export default function TabsLayout() {
   const squad = useMySquad(session?.user.id);
   const events = useSquadEvents(squad.data?.id);
 
-  // The notification ask's third reason, and the only one a solo player can
-  // reach (deviation #60). The same query the disclosure gate reads, on the
-  // same TanStack key, so this costs no extra request and the two cannot
-  // disagree about whether the account has ever scored. `data` is undefined
-  // while it is in flight, which reads as "not yet" — the safe direction, since
-  // the ask is deferred rather than spent.
+  // The third why the notification ask can be earned (deviation #61,
+  // 2026-09-04) — `ask-policy.ts` owns the argument. Here for the same reason
+  // the two above are: it shares the Today tab's query key, so it costs no
+  // request and the two cannot disagree in one frame.
   const scoredDays = useScoredDayCount(session?.user.id);
 
   return (

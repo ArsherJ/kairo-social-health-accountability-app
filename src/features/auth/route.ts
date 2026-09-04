@@ -63,9 +63,9 @@ export function redirectTarget(input: {
     case 'signed-out':
       return input.group === '(auth)' ? null : '/sign-in';
     case 'needs-profile':
-      // The *first* onboarding screen. The run is six beats as of Playful
-      // (deviation #58): `/welcome` → `/one-sky` → `/connect` → `/difficulty`
-      // → `/privacy` → `/name`. Only the first is named here; the rest are
+      // The *first* onboarding screen. The run is seven beats: `/welcome` →
+      // `/one-sky` → `/mirror` → `/connect` → `/difficulty` → `/privacy` →
+      // `/name`. Only the first is named here; the rest are
       // reached by pushing, and this gate only knows "has no profile row yet".
       //
       // **The entry moved from `/connect` to `/welcome`**, which is the point

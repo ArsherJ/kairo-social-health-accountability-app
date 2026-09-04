@@ -8,7 +8,7 @@ import { healthSource } from '@/features/health/health-source.ts';
 import { track } from '@/features/telemetry/events.ts';
 import type { HealthPermissionState } from '@/features/health/permission-state.ts';
 import { NotificationAsk } from '@/features/notifications/NotificationPermissionSheet.tsx';
-import type { NotificationPermission } from '@/features/notifications/ask-policy.ts';
+import { askAnswerFor, type NotificationPermission } from '@/features/notifications/ask-policy.ts';
 import { readNotificationPermission } from '@/features/notifications/permission.ts';
 import { nextPermissionAsk } from './ask-order.ts';
 
@@ -41,9 +41,8 @@ export function PermissionAsks({
   userId: string | undefined;
   hasSquad: boolean;
   hasEvent: boolean;
-  /** The notification ask's third reason — see `ask-policy.ts`. Read from the
-   *  same lifetime scored-day count the disclosure gate uses, so a solo player
-   *  is asked on the first morning the Digest has anything true to say. */
+  /** The third why the notification ask can be earned (2026-09-04). See
+   * `ask-policy.ts`; this component only carries it to the decision. */
   hasScoredDay: boolean;
 }) {
   const [health, setHealth] = useState<HealthPermissionState | null>(null);
@@ -182,8 +181,19 @@ export function PermissionAsks({
               onAnswered={(result) => {
                 setNotification(result);
                 setAnswered(true);
+                void track(userId, 'notification_ask_answered', {
+                  answer: askAnswerFor(result),
+                });
               }}
-              onDismiss={() => setNotificationDismissed(true)}
+              onDismiss={() => {
+                setNotificationDismissed(true);
+                // A deferral, not a decline: "Not now" never reaches the system
+                // dialog, so this can recur and the event is per answer rather
+                // than once ever.
+                void track(userId, 'notification_ask_answered', {
+                  answer: 'deferred',
+                });
+              }}
             />
           )}
           </View>

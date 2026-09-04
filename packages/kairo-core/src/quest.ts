@@ -20,7 +20,19 @@
  * morning's work disappear.
  */
 
+import { addDays } from './day.ts';
+import { median } from './median.ts';
+
 export type QuestTier = 'starter' | 'steady' | 'strong';
+
+/**
+ * The tiers in ascending order of demand.
+ *
+ * A value, not just the type's members, because calibration walks them from
+ * gentlest to hardest looking for the last bar the player already clears —
+ * and an order written down twice is an order that eventually disagrees.
+ */
+export const QUEST_TIERS: readonly QuestTier[] = ['starter', 'steady', 'strong'];
 
 /**
  * What a quest counts. Every value is a raw figure the app already reads for
@@ -112,13 +124,22 @@ export const QUEST_TIER_STRONG_DAYS = 28;
  * choice recorded rather than quietly improved: `trailingScoredDays` is a count
  * of days that scored, so a long-standing gentle user is assigned the same tier
  * as a long-standing athlete. The alternative — a trailing median of daily
- * steps, the pattern `challenge.ts` uses — was rejected because it makes the
- * bar rise as the user improves, which is the exact conflation the Daily Walk
- * exists to refuse.
+ * steps, the pattern `challenge.ts` uses — was rejected **as a standing rule**,
+ * because a rule that re-reads the window makes the bar rise as the player
+ * improves, which is the exact conflation the Daily Walk exists to refuse.
  *
- * `override` is therefore not a nicety, it is the correction for a rule that is
- * wrong by construction for part of the cohort, and it **wins outright**. A
- * rule that could veto it would make it a hint.
+ * **The same median is adopted as a one-shot seed** (deviation #63, and see
+ * `calibrateQuestTier` below). Read once, at the Health grant, written into
+ * `quest_tier_override` and never read again — so it cannot rise, because
+ * nothing re-reads it. That is the whole difference between the rejected rule
+ * and the adopted one, and stating only the rejection would leave this comment
+ * saying the median was refused while the app ships it.
+ *
+ * `override` is therefore two things at once: the correction for a rule that is
+ * wrong by construction for part of the cohort, and the slot calibration seeds.
+ * It **wins outright** either way — a rule that could veto it would make it a
+ * hint — and an account that clears its override falls back here, which is what
+ * keeps the automatic rule live rather than vestigial.
  *
  * **Both the client and `finalize-days` call this**, with the same lifetime
  * scored-day count and the same `profiles.quest_tier_override`. That is not a
@@ -306,4 +327,154 @@ export function questProgress(quest: QuestDef, day: QuestDay): QuestState {
 /** Cleared inclusively, at exactly the target. */
 export function questMet(quest: QuestDef, day: QuestDay): boolean {
   return questProgress(quest, day).met;
+}
+
+/* ------------------------------------------------------------------------- *
+ * Calibration — a measured starting tier (deviation #63).
+ *
+ * `questTier` above measures how long somebody has been here. That is the
+ * wrong question to ask a brand-new account, and it has no good answer: on day
+ * one every account is a Starter, so an athlete is dealt bars they clear before
+ * breakfast and a gentle walker is promoted a week later for reasons that have
+ * nothing to do with them.
+ *
+ * So the run *measures* instead, once, at the Health grant, and proposes. The
+ * player still decides — the proposal is pre-selected on the difficulty beat
+ * and can be changed there or in Settings, and their answer lands in
+ * `quest_tier_override`, which wins outright exactly as it always did.
+ *
+ * **This lives in `quest.ts` rather than in a module of its own** because it
+ * needs both the tier rule and the catalogue. A sibling module importing both
+ * would be an import cycle the moment either one wanted the result back, and
+ * the alternative — threading `QUEST_CATALOGUE` through as an argument — is the
+ * mistake `TIER_POINTS` already made, which broke an out-of-package caller at
+ * runtime rather than at compile time.
+ *
+ * Pure, like everything else here: no clock read, and the window's dates come
+ * from the caller.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * How many complete local days the reading covers.
+ *
+ * A fortnight is long enough that a quiet week does not decide the answer and
+ * short enough to still describe the person's life now. It is deliberately not
+ * "since you got the phone": a year-old median measures who somebody used to
+ * be.
+ */
+export const CALIBRATION_WINDOW_DAYS = 14;
+
+/**
+ * How many days must actually carry steps before the reading is believed.
+ *
+ * Four, because below that one ordinary Tuesday is the median. A phone bought
+ * last week, a phone that spends the day on a desk, and a Health source that
+ * has only just been granted all land here, and all of them mean the same
+ * thing: we have not seen enough to say.
+ */
+export const CALIBRATION_MIN_QUALIFYING_DAYS = 4;
+
+/**
+ * Each tier's entry bar, in steps, **derived from the catalogue**.
+ *
+ * The *minimum* steps target of the tier, not the maximum: a tier's bars should
+ * be things you meet on a good day, not things you have already beaten on a
+ * median one. Proposing Steady to somebody whose median is 9,000 leaves them
+ * two quests they clear by lunch; proposing it at 7,000 leaves them a day worth
+ * finishing.
+ *
+ * Derived so a catalogue edit cannot leave a second number describing the old
+ * bars — and pinned as literals by the test beside it, because moving a band
+ * silently re-sorts every new account into a different starting tier. Same
+ * arrangement `DAILY_STEP_BASELINE` has, for the same reason: the derivation
+ * stops it going stale, the literal stops it being too obedient.
+ */
+export const QUEST_TIER_STEP_BANDS: Readonly<Record<QuestTier, number>> = Object.freeze(
+  Object.fromEntries(
+    QUEST_TIERS.map((tier) => {
+      const targets = QUEST_CATALOGUE.filter(
+        (q) => q.tier === tier && q.metric === 'steps',
+      ).map((q) => q.target);
+      // `Math.min()` of nothing is Infinity, which makes a tier with no steps
+      // quest simply unproposable — and that is deliberate rather than lazy.
+      // This table is built at module evaluation, `@kairo/core` bundles into
+      // all five Edge Functions, and a throw here would turn a catalogue edit
+      // into an import-time crash in `sync-health` and `finalize-days` rather
+      // than a red test. The test beside it already fails on exactly this, so
+      // the throw would only widen the blast radius. Inert beats wrong, the
+      // same call `workout-units.ts` makes about a unit it cannot convert.
+      return [tier, Math.min(...targets)];
+    }),
+  ) as Record<QuestTier, number>,
+);
+
+/**
+ * What the reading concluded.
+ *
+ * Two outcomes and no third: either the fortnight was legible enough to
+ * propose a size, or it was not. `no-history` is deliberately **not** "the
+ * player declined" and not "the read failed" — HealthKit does not report a
+ * read-permission denial, so neither is knowable here, and a surface that
+ * claimed either would be asserting something the app cannot know.
+ *
+ * `medianSteps` rides along for the one sentence that states the measurement
+ * back to the player. It is **never persisted and never sent anywhere** — it
+ * crosses from the connect beat to the difficulty beat in the in-memory
+ * onboarding answers store and dies with the run.
+ */
+export type QuestCalibration =
+  | { outcome: 'proposed'; tier: QuestTier; medianSteps: number }
+  | { outcome: 'no-history' };
+
+/**
+ * The dates a calibration reading covers, ascending, ending at (and including)
+ * the last **complete** local day.
+ *
+ * Today is the caller's to exclude and this function's to assume: calibration
+ * runs seconds after the Health grant, typically mid-morning, so a partial day
+ * sitting in the set drags the median down by roughly half a band — a Steady
+ * walker proposed Starter because they were asked at 10am.
+ */
+export function calibrationWindow(lastCompleteLocalDate: string): string[] {
+  const dates: string[] = [];
+  for (let back = CALIBRATION_WINDOW_DAYS - 1; back >= 0; back -= 1) {
+    dates.push(addDays(lastCompleteLocalDate, -back));
+  }
+  return dates;
+}
+
+/**
+ * Propose a starting tier from a window of daily step totals.
+ *
+ * **A zero day is dropped, not counted.** A day summing to zero is
+ * indistinguishable from a day the phone spent in a drawer, from a phone
+ * bought on Tuesday, and from a Health source that was only just granted — so
+ * counting them would median a new-phone player to the floor while the screen
+ * claims to have measured them. A non-finite reading goes the same way, for
+ * the same reason `questTier` leans on `NaN >= n` being false: a failed number
+ * must not become a small one.
+ *
+ * **The median, never the mean**, so one long hike does not promote somebody
+ * for a fortnight. That is the judgment `challenge.ts` already makes about a
+ * run history, and both share `median()` rather than restating it.
+ *
+ * **The floor is Starter, not silence.** A genuinely quiet fortnight *was*
+ * measured, and the measurement said "small"; `no-history` means we could not
+ * measure at all, which is a different sentence on the screen and has to stay
+ * one.
+ */
+export function calibrateQuestTier(dailySteps: readonly number[]): QuestCalibration {
+  const qualifying = dailySteps.filter((steps) => Number.isFinite(steps) && steps > 0);
+  if (qualifying.length < CALIBRATION_MIN_QUALIFYING_DAYS) return { outcome: 'no-history' };
+
+  const medianSteps = median(qualifying);
+
+  // Ascending, keeping the last bar cleared — so the answer is the highest tier
+  // whose entry bar the median already meets, and Starter when none of them do.
+  let tier: QuestTier = QUEST_TIERS[0]!;
+  for (const candidate of QUEST_TIERS) {
+    if (medianSteps >= QUEST_TIER_STEP_BANDS[candidate]) tier = candidate;
+  }
+
+  return { outcome: 'proposed', tier, medianSteps };
 }

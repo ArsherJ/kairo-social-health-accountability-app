@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BODY_METRIC_LIMITS, parseBodyMetric } from './body-metrics.ts';
+import {
+  BODY_METRICS_NOTE,
+  BODY_METRIC_LIMITS,
+  parseBodyMetric,
+} from './body-metrics.ts';
 
 describe('BODY_METRIC_LIMITS', () => {
   // These mirror the CHECK constraints in 20260727120000_init_core.sql. If
@@ -61,5 +65,48 @@ describe('parseBodyMetric', () => {
   it('rejects a fractional birth year', () => {
     expect(parseBodyMetric('birth_year', '1994.5').ok).toBe(false);
     expect(parseBodyMetric('birth_year', '1994')).toEqual({ ok: true, value: 1994 });
+  });
+});
+
+describe('BODY_METRICS_NOTE', () => {
+  it('claims no effect on scoring', () => {
+    // The card used to say height and weight give "more accurate Body
+    // tracking". They do not, in Kairo: Body scores the active calories
+    // HealthKit hands over, already computed by Apple against the body profile
+    // in the Health app, and these columns are a second copy Apple never sees.
+    // Editing them moves no score, so the card must not imply that it does.
+    //
+    // **The stat guard is case-sensitive and that is load-bearing**, the same
+    // rule the engine-key guards follow: the note legitimately says "body
+    // profile", meaning Apple's, and an `/i` here would fail on the honest
+    // sentence — which is how a guard gets loosened until it guards nothing.
+    // Capitalised, "Body" is the stat and nothing else. The claim itself is
+    // caught by the phrase ban below rather than by the noun.
+    expect(BODY_METRICS_NOTE).not.toMatch(/\bBody\b/);
+    expect(BODY_METRICS_NOTE).not.toMatch(/\b(AGI|STR|MND)\b/);
+    // The ban is on a claim of *benefit*, not on the word "score" — the note
+    // has to be able to deny an effect, and denying one means naming it.
+    expect(BODY_METRICS_NOTE).not.toMatch(/sharpen|more accurate|improve|better/i);
+    expect(BODY_METRICS_NOTE).toMatch(/nothing here moves a score/i);
+  });
+
+  it('says what the fields are actually for', () => {
+    // Nothing reads them, so the honest answer is that they are the player's
+    // own record — and the note has to give a reason, or "your own reference"
+    // reads as a shrug.
+    expect(BODY_METRICS_NOTE).toMatch(/your own reference/i);
+    expect(BODY_METRICS_NOTE).toMatch(/apple/i);
+  });
+
+  it('names no surface the player cannot reach', () => {
+    // `maxHeartRateForAge()` is birth year's only consumer, behind Strain —
+    // and `TodayPanel`, the only surface that ever rendered Strain, was
+    // unmounted by deviation #59. A note pointing at it would be the same
+    // class of false claim as the one this copy replaced.
+    //
+    // **If Strain returns to a screen, delete this test rather than working
+    // around it**: naming a real consumer is better copy than saying nothing,
+    // and this assertion exists only because there is currently no consumer.
+    expect(BODY_METRICS_NOTE).not.toMatch(/strain/i);
   });
 });

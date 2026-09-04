@@ -3,6 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { OnboardingDots, OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat, onboardingSkipTarget, valueCardPosition } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -31,12 +33,17 @@ const FIELD: Stop[] = [
  * collect is held in `useOnboardingAnswers` and written by the name screen; see
  * that store for why it has to work that way.
  *
- * Skip goes straight to permissions, not past them: the app cannot function
- * without Health, so there is no version of this run that skips to the end.
+ * Skip lands on the last beat of the pitch, not past it. It used to name
+ * `/connect` — right while the pitch ended there, and wrong since the mirror
+ * beat began sitting between the pitch and the ask, because it would route the
+ * people most likely to decline around the argument written for them. The
+ * destination is derived; see `onboardingSkipTarget`.
  */
 export default function Welcome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('welcome');
+  useBeatImpression('welcome');
 
   return (
     <View style={styles.screen}>
@@ -57,7 +64,11 @@ export default function Welcome() {
       />
 
       <View style={[styles.body, { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg }]}>
-        <OnboardingRail filled={0} partial={0.5} onSkip={() => router.replace('/connect')} />
+        <OnboardingRail
+          filled={beat.filled}
+          partial={beat.partial}
+          onSkip={() => router.replace(onboardingSkipTarget())}
+        />
 
         <View style={styles.middle}>
           <Text scale="chrome" style={styles.eyebrow}>
@@ -88,10 +99,10 @@ export default function Welcome() {
           </Text>
         </View>
 
-        <OnboardingDots index={0} count={3} />
+        <OnboardingDots {...valueCardPosition(beat)} />
 
         <OnboardingCta
-          label="Next"
+          label={beatCta(beat)}
           tone="glass"
           icon="arrow-right"
           onPress={() => router.push('/one-sky')}

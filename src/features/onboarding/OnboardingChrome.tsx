@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, font, radius, space } from '@/theme.ts';
 import { Text } from '@/ui/index.ts';
+import { RAIL_PHASES, railStepLabel } from './beats.ts';
 
 /**
  * The rail across the top of every onboarding beat.
@@ -20,6 +21,10 @@ import { Text } from '@/ui/index.ts';
  * `filled` is how many phases are done and `partial` is progress through the
  * current one, so the rail can move *within* a phase — which is what stops the
  * two-screen phases feeling like the bar has stalled.
+ *
+ * **Neither is written by hand any more.** Every beat reads its pair out of
+ * `beats.ts`, which derives them from the run's declared phases — see that
+ * module for why seven hand-written positions were the wrong source of truth.
  */
 export function OnboardingRail({
   filled,
@@ -28,7 +33,7 @@ export function OnboardingRail({
   onSkip,
   tone = 'light',
 }: {
-  /** Phases completed, 0–4. */
+  /** Phases completed, 0–RAIL_PHASES. Comes from `onboardingBeat()`. */
   filled: number;
   /** 0–1 through the current phase. */
   partial?: number;
@@ -64,10 +69,10 @@ export function OnboardingRail({
           four stops that each say nothing; the group says where you are. */}
       <View
         accessible
-        accessibilityLabel={`Step ${Math.min(4, filled + 1)} of 4`}
+        accessibilityLabel={railStepLabel(filled)}
         style={styles.track}
       >
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: RAIL_PHASES }, (_, i) => (
           <View
             key={i}
             accessibilityElementsHidden

@@ -43,10 +43,9 @@ export interface PermissionAskInput {
   hasSquad: boolean;
   hasEvent: boolean;
   /**
-   * Whether the account has ever scored a day above zero — the notification
-   * ask's third reason, and the only one a solo player can reach. Ordering is
-   * untouched by it: Health still goes first, and this composes exactly as the
-   * other two do.
+   * Whether the account has ever scored a day. The third reason the
+   * notification ask can be earned (2026-09-04) — see `ask-policy.ts`, which
+   * owns what it means; this function only passes it through.
    */
   hasScoredDay: boolean;
   /**

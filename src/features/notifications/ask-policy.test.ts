@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { shouldAskForNotifications, type NotificationPermission } from './ask-policy.ts';
+import {
+  askAnswerFor,
+  shouldAskForNotifications,
+  type NotificationPermission,
+} from './ask-policy.ts';
 
 const base = {
   permission: 'undetermined' as NotificationPermission,
@@ -27,15 +31,11 @@ describe('when Kairo asks for notification permission', () => {
     ).toBe(true);
   });
 
-  it('asks a solo player once their first day has scored', () => {
-    // The third reason, added 2026-09-02. Kairo is solo-first and the Digest is
-    // the only scheduled push there is, so an ask gated on a squad or a Battle
-    // never reached the players the loop was rebuilt for — the server's solo
-    // digest branch was written with care and nobody could receive it.
-    //
-    // The first scored day is the earliest moment the Digest has anything true
-    // to report, and a why the player can see rather than one borrowed from a
-    // squad.
+  it('asks a solo player once a day has actually scored', () => {
+    // The widening (2026-09-04). A scored day is the moment there is genuinely
+    // something to say at 8am tomorrow, so the solo cohort — which is every
+    // account Kairo is solo-first for — stops being structurally excluded from
+    // the one push the app still sends.
     expect(
       shouldAskForNotifications({
         ...base,
@@ -46,11 +46,10 @@ describe('when Kairo asks for notification permission', () => {
     ).toBe(true);
   });
 
-  it('does not ask a user with none of the three — which is the whole onboarding flow', () => {
-    // §5: every ask has a visible why. During onboarding there is no why yet,
-    // and a permission denied there is denied for the life of the install.
-    // Nothing has scored on the account's first launch, so the third reason is
-    // false there by construction and onboarding stays free of this dialog.
+  it('does not ask a solo player who has never scored a day', () => {
+    // §5: every ask has a visible why. A digest with nothing to report is not
+    // one, and this is still the whole onboarding flow: no squad, no battle,
+    // and nothing yet from Apple Health.
     expect(
       shouldAskForNotifications({
         ...base,
@@ -61,26 +60,22 @@ describe('when Kairo asks for notification permission', () => {
     ).toBe(false);
   });
 
-  it('does not ask again once iOS has an answer', () => {
+  it('does not ask again once iOS has an answer, however many whys there are', () => {
     // The OS dialog only ever appears once. Re-showing our sheet after that
     // would be a button that does nothing.
     for (const permission of ['granted', 'denied'] as NotificationPermission[]) {
       expect(shouldAskForNotifications({ ...base, permission })).toBe(false);
-      // Including on the reason that arrives last: a solo player who declined
-      // before joining a squad is not re-asked when their first day scores.
       expect(
-        shouldAskForNotifications({
-          ...base,
-          permission,
-          hasSquad: false,
-          hasScoredDay: true,
-        }),
+        shouldAskForNotifications({ ...base, permission, hasScoredDay: true }),
       ).toBe(false);
     }
   });
 
   it('respects a dismissal for the rest of the session', () => {
     expect(shouldAskForNotifications({ ...base, dismissedThisSession: true })).toBe(false);
+    // Including the widened why: "Not now" is a soft decline that must silence
+    // every reason for the session, or a solo player who deferred is asked
+    // again by another door in the same launch.
     expect(
       shouldAskForNotifications({
         ...base,
@@ -89,5 +84,20 @@ describe('when Kairo asks for notification permission', () => {
         dismissedThisSession: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe('how the ask was answered', () => {
+  it('calls a grant granted and everything else a decline', () => {
+    expect(askAnswerFor('granted')).toBe('granted');
+    expect(askAnswerFor('denied')).toBe('declined');
+  });
+
+  it('has no answer named undetermined', () => {
+    // `requestNotificationPermission` cannot return it, but the callback that
+    // feeds this carries the wider read-side type. A dialog that came back
+    // without a grant is a decline; a third bucket nobody can produce would
+    // only ever be empty in the analysis.
+    expect(askAnswerFor('undetermined')).toBe('declined');
   });
 });

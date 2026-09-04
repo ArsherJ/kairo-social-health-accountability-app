@@ -3,8 +3,9 @@
  *
  * **What this beat is, and what it is not.** It is not a fabricated wait. Work
  * genuinely is in flight while it shows — `healthSource.readStepsToday` runs
- * behind it, which on a real device with years of Health data and a cold
- * HealthKit daemon is not instant. What this module adds is a **floor**, so the
+ * behind it, with the fourteen-day calibration read beside it since deviation
+ * #63, which on a real device with years of Health data and a cold HealthKit
+ * daemon is not instant. What this module adds is a **floor**, so the
  * sentence on screen can be read rather than flashed for 180ms on a fast phone.
  *
  * That floor is a real trade and worth naming: on a device where the read

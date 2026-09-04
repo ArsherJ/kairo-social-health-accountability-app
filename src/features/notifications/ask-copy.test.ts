@@ -1,104 +1,98 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { FINALIZATION_GRACE_MS } from '@kairo/core';
+import { DIGEST_HOUR } from '../../../supabase/functions/_shared/notification-plan.ts';
 import {
-  MAX_NOTIFICATIONS_PER_DAY,
-  QUIET_HOURS,
-  type NotificationTrigger,
-} from '@kairo/core';
+  DIGEST_LOCAL_HOUR,
+  NOTIFICATION_ASK_COPY,
+  RETIRED_PUSH_PHRASES,
+} from './ask-copy.ts';
 
-/**
- * The notification ask promises only what the product still sends.
- *
- * **A file-reading guard, because the subject cannot be loaded.**
- * `NotificationPermissionSheet.tsx` reaches React Native, which root Vitest
- * cannot parse, and the include pattern is `src/**\/*.test.ts` for that reason.
- * Reading the source and asserting on its text is the established fallback here
- * — the same shape as the retired-stat-vocabulary scan, the typeface-literal
- * scan and the living-mirror telemetry bans.
- *
- * **Why it exists.** Deviation #52 retired three of the four triggers this
- * sheet described — `day_starts`, `day_ending_soon` and `day_ends` — and left
- * the copy promising pushes at 11 PM and midnight that nothing has emitted
- * since 2026-08-25. It survived a week because the ask only fired for a user
- * with a squad or a live Battle. Deviation #60 then opened it to every solo
- * player on their first scored day, which would have put a false promise in
- * front of the entire new-user cohort.
- *
- * That is the same failure as the invite message's privacy clause, one week
- * apart, from the same cause: copy asserting a fact about the system, with
- * nothing watching it. This is the cheap structural answer.
- *
- * **What it deliberately does not do.** It does not pin the wording. The claim
- * is what must stay true; pinning the sentence makes every future edit a test
- * failure that says nothing about whether the promise is still honest.
- */
+const everySentence = Object.values(NOTIFICATION_ASK_COPY).join(' ');
 
-const sheet = readFileSync(
-  'src/features/notifications/NotificationPermissionSheet.tsx',
-  'utf8',
-);
-
-/** The copy, not the doc comment — which discusses the retired promises by name. */
-const copy = sheet.slice(sheet.indexOf('<Text style={styles.label}>'));
-
-describe('what the notification ask promises', () => {
-  it('names the schedule the product actually keeps', () => {
-    // One scheduled push, in the morning. `DIGEST_HOUR` is 8 and lives in the
-    // Edge Function's planner, which this module may not import — so the guard
-    // is that a morning hour is named at all, not which one.
-    expect(copy).toMatch(/morning|At eight/i);
-    expect(copy).toMatch(/only push Kairo schedules|one push a day/i);
+describe('DIGEST_LOCAL_HOUR', () => {
+  it('is the hour the server actually dispatches on', () => {
+    // The sheet promises a time. The dispatcher decides it. A drift between
+    // the two is a promise the app breaks every morning, with nothing on
+    // either side to notice — so the client's copy is pinned to the server's
+    // schedule here rather than trusted to stay in step by hand.
+    expect(DIGEST_LOCAL_HOUR).toBe(DIGEST_HOUR);
   });
 
-  it('states the quiet window, which is the one exact promise it makes', () => {
-    // §14's window, and the only live triggers are all non-exempt, so this is
-    // true rather than nearly true. Both bounds, in 12-hour form as the copy
-    // sets them.
-    expect(copy).toContain(`${QUIET_HOURS.from - 12} PM`);
-    expect(copy).toContain(`${QUIET_HOURS.to} AM`);
+  it('is a morning hour, because the copy writes it as one', () => {
+    // `${hour}am` is only honest before noon. A digest moved to the afternoon
+    // needs a real formatter, and this is what says so before the sheet starts
+    // offering to wake somebody at "14am".
+    expect(DIGEST_LOCAL_HOUR).toBeGreaterThan(0);
+    expect(DIGEST_LOCAL_HOUR).toBeLessThan(12);
+  });
+});
+
+describe('NOTIFICATION_ASK_COPY', () => {
+  it('promises the one scheduled message and names its hour', () => {
+    expect(NOTIFICATION_ASK_COPY.title).toMatch(/one message a day/i);
+    expect(NOTIFICATION_ASK_COPY.title).toMatch(new RegExp(`${DIGEST_LOCAL_HOUR}am`));
   });
 
-  it('promises none of the three retired evening triggers', () => {
-    // `day_ending_soon` (23:00), `day_ends` (00:00) and `day_starts`. Retired
-    // by deviation #52; nothing emits them. They remain in
-    // `NotificationTrigger` on purpose — a push sent before the deploy can be
-    // tapped after it — so their *absence from this copy* is the thing to
-    // guard, not their absence from the union.
-    const retired: NotificationTrigger[] = ['day_starts', 'day_ending_soon', 'day_ends'];
-    expect(retired.length).toBe(3);
-
-    expect(copy).not.toMatch(/11 PM/i);
-    expect(copy).not.toMatch(/midnight/i);
-    expect(copy).not.toMatch(/about to close|closes|close out/i);
+  it('says what the message carries', () => {
+    // The digest is yesterday's result and today's standing (`digestCopy`).
+    expect(NOTIFICATION_ASK_COPY.body).toMatch(/yesterday/i);
+    expect(NOTIFICATION_ASK_COPY.body).toMatch(/today/i);
   });
 
-  it('claims no hard daily cap, because there is not one', () => {
-    // The old copy said "Three a day at most". `MAX_NOTIFICATIONS_PER_DAY`
-    // bounds the *budgeted* triggers only: `event_completed` is in
-    // `BUDGET_EXEMPT`, so it is admitted without spending the budget and can
-    // land on top of a full one. A cap that the code can exceed is a promise
-    // the product cannot keep.
-    expect(MAX_NOTIFICATIONS_PER_DAY).toBe(3);
-    expect(copy).not.toMatch(/\bthree a day\b/i);
-    expect(copy).not.toMatch(/\b3 a day\b/i);
-  });
-
-  it('names no rank, because most readers of this sheet are alone', () => {
-    // Deviation #60 made the first scored day a reason to ask, so a solo player
-    // is now the typical reader. `digestCopy()`'s solo branch says nothing
-    // about rank on purpose — "1st of 4" against three ghosts is a claim about
-    // people who do not exist — and the ask must not promise what the push
-    // then declines to say.
-    expect(copy).not.toMatch(/\b(rank|ranked|standing|leaderboard|1st|first place)\b/i);
-  });
-
-  it('uses no retired product vocabulary', () => {
-    // "Hunter" and "barkada" went with deviation #26; sabotage went on
-    // 2026-08-09 and this component's own doc comment said "has been hit"
-    // until 2026-09-02. Word-bounded and case-insensitive over ordinary
-    // English — a loose /hit/ matches "white".
-    for (const word of [/\bhunter\b/i, /\bbarkada\b/i, /\bsabotage\b/i]) {
-      expect(sheet).not.toMatch(word);
+  it('offers no push the app retired', () => {
+    // Deviation #52 retired the evening loop — 23:00, 00:00 and the
+    // mid-morning nudge — and this sheet went on offering all three, plus a
+    // cap of three a day with exceptions at 11 PM and midnight. Every phrase
+    // on that list was on the screen where somebody decides whether to trust
+    // the app with a permission iOS grants exactly once.
+    for (const phrase of RETIRED_PUSH_PHRASES) {
+      expect(everySentence).not.toMatch(phrase);
     }
+  });
+
+  it('mentions 11pm only to rule it out', () => {
+    // The one time of day worth naming, because it is what people expect from
+    // a streak app and what Kairo deliberately does not do. It has to read as
+    // an absence, never as a schedule.
+    for (const match of everySentence.matchAll(/11 ?pm/gi)) {
+      const clause = everySentence.slice(Math.max(0, match.index - 40), match.index);
+      expect(clause).toMatch(/no|never|nothing/i);
+    }
+  });
+
+  it('does not promise silence it cannot keep', () => {
+    // The copy said "Never overnight" and it was false. `QUIET_HOURS` covers
+    // 22:00–07:00 and neither trigger is in `QUIET_HOURS_EXEMPT`, which makes
+    // the promise look safe — but quiet hours live in `planNotifications`, and
+    // `finalize-days` reaches `sendToUser` without it. Those two pushes are the
+    // only ones that *do* arrive overnight, so no surface may claim otherwise.
+    for (const sentence of Object.values(NOTIFICATION_ASK_COPY)) {
+      expect(sentence).not.toMatch(/never overnight/i);
+      expect(sentence).not.toMatch(/while you sleep/i);
+    }
+  });
+
+  it('names when the event-driven pushes actually land', () => {
+    // Finalization is FINALIZATION_GRACE_MS after the player's local midnight,
+    // so "a couple of hours after midnight" is the honest description. Pinned
+    // to the constant: change the grace to six hours and this sentence is wrong
+    // in a way nothing else would notice.
+    expect(FINALIZATION_GRACE_MS).toBe(2 * 60 * 60 * 1000);
+    expect(NOTIFICATION_ASK_COPY.fine).toMatch(/after midnight/i);
+  });
+
+  it('schedules nothing at 11pm, which is why it may say so', () => {
+    // The sentence "nothing at 11pm" is true because the only *scheduled* hour
+    // is the digest's, and the event-driven sends ride finalization into the
+    // small hours. Neither is 23:00 — which the retired evening pair was.
+    expect(DIGEST_LOCAL_HOUR).not.toBe(23);
+    const finalizationHour = FINALIZATION_GRACE_MS / (60 * 60 * 1000);
+    expect(finalizationHour).toBeLessThan(23);
+  });
+
+  it('keeps a decline that is not a system dialog', () => {
+    // "Not now" must stay a soft decline: `requestNotificationPermission` is
+    // unrecoverable in-app once iOS records a denial.
+    expect(NOTIFICATION_ASK_COPY.dismiss).toMatch(/not now/i);
   });
 });

@@ -153,7 +153,79 @@ export type AppEventType =
    * occurrence**, because that is what one reaction is, and it is emitted from
    * the hook that presents it rather than from a render.
    */
-  | 'character_reaction_seen';
+  | 'character_reaction_seen'
+  /**
+   * The notification ask was answered. Payload `{ answer }`, one of `granted`,
+   * `declined` or `deferred` — `deferred` being "Not now", which dismisses the
+   * sheet without reaching `requestNotificationPermission` and so leaves the
+   * player askable again.
+   *
+   * **Per answer, not once ever.** The sheet's dismissal is per-session, so a
+   * deferral can genuinely recur and a once-ever marker would record only the
+   * first of them. `granted` and `declined` are terminal by construction: iOS
+   * grants one dialog per install, so `shouldAskForNotifications` returns false
+   * for every permission it has an answer for.
+   *
+   * It exists to judge the 2026-09-04 widening against real grant rates — the
+   * solo cohort was structurally excluded from this ask, and "more players see
+   * it" is only an improvement if they say yes.
+   */
+  | 'notification_ask_answered'
+  /**
+   * One beat of the onboarding run was shown. Payload `{ route }` and nothing
+   * else — the route name is the beat's identity and the only thing the funnel
+   * needs.
+   *
+   * **Unguarded, on mount.** Onboarding runs once per account by construction
+   * — the profile row commits on the name beat and `resolveRoute` never sends
+   * a `ready` account back into `(onboard)` — so the funnel is honest without a
+   * marker store, and a duplicate from backing up and forward again is absorbed
+   * by counting *distinct* beats. Seven once-ever milestone keys was the
+   * alternative and buys a guarantee this measurement does not need.
+   *
+   * It exists because the run got longer. `onboarding_started` fires on the
+   * connect beat and `profile_created` at the end, so every beat between them
+   * was invisible: the cost of adding one was unmeasurable, which is exactly
+   * the thing a curation pass has to be able to see.
+   *
+   * The hatch reports nothing — it is a phase of `/connect`, whose own
+   * impression already covers the moment.
+   */
+  | 'onboarding_beat_seen'
+  /**
+   * The Health grant's step reading landed. Payload `{ outcome }`, one of
+   * `proposed` or `no-history` — and **nothing else**.
+   *
+   * Not the median, which never leaves the phone, and **not the tier it
+   * proposed**: the question is whether calibration can read a new account at
+   * all, and a tier breakdown would be a distribution of the cohort's fitness
+   * sitting in `app_events` to answer a question nobody asked. The rule
+   * `quest_cleared` set — a category, never a figure — in its strictest form.
+   *
+   * **Once ever**, on an MMKV marker, because the reading is not: re-entering
+   * `/connect` and granting again re-runs it, and a second row would make the
+   * denominator count taps. The payload is built inside `runCalibration` rather
+   * than at the call site, so no screen can reach it.
+   */
+  | 'calibration_completed'
+  /**
+   * The flock ask on the last welcome card was answered. Payload `{ answer }`,
+   * one of `joined`, `invited` or `skipped` — and nothing else.
+   *
+   * **It records which door was taken, not what came of it.** `joined` means
+   * the player asked for the join form; `squad_joined` and `squad_created`
+   * already say whether a squad actually resulted, and folding the two
+   * together here would make the card look like it converts far better than it
+   * does.
+   *
+   * **It needs no marker of its own.** The welcome run is once-ever on
+   * `welcome_seen`, claimed when the run opens, so the card cannot be reached
+   * twice — the same guarantee a milestone key buys, already paid for. That is
+   * also why it is the fourth *card* rather than a second first-run sheet: two
+   * surfaces leasing one root view controller would need an ordering rule, and
+   * the loser would reappear later out of context.
+   */
+  | 'flock_prompt_answered';
 
 /**
  * Events recorded before a session exists. Module state rather than MMKV: this

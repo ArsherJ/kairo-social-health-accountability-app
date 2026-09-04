@@ -43,27 +43,9 @@ describe('which permission Kairo asks for', () => {
     expect(nextPermissionAsk({ ...base, healthDismissed: true })).toBe('notifications');
   });
 
-  it('still puts Health first for a solo player whose first day scored', () => {
-    // The notification ask's third reason (2026-09-02) composes exactly as the
-    // other two do — it makes the notification ask *eligible*, and ordering is
-    // untouched. Health is the data source that produced the scored day in the
-    // first place, so on the rare install where it is still unanswered it
-    // continues to win the slot.
-    expect(
-      nextPermissionAsk({ ...base, hasSquad: false, hasScoredDay: true }),
-    ).toBe('health');
-    expect(
-      nextPermissionAsk({
-        ...base,
-        health: 'asked',
-        hasSquad: false,
-        hasScoredDay: true,
-      }),
-    ).toBe('notifications');
-  });
-
   it('asks for nothing when Health is answered and the user has no why yet', () => {
-    // §5: every ask has a visible why. No squad and no battle — nothing to ask.
+    // §5: every ask has a visible why. No squad, no battle and nothing scored
+    // — nothing to ask.
     expect(
       nextPermissionAsk({
         ...base,
@@ -71,6 +53,64 @@ describe('which permission Kairo asks for', () => {
         hasSquad: false,
         hasEvent: false,
         hasScoredDay: false,
+      }),
+    ).toBe(null);
+  });
+
+  it('asks a solo player once a day has scored', () => {
+    // The widening (2026-09-04) reaches this function only through
+    // `shouldAskForNotifications`; what is asserted here is that the ordering
+    // rule lets it through rather than that the rule is restated.
+    expect(
+      nextPermissionAsk({
+        ...base,
+        health: 'asked',
+        hasSquad: false,
+        hasEvent: false,
+        hasScoredDay: true,
+      }),
+    ).toBe('notifications');
+  });
+
+  it('still puts Health first for a solo player with a scored day', () => {
+    // The widening must not reorder the asks. A first scored day means health
+    // data is already arriving on this device — but on a reinstall, or after a
+    // revoked permission, the sheet can be due again, and it is still the ask
+    // every other feature depends on.
+    expect(
+      nextPermissionAsk({
+        ...base,
+        hasSquad: false,
+        hasEvent: false,
+        hasScoredDay: true,
+      }),
+    ).toBe('health');
+  });
+
+  it('does not chain a notification ask onto a Health ask a solo player just answered', () => {
+    // The defect this function exists to prevent, in the cohort the widening
+    // adds: two sheets presenting on one root view controller.
+    expect(
+      nextPermissionAsk({
+        ...base,
+        health: 'asked',
+        hasSquad: false,
+        hasEvent: false,
+        hasScoredDay: true,
+        answeredAnAskThisSession: true,
+      }),
+    ).toBe(null);
+  });
+
+  it('asks a solo player with a scored day nothing once iOS has answered', () => {
+    expect(
+      nextPermissionAsk({
+        ...base,
+        health: 'asked',
+        hasSquad: false,
+        hasEvent: false,
+        hasScoredDay: true,
+        notification: 'denied',
       }),
     ).toBe(null);
   });
