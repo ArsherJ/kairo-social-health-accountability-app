@@ -27,7 +27,45 @@ the app as a leaderboard with goals, it is stale — fix it.
   it bounds the event-driven pushes, which #52 did not touch. The three retired
   triggers stay in `NotificationTrigger` (free-text `kind`, and a push sent
   before the deploy can be tapped after it), and `users_at_local_hour()` was
-  deliberately not dropped.
+  deliberately not dropped. **What the app *says* about this lives in
+  `src/features/notifications/ask-copy.ts`**, pure and zero-import so root
+  Vitest can hold it: the permission sheet advertised the three retired pushes
+  for ten days after they stopped existing, on the screen that spends the one
+  dialog iOS grants per install. Its `DIGEST_LOCAL_HOUR` is a second copy of
+  `DIGEST_HOUR` — the app cannot import an Edge Function's module, and moving
+  the constant into the keystone would put a five-function redeploy behind a
+  copy fix — so a test imports both and asserts they agree.
+  `RETIRED_PUSH_PHRASES` lives in the same module and both copy surfaces are
+  tested against it, rather than each keeping its own list. **No surface may
+  state a hard daily cap**, though `MAX_NOTIFICATIONS_PER_DAY` is 3: `BUDGET_EXEMPT`
+  sends bypass the budget *without consuming it*, so a digest, a cleared
+  challenge and a beaten Event are four, and both surfaces printed "three a day
+  at most" until 2026-09-04. **Nor may any surface promise quiet hours.**
+  `QUIET_HOURS` is enforced in `planNotifications`, and `dispatch-notifications`
+  is its only caller — `finalize-days` reaches `sendToUser` directly, and
+  finalization runs `FINALIZATION_GRACE_MS` (2h) after local midnight, so
+  `event_completed` and `challenge_cleared` are the two pushes that *do* arrive
+  overnight. `notifications.ts` argues they should not ("a push at 02:00 to say
+  'well done' is worth waiting for morning"); that is an intent the send path
+  does not implement, and a "never overnight" claim shipped on it for one
+  review round before being caught.
+- **`shouldAskForNotifications` earns the ask on a squad, a running Battle, or
+  a first scored day, as of 2026-09-04.** The first two are social,
+  which was right while the pushes they enabled were; #52 left one scheduled
+  push and Kairo is solo-first, so `hasSquad || hasEvent` excluded the whole
+  solo cohort from the app's only re-engagement. `hasScoredDay` reads the Today
+  tab's own `useScoredDayCount` key — lifetime, `total > 0`, for that query's
+  reasons — so it costs no request, and a count in flight reads false and
+  withholds the ask for a frame rather than presenting it on a guess. **The
+  widening adds a reason, never a surface**: the primer sheet, the Health-first
+  ordering in `permissions/ask-order.ts`, the one-ask-per-session latch and the
+  single modal host are all untouched, because two `<Modal>`s presenting on one
+  root view controller is the defect that ordering function exists to prevent.
+  `notification_ask_answered` fires **per answer** — `granted`, `declined` or
+  `deferred`, with no other payload, and a test pins that — because "Not now"
+  never reaches the system dialog and so can genuinely recur. The Settings row's
+  undetermined help line is part of the policy: it told solo players they needed
+  a squad to be asked, and `status-copy.test.ts` now holds it honest.
 - **`race_results` has no client grant at all.** Read it through
   `race_result()`, which returns rank and species to anyone in the squad and
   gates capped steps reciprocally (#47). Written **once**, by the **last**
@@ -51,6 +89,22 @@ the app as a leaderboard with goals, it is stale — fix it.
   `src/features/telemetry/daily-marker.ts`, which is neither the once-ever
   milestone store nor the per-session `app_open` marker; confusing the three is
   how a count becomes a launch counter or a scroll counter.
+
+**Body metrics are inert, and the app says so as of 2026-09-04** (deviation
+#60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
+Apple computes active calories against the body profile in the *Health app*,
+before Kairo sees them, and Kairo's columns are a disconnected second copy. The
+card promised "more accurate Body tracking" for years and that was false; the
+copy is `BODY_METRICS_NOTE` in `body-metrics.ts` now, with a test banning a
+stat name and any claim of benefit. **`birth_year` has no live reader either**:
+its one consumer is `maxHeartRateForAge()` behind the display-only Strain
+figure, and `TodayPanel` — the only surface that ever rendered Strain — was
+unmounted by deviation #59, so the note names no surface at all and a test
+holds it there. All three fields are inert today. They are never asked in
+onboarding —
+a question that changes nothing does not earn a screen — and the columns,
+constraints, grants and editor are all untouched, so collecting them later is
+adding a screen rather than restoring a schema.
 
 **Sabotage was removed on 2026-08-09.** It was the original premise (§8, and §20's principle #4 called it "the soul of the product"), so a lot of prose still assumes it. Nothing in the code does. If you find a reference, it is stale — fix it.
 
@@ -698,8 +752,9 @@ replace Caprasimo and Figtree. Six things break easily:
   mid-read, the same reason `pickQuests` is a hash) and states **no effect
   size** — every number in it is the app's own constant or the size of an
   action, and a test bans a bare `%`.
-- **Onboarding is six beats and the last one is still the name.** `/welcome` →
-  `/one-sky` → `/connect` → `/difficulty` → `/privacy` → `/name`. The design
+- **Onboarding is seven beats and the last one is still the name** (deviation
+  #62, 2026-09-04). `/welcome` → `/one-sky` → `/mirror` → `/connect` →
+  `/difficulty` → `/privacy` → `/name`. The design
   puts difficulty and privacy *after* the name, which is deviation #22's trap
   exactly. They ask before it — but `quest_tier_override` and
   `squad_data_consent_at` are in `profiles`' column-level **UPDATE** grant and
@@ -708,6 +763,147 @@ replace Caprasimo and Figtree. Six things break easily:
   insert. Nothing is **asked** after the INSERT, the row still commits exactly
   once, and both grants are respected. Read that store before touching the flow.
   The entry moved from `/connect`, so `redirectTarget` returns `/welcome` now.
+- **The run is declared once, in `src/features/onboarding/beats.ts`, and four
+  numbers are derived from it.** A beat declares its **phase**; the registry
+  gives it `filled`/`partial` for the rail and `index`/`count` for the paged
+  dots. All four were hand-written across the screens, and both pairs had
+  already gone wrong the way that invites — the dots promised three cards while
+  two existed. `beat-registry.test.ts` scans `app/(onboard)/` and
+  `src/features/onboarding/` and fails any screen that puts a literal back, or
+  that hand-writes its button words, its skip destination, or its impression.
+  **The rail measures four phases, not screens** — what this is, letting it in,
+  your choices, the name — so adding a beat moves fills and partials inside one
+  phase and never the segment count.
+- **The difficulty beat opens with a measurement, and the tier it proposes is a
+  seed rather than a rule** (deviation #63, 2026-09-04). `/connect` reads
+  **fourteen complete local days** of step totals off the phone after the grant;
+  `calibrateQuestTier()` in `quest.ts` medians them and proposes the highest
+  tier whose entry bar the median clears; `/difficulty` states the reading above
+  the choices it already renders, with the proposal pre-selected. **A new
+  account is therefore no longer on Automatic by default.** Seven things break
+  easily:
+  - **Deviation #50 rejected the trailing median and this adopts it, and the
+    two are not in conflict — a rule re-reads and a seed does not.** #50's
+    argument is about a *standing* rule, whose bar rises as the player improves;
+    read once into `quest_tier_override`, the same median cannot rise, because
+    nothing re-reads it. `questTier()` is untouched and is still the fallback
+    for accounts that predate calibration, hit `no-history`, skip the beat, or
+    clear their override, and **its comment records both halves** — without that
+    the code says the median was refused while the app ships it.
+  - **The whole rule set is one pure function in `quest.ts`**, not a module of
+    its own: it needs the tier rule *and* the catalogue, and a sibling importing
+    both is an import cycle the moment either wants the result back. Threading
+    `QUEST_CATALOGUE` through as an argument is the `TIER_POINTS` mistake, which
+    broke an out-of-package caller at runtime rather than compile time.
+  - **Today is excluded, zeroes are dropped, four qualifying days are the
+    floor.** The grant is usually taken mid-morning, so a partial day drags the
+    median down by roughly half a band. A zero-sum day is indistinguishable from
+    a phone in a drawer or a phone bought last week, so counting them would
+    median a new-phone player to the floor while the screen claims to have
+    measured them — and a fortnight of zeroes is `no-history`, **never**
+    Starter. `no-history` and a low proposal are different sentences and must
+    stay so: one means we could not measure, the other means we did.
+  - **Bands are each tier's *minimum* steps target, derived from the catalogue
+    and pinned as literals by the same test.** The minimum because a tier's bars
+    should be met on a good day, not already beaten on a median one; both halves
+    of the guard because the derivation stops a second number describing the old
+    bars and the literal stops a catalogue edit silently re-sorting every new
+    account. Same arrangement `DAILY_STEP_BASELINE` has.
+  - **`readDailySteps` is one daily-interval step collection and must stay
+    narrow.** `readHealthWindow` over fourteen days is the obvious reuse and
+    runs six hourly collections plus every workout sample plus sleep —
+    including **heart rate**, owner-readable only and absent from every
+    projection. Reading that much to propose a quest size would leave the beat's
+    privacy claim technically accurate and morally misleading;
+    `calibration-read.test.ts` scans the function body and fails if it widens.
+  - **Nothing about those fourteen days leaves the phone**, and the screen says
+    so. The median crosses beats in `useOnboardingAnswers` (already cleared on
+    commit), is never written to `profiles`, and never enters a telemetry
+    payload — a scan holds both. `calibration_completed` carries `{ outcome }`
+    and **not the tier proposed**, once ever on an MMKV marker, because
+    re-entering `/connect` and granting again re-runs the reading.
+  - **The player's answer wins outright, and `questTierChosen` is what makes
+    that true.** Pre-selection writes `questTier`, so without a flag a seeded
+    value is indistinguishable from a chosen one and a second reading would
+    reach two screens forward and undo a choice. No calibration *screen* is
+    built: with the proposal pre-selected, "we'd start you on Steady" followed
+    by "how big?" with Steady already chosen is two screens for one decision.
+- **The mirror beat is third and both skip affordances land on it.**
+  `onboardingSkipTarget()` derives that as the last beat of the opening phase
+  rather than naming a route twice: skip's purpose is getting past the pitch,
+  and the pitch *is* phase 0. Both cards used to name `/connect`, which was
+  right while the pitch ended there — landing past the mirror beat would route
+  the people most likely to decline around the argument written for them, on
+  the beat that exists to move blame off them before the one dialog whose
+  refusal cannot be undone from inside the app. The beat itself carries no
+  skip. Kairo appears on it as a **pose with a heavy ground shadow** and the
+  `tired` reaction still has **no producer** — sleepiness is a daily Mind state
+  rather than an event, and an onboarding screen has no account state to key an
+  occurrence against.
+- **The welcome run is four cards, the fourth is the flock ask, and it is a
+  card rather than a sheet** (deviation #64, 2026-09-04). The run is already a
+  once-ever first-run `<Modal>` on Today leasing the same root view controller
+  as the permission asks and the details sheet, so a *separately leased* flock
+  sheet — which the design proposed — would put two first-run surfaces on one
+  first focus, one losing the lease and reappearing later out of context. As a
+  fourth card it needs **no new modal owner, no second once-ever marker and no
+  ordering rule**. Five things break easily:
+  - **Only one card carries an actions slot, and a test asserts exactly one
+    does.** Cards one to three are linear reads with a next button; card three
+    is the *reason* a flock exists (`FREE_SQUAD_MAX_MEMBERS` birds, one flag)
+    and lost its invite CTA to card four, which is the ask. A second decision
+    point in a run of linear reads is what this trades against.
+  - **The interrupted run's loss is known and must not be repaired.**
+    `welcome_seen` is claimed when the run *opens*, so a force-quit before card
+    four means the ask is never seen. Moving it to the front is the ask
+    arriving before its why; a second marker reintroduces the two-surface
+    ordering problem. It is bounded by the Sky tab's permanent trailing invite
+    slot. The reasoning is written into `WelcomePopups.tsx` for that reason.
+  - **The join door is withheld from somebody who already has a squad.** A
+    non-null `inviteCode` *is* the proof of one and the free tier holds one, so
+    the join door for them is a path that can only fail; they get the share.
+  - **`flock_prompt_answered` carries `{ answer }` and records which door was
+    taken, not what came of it.** `squad_joined` and `squad_created` already
+    say whether a squad resulted. It rides `welcome_seen` and needs no marker.
+  - **Every word lives in `welcome-cards.ts`**, zero-runtime-import apart from
+    the keystone and `theme.ts` reached by relative path, so root Vitest holds
+    the copy honest — including that `RACE_FINISH_LINE` and
+    `FREE_SQUAD_MAX_MEMBERS` are read from the constants. `WELCOME_NEXT_LABEL`
+    is there too, because `beat-registry.test.ts` scans these directories and
+    bans a `label="…"` literal on an `OnboardingCta`. The request crosses to
+    the Flock tab as `?pane=join`; `flock-pane.ts` owns **both** the href and
+    the parser, so a typo cannot make one side silently disagree, and the tab
+    **consumes and clears** it — Expo Router keeps tab screens mounted, so a
+    parameter left in place would reopen the form on every later visit.
+  - **The sheet is bounded, scrolls, and lays its content out against a point
+    width** — all three halves of the permission sheet's 2026-08-17 lesson,
+    load-bearing here only since the fourth card. It was unbounded by design
+    ("as tall as its copy"), which is survivable with one CTA and not with two
+    pills and a decline under a 240pt art panel: at the largest content sizes
+    the child clipped off the bottom is **"Not now"**, and `overflow: 'hidden'`
+    means it is clipped silently rather than spilling visibly. The art scrolls
+    with the rest; pinning it eats the bound. Three assertions pin it.
+  - **`OnboardingCta` takes `lines?: 1 | 2`, default 1, and this sheet passes
+    2.** The same pill has the whole screen on a beat and loses four lots of
+    `space.lg` inside a scrim, so at the `chrome` scale's 1.4× cap a three-word
+    label no longer fits on a 320pt screen and `numberOfLines={1}` ellipsises
+    it — a control whose words are cut is one somebody cannot act on. It is
+    also why the design's "Paste an invite code" ships as **"I have a code"**.
+  - **One answer per run, on a ref.** `setOpen(false)` lands on the next render
+    and RN can deliver taps to two `Pressable`s in one frame, so without the
+    guard a fast double-tap files two events *and* pushes both destinations.
+    `welcome_seen` bounds the card, not the frame.
+- **Each beat records one impression**, `onboarding_beat_seen` with `{ route }`
+  and nothing else, emitted by `useBeatImpression` — one hook taking a beat
+  name, which is what makes "the route name only" true by construction rather
+  than by review, since `/connect` is holding today's step count while it
+  reports. **Unguarded, on mount**: the run happens once per account, so the
+  funnel is honest with no marker store and a back-and-forward duplicate is
+  absorbed by counting distinct beats. `userId` is deliberately **not** an
+  effect dependency — it resolves a frame late and a dep fires the beat twice,
+  once buffered and once live, which is the one duplicate that is not a person
+  navigating. The hatch reports nothing; it is a phase of `/connect`, whose own
+  impression covers the moment.
 - **The disclosure gate did not move, and Today's hero is where it nearly
   did.** The three glass stat coins on the sky are the same
   `ratingForStatPoints` over the same lifetime rollups the You tab's rail reads,
@@ -1190,7 +1386,7 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 - **`aps-environment` is generated from Expo config.** Expo's notifications plugin defaults it to `development` (the APNs sandbox), so `app.config.ts` declares `['expo-notifications', { mode: 'production' }]` explicitly and EAS CNG carries that into the distribution entitlement. Never patch the ignored generated entitlements. Do not treat the declaration as proof push works: Expo's service relays to both environments. **And do not try to read the value back on TestFlight** — `expo-application` parses `embedded.mobileprovision`, App Store distribution strips that file from the bundle, and the answer is `null` there structurally (the library's own `appReleaseType` has an explicit branch for the file's absence). A diagnostic built on it shipped on 2026-08-14 and told a healthy TestFlight device it was a simulator. What `NotificationSettingsCard` reports instead is **registration**, which is knowable everywhere and the stronger signal anyway: `getExpoPushTokenAsync` fails with *"no valid aps-environment entitlement string found"* when the entitlement is wrong, so a token that exists is evidence the entitlement is right. Simulator is decided by the release type, never by a null environment. The line ships in **Release** on purpose — `__DEV__` would hide it from TestFlight.
 - **The app icon is an Icon Composer bundle, and nothing in JS validates it.** `assets/Kairo.icon/` holds a *transparent* terracotta symbol plus an `icon.json` declaring the cream ground as `fill`; iOS renders the light, dark and tinted appearances from that one layered source, which is what a flat PNG cannot do. Four things break it silently. **It must sit on `ios.icon` as a plain string** — `@expo/prebuild-config` warns and falls back if a `.icon` path is given to the *root* `icon` field or to the light/dark/tinted object form, so the root `icon` stays a PNG serving Android, web and pre-iOS-26. **Expo copies the directory verbatim** into `ios/<App>/Kairo.icon` and sets `ASSETCATALOG_COMPILER_APPICON_NAME`; the schema is Apple's and is only ever checked by `actool` at Xcode/EAS build time, so a malformed edit passes `prebuild` and every local check and fails in CI — the `aps-environment` failure shape again. Validate locally instead of guessing, with `mkdir -p /tmp/out && xcrun actool --compile /tmp/out --platform iphoneos --minimum-deployment-target 26.0 --target-device iphone --app-icon Kairo --output-partial-info-plist /tmp/out/p.plist assets/Kairo.icon` (the `mkdir` is load-bearing — `actool` errors rather than creating the output directory), which exits non-zero on a bad schema and otherwise writes the real rendered PNGs — the only way to *see* the glass treatment without a device. **`fill` colours are `<colour-space>:r,g,b,a` floats, not hex** (`extended-srgb:0.96078,0.91765,0.84706,1.00000` is `colors.bg`). And **the basename is the icon name**, so renaming the directory renames the build setting. **Editing the artwork without editing `app.config.ts` leaves the native copy stale and silent** — `npm run ios` does not re-sync `ios/Kairo/Kairo.icon`, because the config *value* is unchanged and only the bytes it points at moved, so the build succeeds against the previous icon (hit on 2026-08-25: the simulator kept rendering the ink mark after the terracotta one was installed). After changing icon artwork run `npx expo prebuild -p ios --no-install`, then `xcrun simctl uninstall` before reinstalling, since SpringBoard caches icons across reinstalls — and diff the native copy rather than trusting the build. **The Dark appearance is auto-derived, which constrains the symbol colour** — with one layer declared, iOS darkens the cream ground and keeps the symbol unchanged, so the symbol has to work on both. That is why it is terracotta (`colors.accent`) and not the far higher-contrast ink (`colors.text`): ink measured 13.95:1 on cream but **1.00:1** on the darkened ground, invisible, confirmed on the simulator 2026-08-25; terracotta reads 3.03:1 and 4.60:1, and Dark was then checked by hand and reads correctly. Darkening the symbol for a punchier Default silently destroys the Dark appearance. The override mechanism is the `*-specializations` family (`fill-specializations`, `image-name-specializations`, `glass-specializations`, …) keyed by `light-color` / `dark-color` / `dark-tint` / `dark-clear`, but **do not hand-write it from that vocabulary**: an invented nesting is a silent no-op, proven by pointing a specialization at a nonexistent file and still getting exit 0, where the same trick on the *primary* `image-name` fails the build. Author it in Apple's Icon Composer, which writes canonical JSON, or pick a mid-tone symbol that survives both grounds. And note `actool` is **nondeterministic** — identical input yields different `Assets.car` digests — so diffing the compiled output cannot tell you whether an edit landed. The fallback `assets/icon.png` has its own trap: it carries **no alpha channel** (PNG colour type 2), because Apple rejects an App Store icon that has one even when every pixel is opaque (ITMS-90717, raised at upload rather than at build) — most re-exports silently add it back, so check with `sips -g hasAlpha`.
 - **The HealthKit disclosure is derived, not written.** `src/features/health/read-types.ts` is the single list of requested types; `disclosure.ts` maps each to user-facing copy, and `disclosure.test.ts` fails if either side names something the other does not. That list lives apart from `permission.ts` because anything importing `@kingstinct/react-native-healthkit` drags in React Native's Flow syntax that root Vitest cannot parse — the same constraint `sync-state.ts` records. The `NSHealthShareUsageDescription` string in `app.config.ts` covers the same types and is the one half no test can lock; update it by hand when the list changes.
-- **Telemetry's decisions live in zero-import modules, for the same parse-failure reason as the HealthKit disclosure.** `src/features/telemetry/buffer.ts` (the pre-sign-in event queue) and `milestones.ts` (the once-ever rule) import nothing, so root Vitest — no `@/` alias, no MMKV — can load and test them directly; the MMKV-backed store and the Supabase write sit in separate files that pull those dependencies in. `first_sync_seen` and `first_score_seen` are gated on an MMKV once-ever marker in `milestone-store.ts`, claimed before the write and released via `markUnreached` if it fails — **not** the per-session marker `useAppOpenTelemetry` (`src/features/notifications/useNotifications.ts`) uses, which fires every relaunch on purpose and would silently overcount activation if reused here. `public.kairo_retention()` is admin analytics with EXECUTE revoked from `public`, `anon` and `authenticated` — it is run through `remote-sql.sh` against the live project, never from a client. Runbook: `docs/beta-measurement.md`. **Deviation #59 adds four types with three different lifetimes**: `today_seen` and `next_step_shown` are **once per the account's own local day** on `daily-marker.ts` (`ALL_MARKERS` grew with them, so `clearDailyMarkers` still reaches everything on sign-out); `today_details_opened` is **per tap**, because the question is how often the complete day is actually wanted; `character_reaction_seen` is **per occurrence**, emitted from the hook that presents the reaction rather than from a render. **Every payload is category-only** — `{ category }` of `motion`/`body`/`none`, or `{ kind }` — and no payload may carry a health figure, an occurrence id, a quest id, **or the Motion location**, because a five-band location is a coarse step count. `living-mirror-events.test.ts` scans `app/(tabs)/index.tsx` for all three bans.
+- **Telemetry's decisions live in zero-import modules, for the same parse-failure reason as the HealthKit disclosure.** `src/features/telemetry/buffer.ts` (the pre-sign-in event queue) and `milestones.ts` (the once-ever rule) import nothing, so root Vitest — no `@/` alias, no MMKV — can load and test them directly; the MMKV-backed store and the Supabase write sit in separate files that pull those dependencies in. `first_sync_seen` and `first_score_seen` are gated on an MMKV once-ever marker in `milestone-store.ts`, claimed before the write and released via `markUnreached` if it fails — **not** the per-session marker `useAppOpenTelemetry` (`src/features/notifications/useNotifications.ts`) uses, which fires every relaunch on purpose and would silently overcount activation if reused here. `public.kairo_retention()` is admin analytics with EXECUTE revoked from `public`, `anon` and `authenticated` — it is run through `remote-sql.sh` against the live project, never from a client. Runbook: `docs/beta-measurement.md`. **Deviation #59 adds four types with three different lifetimes**: `today_seen` and `next_step_shown` are **once per the account's own local day** on `daily-marker.ts` (`ALL_MARKERS` grew with them, so `clearDailyMarkers` still reaches everything on sign-out); `today_details_opened` is **per tap**, because the question is how often the complete day is actually wanted; `character_reaction_seen` is **per occurrence**, emitted from the hook that presents the reaction rather than from a render. **Every payload is category-only** — `{ category }` of `motion`/`body`/`none`, or `{ kind }` — and no payload may carry a health figure, an occurrence id, a quest id, **or the Motion location**, because a five-band location is a coarse step count. `telemetry-payloads.test.ts` is where that rule lives for **every** emitting surface — the Today tab, the Sky tab and the onboarding beats — and it bans **the step median** alongside the location, because a fortnight's median is a health figure in the same dress. Do not start a second scan of the same rule beside it; one of the two always ends up quietly narrower. (`ask-answer-telemetry.test.ts` is *not* that second scan: it makes a stricter, single-event claim — `notification_ask_answered` carries the answer and **nothing else** — over a file this one does not read.) Three things keep it from rotting, and all three were put there after it shipped without them. **The floor is an allowlist**, so a payload key nobody anticipated fails whatever it is called — a ban list only catches the names somebody thought of, and `{ scoredDays }` and `{ days }` both already ship elsewhere. **The named health figures are kept as well**, since a banned value rides happily inside an allowed key (`category: todaySteps`), and they are **word-bounded**, because `/location/i` matches "allocation". **The file list is swept**: `app/(tabs)/`, `app/(onboard)/` and `src/features/onboarding/` are walked and any file there calling `track` without being named fails, since a surface the scan does not read is a surface with no ban on it. Comments are stripped before all of that, or a doc comment writing `track()` fails the sweep — and a guard that fails on real source gets deleted. **`onboarding_beat_seen` is a fourth lifetime** — unguarded, once per beat mount, carrying `{ route }` and nothing else; see the onboarding block above for why it needs no marker store and why `userId` must stay out of its effect deps. **`calibration_completed` is a fifth**, and takes the opposite decision for a stated reason: it is **once ever** on an MMKV marker (`calibration_recorded`, added to `ALL_MILESTONES` so `clearMilestones` reaches it), because the reading it reports re-runs whenever `/connect` is re-entered and granted again, so unguarded its denominator would count taps rather than accounts. Its payload is `{ outcome }` — `proposed` or `no-history` — and carries neither the median nor **the tier proposed**, which would be a distribution of the cohort's fitness sitting in `app_events` to answer a question nobody asked. It is built inside `runCalibration` rather than at the call site, so no screen can reach it. **`flock_prompt_answered` is a sixth**, and needs no store at all: it rides the welcome run's `welcome_seen` marker, which is claimed when the run opens, so the card it sits on cannot be reached twice. Its payload is `{ answer }` — `joined`, `invited` or `skipped` — and it records **which door was taken, not what came of it**, since `squad_joined` and `squad_created` already say whether a squad resulted; folding the two together would make the card look like it converts far better than it does.
 
 ### Per-user local days
 

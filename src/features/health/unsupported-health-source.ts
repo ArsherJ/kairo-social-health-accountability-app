@@ -17,4 +17,7 @@ export const unsupportedHealthSource: HealthSource = {
   readStepsToday: async () => {
     throw new Error(UNSUPPORTED_MESSAGE);
   },
+  readDailySteps: async () => {
+    throw new Error(UNSUPPORTED_MESSAGE);
+  },
 };

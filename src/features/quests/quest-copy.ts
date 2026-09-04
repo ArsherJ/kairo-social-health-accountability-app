@@ -1,4 +1,4 @@
-import type { QuestDef, QuestMetric, QuestState } from '@kairo/core';
+import type { QuestDef, QuestMetric, QuestState, QuestTier } from '@kairo/core';
 
 /**
  * How a quest is described to the person doing it.
@@ -100,4 +100,26 @@ export function questProgressLine(quest: QuestDef, state: QuestState): string {
  */
 export function questLabel(quest: QuestDef, state: QuestState): string {
   return `${questHeadline(quest)}. ${questProgressLine(quest, state)}. ${quest.xp} XP.`;
+}
+
+/**
+ * A tier's name, as the player reads it.
+ *
+ * One table, because four surfaces say these words — the difficulty beat, the
+ * Settings row's value, the Settings chips and calibration's own sentence —
+ * and a tier the app calls "Steady" on one screen and "Medium" on another is
+ * the same class of drift `dominanceName()` was extracted to stop.
+ *
+ * The engine keys stay engine keys. This is deviation #23's move again: the
+ * scoring vocabulary is `starter`/`steady`/`strong` and the player's is these,
+ * and nothing renders the former.
+ */
+const TIER_NAMES: Record<QuestTier, string> = {
+  starter: 'Starter',
+  steady: 'Steady',
+  strong: 'Strong',
+};
+
+export function questTierName(tier: QuestTier): string {
+  return TIER_NAMES[tier];
 }

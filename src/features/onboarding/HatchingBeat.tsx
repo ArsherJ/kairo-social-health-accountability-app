@@ -6,6 +6,7 @@ import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
 import { OnboardingRail } from './OnboardingChrome.tsx';
+import { onboardingBeat } from './beats.ts';
 import { pickTrivia } from './trivia.ts';
 
 /**
@@ -23,12 +24,15 @@ const NIGHT: Stop[] = [
   { color: '#100c28', at: 1 },
 ];
 
+/** This beat's own step on the run's rail. */
+const HATCH = onboardingBeat('hatching');
+
 /**
  * The beat between granting Health and seeing your own step count.
  *
  * **The work behind it is real** — `healthSource.readStepsToday` is running,
- * which on a device with years of Health data and a cold HealthKit daemon is
- * not instant. What `hatching-window.ts` adds is a floor so the sentence can be
+ * and since deviation #63 the calibration read is running beside it, which on a
+ * device with years of Health data and a cold HealthKit daemon is not instant. What `hatching-window.ts` adds is a floor so the sentence can be
  * read rather than flashed; that module carries the full argument for the
  * trade, including the one constant that removes it.
  *
@@ -74,7 +78,7 @@ export function HatchingBeat({ userId }: { userId: string | undefined }) {
             permission has already been granted — and nothing to skip, because
             the beat ends when the read does. A control that did nothing would
             be worse than none. */}
-        <OnboardingRail filled={1} partial={1} tone="light" />
+        <OnboardingRail filled={HATCH.filled} partial={HATCH.partial} tone="light" />
 
         <View
           accessible

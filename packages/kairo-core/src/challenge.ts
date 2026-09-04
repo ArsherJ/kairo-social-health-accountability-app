@@ -15,6 +15,7 @@
  */
 
 import { addDays } from './day.ts';
+import { median } from './median.ts';
 
 /**
  * Apple's HKWorkoutActivityType raw values. A stable ABI, documented by Apple.
@@ -110,21 +111,6 @@ function qualifies(area: ChallengeArea, session: WorkoutSession): boolean {
 /** Seconds per kilometre. Lower is better — the one metric here that inverts. */
 function paceOf(session: WorkoutSession): number {
   return session.durationS / (session.distanceM / 1_000);
-}
-
-/**
- * The ordinary median: the middle value, or the mean of the two middle values
- * on an even count.
- *
- * Worth stating rather than assuming, because a 2- or 4-session window is the
- * *common* early case here, not an edge case.
- */
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1
-    ? sorted[mid]!
-    : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 /**

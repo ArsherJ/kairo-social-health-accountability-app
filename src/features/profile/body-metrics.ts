@@ -11,6 +11,36 @@
  *   birth_year smallint     check (birth_year between 1900 and 2200)
  */
 
+/**
+ * What the card says these three are for — and, by omission, what they are not.
+ *
+ * **The claim it replaces was false** (roadmap deviation #60). The card read
+ * "Add your height and weight for more accurate Body tracking", on the
+ * reasoning that active calories depend on body mass. They do, and Apple has
+ * already applied them: HealthKit computes `activeEnergyBurned` against the
+ * body profile held in the *Health app*, and Kairo's `height_cm` / `weight_kg`
+ * are a second copy that never reaches it. No scoring path reads either — not
+ * `planDay`, not `statPointsFor`, not the interpolation — so editing them
+ * changes no score, no rank and no quest, and a prompt implying otherwise sold
+ * a benefit the app cannot deliver.
+ *
+ * **`birth_year` has no live reader either, and the note therefore names
+ * none.** Its one consumer is `maxHeartRateForAge()`, behind the display-only
+ * Strain figure (deviation #24) — and `TodayPanel`, the only surface that ever
+ * rendered Strain, was unmounted by deviation #59 on 2026-09-01. The ticket
+ * behind this copy asked it to name Strain; that instruction was written three
+ * days after the surface stopped existing, and naming a screen the player
+ * cannot reach would be the same class of false claim as the one being fixed.
+ * All three fields are inert today. If Strain returns to a screen,
+ * `body-metrics.test.ts` is the reminder that the note may name it again.
+ *
+ * Here rather than in the component because root Vitest cannot load a `.tsx`,
+ * and a claim the app makes about its own scoring is exactly the sort that
+ * should fail a test when it stops being true.
+ */
+export const BODY_METRICS_NOTE =
+  'Your own reference. Nothing here moves a score, a rank or a quest — Apple applies your body profile before Kairo ever sees a calorie.';
+
 export type BodyMetricField = 'height_cm' | 'weight_kg' | 'birth_year';
 
 interface Limit {

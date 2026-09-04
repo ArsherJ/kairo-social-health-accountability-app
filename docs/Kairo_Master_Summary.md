@@ -194,12 +194,25 @@ Full ban systems are expensive and imperfect. The real anti-cheat is **social em
 ### Onboarding Data Collection
 HealthKit's active calorie estimation (STR) requires height, weight, and age for accuracy. Collect these in onboarding.
 
-> **Build note (2026-08-10).** Age now has a second reader: `220 - age` is the maximum-heart-rate estimate behind the **Strain** figure on the character screen (roadmap deviation #24). Still never required — an unset birth year falls back to a default ceiling rather than hiding strain.
+> **Superseded by roadmap deviation #60 (2026-09-04). This section is
+> historical; the numbering does not move.** The premise is true of HealthKit
+> and false of Kairo. Apple computes `activeEnergyBurned` against the body
+> profile held in the **Health app**, before Kairo ever sees a calorie;
+> `profiles.height_cm` and `profiles.weight_kg` are a second copy Apple never
+> reads, and **no scoring path reads either**. They are therefore **never
+> collected in onboarding** — a question that changes no score does not earn a
+> screen — and the soft prompt below is replaced by a standing note saying what
+> the fields are actually for (`BODY_METRICS_NOTE`). The columns, their CHECK
+> constraints, the column-level UPDATE grant and the Settings editor are all
+> unchanged, so collecting them later is adding a screen rather than restoring
+> a schema.
 
-Users who skip get a persistent soft prompt: *"Add your height and weight in Settings for more accurate STR tracking."*
+> **Build note (2026-08-10).** Age now has a second reader: `220 - age` is the maximum-heart-rate estimate behind the **Strain** figure on the character screen (roadmap deviation #24). Still never required — an unset birth year falls back to a default ceiling rather than hiding strain. This is the one reader of the three fields that survives #60, and it is display-only: Strain never touches `daily_scores`.
+
+Users who skip get a persistent soft prompt: *"Add your height and weight in Settings for more accurate STR tracking."* — **retired by #60**, for the reason above.
 
 ### Onboarding Flow Philosophy (v1.3): Character First, Permissions in Context
-iOS gives one clean shot at the HealthKit and notification prompts, and the naive flow stacks six friction gates before any fun. The chosen order: **name + character on screen within the first 60 seconds** (emotional investment), THEN the HealthKit permission framed as *"power your character with real life,"* notifications requested only after a squad or a goal in flight gives them a reason to exist, and body metrics deferred to the soft prompt. Every ask has a visible why.
+iOS gives one clean shot at the HealthKit and notification prompts, and the naive flow stacks six friction gates before any fun. The chosen order: **name + character on screen within the first 60 seconds** (emotional investment), THEN the HealthKit permission framed as *"power your character with real life,"* notifications requested only after a squad or a goal in flight gives them a reason to exist, and body metrics deferred to the soft prompt. Every ask has a visible why. (Body metrics are not asked at all since deviation #60 — the same principle carried one step further: an ask with no visible why is an ask with no *why*.)
 
 ### Daily Score Formula
 ```
@@ -746,6 +759,17 @@ The canonical health data layer is **hourly bucket upserts**: the client aggrega
 ---
 
 ## 14. Notification System
+
+> **The scheduled half of this section is superseded by roadmap deviation #52
+> (2026-08-25). Historical; the numbering does not move.** "Day starts", "Day
+> ending soon" and "Day ends" are retired, and one 08:00 `daily_digest`
+> replaces all three. `MAX_NOTIFICATIONS_PER_DAY` stays 3 — #52 capped the
+> *scheduled* sends and left the budget bounding the event-driven ones — but no
+> surface may state that as a cap, because `BUDGET_EXEMPT` sends bypass the
+> budget without consuming it. What the app says about any of this lives in
+> `src/features/notifications/ask-copy.ts`, which is where it can be tested;
+> this section is where it was written from, and it went on being read as live
+> for ten days after the deploy.
 
 | Trigger | Message | Timing |
 |---|---|---|

@@ -43,6 +43,12 @@ export interface PermissionAskInput {
   hasSquad: boolean;
   hasEvent: boolean;
   /**
+   * Whether the account has ever scored a day. The third reason the
+   * notification ask can be earned (2026-09-04) — see `ask-policy.ts`, which
+   * owns what it means; this function only passes it through.
+   */
+  hasScoredDay: boolean;
+  /**
    * Whether the user has already answered *an* ask this session. Answering
    * Health makes the notification ask eligible in the same frame, and a second
    * sheet arriving as the first slides away reads as a permission gauntlet —
@@ -64,6 +70,7 @@ export function nextPermissionAsk(input: PermissionAskInput): PermissionAsk {
       permission: input.notification,
       hasSquad: input.hasSquad,
       hasEvent: input.hasEvent,
+      hasScoredDay: input.hasScoredDay,
       dismissedThisSession: input.notificationDismissed,
     })
   ) {

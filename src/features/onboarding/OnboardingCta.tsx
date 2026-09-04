@@ -27,12 +27,25 @@ export function OnboardingCta({
   label,
   tone,
   icon,
+  lines = 1,
   disabled = false,
   onPress,
 }: {
   label: string;
   tone: 'glass' | 'ink' | 'bright';
   icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  /**
+   * How many lines the label may take. **One on a beat, two in a sheet.**
+   *
+   * A beat's CTA has the whole screen; the welcome run's cards are a sheet
+   * inside a scrim, so the same pill loses four lots of `space.lg` and about a
+   * third of its width — and at the `chrome` scale's 1.4× cap a three-word
+   * label no longer fits on a 320pt screen. `numberOfLines={1}` then ellipsises
+   * it, which is the permission sheet's 2026-08-17 failure in a new place: a
+   * control whose words are cut is a control somebody cannot act on. Wrapping
+   * costs nothing here because `HEIGHT` is a `minHeight`.
+   */
+  lines?: 1 | 2;
   disabled?: boolean;
   onPress: () => void;
 }) {
@@ -44,7 +57,7 @@ export function OnboardingCta({
       importantForAccessibility="no-hide-descendants"
       style={styles.body}
     >
-      <Text scale="chrome" numberOfLines={1} style={[styles.label, { color: ink }]}>
+      <Text scale="chrome" numberOfLines={lines} style={[styles.label, { color: ink }]}>
         {label}
       </Text>
       {icon && <MaterialCommunityIcons name={icon} size={20} color={ink} />}

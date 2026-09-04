@@ -179,6 +179,59 @@ export async function readStepsToday(timeZone: string): Promise<number> {
   );
 }
 
+/**
+ * Daily step totals for a run of complete local days, for onboarding
+ * calibration (deviation #63).
+ *
+ * **One query, one metric, and that is the point.** The obvious alternative is
+ * `readHealthWindow` over fourteen days, and it would be wrong twice over: it
+ * runs six hourly statistics collections plus every workout sample plus sleep
+ * and returns thousands of objects to answer a question that needs one number
+ * per day — including heart rate, which is owner-readable only and absent from
+ * every projection. Reading that much to propose a quest size would leave the
+ * connect beat's privacy claim technically accurate and morally misleading.
+ *
+ * So it is the same daily-interval collection `readStepsToday` already makes,
+ * over a longer anchor. `unit: 'count'` for the same reason every read here is
+ * explicit, and `DAILY` intervals anchored at the window's first local midnight
+ * so a day boundary is a day boundary in the player's own zone.
+ *
+ * Returned **aligned to `localDates`**, with a day HealthKit reported nothing
+ * for as `0` — which `calibrateQuestTier` then drops rather than counts, since
+ * a zero and a phone in a drawer are the same reading. Bucketing by resolved
+ * local date rather than by index because a DST day is 23 or 25 hours long and
+ * an index assumes every bucket is the day it sits in.
+ */
+export async function readDailySteps(
+  localDates: readonly string[],
+  timeZone: string,
+): Promise<number[]> {
+  const first = localDates[0];
+  const last = localDates.at(-1);
+  if (first === undefined || last === undefined) return [];
+
+  const from = dayStartUtc(first, timeZone);
+  const to = dayEndUtc(last, timeZone);
+
+  const collection = await queryStatisticsCollectionForQuantity(
+    'HKQuantityTypeIdentifierStepCount',
+    ['cumulativeSum'],
+    from,
+    DAILY,
+    { filter: { date: { startDate: from, endDate: to } }, unit: 'count' },
+  );
+
+  const byDate = new Map<string, number>();
+  for (const interval of collection) {
+    if (!interval.startDate) continue;
+    const localDate = currentLocalDate(interval.startDate, timeZone);
+    const running = byDate.get(localDate) ?? 0;
+    byDate.set(localDate, running + finite(interval.sumQuantity?.quantity));
+  }
+
+  return localDates.map((localDate) => byDate.get(localDate) ?? 0);
+}
+
 export async function readHealthWindow(
   window: SyncWindow,
   timeZone: string,

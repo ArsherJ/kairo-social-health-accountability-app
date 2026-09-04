@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { QuestTier } from '@kairo/core';
+import type { QuestCalibration, QuestTier } from '@kairo/core';
 
 /**
  * What onboarding has collected but not yet written.
@@ -45,19 +45,68 @@ export interface OnboardingAnswers {
    * default the two have to move together.
    */
   shareTotals: boolean;
+  /**
+   * What the Health grant's step reading concluded, or `null` when no reading
+   * was taken — the ask was skipped, or the platform has no health source.
+   *
+   * **This is where the fortnight lives and dies** (deviation #63). It crosses
+   * from `/connect` to `/difficulty` here and nowhere else: the median is never
+   * written to `profiles` and never enters a telemetry payload, which is
+   * exactly what the difficulty beat's privacy line claims. The store is
+   * already cleared on commit, so it does not outlive the run either.
+   */
+  calibration: QuestCalibration | null;
+  /**
+   * Whether the player has answered the difficulty question themselves.
+   *
+   * The proposal pre-selects a tier by *writing* `questTier`, so without this
+   * there is no way to tell a seeded value from a chosen one — and re-entering
+   * `/connect` and granting again would silently overwrite a choice the player
+   * had already made two screens later. Their answer wins outright, which is
+   * the same rule `questTier`'s override follows and the reason the choices are
+   * on that screen at all.
+   */
+  questTierChosen: boolean;
 }
 
 interface AnswerStore extends OnboardingAnswers {
   setQuestTier: (tier: QuestTier | null) => void;
   setShareTotals: (share: boolean) => void;
+  /**
+   * Record a reading, and pre-select what it proposes.
+   *
+   * Pre-selecting here rather than on the difficulty beat is what makes "the
+   * proposal is the default" a fact about the answer rather than about one
+   * screen's render: a player who skips straight past the beat still commits
+   * the tier that was measured for them, which is the point of measuring.
+   *
+   * A `no-history` reading changes nothing, leaving `questTier` at `null` —
+   * Automatic — which is the stated fallback.
+   */
+  setCalibration: (calibration: QuestCalibration | null) => void;
   reset: () => void;
 }
 
-const INITIAL: OnboardingAnswers = { questTier: null, shareTotals: true };
+const INITIAL: OnboardingAnswers = {
+  questTier: null,
+  shareTotals: true,
+  calibration: null,
+  questTierChosen: false,
+};
 
 export const useOnboardingAnswers = create<AnswerStore>((set) => ({
   ...INITIAL,
-  setQuestTier: (questTier) => set({ questTier }),
+  setQuestTier: (questTier) => set({ questTier, questTierChosen: true }),
   setShareTotals: (shareTotals) => set({ shareTotals }),
+  setCalibration: (calibration) =>
+    set((state) => ({
+      calibration,
+      // The player's own answer wins outright, exactly as it does over the
+      // automatic rule. A second reading may not reach back and overwrite it.
+      questTier:
+        state.questTierChosen || calibration?.outcome !== 'proposed'
+          ? state.questTier
+          : calibration.tier,
+    })),
   reset: () => set(INITIAL),
 }));

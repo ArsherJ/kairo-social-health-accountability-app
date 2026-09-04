@@ -112,8 +112,13 @@ export function useNotificationRouting(): void {
 }
 
 /**
- * Records that the app was opened (§11), which is what makes §14's "Day starts"
- * conditional: it fires mid-morning **only if the app has not been opened yet**.
+ * Records that the app was opened (§11), for retention.
+ *
+ * **It no longer gates a push.** §14's "Day starts" fired mid-morning only if
+ * the app had not been opened yet, and read exactly this row; deviation #52
+ * retired that trigger on 2026-08-25 along with the rest of the evening loop,
+ * and the 08:00 digest is unconditional. The marker stays because §11 wants it
+ * — `kairo_retention()` and the activation funnel are its readers now.
  *
  * Deduped per calendar day **within a session** — the marker is module state,
  * so a cold start writes another row. That is deliberate rather than sloppy:
@@ -139,10 +144,10 @@ export function useAppOpenTelemetry(userId: string | undefined): void {
       void track(userId, 'app_open').then((landed) => {
         // A failed write must not count as a send. This marker is what makes
         // the dedupe work, so poisoning it turns one dropped row into a whole
-        // missing day — the next foreground would be suppressed too, and §14's
-        // "day starts" push reads exactly this signal. Offline at breakfast is
-        // the common case; the pre-profile 23503 that motivated the migration
-        // beside this change was the loud one.
+        // missing day — the next foreground would be suppressed too, and a
+        // missing day is a retention figure that is quietly wrong. Offline at
+        // breakfast is the common case; the pre-profile 23503 that motivated
+        // the migration beside this change was the loud one.
         //
         // Guarded on the day still being ours, so a release cannot clobber a
         // later day's successful claim.

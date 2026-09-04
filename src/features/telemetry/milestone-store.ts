@@ -9,6 +9,7 @@ const ALL_MILESTONES: readonly Milestone[] = [
   'first_sync_seen',
   'first_score_seen',
   'disclosure_unlocked',
+  'calibration_recorded',
 ];
 
 /**

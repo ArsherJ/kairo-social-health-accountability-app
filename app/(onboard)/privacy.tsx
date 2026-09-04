@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { OnboardingCta } from '@/features/onboarding/OnboardingCta.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
@@ -44,6 +46,8 @@ const FIELD: Stop[] = [
 export default function Privacy() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const beat = onboardingBeat('privacy');
+  useBeatImpression('privacy');
   const shareTotals = useOnboardingAnswers((s) => s.shareTotals);
   const setShareTotals = useOnboardingAnswers((s) => s.setShareTotals);
 
@@ -62,7 +66,11 @@ export default function Privacy() {
           { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg },
         ]}
       >
-        <OnboardingRail filled={2} partial={1} onBack={() => router.back()} />
+        <OnboardingRail
+          filled={beat.filled}
+          partial={beat.partial}
+          onBack={() => router.back()}
+        />
 
         <Text scale="chrome" style={styles.headline}>
           Your privacy,{'\n'}your call
@@ -97,7 +105,7 @@ export default function Privacy() {
         <View style={styles.spacer} />
 
         <OnboardingCta
-          label="Looks good"
+          label={beatCta(beat)}
           tone="glass"
           onPress={() => router.push('/name')}
         />

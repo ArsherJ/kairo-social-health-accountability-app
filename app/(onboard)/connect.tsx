@@ -8,7 +8,11 @@ import { healthSource } from '@/features/health/health-source.ts';
 import { deviceTimeZone } from '@/features/profile/device-timezone.ts';
 import { HatchingBeat } from '@/features/onboarding/HatchingBeat.tsx';
 import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
+import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
+import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { hatchingWindow, msUntilNextChange } from '@/features/onboarding/hatching-window.ts';
+import { runCalibration } from '@/features/onboarding/calibration.ts';
+import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
@@ -44,11 +48,14 @@ type Phase = 'asking' | 'hatching' | 'revealed';
 export default function Connect() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const beat = onboardingBeat('connect');
+  useBeatImpression('connect');
   const userId = useSessionStore((s) => s.session)?.user.id;
   const [phase, setPhase] = useState<Phase>('asking');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [steps, setSteps] = useState<number | null>(null);
+  const setCalibration = useOnboardingAnswers((s) => s.setCalibration);
 
   /*
     The beat's two clocks.
@@ -104,12 +111,32 @@ export default function Connect() {
       setNow(Date.now());
       setPhase('hatching');
 
-      // A read that throws and a phone with no steps are the same thing *here*,
-      // below a successful connect — both mean "nothing to show yet", and
-      // neither is a failure. That is only true because the failure case
-      // returned above.
-      const today = await healthSource.readStepsToday(deviceTimeZone()).catch(() => null);
+      /*
+        Two reads, in parallel, and the beat waits for both.
+
+        The first is today's total, which the reveal below shows. The second is
+        the fourteen complete days behind it, which proposes a starting quest
+        size (deviation #63) — a narrow step-only read, deliberately not
+        `readHealthWindow`, for the reasons in `readDailySteps`.
+
+        Gating the hatch on **both** rather than letting calibration land
+        whenever it lands is what stops the difficulty beat mounting with no
+        proposal and then re-rendering with one under the player's thumb. Two
+        step queries against the same identifier is a fraction of the beat's own
+        floor, so the wait is paid out of a window that already exists.
+
+        A read that throws and a phone with no steps are the same thing *here*,
+        below a successful connect — both mean "nothing to show yet", and
+        neither is a failure. That is only true because the failure case
+        returned above; `runCalibration` makes the same call for itself and
+        never throws.
+      */
+      const [today, calibration] = await Promise.all([
+        healthSource.readStepsToday(deviceTimeZone()).catch(() => null),
+        runCalibration(userId),
+      ]);
       pendingSteps.current = today;
+      setCalibration(calibration);
       setFinishedAt(Date.now());
       setNow(Date.now());
     } finally {
@@ -159,7 +186,12 @@ export default function Connect() {
           the run with no sense of how much is left, which is exactly backwards.
           `tone="dark"` because this beat sits on the cream ground. */}
       <View style={styles.rail}>
-        <OnboardingRail filled={1} partial={0.5} tone="dark" onBack={() => router.back()} />
+        <OnboardingRail
+          filled={beat.filled}
+          partial={beat.partial}
+          tone="dark"
+          onBack={() => router.back()}
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.top}>
@@ -244,7 +276,7 @@ export default function Connect() {
         ) : phase === 'asking' ? (
           <>
             <Button
-              label="Connect Apple Health"
+              label={beatCta(beat)}
               variant="primary"
               busy={busy}
               onPress={() => void connect()}

@@ -21,14 +21,29 @@ export type Milestone =
    */
   | 'disclosure_unlocked'
   /**
-   * The three welcome pop-ups have been seen (deviation #58).
+   * The welcome run has been opened (deviations #58, #64).
    *
    * Once-ever, and MMKV rather than a `profiles` column for the same reason
    * `first_sync_seen` is: it is a fact about this *install* showing something,
    * not about the account, and a column would need a migration and a grant to
    * record a thing no server-side logic reads. The cost is that a reinstall
    * shows them again, which is the right side to err on — a returning user
-   * seeing three cards once beats a new user on a second device never being
-   * told the rule of the game.
+   * seeing the run once beats a new user on a second device never being told
+   * the rule of the game.
+   *
+   * It is claimed when the run **opens**, and the flock ask is its last card
+   * (deviation #64), so a force-quit part-way through costs that ask. That
+   * loss is known, bounded by the Sky tab's permanent invite slot, and
+   * deliberately not repaired — `WelcomePopups.tsx` records why.
    */
-  | 'welcome_seen';
+  | 'welcome_seen'
+  /**
+   * The Health grant's step reading has been reported (deviation #63).
+   *
+   * Once-ever, unlike `onboarding_beat_seen` beside it, and the difference is
+   * the point: a beat impression is honest unguarded because the run happens
+   * once per account, but calibration re-runs whenever `/connect` is re-entered
+   * and granted again. Without the marker the outcome's denominator would count
+   * taps rather than accounts, which is the one thing it is for.
+   */
+  | 'calibration_recorded';

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Label, Panel, STAT_NAMES, Text } from '@/ui/index.ts';
+import { Button, Label, Panel, Text } from '@/ui/index.ts';
 import {
+  BODY_METRICS_NOTE,
   BODY_METRIC_LIMITS,
   parseBodyMetric,
   type BodyMetricField,
@@ -11,12 +12,19 @@ import type { Profile } from './queries.ts';
 import { useUpdateProfile } from './update-profile.ts';
 
 /**
- * §5's body metrics, behind §5's soft prompt.
+ * §5's body metrics.
  *
- * Height and weight sharpen STR — active calories depend on body mass — but
- * the spec is explicit that they are *never* required. So the prompt is one
- * line of explanation, the fields start empty, and clearing one is as valid an
- * answer as filling it. Nothing here gates anything.
+ * **They are inert, and the card now says so** (roadmap deviation #60). It used
+ * to promise that height and weight sharpen Body; the argument against that is
+ * in `BODY_METRICS_NOTE`, which is the copy this card renders and the place a
+ * test can hold it. §5 is explicit that they are never required, and nothing
+ * here gates anything: the fields start empty, and clearing one is as valid an
+ * answer as filling it.
+ *
+ * They are **never asked during onboarding** either, for the same reason — a
+ * question that changes no score does not earn a screen (§0 of
+ * `docs/superpowers/specs/2026-09-03-onboarding-curation-design.md`, which asks
+ * exactly that question and answers it first).
  *
  * These columns live on `profiles`, which is owner-readable only: this is the
  * screen where that matters most, and no projection ever carries them to a
@@ -31,10 +39,11 @@ import { useUpdateProfile } from './update-profile.ts';
  */
 
 /**
- * Height and weight pair up on one row — they are the two that sharpen STR,
- * they are asked in the same breath, and side by side they read as one
+ * Height and weight pair up on one row — they are the pair with no consumer at
+ * all, they are asked in the same breath, and side by side they read as one
  * question. Birth year sits below on its own because it answers a different
- * one. `wide` is what carries that split into the layout.
+ * one, and is the only one of the three anything reads. `wide` is what carries
+ * that split into the layout.
  */
 const FIELDS: ReadonlyArray<{
   field: BodyMetricField;
@@ -88,9 +97,6 @@ export function BodyMetricsCard({
     draftsFrom(profile),
   );
   const [error, setError] = useState<string | null>(null);
-
-  const missingBodyMetrics =
-    profile.height_cm === null || profile.weight_kg === null;
 
   function open() {
     setDrafts(draftsFrom(profile));
@@ -150,14 +156,11 @@ export function BodyMetricsCard({
         )}
       </View>
 
-      {missingBodyMetrics && (
-        <Text style={styles.prompt}>
-          {/* The stat's name, not `STR` — one table of stat words
-              (deviation #51), and this prompt was the other surface printing an
-              engine key straight into a sentence. */}
-          Add your height and weight for more accurate {STAT_NAMES.STR} tracking.
-        </Text>
-      )}
+      {/* Always, not only when a field is empty. The old prompt appeared on a
+          missing value and urged the player to fill it, which is the wrong
+          shape for a field that changes nothing: what somebody needs here is
+          the same sentence whether they have answered or not. */}
+      <Text style={styles.note}>{BODY_METRICS_NOTE}</Text>
 
       {editing ? (
         <>
@@ -229,10 +232,13 @@ const styles = StyleSheet.create({
     backgroundColor: ramp.neutral[100],
   },
   editLabel: { ...font.display.small, fontSize: 14, color: ramp.accent[700] },
-  prompt: {
+  // Neutral ink, not the accent the prompt used: this explains, it does not
+  // ask. `ramp.neutral[700]` is an ink step (the ramps' step contract), so it
+  // stays readable at 13pt on cream where the 500 fill would not.
+  note: {
     ...font.body.body,
     fontSize: 13,
-    color: ramp.accent[700],
+    color: ramp.neutral[700],
     marginTop: space.sm,
     lineHeight: 18,
   },

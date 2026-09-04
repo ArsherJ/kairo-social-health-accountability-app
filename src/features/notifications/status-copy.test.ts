@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DIGEST_LOCAL_HOUR, RETIRED_PUSH_PHRASES } from './ask-copy.ts';
 import { deliveryStatus, notificationStatus } from './status-copy.ts';
 
 describe('notificationStatus', () => {
@@ -12,20 +13,58 @@ describe('notificationStatus', () => {
 
   it('says what is lost, not just that something is off', () => {
     const help = notificationStatus('denied').help;
-    expect(help).toMatch(/day-end|battle alerts/i);
+    expect(help).toMatch(/digest|battle alerts/i);
     expect(help).toMatch(/settings/i);
   });
 
   it('does not pre-empt the contextual ask when nothing has been decided', () => {
-    // `shouldAskForNotifications` raises this after squad or battle activity.
-    // A button here would be the onboarding ambush that policy avoids.
+    // `shouldAskForNotifications` raises the ask once there is a why. A button
+    // here would be the onboarding ambush that policy avoids.
     const status = notificationStatus('undetermined');
     expect(status.action).toBeNull();
     expect(status.value).toBe('Not set');
   });
 
-  it('names the limits rather than selling the feature', () => {
-    expect(notificationStatus('granted').help).toMatch(/three a day|never overnight/i);
+  it('does not tell a solo player they need a squad to be asked', () => {
+    // False since the ask was widened on 2026-09-04 to include a first scored
+    // day. It read "once you have a squad or a battle to be reminded about",
+    // which told the entire solo cohort — the cohort Kairo is built for — that
+    // the app's only re-engagement was closed to them.
+    const help = notificationStatus('undetermined').help;
+    expect(help).not.toMatch(/squad or a battle/i);
+    expect(help).toMatch(/first scored day/i);
+    // And it must still name the two social whys, which did not go away — a
+    // line that traded one incomplete list for another would be the same
+    // defect pointing the other direction.
+    expect(help).toMatch(/squad/i);
+    expect(help).toMatch(/battle/i);
+  });
+
+  it('names what arrives rather than selling the feature', () => {
+    // Someone deciding whether to leave this on wants to know how noisy it
+    // gets. It may not answer with a cap ("three a day") or with a promise of
+    // quiet ("never overnight") — the engine enforces neither on the
+    // `finalize-days` send path. What it can honestly say is what the pushes
+    // are and when they land.
+    const help = notificationStatus('granted').help;
+    expect(help).toMatch(new RegExp(`${DIGEST_LOCAL_HOUR}am`));
+    expect(help).not.toMatch(/never overnight/i);
+  });
+
+  it('describes no push the app retired', () => {
+    // The same correction the ask sheet needed, against the same list — two
+    // guards enforcing one rule is how they drift apart. This row called the
+    // remaining push a "day-end reminder", which is the one thing it is not,
+    // and printed a cap of three a day that `BUDGET_EXEMPT` sends can exceed.
+    for (const permission of ['granted', 'denied', 'undetermined'] as const) {
+      for (const phrase of RETIRED_PUSH_PHRASES) {
+        expect(notificationStatus(permission).help).not.toMatch(phrase);
+      }
+    }
+  });
+
+  it('names the hour the digest actually arrives', () => {
+    expect(notificationStatus('granted').help).toMatch(new RegExp(`${DIGEST_LOCAL_HOUR}am`));
   });
 
   it('never apologises or pleads', () => {
