@@ -4,7 +4,7 @@ import type { TodayQuest } from '../quests/queries.ts';
 // through it is a load failure for `today-details.test.ts`. (`import type` is
 // erased and would be fine — that is why the line above may keep its shape.)
 // Same arrangement `kairo-voice.ts` uses to reach `stat-names.ts`.
-import { distanceWords, durationWords, questHeadline, questProgressLine } from '../quests/quest-copy.ts';
+import { countWords, distanceWords, durationWords, questHeadline, questProgressLine } from '../quests/quest-copy.ts';
 
 /**
  * Today's complete day, on demand.
@@ -46,7 +46,7 @@ export function todayDetails(input: {
   const sections: TodayDetailSection[] = [
     {
       id: 'motion', title: 'Motion', rows: [
-        row('steps', 'Steps', `${input.totals.steps.toLocaleString()} steps`),
+        row('steps', 'Steps', `${countWords(input.totals.steps)} steps`),
         row('distance', 'Distance', distanceWords(input.totals.distanceM)),
         row('walk-run', 'Daily Walk run', `${input.dailyWalkRun} ${input.dailyWalkRun === 1 ? 'day' : 'days'}`),
         // The one surviving explanation of what the Daily Walk is. Supplied by
@@ -57,7 +57,7 @@ export function todayDetails(input: {
     },
     {
       id: 'body', title: 'Body', rows: [
-        row('energy', 'Active energy', `${Math.round(input.totals.activeKcal).toLocaleString()} kcal`),
+        row('energy', 'Active energy', `${countWords(input.totals.activeKcal)} kcal`),
         // Absent at zero rather than a "0 min" row: no session today and a
         // session Kairo could not verify are different claims, and neither is
         // "you did nothing".

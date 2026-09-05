@@ -1,4 +1,5 @@
 import type { QuestMetric } from '@kairo/core';
+import { countWords } from './quest-copy.ts';
 import type { TodayQuest } from './queries.ts';
 
 /**
@@ -82,7 +83,9 @@ function remaining(selection: Extract<NextStepSelection, { kind: 'quest' }>): nu
  * The one visible prompt, in the unit the player produces.
  *
  * Never an XP figure, never a tier name, never an engine key — the same three
- * rules `kairo-voice.ts` carries, and a test pins each. The `sleep_minutes`
+ * rules `kairo-voice.ts` carries, and a test pins each. Counted figures go
+ * through `countWords`, because active energy is a float from HealthKit and
+ * printed the raw one as "395.66 active kcal". The `sleep_minutes`
  * branch is unreachable through `selectNextStep` (Mind is filtered) and returns
  * the rest sentence rather than throwing, because an exhaustive switch that can
  * crash a screen is worse than one that says something calm.
@@ -94,13 +97,13 @@ export function nextStepSentence(selection: NextStepSelection, characterName: st
   const left = remaining(selection);
   switch (selection.entry.quest.metric) {
     case 'steps':
-      return `${characterName} is ready for ${left.toLocaleString()} more steps with you.`;
+      return `${characterName} is ready for ${countWords(left)} more steps with you.`;
     case 'distance_m':
       return `${characterName} has ${Number((left / 1_000).toFixed(1))} km left on today's path.`;
     case 'active_hours':
       return `${characterName} is ready for ${left} more active ${left === 1 ? 'hour' : 'hours'}, whenever you are.`;
     case 'active_kcal':
-      return `${characterName} noticed today's effort. ${left.toLocaleString()} active kcal would clear this step.`;
+      return `${characterName} noticed today's effort. ${countWords(left)} active kcal would clear this step.`;
     case 'sleep_minutes':
       return `You have done what can be changed today. ${characterName} can rest with you.`;
   }

@@ -68,3 +68,17 @@ describe('nextStepSentence', () => {
     );
   });
 });
+
+describe('nextStepSentence figures', () => {
+  // The one visible prompt on Today read "395.66 active kcal would clear this
+  // step" — a figure nothing in the world produces in that form, on the
+  // sentence the whole screen is built around.
+  it('rounds the remainder rather than printing the raw float', () => {
+    const kcal: TodayQuest = {
+      quest: { id: 'q-kcal', tier: 'starter', metric: 'active_kcal', target: 400, xp: 10 },
+      state: { value: 4.34, fraction: 0.01, met: false } as QuestState,
+    };
+    expect(nextStepSentence({ kind: 'quest', index: 0, category: 'body', entry: kcal }, 'Test'))
+      .toBe("Test noticed today's effort. 396 active kcal would clear this step.");
+  });
+});

@@ -489,16 +489,17 @@ export function Leaderboard({
       {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
 
       {/* §7: locked slots are visible every day, not only when solo — the
-          constant pull to invite the rest of the squad. Ranked after every
-          member, scored or not, so the numbering never skips or repeats.
-          Gated on `rows.length > 0`: an empty board already showed the code
-          above, and showing it twice was the earlier bug here. */}
+          constant pull to invite the rest of the squad. Gated on
+          `rows.length > 0`: an empty board already showed the code above, and
+          showing it twice was the earlier bug here. */}
       {rows.length > 0 && locked > 0 && <InviteCode code={squad.invite_code} squadName={squad.name} />}
 
-      {Array.from({ length: locked }, (_, index) => (
+      {/* One row for every free seat, not one row each — `SkyFlockRail`'s
+          trailing-slot rule, which this board needed for the same reason and
+          did not have. A squad of one drew five identical dashed rows here. */}
+      {locked > 0 && (
         <LockedSlot
-          key={index}
-          rank={(memberCount.data ?? 0) + index + 1}
+          remaining={locked}
           onPress={() =>
             void shareInvite({
               squadName: squad.name,
@@ -506,7 +507,7 @@ export function Leaderboard({
             })
           }
         />
-      ))}
+      )}
 
       {/* The slot the sabotage feed left, doing the opposite job: the feed was
           what people did *to* each other, this is what they fight together.

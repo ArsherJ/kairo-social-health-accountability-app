@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { QuestDef, QuestState } from '@kairo/core';
 import {
+  countWords,
   distanceWords,
   durationWords,
   questHeadline,
@@ -87,5 +88,23 @@ describe('raw-unit formatters', () => {
     expect(distanceWords(7_500)).toBe('7.5 km');
     expect(durationWords(420)).toBe('7 hours');
     expect(durationWords(450)).toBe('7h 30m');
+  });
+});
+
+describe('counted figures', () => {
+  // HealthKit reports active energy as a float, and a sum across sources can
+  // make steps one too. The raw `toLocaleString()` this replaced printed
+  // "4.34 of 400" on the details sheet while the Body row one section above it
+  // said "4 kcal" — one reading, rendered two ways, a scroll apart.
+  it('rounds, so a float reading never reaches a surface', () => {
+    expect(countWords(4.34)).toBe('4');
+    expect(countWords(395.66)).toBe('396');
+    expect(countWords(9_999.5)).toBe('10,000');
+  });
+
+  it('never prints a decimal point in a progress line', () => {
+    const kcal: QuestDef = { ...steps, metric: 'active_kcal', target: 400 };
+    expect(questProgressLine(kcal, state({ value: 4.34 }))).toBe('4 of 400');
+    expect(questProgressLine(steps, state({ value: 37.2 }))).toBe('37 of 7,000');
   });
 });

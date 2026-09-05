@@ -45,12 +45,27 @@ export function distanceWords(metres: number): string {
   return `${Number.isInteger(km) ? km : km.toFixed(1)} km`;
 }
 
+/**
+ * A counted figure as a person reads it — whole, grouped.
+ *
+ * **Rounded, because HealthKit's are not whole numbers.** Active energy arrives
+ * as a float and steps can too once a payload is summed across sources, so
+ * `toLocaleString()` on the raw value printed "4.34 of 400" on the details sheet
+ * and "395.66 active kcal" in the one visible prompt. `todayDetails` had already
+ * rounded the same reading for its own Body row, which is exactly how one day
+ * ended up rendered two ways on two surfaces one tap apart. One helper, used by
+ * every surface that prints a counted figure.
+ */
+export function countWords(value: number): string {
+  return Math.round(value).toLocaleString();
+}
+
 function targetWords(quest: QuestDef): string {
   switch (quest.metric) {
     case 'steps':
-      return `${quest.target.toLocaleString()} steps`;
+      return `${countWords(quest.target)} steps`;
     case 'active_kcal':
-      return `${quest.target.toLocaleString()} kcal`;
+      return `${countWords(quest.target)} kcal`;
     case 'active_hours':
       return `${quest.target} ${quest.target === 1 ? 'hour' : 'hours'}`;
     case 'distance_m':
@@ -85,7 +100,7 @@ export function questProgressLine(quest: QuestDef, state: QuestState): string {
     case 'sleep_minutes':
       return `${durationWords(state.value)} of ${durationWords(quest.target)}`;
     default:
-      return `${state.value.toLocaleString()} of ${quest.target.toLocaleString()}`;
+      return `${countWords(state.value)} of ${countWords(quest.target)}`;
   }
 }
 

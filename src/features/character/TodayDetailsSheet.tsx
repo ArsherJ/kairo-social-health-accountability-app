@@ -6,6 +6,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Panel, Text, useReduceMotion } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import { SyncStatus } from './SyncStatus.tsx';
@@ -57,6 +58,11 @@ export function TodayDetailsSheet({
   const { width: windowWidth } = useWindowDimensions();
   const sheetWidth = windowWidth - space.lg * 2 - space.lg * 2;
   const reduceMotion = useReduceMotion();
+  // A `<Modal>` presents on the root view controller and gets no inset of its
+  // own, so the sheet took the bottom edge itself and sat "Close" — its only
+  // dismissal, and the one control that must always be reachable — over the
+  // home indicator's swipe region. The same rule `Screen` applies to every tab.
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -67,7 +73,12 @@ export function TodayDetailsSheet({
       onDismiss={onDismiss}
     >
       <View style={styles.backdrop} accessibilityViewIsModal>
-        <Panel variant="plain" style={styles.sheet}>
+        {/* `Panel` takes a single `ViewStyle`, not a `StyleProp`, so the
+            inset is merged rather than layered. */}
+        <Panel
+          variant="plain"
+          style={{ ...styles.sheet, marginBottom: insets.bottom + space.lg }}
+        >
           <ScrollView style={styles.scroll} contentContainerStyle={styles.content} bounces={false}>
             <View style={{ width: sheetWidth }}>
               <Text accessibilityRole="header" style={styles.title}>Today with KAIRO</Text>
@@ -157,9 +168,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: `${colors.bg}CC`,
   },
+  // `marginBottom` is applied at the call site from the safe-area inset.
   sheet: {
     marginTop: 0,
-    marginBottom: space.lg,
     marginHorizontal: space.lg,
     maxHeight: '85%',
     padding: 0,

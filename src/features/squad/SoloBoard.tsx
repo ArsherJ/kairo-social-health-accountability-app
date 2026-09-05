@@ -154,7 +154,7 @@ export function SoloBoard({
           seats are free under the free cap", and the answer stopped being what
           this screen draws. A count is still the right question on a real
           board, where that helper is still used. */}
-      <LockedSlot rank={2} />
+      <LockedSlot remaining={1} />
     </Screen>
   );
 }

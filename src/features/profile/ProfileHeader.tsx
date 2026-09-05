@@ -33,6 +33,11 @@ const SCENE: Stop[] = [
  * animal in the same daylight as the other two tabs, standing on the ground
  * rather than flying, which is the one register the other two do not use.
  *
+ * **The band carries no bird of its own.** It drew one, centred, and the avatar
+ * ring then overlapped the band by 42pt and landed squarely on it — the same
+ * art at two sizes, the larger sliced across the chest by the smaller. The ring
+ * is the bird on this screen; the band is the daylight behind it.
+ *
  * The XP ring survives the change and still carries the figures beside it: the
  * fraction alone stops being informative once a level spans thousands of XP.
  *
@@ -96,17 +101,22 @@ export function ProfileHeader({
       </View>
 
       {/* The scene. `overflow: 'hidden'` so the ramp is cut to the band, and
-          the two ground shadows are the only thing in it besides the bird —
-          enough to say "standing on something" without drawing a landscape
-          that would fight the flat character art, which is the same argument
-          `Diorama` makes about its own sky. */}
+          the ground shadow is the only thing in it — enough to say "standing on
+          something" without drawing a landscape that would fight the flat
+          character art, which is the same argument `Diorama` makes about its
+          own sky.
+
+          **One bird, and it is the one in the ring.** The band drew a 104pt
+          bird of its own, centred, and the avatar then overlapped it by 42pt —
+          so the screen showed the same art twice, the larger copy sliced across
+          the chest by the smaller one sitting on it. Two shadows at fixed left
+          and right offsets compounded it: with the bird they belonged to hidden
+          behind the disc they read as two stray grey pills floating at the
+          horizon. The band is the daylight the bird stands in now, and the
+          shadow is centred under the disc that actually casts it. */}
       <View {...hidden} style={styles.scene}>
         <Gradient stops={SCENE} steps={20} />
-        <View style={[styles.shade, { left: 34, width: 60, height: 20 }]} />
-        <View style={[styles.shade, { right: 44, width: 44, height: 16, opacity: 0.35 }]} />
-        <View style={styles.sceneBird}>
-          <KairoThumbnail pose="idle" size={104} decorative />
-        </View>
+        <View style={styles.shade} />
       </View>
 
       {/* The avatar sits over the seam, which is what ties the ring to the
@@ -174,13 +184,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
+  /**
+   * The ground under the avatar. Centred, and sized a little wider than the
+   * ring, so it reads as the disc's own shadow rather than as scenery of its
+   * own — which is what the two offset pills it replaced had become once the
+   * bird they were drawn for went.
+   */
   shade: {
-    position: 'absolute',
-    bottom: 14,
+    alignSelf: 'center',
+    width: RING + 24,
+    height: 18,
+    marginBottom: 10,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(90,60,30,0.45)',
+    backgroundColor: 'rgba(90,60,30,0.28)',
   },
-  sceneBird: { paddingBottom: 6 },
 
   identity: { alignItems: 'center', marginTop: -42, paddingHorizontal: space.lg },
   disc2: {

@@ -1070,6 +1070,44 @@ visible, rather than by wrapping, which is what it did and what looked like a
 design. Withheld members sort last, so the row never drops a bird that has a
 position in favour of one that does not.
 
+**Four device-build UI faults, fixed 2026-09-05, all OTA.** They shipped
+together because each is the same shape: a rule that was already written down
+somewhere, applied in one place and not the next.
+
+- **`LockedSlot` is one row for every free seat**, and `Leaderboard` renders it
+  once. It drew a numbered dashed row *per* unfilled place — five identical
+  full-width rows under a squad of one, most of a screen of them — which is the
+  Sky rail's failure above, in the second surface, four days after the first was
+  fixed. The row carries the count (`3 seats open`) and no rank, because one row
+  standing for seats 2 through 6 cannot honestly wear one number; `SoloBoard`
+  passes `remaining={1}` and reads the same. `resolveSlots` is untouched — the
+  count was never wrong, only how many times it was drawn.
+- **`StatRail` declares `flexDirection: 'row'`.** It was built as a column down
+  the edge of the character screen's diorama, so the default direction *was* the
+  layout and was never written down; deviation #59 re-mounted it in the You
+  tab's flowing page, where it stacked three 54pt coins vertically down the left
+  margin. Nothing errored and no test could see it. A layout that depends on a
+  default is a layout that moves when its container does — declare the axis.
+- **Counted figures go through `countWords` in `quest-copy.ts`.** HealthKit
+  reports active energy as a float, so `toLocaleString()` on the raw value put
+  "395.66 active kcal" in Today's one visible sentence and "4.34 of 400" in the
+  details sheet — one section below a Body row that already said "4 kcal",
+  because `todayDetails` had rounded it and the quest copy had not. One helper,
+  used by every surface that prints a counted figure, with a test on each.
+- **`TodayDetailsSheet` takes the bottom safe-area inset.** A `<Modal>` presents
+  on the root view controller and gets no inset of its own, so "Close" — its
+  only dismissal — sat over the home indicator's swipe region. The 2026-08-17
+  sheet lessons are about the *top* and the width; this is the third edge, and
+  `Screen` already applies the rule for every tab.
+
+**The You tab's header band carries no bird of its own.** It drew a 104pt one,
+centred, and the avatar ring then overlapped the band by 42pt and landed on it —
+the same art at two sizes, the larger sliced across the chest by the smaller.
+The two ground shadows were pinned at fixed left/right offsets against that
+bird, so with it gone behind the disc they read as two stray grey pills at the
+horizon. One shadow, centred under the ring that actually casts it. The ring is
+the bird on this screen; the band is the daylight behind it.
+
 **The Flock band names the day's leader** from `rows[0]` — no extra request, and
 **ordered by the board rather than by the race**: `squad_leaderboard()` sorts by
 the program-weighted total (deviation #11), so the name on the band is the top
