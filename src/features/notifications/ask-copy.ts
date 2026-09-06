@@ -59,6 +59,13 @@ export const RETIRED_PUSH_PHRASES: readonly RegExp[] = [
   /day-end/i,
   /day ending/i,
   /three a day/i,
+  // "a boss goes down" and "battle alerts", from before deviation #66 retired
+  // the Battle on 2026-09-06. The words rather than the phrases:
+  // `event_completed` fires from nothing now, so no honest sentence about
+  // Kairo's pushes contains either. Both surfaces carried one and neither
+  // would have been caught by a phrase.
+  /\bboss\b/i,
+  /\bbattle\b/i,
   // The old copy's "arrive at 11 PM and midnight", not the word. "Midnight" is
   // ordinary prose for the day boundary — `sync-window.ts` and `daily-walk.ts`
   // both use it, and the fine print above now says "after midnight" truthfully.
@@ -74,8 +81,13 @@ export const NOTIFICATION_ASK_COPY = {
   body: 'How yesterday went, and what today needs. That is the whole schedule — no streak nagging, and nothing at 11pm.',
   /**
    * Named rather than waved away, because "that is it" would be the same class
-   * of lie this copy replaces: `event_completed` and `challenge_cleared` still
-   * push.
+   * of lie this copy replaces: `challenge_cleared` still pushes.
+   *
+   * **It named a beaten boss until 2026-09-06.** The Battle was retired that
+   * day (deviation #66) and `event_completed` fires from nothing any more, so
+   * the sentence would have promised a push that cannot arrive — the exact
+   * failure this module was written to correct, one mechanic later. "Boss"
+   * joins `RETIRED_PUSH_PHRASES` for the same reason the other five are on it.
    *
    * **It said "Never overnight" and that was false** — caught in review, and it
    * is worth recording because the reasoning looked airtight. `QUIET_HOURS`
@@ -83,15 +95,15 @@ export const NOTIFICATION_ASK_COPY = {
    * engine appears to forbid an overnight send. But quiet hours are enforced in
    * `planNotifications`, and **`finalize-days` does not call it** — it reaches
    * `sendToUser` directly, and finalization runs `FINALIZATION_GRACE_MS` (2h)
-   * after local midnight. The two pushes this sentence names are the only two
-   * that *do* arrive overnight. `notifications.ts` even argues they should not
+   * after local midnight. The push this sentence names is the one that *does*
+   * arrive overnight. `notifications.ts` even argues it should not
    * ("a push at 02:00 to say 'well done' is worth waiting for morning"), which
    * is an intent the send path does not implement — a real defect, and not one
    * a copy change may paper over.
    *
    * So the sentence states the timing instead of promising its absence.
    */
-  fine: 'The only others are things you did — a boss goes down, a challenge clears. Those land when your day closes, a couple of hours after midnight.',
+  fine: 'The only other is something you did — a challenge clears. It lands when your day closes, a couple of hours after midnight.',
   /**
    * The ask, said as the thing being asked for. "Turn on notifications" names
    * the mechanism; this names the one message it buys, which is the whole

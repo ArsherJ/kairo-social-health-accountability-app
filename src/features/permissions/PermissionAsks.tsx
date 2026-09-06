@@ -35,13 +35,11 @@ import { nextPermissionAsk } from './ask-order.ts';
 export function PermissionAsks({
   userId,
   hasSquad,
-  hasEvent,
   hasScoredDay,
 }: {
   userId: string | undefined;
   hasSquad: boolean;
-  hasEvent: boolean;
-  /** The third why the notification ask can be earned (2026-09-04). See
+  /** The other why the notification ask can be earned (2026-09-04). See
    * `ask-policy.ts`; this component only carries it to the decision. */
   hasScoredDay: boolean;
 }) {
@@ -109,7 +107,6 @@ export function PermissionAsks({
           notification,
           notificationDismissed,
           hasSquad,
-          hasEvent,
           hasScoredDay,
           answeredAnAskThisSession,
         });

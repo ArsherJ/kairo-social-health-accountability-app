@@ -7,22 +7,22 @@
  * app can re-prompt, only Settings can.
  *
  * §5: every ask has a visible why. So the ask waits for the user to have
- * something worth being notified about — a squad, a battle running, or a day
- * that has actually scored. Never during onboarding, where the why does not
- * exist yet.
+ * something worth being notified about — a squad, or a day that has actually
+ * scored. Never during onboarding, where the why does not exist yet.
  *
- * A running battle counts on its own, with no squad flag set — though today it
- * cannot occur without one, since `events_need_squad` makes every Event a
- * squad's. The condition stays as its own reason rather than being folded into
- * `hasSquad`, so the ask does not silently re-couple to squad membership if an
- * Event ever stops needing a squad. `event_completed` is the budget-exempt
- * trigger it is anticipating.
+ * **A running Battle used to be a third reason, and went with the Battle**
+ * (deviation #66, 2026-09-06). It anticipated `event_completed`, the
+ * budget-exempt trigger a beaten boss fired; nothing fires it any more. The
+ * other two reasons are untouched, which is the point — the ask still reaches
+ * every account it reached the day before, because `events_need_squad` made
+ * every Event a squad's, so nobody could hold the retired reason without also
+ * holding `hasSquad`.
  *
  * **A first scored day was added on 2026-09-04, and it fixed a structural
  * exclusion rather than widening a net.** The two original reasons are both
  * social, which was right when the pushes they enabled were social. Deviation
  * #52 left one scheduled push — the 08:00 digest — and Kairo is solo-first, so
- * gating on `hasSquad || hasEvent` meant the entire solo cohort could never be
+ * gating on the two social reasons meant the entire solo cohort could never be
  * offered the only re-engagement the app has. A scored day is the moment there
  * is genuinely something to say at 8am tomorrow, which is the same test the
  * other two reasons pass, applied to the solo loop.
@@ -69,7 +69,6 @@ export function askAnswerFor(result: NotificationPermission): NotificationAskAns
 export function shouldAskForNotifications(input: {
   permission: NotificationPermission;
   hasSquad: boolean;
-  hasEvent: boolean;
   /**
    * Whether this account has ever scored a day above zero — the same lifetime
    * figure `disclosureStage` reads, from `useScoredDayCount`.
@@ -92,5 +91,5 @@ export function shouldAskForNotifications(input: {
 }): boolean {
   if (input.permission !== 'undetermined') return false;
   if (input.dismissedThisSession) return false;
-  return input.hasSquad || input.hasEvent || input.hasScoredDay;
+  return input.hasSquad || input.hasScoredDay;
 }

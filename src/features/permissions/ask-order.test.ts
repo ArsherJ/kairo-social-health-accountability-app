@@ -7,7 +7,6 @@ const base: PermissionAskInput = {
   notification: 'undetermined',
   notificationDismissed: false,
   hasSquad: true,
-  hasEvent: false,
   hasScoredDay: false,
   answeredAnAskThisSession: false,
 };
@@ -44,15 +43,14 @@ describe('which permission Kairo asks for', () => {
   });
 
   it('asks for nothing when Health is answered and the user has no why yet', () => {
-    // §5: every ask has a visible why. No squad, no battle and nothing scored
+    // §5: every ask has a visible why. No squad and nothing scored
     // — nothing to ask.
     expect(
       nextPermissionAsk({
         ...base,
         health: 'asked',
         hasSquad: false,
-        hasEvent: false,
-        hasScoredDay: false,
+              hasScoredDay: false,
       }),
     ).toBe(null);
   });
@@ -66,8 +64,7 @@ describe('which permission Kairo asks for', () => {
         ...base,
         health: 'asked',
         hasSquad: false,
-        hasEvent: false,
-        hasScoredDay: true,
+              hasScoredDay: true,
       }),
     ).toBe('notifications');
   });
@@ -81,8 +78,7 @@ describe('which permission Kairo asks for', () => {
       nextPermissionAsk({
         ...base,
         hasSquad: false,
-        hasEvent: false,
-        hasScoredDay: true,
+              hasScoredDay: true,
       }),
     ).toBe('health');
   });
@@ -95,8 +91,7 @@ describe('which permission Kairo asks for', () => {
         ...base,
         health: 'asked',
         hasSquad: false,
-        hasEvent: false,
-        hasScoredDay: true,
+              hasScoredDay: true,
         answeredAnAskThisSession: true,
       }),
     ).toBe(null);
@@ -108,8 +103,7 @@ describe('which permission Kairo asks for', () => {
         ...base,
         health: 'asked',
         hasSquad: false,
-        hasEvent: false,
-        hasScoredDay: true,
+              hasScoredDay: true,
         notification: 'denied',
       }),
     ).toBe(null);

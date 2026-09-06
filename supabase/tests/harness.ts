@@ -144,6 +144,15 @@ export interface Harness {
   asService<T = unknown>(sql: string, params?: unknown[]): Promise<T[]>;
   /** Run SQL as `authenticated` with auth.uid() bound to `userId`. */
   asUser<T = unknown>(userId: string, sql: string, params?: unknown[]): Promise<T[]>;
+  /**
+   * Apply one migration by filename, after the harness was built with
+   * `stopBefore`.
+   *
+   * The only way to test what a migration *does to existing rows*: the suite
+   * otherwise applies every file before the first test runs, so a row the
+   * migration was written to rewrite can never exist in front of it.
+   */
+  applyMigration(file: string): Promise<void>;
   /** Create an auth user plus a profile, returning the id. */
   createUser(opts?: {
     characterName?: string;
@@ -153,21 +162,34 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function setupHarness(): Promise<Harness> {
+export async function setupHarness(
+  opts: {
+    /**
+     * Stop short of this migration filename, leaving the schema as it stood
+     * immediately before it. The caller then seeds the rows the migration is
+     * supposed to act on and applies it with `applyMigration`.
+     */
+    stopBefore?: string;
+  } = {},
+): Promise<Harness> {
   const db = new PGlite();
   await db.exec(PLATFORM_STUB);
 
   const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
 
-  for (const file of files) {
-    if (UNSUPPORTED_MIGRATIONS.has(file)) continue;
-
+  async function applyMigration(file: string): Promise<void> {
     const sql = await readFile(join(MIGRATIONS_DIR, file), 'utf8');
     try {
       await db.exec(sql);
     } catch (error) {
       throw new Error(`Migration ${file} failed: ${(error as Error).message}`);
     }
+  }
+
+  for (const file of files) {
+    if (UNSUPPORTED_MIGRATIONS.has(file)) continue;
+    if (opts.stopBefore !== undefined && file >= opts.stopBefore) break;
+    await applyMigration(file);
   }
 
   async function asService<T>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -223,6 +245,7 @@ export async function setupHarness(): Promise<Harness> {
     db,
     asService,
     asUser,
+    applyMigration,
     createUser,
     close: () => db.close(),
   };

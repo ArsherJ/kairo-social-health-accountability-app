@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   challengeClearedCopy,
   digestCopy,
-  eventCompletedCopy,
   ordinal,
 } from './notification-copy.ts';
 
@@ -70,48 +69,6 @@ describe('digestCopy (deviation #52)', () => {
     expect(message.body).not.toMatch(/1st|of 4/);
   });
 
-  it('appends a live battle as damage dealt, not health left', () => {
-    // "Boss at 62%" reads either way, and the fraction is progress toward the
-    // target.
-    const message = digestCopy({
-      inSquad: true,
-      result: { rank: 2, racers: 4 },
-      event: { kind: 'battle', fraction: 0.62 },
-    });
-    expect(message.body).toBe('Everyone starts level this morning. Boss is 62% down.');
-  });
-
-  it('says an adventure in its own words', () => {
-    const message = digestCopy({
-      inSquad: true,
-      result: null,
-      standing: null,
-      event: { kind: 'adventure', fraction: 0.4 },
-    });
-    expect(message.body).toBe('Your squad is lining up. 40% of the way there.');
-  });
-
-  it('says nothing about an Event already beaten', () => {
-    // event_completed pushed the moment it latched. Repeating it the next
-    // morning would make one achievement look like two.
-    const message = digestCopy({
-      inSquad: true,
-      result: { rank: 1, racers: 3 },
-      event: { kind: 'battle', fraction: 1.4 },
-    });
-    expect(message.body).toBe('The flag resets this morning. Line up again.');
-  });
-
-  it('survives a fraction that is not a number', () => {
-    const message = digestCopy({
-      inSquad: true,
-      result: null,
-      standing: null,
-      event: { kind: 'battle', fraction: Number.NaN },
-    });
-    expect(message.body).toBe('Your squad is lining up.');
-  });
-
   it('speaks no points total anywhere (deviation #30)', () => {
     const messages = [
       digestCopy({ inSquad: false }),
@@ -168,40 +125,5 @@ describe('challengeClearedCopy', () => {
     for (const message of messages) {
       expect(`${message.title} ${message.body}`).not.toMatch(/\bpoints?\b/i);
     }
-  });
-});
-
-describe('eventCompletedCopy', () => {
-  it('says a Battle was beaten, not that an event completed', () => {
-    // Nobody set out to complete an event; they set out to beat the Carabao.
-    const message = eventCompletedCopy({
-      title: 'The Carabao',
-      kind: 'battle',
-      xpAwarded: 79,
-    });
-    expect(message.title).toBe('Boss down. ⚔️');
-    expect(message.body).toContain('The Carabao');
-    expect(message.body).toContain('+79 XP');
-  });
-
-  it('speaks to the squad, because an Event is pooled', () => {
-    // Every member on the frozen roster is paid, contributor or not
-    // (deviation #48) — "you hit it" would be a lie to the member the mechanic
-    // exists for.
-    expect(
-      eventCompletedCopy({ title: 'The Carabao', kind: 'battle', xpAwarded: 30 }).body,
-    ).toContain('your squad');
-  });
-
-  it('has its own sentence for an Adventure rather than a generic default', () => {
-    const message = eventCompletedCopy({ title: 'To Baguio', kind: 'adventure', xpAwarded: 164 });
-    expect(message.title).toBe('You made it. 🏕');
-    expect(message.body).toContain('reached the end');
-  });
-
-  it('separates thousands, matching the rest of the push copy', () => {
-    expect(
-      eventCompletedCopy({ title: 'Big', kind: 'battle', xpAwarded: 1_200 }).body,
-    ).toContain('+1,200 XP');
   });
 });

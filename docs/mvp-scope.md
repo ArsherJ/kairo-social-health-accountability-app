@@ -57,7 +57,7 @@ squad is a layer on top.
   time from Profile → Companion: Pilandok, Tamaraw, Carabao, Philippine Eagle.
   **Cosmetic only** — the choice reaches nothing in scoring, and each species'
   "affinity" names the stat it is *about*, never a bonus. Squadmates see it on
-  the leaderboard and on an Event roster. It has **no in-app noun**: it is
+  the leaderboard. It has **no in-app noun**: it is
   "your character", never a Hunter (deviation #26).
 - **Three stats from HealthKit** — **Motion** (`AGI`: steps, distance), **Body**
   (`STR`: active calories) and **Mind** (`MND`: sleep), since deviations #41 and
@@ -123,33 +123,18 @@ squad is a layer on top.
   manual entry stays for anyone whose chat client mangles the link.
 - Leave, with succession — the squad outlives its leader.
 
-### Events — the Battle, which replaced Goals
+### Events — retired 2026-09-06
 
-**Goals are OUT as of 2026-08-25** (deviation #45). Nothing renders one, no
-route reaches one, and the `goals` table is now `challenge_events`. A brief
-describing a goal card, `/goal/new` or a squad goal panel is describing a
-product that no longer exists.
+**Goals went OUT on 2026-08-25** (deviation #45) and **the Battle that replaced
+them went OUT on 2026-09-06** (deviation #66). Nothing renders either, no route
+reaches one, and every live `challenge_events` row was closed by the retirement
+migration. A brief describing a goal card, `/goal/new`, `/event/new`, a squad
+goal panel or a boss bar is describing a product that no longer exists.
 
-- **Battle is IN.** One pooled fight per squad, measured in **active
-  calories**, over a window the squad picks. One bar, everybody's effort in
-  it — the reversal of squad goals' per-member N-of-M (deviation #48), and the
-  reason the mechanic exists: the strong member carries, and being carried is a
-  reason to be in a squad.
-- **Every member on the frozen roster is paid when the bar fills**, including
-  one who contributed nothing. That is the mechanic, not a bug to report.
-- The boss's HP is **derived from the squad's own trailing fortnight and then
-  fixed** (deviation #49). It does not move mid-fight, unlike a Challenge
-  target, which is re-derived on every read. Both behaviours are correct; a
-  brief that expects one from the other will file the wrong finding.
-- Lives on the **Squad tab**, not the character screen, and is **not
-  disclosure-gated** — a new member sees the fight their squad is already in.
-- **Adventure is OUT**, with a stated reason: it is the same engine with
-  `distance_m` instead of calories, and it ships once the engine is proven
-  live. The schema carries the kind and the metric already, so the migration
-  happened once rather than twice — but nothing can create one, so nothing
-  tests one.
-- **Personal Events are OUT and will stay out.** `events_need_squad` rejects
-  them. A personal fight is a Challenge, which already exists on `/train`.
+What survives is history, not a mechanic: the three tables, `event_progress()`
+read-only, and `packages/kairo-core/src/event.ts` marked `@deprecated`. All of
+it is there so a banked completion's XP is neither lost nor unexplainable. See
+the OUT table below for the reasoning.
 
 ### Today — the tab, and quests
 
@@ -189,8 +174,9 @@ scene, one figure, one sentence and the details sheet.
   Quest completion pays XP.
 
 Quest XP is a **fourth source** on `profiles.total_xp`, alongside daily scores,
-Event completions and Challenge completions. Any brief describing XP as coming
-from days and Events alone is stale.
+Event completions (historical only, since the Battle was retired) and Challenge
+completions. Any brief describing XP as coming from days and Events alone is
+stale.
 
 ### Train — the Daily Walk and Challenges
 - **Daily Walk** — 10,000 steps a day, **in Today's details sheet** since
@@ -228,7 +214,8 @@ local day**, at 08:00 in their own timezone. §14's three — "1 hour left",
 evening or midnight push is describing a product that no longer exists.
 
 - The digest carries **yesterday's finished race result**, today's live
-  standing, and a live Battle's pooled progress. It deep-links to the Today tab.
+  standing. It deep-links to the Today tab. It carried a live Battle's pooled
+  progress until deviation #66 retired the Battle.
 - **08:00 rather than the finalization moment**, deliberately: days finalize
   about two hours after local midnight, so a digest carrying the result would
   arrive at 2am.
@@ -236,9 +223,9 @@ evening or midnight push is describing a product that no longer exists.
   recipients, with a partial unique index behind it. A second push in one local
   day is a bug worth filing; a *first* push arriving while the app is open is
   not, because the digest carries a result the screen does not show.
-- Two pushes still fire from something the user did — a Battle completing and a
-  Challenge clearing — and those are bounded by the **max of 3 a day**, which
-  #52 did not change.
+- One push still fires from something the user did — a Challenge clearing —
+  and it is bounded by the **max of 3 a day**, which #52 did not change. A
+  Battle completing was the other until deviation #66 retired it.
 - A solo user gets a digest too, and it **never mentions rank**: they are racing
   their own past days, and "1st of 4" against three ghosts would be a claim
   about other people that is not true.
@@ -284,11 +271,12 @@ a regression.
 | Not built | Why | Where it is recorded |
 |---|---|---|
 | **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it, and the Battle replaced Goals in turn on 2026-08-25. | Deviation #17 |
+| **The Battle** — a squad's pooled fight, its creation form, both `/event` routes, the Flock panel, the grading block and the beaten-boss push | **Retired 2026-09-06.** It was the only squad mechanic with an open defect — nothing closed an expired fight, so `challenge_events_one_live_per_kind` held the slot forever and a member who started one and left blocked the squad permanently. It was also the only uncapped XP-paying path, which is what put it outside both the race's cap and the hourly-ceiling flag, and the only mechanic that needed a squad to test. Following the Goals precedent exactly, **nothing that banked XP was destroyed**: the three tables stay, every live row is closed, `event_progress()` stays read-only, and the pooling and completion-XP arithmetic stays in `@kairo/core` marked deprecated with its tests. `event_completed` survives as a notification trigger routing to `/flock`, because a push sent before the deploy can be tapped after it. The cooperative reading the squad loses is picked up by the Flock week strip, which is issue #25 rather than part of this change. | Deviation #66, `docs/superpowers/specs/2026-09-06-road-to-high-rating-design.md` Part B |
 | **Character morphing, gear slots, Rive animation** | V1. The art is not commissioned; §15 scopes the MVP to *static* placeholder art, and pulling in an animation runtime for a placeholder is the wrong trade. The three responses listed above are what exists. | §15, `CharacterFigure.tsx` |
 | **Anything the species choice is not** — per-species evolution art, skins, battle frames, a roster past four, a *mechanical* affinity bonus, and animation beyond React Native `Animated` | Deliberate, and each one for its own reason. One artwork per species is what makes four species affordable, and it works because the figure's three responses are already code — a per-stage or per-dominance set is ~96 assets nobody will maintain. A mechanical affinity would rescore history, since `daily_scores` is replayed from stored buckets, so it is a migration rather than a tweak. No new dependency was added for motion: `react-native-svg`, Rive and Reanimated all stay uninstalled. | Deviation #40, spec §13 |
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
-| **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It was a third mechanic beside Goals and Challenges; Goals have since become the pooled Battle, so two of its three open questions have moved rather than closed — how a Routine-level shield and Challenge-level ease coordinate on one missed week, and where it would surface relative to `SquadEventPanel`. The third, a squad-level `required_members` default, is **gone with N-of-M**. | Deviation #33, spec §9 |
+| **Routines** — a scheduled weekly commitment shared with a squad, with each member held to their own Challenge bar | **Designed and deliberately not built** in the 2026-08-15 pass. It was a third mechanic beside Goals and Challenges; Goals have since become the pooled Battle, so two of its three open questions have moved rather than closed — how a Routine-level shield and Challenge-level ease coordinate on one missed week, and where it would surface at all now that the Battle it would have sat beside is retired (deviation #66). The third, a squad-level `required_members` default, is **gone with N-of-M**. | Deviation #33, spec §9 |
 | **The solo world map** | Replaced rather than deferred: the character *is* the world (source doc §26). Nothing should be filed against a map. | Parent spec §11 |
 | **Species past four, unlockable species** | The onboarding choice is the emotional hook, and a roster you unlock makes the first pick provisional. | Parent spec §11, deviation #40 |
 | **Squad size past six** | **Six lanes is the design**, not a free-tier limit waiting to be raised — the race is drawn as a track and a seventh lane is a different picture. | Parent spec §11 |
@@ -305,8 +293,8 @@ Getting these wrong in a brief produces findings about things that do not exist.
 | Say | Not |
 |---|---|
 | Race | daily leaderboard *(the track is the surface; the board is what it re-ranks)* |
-| Event, and **Battle** for the one kind that ships | goal, squad goal, target |
-| Challenge | *(only on `/train`, and only for the personal one — never for a squad's Battle)* |
+| *(no squad-wide target of any kind — Goals went 2026-08-25, the Battle 2026-09-06)* | goal, squad goal, target, Event, Battle, boss |
+| Challenge | *(only on `/train`)* |
 | boss, its HP | goal target, required points |
 | your character | Hunter, avatar |
 | squad | barkada, party, clan |

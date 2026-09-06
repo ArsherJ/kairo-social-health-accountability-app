@@ -51,23 +51,20 @@ describe('where a notification tap lands', () => {
     ).toBe('/');
   });
 
-  it('sends a completed event to that event, not to a list', () => {
-    // `finalize-days` is the only sender that carries an id, and it is the
-    // most specific destination the product has: the boss you just beat.
+  it('still lands a Battle push sent before the retirement', () => {
+    // **Historical** since deviation #66 (2026-09-06). Both event routes went
+    // with the Battle, so the id this payload carries addresses nothing — and
+    // it must not be interpolated into a path that no longer exists. The Flock
+    // tab is the squad the fight belonged to, which is somewhere real; a tap
+    // that goes nowhere is indistinguishable from push being broken.
     expect(
       notificationTarget({
         trigger: 'event_completed',
         screen: 'events',
         eventId: '7f3c1e2a-0000-4000-8000-000000000001',
       }),
-    ).toBe('/event/7f3c1e2a-0000-4000-8000-000000000001');
-  });
-
-  it('falls back to the character tab when an event push has lost its id', () => {
-    // Rather than null. The push already told the user something happened; the
-    // honest failure is landing them somewhere real, not swallowing the tap —
-    // and `/event/undefined` renders an error, which is a fabricated screen.
-    expect(notificationTarget({ trigger: 'event_completed', screen: 'events' })).toBe('/');
+    ).toBe('/flock');
+    expect(notificationTarget({ trigger: 'event_completed', screen: 'events' })).toBe('/flock');
   });
 
   it('still lands a goal push sent before the 2026-08-25 rename', () => {
@@ -109,13 +106,17 @@ describe('where a notification tap lands', () => {
   it('never returns a route the app no longer has', () => {
     // The whole point of the two cases above, stated once so it cannot be
     // regressed by editing them individually. `/today` and `/squad` were real
-    // routes until 2026-08-27; a payload still naming them must land on a real
-    // screen, and the union type is not enough on its own because a historical
-    // string can be added back to the switch by hand.
-    const retired = ['/today', '/squad'];
+    // routes until 2026-08-27 and the two event routes until 2026-09-06; a
+    // payload still naming any of them must land on a real screen, and the
+    // union type is not enough on its own because a historical string can be
+    // added back to the switch by hand.
+    const retired = ['/today', '/squad', '/event/new'];
     for (const screen of ['today', 'squad', 'character', 'events', 'goals', 'train']) {
-      const target = notificationTarget({ screen });
-      if (target !== null) expect(retired).not.toContain(target);
+      const target = notificationTarget({ screen, eventId: 'e1' });
+      if (target !== null) {
+        expect(retired).not.toContain(target);
+        expect(target).not.toMatch(/^\/event\//);
+      }
     }
   });
 });

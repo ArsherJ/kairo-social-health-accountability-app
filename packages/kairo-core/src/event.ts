@@ -3,6 +3,21 @@ import type { DayStatus } from './compute.ts';
 /**
  * Events — Battle and Adventure (roadmap deviations #45, #48, #49).
  *
+ * @deprecated **The Battle was retired on 2026-09-06** (deviation #66). No
+ * surface creates, renders or grades an Event any more, and the retirement
+ * migration closed every live row, so nothing in this module runs in
+ * production.
+ *
+ * It is kept, whole and tested, for the same reason the three tables are kept:
+ * `recalculate_user_xp` still sums `event_completions.xp_awarded`, and a future
+ * reader of a banked completion needs the arithmetic that produced it.
+ * `pooledDays()` and `eventCompletionXp()` are that arithmetic. `EVENT_KINDS`
+ * and `EVENT_METRICS` are additionally load-bearing: the column CHECKs on
+ * `challenge_events` reference exactly those values.
+ *
+ * Do not build anything new on this. Do not delete it either — a deleted
+ * module makes a banked row unexplainable.
+ *
  * An Event is a **pooled** target over a window of days. It replaces the Goal,
  * and the two differ on three axes that all matter:
  *

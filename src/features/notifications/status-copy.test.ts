@@ -33,11 +33,12 @@ describe('notificationStatus', () => {
     const help = notificationStatus('undetermined').help;
     expect(help).not.toMatch(/squad or a battle/i);
     expect(help).toMatch(/first scored day/i);
-    // And it must still name the two social whys, which did not go away — a
-    // line that traded one incomplete list for another would be the same
-    // defect pointing the other direction.
+    // And it must still name the social why, which did not go away — a line
+    // that traded one incomplete list for another would be the same defect
+    // pointing the other direction. It named two until 2026-09-06, when the
+    // Battle went (deviation #66) and stopped being a reason the policy
+    // recognises; the retired-phrase guard above is what holds it out.
     expect(help).toMatch(/squad/i);
-    expect(help).toMatch(/battle/i);
   });
 
   it('names what arrives rather than selling the feature', () => {

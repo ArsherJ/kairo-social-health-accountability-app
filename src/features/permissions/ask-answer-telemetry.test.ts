@@ -44,7 +44,7 @@ describe('the notification ask answer', () => {
     const calls = asks.match(/notification_ask_answered[^;]*/gs) ?? [];
     expect(calls).not.toHaveLength(0);
     for (const call of calls) {
-      expect(call).not.toMatch(/hasScoredDay|hasSquad|hasEvent|userId:|squad|steps|scoredDay/i);
+      expect(call).not.toMatch(/hasScoredDay|hasSquad|userId:|squad|steps|scoredDay/i);
       expect(call.match(/\w+:/g) ?? []).toEqual(['answer:']);
     }
   });

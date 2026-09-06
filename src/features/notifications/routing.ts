@@ -17,15 +17,15 @@
  *
  * Two senders exist today:
  *   dispatch-notifications → { trigger: 'daily_digest', localDate, screen: 'today' }
- *   finalize-days          → { trigger: 'event_completed', screen: 'events', eventId }
- *                          → { trigger: 'challenge_cleared', screen: 'train', localDate }
+ *   finalize-days          → { trigger: 'challenge_cleared', screen: 'train', localDate }
  *
- * Three shapes are **historical** and still routed, because a push sent minutes
+ * Four shapes are **historical** and still routed, because a push sent minutes
  * before a deploy can be tapped minutes after it: `{ screen: 'goals', goalId }`
- * from before the 2026-08-25 Goals → Events rename, and `{ screen: 'squad' }`
- * and `{ screen: 'character' }` from the three scheduled pushes deviation #52
- * retired. `'today'` is not historical — it is live — but its *route* moved on
- * 2026-08-27 and the payload did not.
+ * from before the 2026-08-25 Goals → Events rename, `{ screen: 'events' }` from
+ * before the Battle was retired on 2026-09-06 (deviation #66), and
+ * `{ screen: 'squad' }` and `{ screen: 'character' }` from the three scheduled
+ * pushes deviation #52 retired. `'today'` is not historical — it is live — but
+ * its *route* moved on 2026-08-27 and the payload did not.
  */
 
 /**
@@ -35,12 +35,7 @@
  * union is what lets the hook hand the result straight to the router without a
  * cast that would defeat the checking.
  */
-export type NotificationDestination =
-  | '/'
-  | '/flock'
-  | '/sky'
-  | '/train'
-  | `/event/${string}`;
+export type NotificationDestination = '/' | '/flock' | '/sky' | '/train';
 
 /**
  * The Today tab, and the fallback for anything addressable but underspecified.
@@ -56,23 +51,10 @@ export type NotificationDestination =
  */
 const HOME_TAB = '/' as const;
 
-/**
- * An event id we are willing to interpolate into a path.
- *
- * The ids are uuids, but this deliberately does not test for a uuid: the check
- * that matters is that the value cannot alter the shape of the route it is
- * being spliced into. A slash, whitespace or an unbounded length are the ways
- * that happens, and rejecting them keeps a malformed payload landing on a real
- * screen instead of a fabricated one.
- */
-function isAddressableId(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= 64 && /^[\w-]+$/.test(value);
-}
-
 export function notificationTarget(data: unknown): NotificationDestination | null {
   if (typeof data !== 'object' || data === null) return null;
 
-  const { screen, eventId } = data as { screen?: unknown; eventId?: unknown };
+  const { screen } = data as { screen?: unknown };
 
   switch (screen) {
     case 'today':
@@ -93,12 +75,12 @@ export function notificationTarget(data: unknown): NotificationDestination | nul
       // push onto the shell — which is exactly what a tap should do.
       return '/train';
     case 'events':
-      // The most specific destination the product has — the boss that just went
-      // down. Without a usable id there is still something worth showing, so
-      // this degrades to the Today tab rather than swallowing the tap: the
-      // notification already promised the user that something happened, and
-      // `/event/undefined` renders an error where the tab renders the app.
-      return isAddressableId(eventId) ? `/event/${eventId}` : HOME_TAB;
+      // **Historical.** The Battle was retired on 2026-09-06 (deviation #66)
+      // and both event routes went with it, so the `eventId` this payload
+      // carries no longer addresses anything. It lands on the Flock tab —
+      // the squad the fight belonged to — rather than nowhere, because a tap
+      // that goes nowhere is indistinguishable from push being broken.
+      return '/flock';
     case 'goals':
       // **Historical.** Pushes sent before the 2026-08-25 rename (deviation
       // #45). The goal routes are gone, so this lands on the Today tab rather

@@ -72,10 +72,12 @@ export type HourlyReading = Pick<HourBucket, 'steps' | 'distanceM' | 'activeKcal
  * `stat_records()` skipping flagged days is what closes the outcome: a personal
  * best is the one uncapped payoff a forged hour could otherwise buy.
  *
- * One consumer is still uncapped and the flag does not stop it: a Battle pools
- * raw active calories against a stored target and pays XP, and a flagged day
- * still contributes. That closes when the Battle is retired, which is why the
- * design put the two in one phase.
+ * One consumer was still uncapped and the flag did not stop it: a Battle pooled
+ * raw active calories against a stored target and paid XP, and a flagged day
+ * still contributed. **That closed on 2026-09-06**, when the Battle was retired
+ * (deviation #66) — which is why the design put the two in one phase. There is
+ * now no uncapped consumer left, and adding one would reopen this hole rather
+ * than merely widening a feature.
  *
  * At a ceiling is plausible; over it is not.
  */

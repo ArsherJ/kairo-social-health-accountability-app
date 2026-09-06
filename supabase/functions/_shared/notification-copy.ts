@@ -44,39 +44,6 @@ function points(total: number): string {
 }
 
 /**
- * A squad beat their boss.
- *
- * Its own function rather than a branch of the digest, because it needs the
- * Event's title and fires from `finalize-days` the moment the Event latches —
- * not from the morning sweep.
- *
- * Named for the **kind**, not for "event": nobody set out to complete an event,
- * they set out to beat the Carabao. `adventure` ships later (spec §11) and its
- * branch is written now because the alternative is a `default` that says
- * "Event complete", which is the sentence this function exists to avoid.
- *
- * Said in the plural throughout — "your squad" — because an Event is pooled and
- * every member on the frozen roster is paid, including one who contributed
- * nothing (deviation #48). "You hit it", the Goal copy this replaces, would be
- * a small lie to exactly the member the mechanic exists for.
- */
-export function eventCompletedCopy(input: {
-  title: string;
-  kind: 'battle' | 'adventure';
-  xpAwarded: number;
-}): PushMessage {
-  return input.kind === 'adventure'
-    ? {
-        title: 'You made it. 🏕',
-        body: `${input.title} — your squad reached the end. +${points(input.xpAwarded)} XP.`,
-      }
-    : {
-        title: 'Boss down. ⚔️',
-        body: `${input.title} — your squad finished it off. +${points(input.xpAwarded)} XP.`,
-      };
-}
-
-/**
  * A cleared Challenge.
  *
  * Named in the units the user just produced — a pace, a distance, calories —
@@ -121,38 +88,19 @@ export function challengeClearedCopy(challenge: Challenge): PushMessage {
  * What the digest has to say, for one recipient.
  *
  * Every field is optional-and-nullable because every one of them may
- * legitimately be absent: no squad, a squad whose race for yesterday is not
- * final because one member is still living in it, no live Event. Those are
- * ordinary states rather than errors, and each has its own sentence rather than
- * a placeholder.
+ * legitimately be absent: no squad, or a squad whose race for yesterday is not
+ * final because one member is still living in it. Those are ordinary states
+ * rather than errors, and each has its own sentence rather than a placeholder.
+ *
+ * **The Battle's clause went with the Battle** (deviation #66, 2026-09-06).
+ * `digestCopy` is now the headline alone.
  */
 export interface DigestFacts {
   /** Yesterday's finished race, if the squad has one. */
   result?: { rank: number; racers: number } | null;
   /** Today's live standing, if the user is in a squad. */
   standing?: { rank: number; racers: number } | null;
-  /** A live Event and how far through it the squad's pooled effort is, 0–1. */
-  event?: { kind: 'battle' | 'adventure'; fraction: number } | null;
   inSquad: boolean;
-}
-
-/**
- * The live Event, in one clause, or nothing.
- *
- * Named for the **kind** rather than for "event", the same rule
- * `eventCompletedCopy` follows: nobody set out to progress an event, they set
- * out to beat the Carabao. Said as *damage dealt* rather than health remaining,
- * because "Boss at 62%" reads either way and the fraction is progress toward
- * the target.
- *
- * A beaten Event says nothing here: `event_completed` already pushed the
- * moment it latched, and repeating it the next morning would make one
- * achievement look like two.
- */
-function eventClause(event: NonNullable<DigestFacts['event']>): string | null {
-  if (!Number.isFinite(event.fraction) || event.fraction >= 1) return null;
-  const pct = Math.max(0, Math.round(event.fraction * 100));
-  return event.kind === 'adventure' ? `${pct}% of the way there.` : `Boss is ${pct}% down.`;
 }
 
 /**
@@ -167,17 +115,10 @@ function eventClause(event: NonNullable<DigestFacts['event']>): string | null {
  * racing their own past days (spec §5.1), and "1st of 4" against three ghosts
  * would be a claim about other people that is not true.
  *
- * Nothing here speaks a points total (deviation #30). A rank, a count of
- * racers, and a percentage of a target the squad set itself are all figures the
- * screen shows.
+ * Nothing here speaks a points total (deviation #30). A rank and a count of
+ * racers are both figures the screen shows.
  */
 export function digestCopy(facts: DigestFacts): PushMessage {
-  const message = headline(facts);
-  const clause = facts.event ? eventClause(facts.event) : null;
-  return clause ? { ...message, body: `${message.body} ${clause}` } : message;
-}
-
-function headline(facts: DigestFacts): PushMessage {
   if (!facts.inSquad) {
     return {
       title: 'A new day. 🌤',

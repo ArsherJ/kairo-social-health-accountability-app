@@ -12,10 +12,6 @@ import {
   type WorkoutSession,
 } from '../_shared/core.ts';
 import { rescoreDay } from '../_shared/rescore.deno.ts';
-import {
-  planEventCompletions,
-  type EventRow,
-} from '../_shared/event-plan.ts';
 import { planChallengeCompletions } from '../_shared/challenge-plan.ts';
 import { buildStandings, squadDayIsComplete } from '../_shared/race-result-plan.ts';
 import { planQuestCompletions } from '../_shared/quest-plan.ts';
@@ -24,10 +20,7 @@ import {
   scoringSleepMinutes,
   type DailySleepRow,
 } from '../_shared/scoring-inputs.ts';
-import {
-  challengeClearedCopy,
-  eventCompletedCopy,
-} from '../_shared/notification-copy.ts';
+import { challengeClearedCopy } from '../_shared/notification-copy.ts';
 import { sendToUser } from '../_shared/push.deno.ts';
 
 /**
@@ -42,10 +35,16 @@ import { sendToUser } from '../_shared/push.deno.ts';
  * the streak fold refuses to apply the same day twice, so a retry or an
  * overlapping run changes nothing.
  *
- * Events latch here too, and only here: an Event completes off **final** days,
- * so the moment a day finalizes is the only moment its standing can change in a
- * way that pays XP. `on conflict do nothing` on the insert is what makes that
- * idempotent under overlapping runs — the same guard the streak fold relies on.
+ * Challenges and quests latch here, and only here: both pay XP off a **final**
+ * day, so the moment a day finalizes is the only moment their standing can
+ * change in a way that pays. `on conflict do nothing` on each insert is what
+ * makes that idempotent under overlapping runs — the same guard the streak fold
+ * relies on.
+ *
+ * **Events no longer latch here.** The Battle was retired on 2026-09-06
+ * (deviation #66) and every live row was closed by its migration, so there is
+ * nothing left to grade. `event_completions` and the arithmetic that produced
+ * its rows both survive — see `packages/kairo-core/src/event.ts`.
  *
  * Deliberately NOT here: coin awards. The MVP beta ships no coin economy (§15),
  * so milestones grant badges only. The coin ledger arrives with the V1 shop.
@@ -66,170 +65,6 @@ interface Candidate {
   user_id: string;
   local_date: string;
   timezone: string;
-}
-
-/**
- * Latch any Events this user's newly-final day completed, and notify.
- *
- * An Event completes **for the squad**, not per person: when the pooled bar is
- * met, every participant on the frozen roster is paid, including one who
- * contributed nothing (deviation #48). That is the mechanic — pooled means the
- * strong member carries — and paying only the contributors would rebuild the
- * per-member N-of-M rule the pivot removed.
- */
-async function settleEvents(
-  candidate: Candidate,
-  out: Array<{ userId: string; eventId: string; xp: number }>,
-): Promise<void> {
-  const { data: partRows, error: partError } = await admin
-    .from('event_participants')
-    .select('event_id')
-    .eq('user_id', candidate.user_id);
-  if (partError) throw new Error(`participant lookup failed: ${partError.message}`);
-
-  const eventIds = (partRows ?? []).map((r: { event_id: string }) => r.event_id);
-  // Returning early rather than passing an empty array to `.in()`, which
-  // PostgREST renders as `id=in.()` — a syntax error, not an empty result.
-  if (eventIds.length === 0) return;
-
-  // Only LIVE events whose window contains the finalized day. `closed_at is
-  // null` is the new half: a pre-pivot Goal row survives in this table so its
-  // banked XP does not vanish, and grading one would latch a completion against
-  // a target measured in points that means nothing here.
-  const { data: eventRows, error: eventError } = await admin
-    .from('challenge_events')
-    .select('id, squad_id, title, description, kind, metric, target, starts_on, ends_on')
-    .in('id', eventIds)
-    .is('closed_at', null)
-    .lte('starts_on', candidate.local_date)
-    .gte('ends_on', candidate.local_date);
-
-  if (eventError) throw new Error(`event lookup failed: ${eventError.message}`);
-  const events = (eventRows ?? []) as EventRow[];
-  if (events.length === 0) return;
-
-  // Every completion on these events, for EVERYONE — not just this user. An
-  // Event completes for the squad, so the already-paid set has to be keyed by
-  // (event, user) across the whole roster, or a second member's finalization
-  // would plan a row for the first member all over again.
-  const { data: doneRows, error: doneError } = await admin
-    .from('event_completions')
-    .select('event_id, user_id')
-    .in('event_id', events.map((e) => e.id));
-  if (doneError) throw new Error(`completion lookup failed: ${doneError.message}`);
-
-  const alreadyCompleted = new Set(
-    (doneRows ?? []).map(
-      (r: { event_id: string; user_id: string }) => `${r.event_id}:${r.user_id}`,
-    ),
-  );
-
-  type PlannedEvent = Parameters<typeof planEventCompletions>[0]['events'][number];
-  const planned: PlannedEvent[] = [];
-
-  for (const row of events) {
-    const [{ data: rosterRows, error: rosterError }, { data: dayRows, error }] =
-      await Promise.all([
-        admin.from('event_participants').select('user_id').eq('event_id', row.id),
-        // p_as_user is load-bearing: this runs as the service role with no JWT,
-        // so auth.uid() is null and the RPC's own guard would refuse it. Same
-        // affordance squad_leaderboard has for the notification cron.
-        //
-        // The candidate's own consent decides whether `value` comes back, and
-        // it is deliberately not read: `pooledDays()` grades off `pooled_value`,
-        // which the gate never withholds. Reading the other column would pool a
-        // whole squad's fight to zero for anyone who has not consented.
-        admin.rpc('event_progress', { p_event_id: row.id, p_as_user: candidate.user_id }),
-      ]);
-    if (rosterError) throw new Error(`roster lookup failed: ${rosterError.message}`);
-    if (error) throw new Error(`event_progress failed: ${error.message}`);
-
-    planned.push({
-      row,
-      roster: (rosterRows ?? []).map((r: { user_id: string }) => r.user_id),
-      rows: (dayRows ?? []) as PlannedEvent['rows'],
-    });
-  }
-
-  const completions = planEventCompletions({
-    localDate: candidate.local_date,
-    events: planned,
-    alreadyCompleted,
-  });
-
-  if (completions.length === 0) return;
-
-  // `ignoreDuplicates` is the one-way latch. Two overlapping runs both see the
-  // same final day and both plan the same completion; exactly one row survives,
-  // and the XP rollup trigger recomputes rather than increments either way.
-  const { error: latchError } = await admin
-    .from('event_completions')
-    .upsert(
-      completions.map((c) => c.row),
-      { onConflict: 'event_id,user_id', ignoreDuplicates: true },
-    );
-  if (latchError) throw new Error(`event latch failed: ${latchError.message}`);
-
-  for (const completion of completions) {
-    out.push({
-      userId: completion.row.user_id,
-      eventId: completion.row.event_id,
-      xp: completion.row.xp_awarded,
-    });
-
-    await admin.from('app_events').insert({
-      user_id: completion.row.user_id,
-      type: 'event_completed',
-      payload: {
-        eventId: completion.row.event_id,
-        localDate: candidate.local_date,
-        xpAwarded: completion.row.xp_awarded,
-      },
-    });
-  }
-
-  // Push, wrapped separately from the latch: a failed push must never roll back
-  // a completion that has already paid XP. The squad beat the boss whether or
-  // not their phone heard about it.
-  //
-  // **Only the user whose day just finalized is pushed here.** Every other
-  // member gets theirs when their own day finalizes, which is within a few
-  // hours and in their own timezone — pushing the whole squad from one
-  // member's finalization would fire at 2am for anyone further east.
-  for (const completion of completions) {
-    if (completion.row.user_id !== candidate.user_id) continue;
-    try {
-      const message = eventCompletedCopy({
-        title: completion.title,
-        kind: completion.kind,
-        xpAwarded: completion.row.xp_awarded,
-      });
-      const result = await sendToUser(admin, candidate.user_id, message, {
-        trigger: 'event_completed',
-        screen: 'events',
-        eventId: completion.row.event_id,
-      });
-      // Logged only when a device was actually reached. The row is how the beta
-      // counts what went out; it does not spend budget, because
-      // `countsAgainstBudget('event_completed')` is false (BUDGET_EXEMPT).
-      if (result.delivered > 0) {
-        await admin.from('notification_log').insert({
-          user_id: candidate.user_id,
-          kind: 'event_completed',
-          local_date: candidate.local_date,
-        });
-      }
-    } catch (pushError) {
-      await admin.from('app_events').insert({
-        user_id: candidate.user_id,
-        type: 'push_failed',
-        payload: {
-          trigger: 'event_completed',
-          error: (pushError as Error).message,
-        },
-      });
-    }
-  }
 }
 
 /**
@@ -386,7 +221,7 @@ async function settleChallenges(
 
   if (completions.length === 0) return;
 
-  // `ignoreDuplicates` is the one-way latch, exactly as for Events: two
+  // `ignoreDuplicates` is the one-way latch, exactly as for quests: two
   // overlapping runs both plan the same completion and exactly one row
   // survives. The XP rollup trigger recomputes rather than increments either
   // way, so even a duplicated insert could not double-pay.
@@ -415,8 +250,8 @@ async function settleChallenges(
       },
     });
 
-    // Wrapped separately from the latch, for the Events reason: a failed push
-    // must never undo a completion that has already paid XP.
+    // Wrapped separately from the latch: a failed push must never undo a
+    // completion that has already paid XP.
     try {
       const message = challengeClearedCopy(completion.challenge);
       const result = await sendToUser(admin, candidate.user_id, message, {
@@ -424,10 +259,9 @@ async function settleChallenges(
         screen: 'train',
         localDate: candidate.local_date,
       });
-      // Logged only when a device was actually reached. Unlike
-      // `event_completed`, this one **does** spend budget — a challenge clears
-      // repeatedly by design, which is the recurring-nudge case BUDGET_EXEMPT
-      // explicitly excludes.
+      // Logged only when a device was actually reached. This one **does**
+      // spend budget — a challenge clears repeatedly by design, which is the
+      // recurring-nudge case BUDGET_EXEMPT explicitly excludes.
       if (result.delivered > 0) {
         await admin.from('notification_log').insert({
           user_id: candidate.user_id,
@@ -451,9 +285,9 @@ async function settleChallenges(
 /**
  * Latch any quests this user's newly-final day cleared (deviation #50).
  *
- * **Before the Event and Challenge passes**, because quest XP lands in
- * `profiles.total_xp` through `recalculate_user_xp` and both of those pay into
- * the same figure — running quests first means their recomputes already include
+ * **Before the Challenge pass**, because quest XP lands in
+ * `profiles.total_xp` through `recalculate_user_xp` and both pay into the same
+ * figure — running quests first means the challenge recompute already includes
  * whatever quests paid, rather than needing another one after.
  *
  * The day's raw totals are summed here rather than read from `daily_scores`,
@@ -561,8 +395,8 @@ async function settleQuests(candidate: Candidate): Promise<void> {
 
   if (planned.length === 0) return;
 
-  // `ignoreDuplicates` is the one-way latch, exactly as for Events and
-  // Challenges: two overlapping cron runs must pay once.
+  // `ignoreDuplicates` is the one-way latch, exactly as for Challenges: two
+  // overlapping cron runs must pay once.
   const { error } = await admin
     .from('quest_completions')
     .upsert(planned, { onConflict: 'user_id,local_date,quest_id', ignoreDuplicates: true });
@@ -593,7 +427,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const failures: Array<{ userId: string; localDate: string; error: string }> = [];
   let shieldsUsed = 0;
   const milestones: Array<{ userId: string; milestone: number }> = [];
-  const eventsCompleted: Array<{ userId: string; eventId: string; xp: number }> = [];
   const challengesCleared: Array<{ userId: string; area: ChallengeArea; xp: number }> = [];
 
   for (const candidate of candidates) {
@@ -676,14 +509,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // ---- quests ----------------------------------------------------------
     //
-    // Before the Event and Challenge passes, so their XP recomputes already
-    // include whatever quests just paid rather than needing another.
+    // Before the Challenge pass, so its XP recompute already includes
+    // whatever quests just paid rather than needing another.
     //
     // No notification: quests are three small things, and one push per cleared
     // quest is precisely the volume the digest work exists to remove.
     //
-    // Wrapped separately, for the Events reason: a failed quest latch must
-    // never stop a day from becoming final. The day is the durable thing.
+    // Wrapped separately: a failed quest latch must never stop a day from
+    // becoming final. The day is the durable thing.
     try {
       await settleQuests(candidate);
     } catch (questError) {
@@ -700,10 +533,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // ---- race ------------------------------------------------------------
     //
     // After the streak fold, because the day must be `final` in the database
-    // before squad_leaderboard() reads it. Before events for no reason beyond
-    // ordering — the two are independent.
+    // before squad_leaderboard() reads it. Before challenges for no reason
+    // beyond ordering — the two are independent.
     //
-    // Wrapped separately, for the Events reason: a failed snapshot must never
+    // Wrapped separately: a failed snapshot must never
     // stop a day from becoming final. The day is the durable thing; the
     // standing can still be written by the next member's finalization, and if
     // nobody's is left the squad simply has no history row for that date —
@@ -722,46 +555,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    // ---- events ---------------------------------------------------------
-    //
-    // After the streak fold, because an Event completion is the last thing that
-    // can happen to a day and it depends on the day already being `final` in
-    // the database — `event_progress` reads status from `daily_scores`.
-    //
-    // Wrapped: an Event that fails to latch must not stop the day from closing.
-    // The day is the competition; the Event is a reward on top of it.
-    //
-    // Retry is NOT automatic on the next hourly run — `finalizable_days()` only
-    // returns *provisional* days, and this one is now final. The next
-    // finalization of any day inside the same window re-evaluates the whole
-    // window and picks it up, so a transient failure normally costs a day. The
-    // gap is an Event met on the LAST day of its window: nothing else finalizes
-    // inside it, so a failure there leaves it unlatched. Pooling narrows that
-    // gap without closing it — any other member's day inside the window
-    // re-evaluates the whole thing. Recorded as a known limitation; a V1 sweep
-    // over met-but-unlatched Events closes it.
-    try {
-      await settleEvents(candidate, eventsCompleted);
-    } catch (eventError) {
-      await admin.from('app_events').insert({
-        user_id: candidate.user_id,
-        type: 'event_settle_failed',
-        payload: {
-          localDate: candidate.local_date,
-          error: (eventError as Error).message,
-        },
-      });
-    }
-
     // ---- challenges ------------------------------------------------------
     //
-    // Wrapped for the same reason as events, and separately from them: a
-    // challenge that fails to latch must not stop the day closing, and must not
-    // take an Event completion down with it.
+    // Wrapped for the same reason the race snapshot is: a challenge that fails
+    // to latch must not stop the day closing.
     //
-    // Unlike Events, this does not read `daily_scores` at all — a challenge is
-    // resolved from `workout_sessions` and never touches the score. It sits
-    // after the Event pass only because it is the cheaper thing to lose.
+    // It does not read `daily_scores` at all — a challenge is resolved from
+    // `workout_sessions` and never touches the score. It sits last because it
+    // is the cheapest thing to lose.
     try {
       await settleChallenges(candidate, now, challengesCleared);
     } catch (challengeError) {
@@ -796,7 +597,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     finalized: finalized.length,
     shieldsUsed,
     milestones,
-    eventsCompleted,
     challengesCleared,
     failures,
     // A full batch means more days are waiting; the next hourly run picks them

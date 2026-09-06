@@ -43,11 +43,16 @@ describe('the privacy policy page', () => {
     expect(page).toMatch(/hour/i);
   });
 
-  it('names the pooled Battle total and the two-person limit', () => {
-    // The one figure shared without the agreement, and the arithmetic that
-    // makes it a partner's figure in a squad of two. Named, never implied.
+  it('says the pooled Battle total is no longer shared, and still names the two-person limit', () => {
+    // It was the one figure shared without the agreement, and the arithmetic
+    // that made it a partner's figure in a squad of two. The Battle was retired
+    // on 2026-09-06 (deviation #66), so the page states that in the past tense
+    // and says plainly that nothing shows a pooled total now — a page still
+    // claiming a live disclosure that cannot happen is as wrong as one hiding
+    // a disclosure that can.
     expect(page).toMatch(/pooled/i);
     expect(page).toMatch(/two/i);
+    expect(page).toMatch(/no longer is|retired/i);
   });
 
   it('says how to delete everything, from inside the app', () => {

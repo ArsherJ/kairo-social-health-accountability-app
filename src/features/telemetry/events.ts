@@ -56,10 +56,15 @@ export type AppEventType =
   | 'squad_created'
   | 'squad_joined'
   /**
-   * A Battle started. Payload `{ kind, difficulty }` and **never the target** —
-   * a boss's HP is derived from the squad's own history and is the squad's own
-   * number, the rule `goal_created` already followed. Difficulty answers
-   * whether squads reach for a fight they can win.
+   * A Battle started. Payload was `{ kind, difficulty }` and **never the
+   * target** — a boss's HP was derived from the squad's own history and was the
+   * squad's own number, the rule `goal_created` already followed.
+   *
+   * **Historical.** Retired on 2026-09-06 with the Battle itself (deviation
+   * #66). Nothing emits it any more; the name stays for exactly the reason
+   * `goal_created` below stays — `app_events` already holds rows saying it, and
+   * `kairo_retention()` reads that table over a trailing window that still
+   * spans the change.
    */
   | 'event_created'
   // **Historical.** Retired on 2026-08-25 when Goals became Events

@@ -21,7 +21,6 @@ import { boostChipLabel, programLabel } from './program-copy.ts';
 import { shareInvite } from './share-invite.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
-import { SquadEventPanel } from '@/features/events/SquadEventPanel.tsx';
 import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
 import { currentLocalDate } from '@kairo/core';
@@ -509,24 +508,10 @@ export function Leaderboard({
         />
       )}
 
-      {/* The slot the sabotage feed left, doing the opposite job: the feed was
-          what people did *to* each other, this is what they fight together.
-          One pooled bar rather than each member's own (deviation #48) — the
-          panel routes to its own screens, so it needs no callback. */}
-      <SquadEventPanel
-        squadId={squad.id}
-        today={
-          profile.data?.timezone
-            ? currentLocalDate(new Date(), profile.data.timezone)
-            : undefined
-        }
-      />
-
       {/* Deliberately at the foot of the scroll, not in a header: this is rare,
           irreversible, and must not sit next to the invite code someone taps
           every day. Outlined rather than filled so it stays quiet down here —
-          the `destructive` variant is exactly this compromise, and leaving a
-          Battle uses the same one so the two cannot drift. */}
+          the `destructive` variant is exactly this compromise. */}
       <View style={styles.leaveBlock}>
         {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
         <Button

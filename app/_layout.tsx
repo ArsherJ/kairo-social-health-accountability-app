@@ -106,7 +106,8 @@ export default function RootLayout() {
  * navigator out for a spinner unmounts every navigator beneath it, and
  * React Navigation deletes an unmounted navigator's state — so a transient
  * `useProfile` refetch would silently reset the tab bar to its initial screen.
- * That was half of the "back from a battle lands on the wrong tab" bug; the
+ * That was half of the "back from a stacked route lands on the wrong tab" bug;
+ * the
  * `<Stack>` below is the other half.
  */
 function Gate() {

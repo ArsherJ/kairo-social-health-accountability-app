@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   ghost: {},
   /**
-   * Leaving a battle, leaving a squad.
+   * Leaving a squad, deleting an account.
    *
    * Outlined in the damage colour rather than filled with it: these belong at
    * the foot of a screen and must not compete with the primary action above

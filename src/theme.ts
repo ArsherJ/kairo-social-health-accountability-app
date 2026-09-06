@@ -15,7 +15,7 @@
  * - **`accent`** — you, your day, the primary action. Orange. A fill.
  * - **`sage`** — your lane, squad warmth, and Mind. Violet. Never a CTA.
  * - **`teal`** — rest, and the second action on a screen.
- * - **`coral` / `damage`** — the streak, and a battle slipping away. Pink.
+ * - **`coral` / `damage`** — the streak, and things that went wrong. Pink.
  *
  * So `ramp.sage[500]` is a violet now and still means what it meant. Reading a
  * token's *name* for its hue is the one way to be wrong about this file.
@@ -225,7 +225,10 @@ export const colors = {
   coralEdge: '#d62e6b',
   coralTint: '#ffe3ee',
   /**
-   * A battle slipping away, and only that.
+   * Something that went wrong, or is about to: an error line, the outline on a
+   * destructive control. It named "a battle slipping away" until the Battle was
+   * retired on 2026-09-06 (deviation #66) — the value never moved, the sentence
+   * describing it did.
    *
    * The design's `#d62e6b` measures 4.40:1 on cream — just under body AA — so
    * it stays a fill (`coralEdge`) and the readable ink is one step deeper at

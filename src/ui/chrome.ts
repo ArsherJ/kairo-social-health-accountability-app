@@ -15,9 +15,10 @@ import { create } from 'zustand';
  * `useOnboardingStore`: chrome state that outlives a force-quit would be a bug,
  * not a feature.
  *
- * The stacked event routes use it for a different reason with the same effect:
- * there the nav is *covered* by the card rather than hidden, but `Screen` must
- * still not reserve `TAB_PILL_CLEARANCE` for something the user cannot see.
+ * The stacked routes (`/train`, `/progress`) use it for a different reason
+ * with the same effect: there the nav is *covered* by the card rather than
+ * hidden, but `Screen` must still not reserve `TAB_PILL_CLEARANCE` for
+ * something the user cannot see.
  *
  * `TabPill` reads this to render nothing, and `Screen` reads it to drop
  * `TAB_PILL_CLEARANCE` — both halves have to move together or the form floats

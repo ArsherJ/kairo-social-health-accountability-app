@@ -8,7 +8,6 @@ import {
 const base = {
   permission: 'undetermined' as NotificationPermission,
   hasSquad: true,
-  hasEvent: false,
   hasScoredDay: false,
   dismissedThisSession: false,
 };
@@ -16,19 +15,6 @@ const base = {
 describe('when Kairo asks for notification permission', () => {
   it('asks once the user has a squad', () => {
     expect(shouldAskForNotifications(base)).toBe(true);
-  });
-
-  it('asks anyone with a battle running, squad flag or not', () => {
-    // **Currently subsumed by `hasSquad`, and kept deliberately.** A Goal could
-    // be personal, so this was once the only ask a solo user could earn; an
-    // Event cannot be (`events_need_squad`, deviation #45), so today nobody
-    // reaches this branch without the first one already being true. It stays
-    // because the policy states two independent reasons a user has earned the
-    // ask, and collapsing them would silently re-couple the ask to squad
-    // membership the moment an Event no longer needs a squad.
-    expect(
-      shouldAskForNotifications({ ...base, hasSquad: false, hasEvent: true }),
-    ).toBe(true);
   });
 
   it('asks a solo player once a day has actually scored', () => {
@@ -40,7 +26,6 @@ describe('when Kairo asks for notification permission', () => {
       shouldAskForNotifications({
         ...base,
         hasSquad: false,
-        hasEvent: false,
         hasScoredDay: true,
       }),
     ).toBe(true);
@@ -48,13 +33,12 @@ describe('when Kairo asks for notification permission', () => {
 
   it('does not ask a solo player who has never scored a day', () => {
     // §5: every ask has a visible why. A digest with nothing to report is not
-    // one, and this is still the whole onboarding flow: no squad, no battle,
-    // and nothing yet from Apple Health.
+    // one, and this is still the whole onboarding flow: no squad, and nothing
+    // yet from Apple Health.
     expect(
       shouldAskForNotifications({
         ...base,
         hasSquad: false,
-        hasEvent: false,
         hasScoredDay: false,
       }),
     ).toBe(false);

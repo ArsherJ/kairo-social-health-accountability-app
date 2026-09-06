@@ -4,15 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together. iOS first via Expo; Supabase backend.
+Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line. (A pooled Battle sat beside the race until deviation #66 retired it on 2026-09-06.) iOS first via Expo; Supabase backend.
 
-**Current state (2026-09-02) — the ground truth a fresh session needs first:**
+**Current state (2026-09-06) — the ground truth a fresh session needs first:**
 
 - **Tabs** are **Today · Sky · Flock · You** — `app/(tabs)/` is `index` (Today) · `sky` · `flock` · `profile` (You). There is no character tab.
 - **Onboarding** is seven beats: `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` (`/mirror` sits between the sky card and the Health ask, added by deviation #62). The profile row commits exactly once, on `/name` (deviation #58; see its block below).
 - **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level/Streak, one Motion figure, one next step, a details sheet. No race copy, no Mastery coins, no quest rings on it.
 - **The palette is Playful** (deviation #58). Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
+- **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
 - **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded by `src/features/support/links.test.ts`. The App Store answers are `docs/app-store-privacy.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields, the `NSHealthShareUsageDescription` build.
 
@@ -56,15 +57,18 @@ the app as a leaderboard with goals, it is stale — fix it.
   `QUIET_HOURS` is enforced in `planNotifications`, and `dispatch-notifications`
   is its only caller — `finalize-days` reaches `sendToUser` directly, and
   finalization runs `FINALIZATION_GRACE_MS` (2h) after local midnight, so
-  `event_completed` and `challenge_cleared` are the two pushes that *do* arrive
+  `challenge_cleared` is the push that *does* arrive
   overnight. `notifications.ts` argues they should not ("a push at 02:00 to say
   'well done' is worth waiting for morning"); that is an intent the send path
   does not implement, and a "never overnight" claim shipped on it for one
   review round before being caught.
-- **`shouldAskForNotifications` earns the ask on a squad, a running Battle, or
-  a first scored day, as of 2026-09-04.** The first two are social,
-  which was right while the pushes they enabled were; #52 left one scheduled
-  push and Kairo is solo-first, so `hasSquad || hasEvent` excluded the whole
+- **`shouldAskForNotifications` earns the ask on a squad or a first scored
+  day, as of 2026-09-04.** A running Battle was a third reason until deviation
+  #66 dropped it on 2026-09-06; nobody could hold it without also holding
+  `hasSquad`, since `events_need_squad` made every Event a squad's, so no
+  account lost the ask. The social reasons were right while the pushes they
+  enabled were; #52 left one scheduled
+  push and Kairo is solo-first, so gating on them alone excluded the whole
   solo cohort from the app's only re-engagement. `hasScoredDay` reads the Today
   tab's own `useScoredDayCount` key — lifetime, `total > 0`, for that query's
   reasons — so it costs no request, and a count in flight reads false and
@@ -269,9 +273,11 @@ alongside `evaluateStepBurst`, and `stat_records()` skips a flagged day
   nothing consumes these numbers uncapped — the race caps at the ridge, points
   cap per stat, XP is banded, Mastery derives from capped points, quests are
   boolean — so the personal best is the outcome a forged sync could buy. **One
-  consumer is still uncapped and the flag does not stop it**: a Battle pools raw
-  active calories against a stored target and pays XP, and a flagged day still
-  contributes. That closes when the Battle is retired. The
+  consumer was still uncapped and the flag did not stop it**: a Battle pooled
+  raw active calories against a stored target and paid XP, and a flagged day
+  still contributed. **That closed on 2026-09-06** with deviation #66; there is
+  no uncapped consumer left, and adding one reopens the hole rather than merely
+  widening a feature. The
   ceilings buy the *claim*; skipping flagged days closes the outcome. A flag
   removes the whole **local date**, Mind's night included, and the exclusion is
   `not exists` rather than a join: an inner join would drop a date with no
@@ -593,11 +599,56 @@ Three things that are easy to break by accident:
   becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
   run stored as 5,000 metres would quietly corrupt every pace after it.
 
-**Goals became Events on 2026-08-25** (deviations #45, #48, #49). `goals` is
-`challenge_events`, `goal_participants` is `event_participants`,
+**The Battle is retired as of 2026-09-06** (deviation #66), and this block is
+now history rather than a live mechanic. Read it that way: everything below
+describes how a Battle worked and why its remains are shaped as they are.
+
+`src/features/events/`, both `/event` routes, `SquadEventPanel`, `BattleCard`,
+`event-plan.ts`, `finalize-days`' grading block, `dispatch-notifications`' digest
+branch and the `event_completed` push are **gone**. `create_event(text, text,
+text, text, integer, date, date, uuid)`, `abandon_event(uuid)` and
+`can_see_event(uuid, uuid)` are dropped **by exact argument list** — the
+`create_goal` / `p_metric` trap. Migration `20260906130000_retire_the_battle.sql`
+closes every live row, so no read can render one. Four things break easily:
+
+- **The three tables stay and must not be dropped.** `recalculate_user_xp` sums
+  `event_completions.xp_awarded`; dropping them silently drops every account's
+  banked Battle XP on the next write to any other XP source, and every level
+  falls with nothing to notice. `packages/kairo-core/src/event.ts` stays whole
+  and tested under `@deprecated` for the same reason — a banked completion needs
+  the arithmetic that produced it. `EVENT_KINDS` and `EVENT_METRICS` are
+  additionally load-bearing: the column CHECKs reference exactly those values.
+- **`event_progress()` stays and now holds the visibility rule itself.**
+  Dropping `can_see_event()` was not free: three RLS policies read it, a policy
+  expression registers a dependency, and the drop is refused unless the policies
+  go first. They are recreated **narrower** — participation for
+  `challenge_events`, owner-only for the two child tables — so the mutual
+  recursion the definer function existed to break cannot form. That function's
+  comment used to forbid a "second copy of the rule"; it is now the *only* copy,
+  because the policies no longer ask the question. `events_update_own` and the
+  `update (title, description)` grant are deliberately untouched.
+- **Testing a migration's effect on existing rows needs a staged harness.**
+  `setupHarness({ stopBefore })` + `applyMigration()` exist for exactly this: the
+  suite otherwise applies every file before the first test, so a live row this
+  migration was written to close can never exist in front of it. Both acceptance
+  criteria — every live row closed, and `recalculate_user_xp` returning the same
+  total either side — are only expressible that way.
+- **`event_completed` survives as a `NotificationTrigger` and routes to
+  `/flock`.** A push sent before the deploy can be tapped after it, and
+  `notification_log.kind` is free text. `event_created` likewise stays in
+  `AppEventType` as a historical value, exactly as `goal_created` did. The
+  `eventId` such a payload carries addresses nothing and must never be
+  interpolated into a path again.
+
+---
+
+**Goals became Events on 2026-08-25** (deviations #45, #48, #49) — *superseded by
+deviation #66 above; kept because the schema it created is what survives.*
+`goals` is `challenge_events`, `goal_participants` is `event_participants`,
 `goal_completions` is `event_completions`. `create_goal()`, `abandon_goal()`,
-`goal_window_scores()` and `can_see_goal()` are dropped; `create_event()`,
-`abandon_event()`, `event_progress()` and `can_see_event()` replace them.
+`goal_window_scores()` and `can_see_goal()` were dropped; `create_event()`,
+`abandon_event()`, `event_progress()` and `can_see_event()` replaced them, and
+all but `event_progress()` are themselves now dropped.
 `src/features/goals/` and both `/goal` routes are gone. Seven things break
 easily:
 
@@ -657,10 +708,11 @@ already shared. Runbook: `web/README.md`.
 **A new account does not see the whole app, as of 2026-08-17** (deviations
 #37–#39). `disclosureStage()` in `@kairo/core` returns `core` below
 `DISCLOSURE_THRESHOLD_DAYS` and `full` at or above it; `TrainEntry`, `StatRail`
-and the Strain/Sleep rows are hidden in `core`. **The Battle is not gated** —
-`SquadEventPanel` and both `/event` routes check nothing, because an Event is a
-squad's shared thing and gating it on one member's scored-day count would hide
-from a new member what the rest are already looking at. Nothing is deleted —
+and the Strain/Sleep rows are hidden in `core`. **The Battle was deliberately
+not gated**, and the rule outlived it (deviation #66 retired the mechanic on
+2026-09-06): a squad's shared surface must not be gated on one member's
+scored-day count, or a new member is hidden from what the rest are already
+looking at. Nothing is deleted —
 every gated surface stays built and reachable, which is what makes this cheap to
 reverse. Four things break easily:
 
@@ -763,8 +815,9 @@ parallel table would drift. Where composition has real edges it gets a
 tested pure module: `src/features/squad/row-label.ts` exists because a
 leaderboard row was twelve separate stops (a six-person board took seventy-odd
 swipes), and because "1-day streak" is right on screen and wrong out loud.
-Before adding a label, check the text already beside it — `BattleCard`'s pace
-marker needs nothing, since `eventStatusLine()` already says "behind pace".
+Before adding a label, check the text already beside it — the retired
+`BattleCard`'s pace marker needed nothing, since its status line already said
+"behind pace".
 
 **Three rules the 2026-08-14 device pass added.** First: **grouping is
 explicit.** `accessible` + `accessibilityLabel` on a parent is documented to
@@ -838,7 +891,8 @@ second, independent pass landed the same ask-widening under #61 before this
 row's own #60 could be reconciled; the table is corrected in place). Two
 halves that correct each other and must never ship apart. `shouldAskForNotifications`
 gains the account's **first scored day** as a third reason beside a squad and a
-live Battle — the two social reasons are unchanged, `nextPermissionAsk`'s
+live Battle (that second reason went with deviation #66 on 2026-09-06) — the
+social reason is unchanged, `nextPermissionAsk`'s
 ordering is unchanged, and Health still goes first. `users_needing_digest()`
 gains an activity predicate: **no scored day in seven local days** and the
 account gets nothing, silently, until its next scored day. Five things break
@@ -879,7 +933,7 @@ easily:
   because the ask never reached a solo player. It names no rank (the solo digest
   branch declines to, and a solo player is now the typical reader) and claims no
   hard daily cap — `MAX_NOTIFICATIONS_PER_DAY` bounds the *budgeted* triggers
-  and `event_completed` is `BUDGET_EXEMPT`, so "three a day at most" was never
+  and `event_completed` was `BUDGET_EXEMPT`, so "three a day at most" was never
   guaranteed. `ask-copy.test.ts` reads the `.tsx` off disk, which is the only
   way to test it: root Vitest cannot parse React Native's Flow syntax.
 - **Two ordering constraints, and both windows are silent.** The migration is
@@ -893,7 +947,8 @@ easily:
 owns it across two of them. *Later the same day the policy page became a
 fourth, with its own test:* `src/features/support/links.test.ts` reads
 `web/privacy.html` off disk and pins the contact address against
-`SUPPORT_EMAIL`, the four totals, the pooled-Battle clause, the deletion
+`SUPPORT_EMAIL`, the four totals, the pooled-Battle clause (rewritten to the
+past tense by deviation #66, and pinned as saying so), the deletion
 clause, and bans engine keys, tier names, retired promises and `[[TODO`
 placeholders — so the page cannot deploy with a blank in it. The HealthKit
 permission sheet is the other surface corrected that day: `disclosure.ts`
@@ -935,7 +990,7 @@ went stale in four places at once. Three more things:
 - `docs/Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here. §5's and §6's stat tables are superseded by deviation #41 and marked as such in place; the section numbering does not move.
 - `docs/roadmap.md` — build sequencing, phase status, and an **approved-deviations table**. Deviations from the spec are deliberate and recorded; propose changes against that table rather than "fixing" them.
 
-`docs/user-journey.md` walks the end-to-end user flow (onboarding → daily loop → character → squad → battles) grounded in what's actually built, not just spec'd. Update it whenever a flow changes.
+`docs/user-journey.md` walks the end-to-end user flow (onboarding → daily loop → character → squad) grounded in what's actually built, not just spec'd. Update it whenever a flow changes.
 
 **`docs/mvp-scope.md` is the IN/OUT contract.** Cite it in any QA brief, test plan or store-facing copy. It exists because the August 2026 QA pass graded Kairo against a v1.3-era brief and scored four sections 1/10 for features that were deliberately removed (sabotage) or deliberately deferred (gear, referrals, monetization) — burying the findings that mattered under findings about a product that no longer exists. If a brief describes something not listed there, the brief is stale.
 
@@ -1713,7 +1768,7 @@ Scores are always *replayed* from stored buckets, never adjusted in place. That 
 - **`profiles.total_xp` is a rollup**, recomputed as `sum(daily_scores.xp_awarded)` (plus `event_completions.xp_awarded` and `challenge_completions.xp_awarded`) by trigger — never incremented, so nothing double-counts. The same function maintains `agi_total`/`str_total`/`mnd_total`, which feed the ability ratings (three since deviation #41 — `end_total` and `vit_total` are dropped, and the skip guard described next had to shed them in the very migration that dropped the columns, or it names a column that no longer exists and fails on the next write). Its trigger skips the recompute only when *every* column it reads is unchanged: a same-tier rescore (5,200 → 8,000 steps, both Silver) moves the raw points and not the XP, and a narrower skip loses it silently.
 - **Strain is display-only.** `computeStrain()` runs on the client over `health_buckets.avg_heart_rate` and `daily_heart`. It never touches `daily_scores`, so score replay is unaffected. Heart rate is owner-readable only and absent from every projection — it is at least as revealing as the hourly movement §5 protects.
 - **Column-level grants:** `profiles` UPDATE is granted per-column. A column-level `REVOKE` against an existing table-level `GRANT` is silently a no-op in Postgres; revoke the table grant and re-grant the allowed columns.
-- **A migration touching a table an Edge Function writes ships with that function's redeploy.** Applying one without the other took scoring down for two days in August 2026: `remove_sabotage` dropped `daily_scores.sabotage_delta`, the deployed `sync-health` kept sending it, and because its bucket upsert commits *before* the score upsert, health data kept landing while nothing scored. Every test passed the whole time — they check the source, not the deployed artifact. Two guards now exist and both matter: the schema suite inserts `planDay`'s **real output** into `daily_scores` (so drift fails at commit time), and `supabase/scripts/smoke-sync.mjs` runs a real sync against the deployed function (so drift fails at deploy time). Run the latter after every deploy. Full post-mortem in `docs/qa/kairo-end-to-end-qa-report.md`. **`health_buckets` joined that seam on 2026-09-06** — the write the outage *committed*, and the one nothing watched: `bucketRows` and `BUCKET_CONFLICT_TARGET` live in `sync-plan.ts` and **`sync-health` reads both**, so the schema suite inserts the real row shape through the real conflict target, and a source scan holds the handler to it — a well-meaning inline of the literal back into `index.ts` would otherwise leave every assertion green. **`seed-health` is deliberately not converted**: it writes a narrower row (the scored columns only, the rest left to their defaults) with its own literal target, it is dev-only and reachable by no client path, and converting it would spend a redeploy to change nothing. That target is also the whole proof that **timezone hopping cannot manufacture a day** (issue #23): the key is `(user_id, local_date, hour)` with `hour` constrained 0-23, so a second sync covering the same UTC window under a travelled-to zone can only overwrite an hour of a local date, never add a twenty-fifth. The test drives the whole chain — `toBuckets` under two zones, `validateSyncRequest`, then the upsert — because the client is what decides `localDate` and `hour` from the zone it asserts and nothing downstream re-derives them. It claims nothing about the same UTC hour coming to rest on two different *local dates*, which is true for anyone who actually travelled and inflates no single day; the one consumer that would care is the Battle, which pools raw units across dates.
+- **A migration touching a table an Edge Function writes ships with that function's redeploy.** Applying one without the other took scoring down for two days in August 2026: `remove_sabotage` dropped `daily_scores.sabotage_delta`, the deployed `sync-health` kept sending it, and because its bucket upsert commits *before* the score upsert, health data kept landing while nothing scored. Every test passed the whole time — they check the source, not the deployed artifact. Two guards now exist and both matter: the schema suite inserts `planDay`'s **real output** into `daily_scores` (so drift fails at commit time), and `supabase/scripts/smoke-sync.mjs` runs a real sync against the deployed function (so drift fails at deploy time). Run the latter after every deploy. Full post-mortem in `docs/qa/kairo-end-to-end-qa-report.md`. **`health_buckets` joined that seam on 2026-09-06** — the write the outage *committed*, and the one nothing watched: `bucketRows` and `BUCKET_CONFLICT_TARGET` live in `sync-plan.ts` and **`sync-health` reads both**, so the schema suite inserts the real row shape through the real conflict target, and a source scan holds the handler to it — a well-meaning inline of the literal back into `index.ts` would otherwise leave every assertion green. **`seed-health` is deliberately not converted**: it writes a narrower row (the scored columns only, the rest left to their defaults) with its own literal target, it is dev-only and reachable by no client path, and converting it would spend a redeploy to change nothing. That target is also the whole proof that **timezone hopping cannot manufacture a day** (issue #23): the key is `(user_id, local_date, hour)` with `hour` constrained 0-23, so a second sync covering the same UTC window under a travelled-to zone can only overwrite an hour of a local date, never add a twenty-fifth. The test drives the whole chain — `toBuckets` under two zones, `validateSyncRequest`, then the upsert — because the client is what decides `localDate` and `hour` from the zone it asserts and nothing downstream re-derives them. It claims nothing about the same UTC hour coming to rest on two different *local dates*, which is true for anyone who actually travelled and inflates no single day; the one consumer that would have cared was the Battle, which pooled raw units across dates and was retired on 2026-09-06 (deviation #66) — so nothing consumes raw units across dates today.
 - **Sign in with Apple has two halves the repo cannot see.** The app side landed 2026-08-12 (`appleProvider` in `src/features/auth/providers.ts`, `usesAppleSignIn` in `app.config.ts`, Apple's branded button on `app/(auth)/sign-in.tsx` — required by their HIG, so do not swap it for Kairo's `Button`). The other two halves live outside git and fail silently: the **Sign in with Apple capability on the App ID**, whose absence is indistinguishable from a device not signed into an Apple ID, and the **client secret**, an ES256 JWT that Apple caps at ~182 days and that takes sign-in down for every user at once when it lapses. `npm run apple-secret` mints and installs it and prints the expiry — diary that date. The nonce is load-bearing: `signInAsync` gets the SHA-256 hash, `signInWithIdToken` gets the raw value, and sending the hash to both makes gotrue hash a hash. Runbook in `docs/sign-in-with-apple.md`. `external_anonymous_users_enabled` stays `true` on the project on purpose — the `__DEV__` guard in `availableProviders()`, not the project setting, is what keeps anonymous out of TestFlight.
 - **Every request has a deadline, because a hung request is worse than a failed one.** `supabase-js` sets no timeout and neither does `fetch`, so a **black-holed** host — DNS resolves, the TCP connection never completes — yields a promise that never settles. On 2026-08-14 a WiFi network began blocking `*.supabase.co` that way and the app sat on the KAIRO hold overlay permanently, surviving relaunches *and* a reinstall from TestFlight: `resolveRoute` reports a query with no data as `'loading'`, so the `'profile-error'` cover with its "Try again" button was already built and unreachable, because nothing ever errored. `src/lib/fetch-timeout.ts` is wired into `createClient`'s `global.fetch`. It **races** a deadline against the request rather than only aborting, since aborting merely asks the transport to reject and this exists for the case where the network layer is misbehaving; the abort still fires, to free the socket. Diagnostic worth reusing: `curl -w 'connect=%{time_connect}s'` showing DNS resolved but `connect=0.000000s` is a block, not an outage — and check the Management API separately, since `api.supabase.com` is a different host and stays up while the project's own subdomain is unreachable.
 - **TanStack Query does not know what offline means on a phone unless told.** Its default online detection is the browser's `online`/`offline` events, which React Native does not have — so without wiring it believes it is permanently online, and a query fired with no signal spends `retry: 2` immediately and lands in an error state instead of pausing. `src/lib/query-client.ts` wires `onlineManager` to NetInfo using **TanStack's documented recipe unmodified** — `Boolean(state.isConnected)`. It briefly read `isInternetReachable` instead, on the reasoning that a captive-portal wifi is "connected" and cannot reach Supabase. True, but the wrong trade: that field is NetInfo's own probe against an unrelated third-party endpoint, so a network blocking *the probe* while Supabase works reports offline forever, and paused queries never error — the same endless spinner as above. Prefer the false positive that fails loudly over the false negative that hangs; `fetch-timeout.ts` covers the captive-portal case. Do not "improve" on the documented recipe here again.

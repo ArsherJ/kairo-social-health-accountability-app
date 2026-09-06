@@ -9,8 +9,8 @@ import { registerDeviceToken, requestNotificationPermission } from './permission
 /**
  * The in-context ask (§5), as sheet *content* rather than a sheet.
  *
- * It appears once the user has a squad, a running Battle, or a first scored
- * day — at which point the "why" is on screen behind it. iOS grants exactly one
+ * It appears once the user has a squad or a first scored day — at which point
+ * the "why" is on screen behind it. iOS grants exactly one
  * dialog per install, so spending it during onboarding, before the user has
  * anything to be notified about, is spending it on a no.
  *

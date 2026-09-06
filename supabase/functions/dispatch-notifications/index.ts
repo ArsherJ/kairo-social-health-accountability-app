@@ -1,19 +1,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
 import { fail, json } from '../_shared/http.ts';
-import {
-  countsAgainstBudget,
-  evaluateEvent,
-  planNotifications,
-  pooledDays,
-  type EventProgressRow,
-} from '../_shared/core.ts';
+import { countsAgainstBudget, planNotifications } from '../_shared/core.ts';
 import {
   DIGEST_HOUR,
   planDigest,
   type DispatchCandidate,
 } from '../_shared/notification-plan.ts';
 import { digestCopy, type DigestFacts } from '../_shared/notification-copy.ts';
-import { eventRowToEvent, type EventRow } from '../_shared/event-plan.ts';
 import { sendToUser } from '../_shared/push.deno.ts';
 
 /**
@@ -183,11 +176,14 @@ async function squadsFor(userIds: readonly string[]): Promise<SquadByUser> {
 /**
  * What the digest has to say, for one recipient.
  *
- * Three reads, each of which may legitimately come back empty — and every empty
- * has its own copy branch rather than a placeholder. A user with no squad, a
+ * Two reads, either of which may legitimately come back empty — and every empty
+ * has its own copy branch rather than a placeholder. A user with no squad and a
  * squad whose race for yesterday is not final because one member is still
- * living in it, and a squad with no live Event are all ordinary states, not
- * errors.
+ * living in it are both ordinary states, not errors.
+ *
+ * **The Battle branch went with the Battle** (deviation #66, 2026-09-06). It
+ * was a third read, of the squad's one live Event, and there are no live Events
+ * left — the retirement migration closed every row.
  *
  * The race result is read from `race_results` **directly** rather than through
  * `race_result()`: this runs with the service role and no JWT, so `auth.uid()`
@@ -201,7 +197,7 @@ async function digestFactsFor(
 ): Promise<DigestFacts> {
   if (!squadId) return { inSquad: false };
 
-  const [resultRow, standingRows, eventRows] = await Promise.all([
+  const [resultRow, standingRows] = await Promise.all([
     admin
       .from('race_results')
       .select('standings')
@@ -216,41 +212,7 @@ async function digestFactsFor(
       // is null, so it cannot be used by a client to read as somebody else.
       p_as_user: candidate.userId,
     }),
-    admin
-      .from('challenge_events')
-      .select('id, squad_id, title, description, kind, metric, target, starts_on, ends_on')
-      .eq('squad_id', squadId)
-      // `closed_at is null` is not optional on any read: the table still holds
-      // every pre-pivot Goal row, and one of those graded here would be a
-      // points target that means nothing to this copy.
-      .is('closed_at', null)
-      .lte('starts_on', candidate.data.standingDate)
-      .gte('ends_on', candidate.data.standingDate)
-      .limit(1),
   ]);
-
-  // The live Event's pooled fraction, through the same two functions the client
-  // and finalize-days use — `pooledDays()` takes each date once (event_progress
-  // repeats the pooled figure on every participant's row) and `evaluateEvent()`
-  // is the single implementation of the arithmetic. A third reading of a bar
-  // three surfaces already draw is exactly what deviation #18 forbids.
-  let event: DigestFacts['event'] = null;
-  const liveEvent = (eventRows.data ?? [])[0] as EventRow | undefined;
-  if (liveEvent) {
-    const { data: progressRows } = await admin.rpc('event_progress', {
-      p_event_id: liveEvent.id,
-      p_as_user: candidate.userId,
-    });
-    const parsed = eventRowToEvent(liveEvent);
-    event = {
-      kind: parsed.kind,
-      fraction: evaluateEvent(
-        parsed,
-        pooledDays((progressRows ?? []) as EventProgressRow[]),
-        candidate.data.standingDate,
-      ).fraction,
-    };
-  }
 
   const standings = (resultRow.data?.standings ?? []) as Array<{
     user_id: string;
@@ -271,7 +233,6 @@ async function digestFactsFor(
     inSquad: true,
     result: mine ? { rank: Number(mine.rank), racers: standings.length } : null,
     standing: myRow ? { rank: Number(myRow.rank), racers: board.length } : null,
-    event,
   };
 }
 

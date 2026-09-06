@@ -37,9 +37,11 @@ export function notificationStatus(
       // enforce, since `BUDGET_EXEMPT` sends bypass the budget without
       // consuming it. And "never overnight" was the replacement's own mistake:
       // quiet hours live in `planNotifications`, which `finalize-days` does not
-      // call, so the two alerts named here are exactly the ones that arrive in
-      // the small hours. See `ask-copy.ts`, which carries the argument.
-      help: `One digest at ${DIGEST_LOCAL_HOUR}am, plus alerts when a boss goes down or a challenge clears — those arrive when your day closes.`,
+      // call, so the alert named here is exactly the one that arrives in the
+      // small hours. See `ask-copy.ts`, which carries the argument. A fourth
+      // went on 2026-09-06 with the Battle (deviation #66): this line offered
+      // an alert for a boss going down, which nothing can now send.
+      help: `One digest at ${DIGEST_LOCAL_HOUR}am, plus an alert when a challenge clears — that one arrives when your day closes.`,
       action: null,
     };
   }
@@ -49,7 +51,7 @@ export function notificationStatus(
       value: 'Off',
       // States the consequence, then the fix. No apology, and no pleading —
       // this is a setting the user chose and may well want to keep.
-      help: 'You will not get the morning digest or battle alerts. iOS only lets you turn these back on in Settings.',
+      help: 'You will not get the morning digest or challenge alerts. iOS only lets you turn these back on in Settings.',
       action: 'Open Settings',
     };
   }
@@ -63,9 +65,13 @@ export function notificationStatus(
   // includes a first scored day; the old sentence told the solo cohort the
   // digest was closed to them. It leads with the scored day for that reason —
   // it is the reason nearly everyone will reach first.
+  //
+  // The Battle went from the sentence with the mechanic on 2026-09-06
+  // (deviation #66), which is also the day it stopped being a reason
+  // `shouldAskForNotifications` recognises. Two reasons, two clauses.
   return {
     value: 'Not set',
-    help: 'Kairo will ask once it has something to say — your first scored day, or a squad or battle to follow.',
+    help: 'Kairo will ask once it has something to say — your first scored day, or a squad to follow.',
     action: null,
   };
 }

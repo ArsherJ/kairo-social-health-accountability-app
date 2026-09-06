@@ -42,7 +42,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
     term: 'Your day',
     scope: 'Today only',
-    body: 'Steps, active calories and last night’s sleep each earn Kairo something behind the scenes, and together they are today. You won’t see the number — it is what ranks the flock and what a battle is measured against. It resets at midnight in your own timezone, never the squad’s.',
+    body: 'Steps, active calories and last night’s sleep each earn Kairo something behind the scenes, and together they are today. You won’t see the number — it is what ranks the flock. It resets at midnight in your own timezone, never the squad’s.',
   },
   {
     term: 'Spreading it out',
@@ -62,7 +62,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
   {
     term: 'Level and XP',
     scope: 'All-time total',
-    body: 'Finishing a day earns XP, and so do quests, challenges and beating your squad’s boss. Enough XP is the next level. Unlike mastery, XP does not care which stat it came from.',
+    body: 'Finishing a day earns XP, and so do quests and challenges. Enough XP is the next level. Unlike mastery, XP does not care which stat it came from.',
   },
   {
     term: 'Records',
@@ -79,7 +79,7 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
 export default function ProgressHelp() {
   const router = useRouter();
 
-  // Same shape as the event routes: this is a card over the tab shell, so the
+  // The same shape `/train` uses: this is a card over the tab shell, so the
   // orbit nav is covered rather than absent and `Screen` must not reserve room
   // for it. The cleanup is the load-bearing half.
   useFocusEffect(

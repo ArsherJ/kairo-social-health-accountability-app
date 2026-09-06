@@ -41,11 +41,11 @@ export interface PermissionAskInput {
   notification: NotificationPermission;
   notificationDismissed: boolean;
   hasSquad: boolean;
-  hasEvent: boolean;
   /**
-   * Whether the account has ever scored a day. The third reason the
+   * Whether the account has ever scored a day. The other reason the
    * notification ask can be earned (2026-09-04) — see `ask-policy.ts`, which
-   * owns what it means; this function only passes it through.
+   * owns what it means; this function only passes it through. A live Battle
+   * was a third until 2026-09-06 (deviation #66).
    */
   hasScoredDay: boolean;
   /**
@@ -69,7 +69,6 @@ export function nextPermissionAsk(input: PermissionAskInput): PermissionAsk {
     shouldAskForNotifications({
       permission: input.notification,
       hasSquad: input.hasSquad,
-      hasEvent: input.hasEvent,
       hasScoredDay: input.hasScoredDay,
       dismissedThisSession: input.notificationDismissed,
     })

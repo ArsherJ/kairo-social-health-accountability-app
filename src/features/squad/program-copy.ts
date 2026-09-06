@@ -8,7 +8,8 @@ import {
 // Relative, and not `@/ui/index.ts`, for two separate reasons — this module is
 // tested by root Vitest, which has neither the `@/` alias nor a parser for
 // React Native's Flow syntax, and the barrel re-exports every component. The
-// same double constraint is why `event-copy.ts` reaches `kairo-core` by path.
+// same double constraint `kairo-voice.ts` is under when it reaches
+// `stat-names.ts`.
 import { STAT_NAMES } from '../../ui/stat-names.ts';
 
 /**

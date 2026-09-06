@@ -26,7 +26,6 @@ const TODAY_FIGURE_PATH = resolve(REPO_ROOT, 'src/features/character/CharacterFi
 const COMPACT_SURFACE_PATHS = [
   resolve(REPO_ROOT, 'src/features/squad/SkyMarker.tsx'),
   resolve(REPO_ROOT, 'src/features/squad/LeaderboardRow.tsx'),
-  resolve(REPO_ROOT, 'app/event/[id].tsx'),
 ] as const;
 const REQUIRED_REGISTRY_EXPORTS = [
   'KAIRO_BASE_ASSET',
@@ -183,7 +182,6 @@ describe('KAIRO character assets', () => {
     expect(KAIRO_THUMBNAIL_POSE).toEqual({
       skyMarker: 'run',
       leaderboard: 'idle',
-      eventMember: 'idle',
     });
   });
 

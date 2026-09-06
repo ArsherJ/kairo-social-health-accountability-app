@@ -7,7 +7,6 @@ import { useHealthSync } from '@/features/health/useHealthSync.ts';
 import { useScoredDayCount } from '@/features/character/queries.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { usePendingInvite } from '@/features/squad/usePendingInvite.ts';
-import { useSquadEvents } from '@/features/events/queries.ts';
 import { PermissionAsks } from '@/features/permissions/PermissionAsks.tsx';
 import {
   useAppOpenTelemetry,
@@ -48,9 +47,8 @@ export default function TabsLayout() {
   // The Health ask moved here from the character screen for the same reason,
   // and because two independently-mounted `<Modal>`s cannot both present.
   const squad = useMySquad(session?.user.id);
-  const events = useSquadEvents(squad.data?.id);
 
-  // The third why the notification ask can be earned (deviation #61,
+  // The other why the notification ask can be earned (deviation #61,
   // 2026-09-04) — `ask-policy.ts` owns the argument. Here for the same reason
   // the two above are: it shares the Today tab's query key, so it costs no
   // request and the two cannot disagree in one frame.
@@ -79,7 +77,6 @@ export default function TabsLayout() {
       <PermissionAsks
         userId={session?.user.id}
         hasSquad={Boolean(squad.data)}
-        hasEvent={(events.data ?? []).length > 0}
         hasScoredDay={(scoredDays.data ?? 0) > 0}
       />
     </Fragment>
