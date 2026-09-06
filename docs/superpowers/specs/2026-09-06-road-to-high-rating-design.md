@@ -170,7 +170,16 @@ and Watch data carries `com.apple.health.<device-uuid>`, so an exact match like
 the Health app, i.e. hand entry, and differs from the trusted prefix **only by
 case**. A case-insensitive prefix match trusts hand-entered data, with A1 as the
 only thing standing between it and the score. Beside the prefix sits a short
-server-side list of bridge apps, seeded from what the cohort actually carries.
+list of bridge apps, seeded from what the cohort actually carries.
+
+> **Corrected 2026-09-06, on building it (issue #22).** This said a
+> *server-side* list. It is not one, and cannot usefully be: the predicate is
+> applied at read time on the phone, so the list ships in the app as
+> `STEP_SOURCE_BRIDGE_ALLOWLIST` and moves by OTA — still free and unlimited,
+> just not server-side. It also ships **empty**, because every entry would
+> otherwise be a guess about which bands the market carries made before a cohort
+> exists, and a wrong guess in this direction is the only kind that inflates a
+> score. The disclosure line below is what fills it.
 
 **Exclusion is inert, never accusatory.** A day carrying an unrecognised step
 source is **not flagged**. Flagging is an accusation, §5's own principle is that

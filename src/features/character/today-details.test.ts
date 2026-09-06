@@ -18,7 +18,46 @@ const base = {
   motionNote: null,
   quests: [],
   selectedQuestIndex: null,
+  droppedStepSources: [] as string[],
 };
+
+describe('todayDetails — uncounted step sources', () => {
+  const motionRows = (dropped: string[]) =>
+    todayDetails({ ...base, droppedStepSources: dropped })
+      .find((section) => section.id === 'motion')!.rows;
+
+  it('says nothing when every source counted', () => {
+    expect(motionRows([]).some((row) => row.id === 'dropped-sources')).toBe(false);
+  });
+
+  it('names one dropped app', () => {
+    const note = motionRows(['Mi Fitness']).find((row) => row.id === 'dropped-sources');
+    expect(note?.value).toBe("Steps from Mi Fitness aren't counted yet.");
+  });
+
+  it('joins two with "and", and three with commas', () => {
+    expect(motionRows(['Mi Fitness', 'Zepp']).at(-1)?.value)
+      .toBe("Steps from Mi Fitness and Zepp aren't counted yet.");
+    expect(motionRows(['Mi Fitness', 'Zepp', 'Amazfit']).at(-1)?.value)
+      .toBe("Steps from Mi Fitness, Zepp and Amazfit aren't counted yet.");
+  });
+
+  it('states the fact and never accuses', () => {
+    // The exclusion is inert. The Philippine market runs cheap bands that write
+    // under their own identifiers, and wording this as suspicion would accuse
+    // the target market of cheating for owning its own hardware.
+    const value = motionRows(['Mi Fitness']).at(-1)!.value.toLowerCase();
+    for (const accusation of ['cheat', 'invalid', 'not allowed', 'rejected', 'untrusted', 'suspicious', 'blocked']) {
+      expect(value, `the line accuses: ${accusation}`).not.toContain(accusation);
+    }
+  });
+
+  it('keeps the Daily Walk sentence readable when a note follows it', () => {
+    const rows = motionRows(['Mi Fitness']);
+    expect(rows.at(-1)?.id).toBe('dropped-sources');
+    expect(rows.some((row) => row.id === 'walk-note')).toBe(true);
+  });
+});
 
 describe('todayDetails', () => {
   it('separates personal Streak from the Daily Walk run and uses raw units', () => {

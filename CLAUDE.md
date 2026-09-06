@@ -161,6 +161,87 @@ being bounded downstream. Four things break easily:
   Apple's own *sensor-recorded* samples behave like unflagged programmatic ones.
   No simulator produces those.
 
+**Untrusted step sources stop counting as of 2026-09-06** (deviation #67, second
+of its three parts). `partitionStepSources` in
+`src/features/health/step-sources.ts` splits the day's contributing sources; the
+trusted ones go back to HealthKit as `filter.sources` on the **same** combined
+statistics collection. Seven things break easily:
+
+- **A source predicate, never per-source sums.** Apple deduplicates *inside* one
+  query, which is what stops an iPhone and its paired Watch counting the same
+  steps (deviation #8). `queryStatisticsCollectionForQuantitySeparateBySource`
+  exists and summing its output looks equivalent — it rebuilds that double count
+  for exactly the most competitive users.
+- **An empty trusted list means skip the query, not pass an empty array.**
+  Natively an empty source set yields *no* predicate
+  (`createSourcePredicate` returns nil), so `sources: []` counts **every**
+  source including the ones just rejected — the exact failure the read exists to
+  prevent, arrived at by tidiness. `read.ts` skips the steps collection instead,
+  which **does** zero the day's steps server-side — `toBuckets` seeds every hour
+  of every requested date, so producing no readings uploads `steps: 0` across
+  the window. That is correct when nothing contributing is counted, and it is
+  why the disclosure line is not optional.
+- **`null` and empty are different answers and fail in opposite directions.**
+  `null` means the *enumeration* threw and there is no verdict about anybody's
+  steps, so the read counts every source exactly as it did before the predicate
+  existed. Failing closed there would make a transient native error silently
+  delete the player's own iPhone steps with no line to explain it — the "number
+  too low, no reason" failure this pass exists to remove, reintroduced by its own
+  fix. An empty partition means the enumeration answered and trusted nothing,
+  which must count nothing. Collapsing the two into one `[]` is the easy mistake,
+  and it was made once here before being caught.
+- **The prefix is `com.apple.health.` — case-sensitive, trailing dot,
+  something after it.** All three are load-bearing. `com.apple.Health` is the
+  *Health app*, i.e. hand entry, and differs only by case, so a
+  case-insensitive match would trust typed-in numbers with `EXCLUDE_TYPED_IN` as
+  the only thing left between them and the score; without the dot
+  `com.apple.healthkitreporter` matches; and the bare prefix is not a device.
+  It is a prefix rule rather than `WORKOUT_SOURCE_ALLOWLIST`'s exact list
+  because device data carries `com.apple.health.<device-uuid>` — one list per
+  shape of identifier, and they are not interchangeable.
+- **`STEP_SOURCE_BRIDGE_ALLOWLIST` is empty on purpose, and it ships in the
+  app.** Empty because no cohort exists and a wrong guess here is the only kind
+  that inflates a score; the disclosure line is how it gets filled, from what
+  players actually carry. **In the app, not server-side** — the filter is applied
+  at read time on the phone, so the list moves by OTA. The design doc said
+  server-side and was corrected.
+- **Exclusion is inert and must never flag the day.** §5's rule is that a false
+  positive costs more than a miss, and the Philippine market runs cheap bands
+  that write under their own identifiers — "count Apple only and flag the rest"
+  accuses the target market of cheating for owning its own hardware.
+  `today-details.ts`'s line states a fact and a test bans seven accusing words.
+- **`dev-seed.ts` writes as Kairo and would be dropped by this.** `read.ts`
+  passes the app's own bundle id through `partitionStepSources`' `alsoTrust`
+  under `__DEV__` only — otherwise the source predicate takes the simulator loop
+  out a second time, straight after `EXCLUDE_TYPED_IN` took it out the first.
+  Empty in a release build, where the app writes no steps at all.
+- **`filter.sources` must hold the objects `querySources` returned.** The native
+  side recovers each with `source as? SourceProxy`, so a mapped or spread copy
+  downcasts to nil, contributes no predicate, and the query counts every source
+  **silently**. `partitionStepSources` is generic over its element type for
+  exactly this reason: it returns the same instances and never rebuilds one.
+- **The names describe the sync window, not today**, and the line is worded for
+  it — "aren't counted yet" is a standing fact about a source, not a claim about
+  today's steps. A first sync spans up to 31 days, so it can name an app that
+  wrote nothing today, and that is still true rather than misleading.
+- **The dropped names never leave the phone.** Not in the sync body, no
+  projection, no telemetry payload, and `status-store.ts` holds them in memory
+  rather than persisting them — a stale list outliving an uninstalled app is a
+  sentence about nothing. `step-sources.test.ts` scans `sync.ts`,
+  `useHealthSync.ts` and Today for both leaks, because "log which bands the
+  cohort carries" is one line away and would turn a disclosure into a
+  collection.
+
+**Two limits of that pass, deliberate and worth knowing.** The predicate is on
+**steps only** — distance, active energy and exercise minutes are unfiltered,
+because the ticket scoped the day's step total and widening it silently would
+change the anti-cheat stride check's inputs without a decision. And it applies
+to `readHealthWindow` only: `readStepsToday` (the onboarding reveal) and
+`readDailySteps` (calibration) still read every source, so an account whose only
+source is an unrecognised band sees a real number on `/connect` and is
+calibrated on steps that will not later count. Both are follow-ups, not
+oversights.
+
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
 Apple computes active calories against the body profile in the *Health app*,

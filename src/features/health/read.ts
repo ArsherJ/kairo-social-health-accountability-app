@@ -1,6 +1,8 @@
 import {
   ComparisonPredicateOperator,
+  currentAppSource,
   queryCategorySamples,
+  querySources,
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
   type FilterForSamples,
@@ -13,6 +15,7 @@ import {
   type SleepNight,
   type SleepSegment,
 } from './sleep-attribution.ts';
+import { partitionStepSources } from './step-sources.ts';
 import { kcalFrom, metresFrom, secondsFrom } from './workout-units.ts';
 import type { HealthMetric, HourlyReading } from './hourly-buckets.ts';
 import type { SyncWindow } from './sync-window.ts';
@@ -22,6 +25,23 @@ import type { SyncWindow } from './sync-window.ts';
  * key — a re-synced window upserts rather than duplicating, and a workout Apple
  * later revises flows through the same way retroactive step revisions do.
  */
+/**
+ * One contributing source, as `querySources` hands it back.
+ *
+ * **Pass these objects through untouched.** The native side recovers the real
+ * source with `source as? SourceProxy` (`ios/PredicateHelpers.swift`), so a
+ * mapped, spread or otherwise reconstructed copy downcasts to nil, contributes
+ * no predicate, and the query silently counts *every* source. That is why
+ * `partitionStepSources` is generic over the element type and returns the same
+ * instances rather than a projection of their fields.
+ *
+ * Inferred from the function rather than imported: the library does not
+ * re-export `SourceProxy` from its root, and reaching into
+ * `lib/typescript/specs/…` would pin an internal path that a patch release can
+ * move. This tracks the signature instead.
+ */
+type ContributingSource = Awaited<ReturnType<typeof querySources>>[number];
+
 export interface WorkoutSessionReading {
   hkUuid: string;
   localDate: string;
@@ -123,8 +143,41 @@ const EXCLUDE_TYPED_IN: Pick<FilterForSamples, 'NOT'> = {
  * entire collection — every hour since the user's first ever sample, which on
  * someone with years of Health history is tens of thousands of objects.
  */
-function quantityFilter(from: Date, to: Date): FilterForSamples {
-  return { date: { startDate: from, endDate: to }, ...EXCLUDE_TYPED_IN };
+function quantityFilter(
+  from: Date,
+  to: Date,
+  sources?: readonly ContributingSource[],
+): FilterForSamples {
+  return {
+    date: { startDate: from, endDate: to },
+    ...EXCLUDE_TYPED_IN,
+    // Undefined means "every source", which is right for every read that has
+    // not partitioned them. An **empty array** would mean the same thing
+    // natively — `createSourcePredicate` returns no predicate for an empty set
+    // — which is why the caller must skip the query rather than pass one.
+    ...(sources === undefined ? {} : { sources: sources as ContributingSource[] }),
+  };
+}
+
+/**
+ * Identifiers trusted on top of the published rule, and only in development.
+ *
+ * `dev-seed.ts` writes its samples as Kairo, so without this the source
+ * predicate drops them and the simulator dev loop breaks a second time — right
+ * after `EXCLUDE_TYPED_IN` broke it the first, and for a player-invisible
+ * reason. Empty in a release build, where the app writes no steps at all.
+ *
+ * Wrapped because `currentAppSource()` is a native call: if it throws there is
+ * no development convenience to be had, and a sync carrying the day's steps
+ * must not die for one.
+ */
+function developmentTrustedSources(): string[] {
+  if (!__DEV__) return [];
+  try {
+    return [currentAppSource().bundleIdentifier];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -194,6 +247,16 @@ export interface HealthReadResult {
   sleep: SleepNight[];
   /** One per local day that had a reading. Wearable users only. */
   restingHeartRate: Array<{ localDate: string; bpm: number }>;
+  /**
+   * Display names of step sources whose steps were **not** counted.
+   *
+   * Owner-only, and it never leaves the phone: it is not part of the sync
+   * payload, reaches no projection and enters no telemetry payload. It exists
+   * so Today's details can say which app was dropped — silence would leave
+   * somebody with a number too low for the day they had and no reason for it,
+   * which is indistinguishable from Kairo being broken.
+   */
+  droppedStepSources: string[];
 }
 
 /**
@@ -306,6 +369,36 @@ export async function readHealthWindow(
 ): Promise<HealthReadResult> {
   const quantities = quantityFilter(window.fromUtc, window.toUtc);
 
+  // Which apps wrote steps over this window, partitioned against the published
+  // rule. The trusted ones go back to HealthKit as a source predicate on the
+  // *same* combined query below, so Apple still deduplicates an iPhone against
+  // its paired Watch (deviation #8). Summing per-source sums instead would
+  // rebuild that double count for exactly the most competitive users.
+  //
+  // **Two different failures live here and they fail in opposite directions.**
+  // `null` means the enumeration itself did not answer — a native call that
+  // threw, and no verdict about anybody's steps. That reads **every** source,
+  // exactly as this function did before the predicate existed, because the cost
+  // of failing closed there is the player's own iPhone steps silently vanishing
+  // on a transient error, with no line to explain it: the "number too low, no
+  // reason" failure this pass exists to remove, caused by the fix for it. The
+  // cost of failing open is one sync counting a band it will stop counting on
+  // the next, which is the miss §5 already prefers over a false positive.
+  //
+  // An **empty** partition is the opposite case: the enumeration answered, and
+  // the answer is that nothing here is trusted. That must count nothing.
+  let stepSources: ContributingSource[] | null = null;
+  let droppedStepSources: string[] = [];
+  try {
+    const contributing = await querySources('HKQuantityTypeIdentifierStepCount', quantities);
+    const partition = partitionStepSources(contributing, developmentTrustedSources());
+    stepSources = partition.trusted;
+    droppedStepSources = partition.droppedNames;
+  } catch {
+    stepSources = null;
+    droppedStepSources = [];
+  }
+
   // Workouts deliberately take the date range without the exclusion:
   // `queryWorkoutSamples` returns samples, so a typed-in session is kept whole,
   // flagged by `wasUserEntered`, and refused server-side in `scoring-inputs.ts`
@@ -321,13 +414,37 @@ export async function readHealthWindow(
   // against that identifier's own unit type. A loop would widen `unit` to
   // `string` and lose exactly the guarantee this is here for.
   const collections = await Promise.all([
-    queryStatisticsCollectionForQuantity(
-      'HKQuantityTypeIdentifierStepCount',
-      ['cumulativeSum'],
-      window.fromUtc,
-      HOURLY,
-      { filter: quantities, unit: 'count' },
-    ),
+    // Skipped outright when the partition trusted nothing, rather than run with
+    // an empty source list: natively an empty set is *no* source predicate, so
+    // passing one would count every source including the ones just rejected —
+    // the failure this whole read exists to prevent, arrived at by being tidy.
+    //
+    // **This does zero the day's steps server-side, and that is the point.**
+    // `toBuckets` seeds every hour of every requested date, so producing no
+    // readings uploads `steps: 0` across the window and `sync-health` upserts
+    // it — which is exactly right when every contributing source is one Kairo
+    // does not count, and is why the disclosure line has to exist. (An earlier
+    // comment here claimed the opposite, that no readings meant no write. It
+    // was wrong: seeding whole days is deliberate, so a revision down to zero
+    // propagates instead of leaving a stale high bucket forever.)
+    //
+    // `null` is not the same as empty and reads everything — see above.
+    stepSources !== null && stepSources.length === 0
+      ? []
+      : queryStatisticsCollectionForQuantity(
+          'HKQuantityTypeIdentifierStepCount',
+          ['cumulativeSum'],
+          window.fromUtc,
+          HOURLY,
+          {
+            filter: quantityFilter(
+              window.fromUtc,
+              window.toUtc,
+              stepSources ?? undefined,
+            ),
+            unit: 'count',
+          },
+        ),
     queryStatisticsCollectionForQuantity(
       'HKQuantityTypeIdentifierDistanceWalkingRunning',
       ['cumulativeSum'],
@@ -518,6 +635,7 @@ export async function readHealthWindow(
   return {
     readings,
     sessions,
+    droppedStepSources,
     sleep: sleepMinutesByDate(segments, window.dates, timeZone),
     restingHeartRate: window.dates
       .filter((localDate) => restingByDate.has(localDate))

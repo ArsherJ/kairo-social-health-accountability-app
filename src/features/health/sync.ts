@@ -20,6 +20,17 @@ export interface SyncOutcome {
   /** Local dates the server confirmed it wrote. */
   syncedDates: string[];
   error?: string;
+  /**
+   * Display names of step sources this read did not count.
+   *
+   * Carried out of the read and **never into the request body** — this is an
+   * observation about the player's own phone, owner-only, and the server has
+   * no use for it. It is here so the app can say which app was dropped.
+   *
+   * Present on a failed sync too: the read happened, the drop is real, and the
+   * reason the number looks low does not depend on the upload succeeding.
+   */
+  droppedStepSources: string[];
 }
 
 interface SyncResponseDay {
@@ -50,11 +61,15 @@ export async function runHealthSync(
   let sleep;
   let restingHeartRate;
   let sessions;
+  // Declared out here so it survives into every return below. It is an
+  // observation about the read, not about the upload.
+  let droppedStepSources: string[] = [];
   try {
     const read = await healthSource.readWindow(window, timeZone);
     buckets = toBuckets(read.readings, window.dates, timeZone);
     sleep = read.sleep;
     restingHeartRate = read.restingHeartRate;
+    droppedStepSources = read.droppedStepSources;
     // Dates over the wire, not `Date` objects: this body is JSON-serialised and
     // the planner validates both ends as ISO strings.
     sessions = read.sessions.map((session) => ({
@@ -67,7 +82,13 @@ export async function runHealthSync(
     // (protected data unavailable). Nothing was sent, so nothing to reconcile.
     const message = cause instanceof Error ? cause.message : 'health read failed';
     saveSyncState(userId, markFailed(state, now.getTime(), message));
-    return { ok: false, retryable: true, syncedDates: [], error: message };
+    return {
+      ok: false,
+      retryable: true,
+      syncedDates: [],
+      error: message,
+      droppedStepSources: [],
+    };
   }
 
   const { data, error } = await supabase.functions.invoke<{
@@ -88,6 +109,7 @@ export async function runHealthSync(
       retryable: isRetryable(status),
       syncedDates: [],
       error: message,
+      droppedStepSources,
     };
   }
 
@@ -96,5 +118,5 @@ export async function runHealthSync(
   const syncedDates = (data?.days ?? []).map((d) => d.localDate);
   saveSyncState(userId, markSynced(state, syncedDates, now.getTime()));
 
-  return { ok: true, retryable: true, syncedDates };
+  return { ok: true, retryable: true, syncedDates, droppedStepSources };
 }

@@ -32,6 +32,28 @@ const row = (id: string, label: string, value: string): TodayDetailRow => ({
   id, label, value, accessibilityLabel: `${label}, ${value}`,
 });
 
+/**
+ * What to say about step sources Kairo did not count.
+ *
+ * **States a fact and never accuses.** The exclusion is inert by design: the
+ * Philippine market runs cheap bands that write to HealthKit under their own
+ * identifiers, and wording this as suspicion would accuse the target market of
+ * cheating for owning the hardware it owns. "Aren't counted yet" is also true
+ * in the direction that matters — the allowlist grows by reading this line.
+ *
+ * Silence is the wrong alternative, not the safe one: a number too low for the
+ * day somebody had, with no reason given, is indistinguishable from the app
+ * being broken. That is the argument used to *accept* third-party sleep, and it
+ * binds harder when Kairo is the thing dropping the data.
+ */
+function droppedSourcesNote(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  const last = names[names.length - 1]!;
+  const list =
+    names.length === 1 ? last : `${names.slice(0, -1).join(', ')} and ${last}`;
+  return `Steps from ${list} aren't counted yet.`;
+}
+
 export function todayDetails(input: {
   totals: DayTotals;
   verifiedStrengthMinutes: number;
@@ -42,7 +64,15 @@ export function todayDetails(input: {
   motionNote: string | null;
   quests: readonly TodayQuest[];
   selectedQuestIndex: number | null;
+  /**
+   * Display names of step sources this device's last read did not count.
+   *
+   * Owner-only — it is an observation about the player's own phone, reaches no
+   * projection and no telemetry payload, and no other player can see it.
+   */
+  droppedStepSources: readonly string[];
 }): TodayDetailSection[] {
+  const dropped = droppedSourcesNote(input.droppedStepSources);
   const sections: TodayDetailSection[] = [
     {
       id: 'motion', title: 'Motion', rows: [
@@ -53,6 +83,9 @@ export function todayDetails(input: {
         // the caller from `walkNote()` rather than rewritten here.
         row('walk-note', 'Daily Walk', input.dailyWalkNote),
         ...(input.motionNote ? [row('motion-note', "Today's Motion", input.motionNote)] : []),
+        // Last, like `motion-note`: somebody opens this sheet *because* the
+        // steps figure looks wrong, and they read the section to find out why.
+        ...(dropped ? [row('dropped-sources', 'Not counted', dropped)] : []),
       ],
     },
     {

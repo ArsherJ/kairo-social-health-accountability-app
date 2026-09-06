@@ -35,6 +35,7 @@ import {
   useTodayScore,
 } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
+import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { useStatRecords } from '@/features/profile/records.ts';
 import { xpProgress } from '@/features/profile/xp-progress.ts';
@@ -313,6 +314,8 @@ export default function Today() {
   // total, not consulting one.
   const ceilingReached = (today?.total ?? 0) >= MAX_DAILY_SCORE_PHONE_ONLY;
 
+  const droppedStepSources = useSyncStatusStore((state) => state.droppedStepSources);
+
   const sections = todayDetails({
     totals: totals ?? EMPTY_DAY_TOTALS,
     verifiedStrengthMinutes: strength.data?.verifiedMinutes ?? 0,
@@ -334,6 +337,11 @@ export default function Today() {
       : null,
     quests,
     selectedQuestIndex: nextStep.kind === 'quest' ? nextStep.index : null,
+    // From the sync store rather than a query: nothing about which apps were
+    // dropped is stored server-side, and nothing should be — it is an
+    // observation about this phone, for this player, and no projection carries
+    // it.
+    droppedStepSources,
   });
 
   // Once per the user's own local day, not per render: fired on render this

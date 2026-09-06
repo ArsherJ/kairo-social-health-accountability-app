@@ -19,6 +19,20 @@ type SyncStatusState = {
   /** Anchor for `syncStatus`'s 'no-data' grace window. See `sync-state.ts`. */
   firstSyncedAt: number | null;
   lastError: string | null;
+  /**
+   * Display names of step sources the last read did not count.
+   *
+   * In-memory like the rest of this store, and deliberately **not** persisted:
+   * it describes the most recent read, and a stale list outliving the app the
+   * player has since uninstalled would be a sentence about nothing. A sync runs
+   * on every foreground, so the line reappears within a moment of a relaunch if
+   * it is still true — and staying quiet until then is the right direction for
+   * a claim that something of the player's was dropped.
+   *
+   * Owner-only by construction: it never enters the sync payload, no
+   * projection and no telemetry payload.
+   */
+  droppedStepSources: string[];
 };
 
 const initial: SyncStatusState = {
@@ -26,6 +40,7 @@ const initial: SyncStatusState = {
   lastSyncedAt: null,
   firstSyncedAt: null,
   lastError: null,
+  droppedStepSources: [],
 };
 
 export const useSyncStatusStore = create<SyncStatusState>(() => initial);

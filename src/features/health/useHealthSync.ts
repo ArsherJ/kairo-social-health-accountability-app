@@ -147,6 +147,9 @@ export function useHealthSync(
         lastSyncedAt: persisted.lastSyncedAt,
         firstSyncedAt: persisted.firstSyncedAt,
         lastError: persisted.lastError,
+        // From `outcome`, not from the persisted state: this is an observation
+        // about the read that just happened and is deliberately not durable.
+        droppedStepSources: outcome.droppedStepSources,
       });
 
       if (outcome.ok) {

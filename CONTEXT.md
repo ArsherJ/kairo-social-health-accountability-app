@@ -85,6 +85,12 @@ the ranking, because the cap is the anti-cheat.
 **Crest** — the character's visible state on a day that went past the ceiling.
 Lasts that day only.
 
+**Counted source** — an app whose steps Kairo adds up: the phone and watch that
+recorded them, plus a short list of bridges. Anything else is **not counted**,
+which is a statement about Kairo's list and never about the player — no flag, no
+suspicion, nothing lost but the steps, and the player is told which app so the
+list can grow. *(Built 2026-09-06.)*
+
 **Typed in** — a figure a person wrote into the Health app by hand, rather than
 one a sensor recorded. Kairo does not read it: it is excluded at the query, on
 every quantity read, so a typed-in number is not a day that was scored and then
