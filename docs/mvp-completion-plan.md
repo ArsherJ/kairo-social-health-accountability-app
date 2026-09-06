@@ -390,7 +390,12 @@ construction:
 7. Privacy nutrition labels, privacy policy, ToS. §15 lists the last two under
    V1, but external TestFlight testers need them too — they have a lead time, so
    start them during D.
-8. Undeploy `seed-health` before external testers join.
+8. Decide `seed-health`'s fate before external testers join — **it is deployed**,
+   and was throughout the period the docs claimed it had been removed on
+   2026-09-02 (that step was written down, never run). Deviation #67 gives it a
+   reason to stay: excluding typed-in samples makes a hand-typed simulator day
+   invisible, and it is the only route that can fabricate a squadmate's day. If
+   it goes, `functions list` is the check, not this line.
 
 > **Do step 3 before beta recruitment.** `AppleExerciseTime` is Apple-derived and
 > absent from HealthKit's writeable list, so the simulator provably cannot answer

@@ -30,6 +30,11 @@ measures *accumulated practice*, not current form.
 > is precisely what a monotone lifetime figure cannot measure. Same mechanic,
 > honest label.
 
+**Growth stage** — the character's body at a band of **Level**: four of them,
+and the only thing about the character that changes shape. It is what a level-up
+*looks like*; **Mastery** and **Level** are what it counts.
+*(Decided 2026-09-06, not yet built.)*
+
 **Living Mirror** — the character as the interface: the day read back as where
 the character is standing, how heavily it stands there, and how it slept, rather
 than as a list of figures beside it. What the player sees first every day.
@@ -80,13 +85,31 @@ the ranking, because the cap is the anti-cheat.
 **Crest** — the character's visible state on a day that went past the ceiling.
 Lasts that day only.
 
-**Record** — a personal best on one stat, kept permanently. Yours alone; it is
+**Typed in** — a figure a person wrote into the Health app by hand, rather than
+one a sensor recorded. Kairo does not read it: it is excluded at the query, on
+every quantity read, so a typed-in number is not a day that was scored and then
+discounted — it is a day that never happened. The word for what is left is
+**recorded**, never "verified", which already means something narrower about a
+workout's source. *(Built 2026-09-06.)*
+
+**Best day** — a personal best on one stat, kept permanently. Yours alone; it is
 not a leaderboard and never appears on one.
+
+> Superseded: **record**. The You tab already said "Your best days" while every
+> other surface said "record", so one of the two was always going to be read as
+> a second mechanic. The plainer word won. *(Decided 2026-09-06; the rename is
+> not yet complete in code.)*
 
 **Spread** — moving across many hours rather than in one burst. It makes Motion's
 bands easier to reach, up to a limit. It is a *consequence the player is told
 about*, not a hidden modifier: an unexplained difficulty change reads as a bug in
 the score.
+
+**Rested** — a night that slept well enough to make **Body**'s bands easier for
+the day that follows. Like **spread**, it is a *consequence the player is told
+about* and never a hidden modifier; unlike spread, it needs a sleep source, so
+most phone-only accounts will never meet the word. It never touches Motion, and
+so never touches the **ridge**. *(Decided 2026-09-06, not yet built.)*
 
 **Motion location** — where the character is standing today, from the day's
 steps against the **Daily Walk** figure: **branch**, **treeline**, **valley**,
@@ -122,6 +145,31 @@ past the line, more steps buy nothing.
 active calories, against a **boss** and its **HP**. Everyone on the roster is
 paid when the bar fills, contributor or not — being carried is a reason to be in
 a squad.
+
+> **Retired 2026-09-06**, and the word goes with it — see
+> `docs/superpowers/specs/2026-09-06-road-to-high-rating-design.md`. What it was
+> *for* survives as the flock's **cleared** count: one mark per member who
+> cleared the **Daily Walk** today, which is the one true cooperative sentence a
+> flock can say about itself. Banked Battle XP is kept; the noun is not.
+> This entry stays until the removal ships, because until then the word is still
+> on screen.
+
+**Whack** — a poke sent to one squadmate, earned by your own day. It changes
+**what their character does** — a reaction, a mark on their row for the day, one
+ordinary push — and **nothing they earned**: not the score, the streak, the race,
+the Mastery or the XP. That line is the whole term, and it is what separates a
+whack from the retired sabotage; it is recorded as `docs/adr/0002`.
+*Never* an attack, a hit, damage, or revenge.
+*(Decided 2026-09-06, not yet built.)*
+
+**Whack back** — answering a whack with your own. It needs your own day to have
+earned one, which is the entire loop: the only way to answer is to move.
+*(Decided 2026-09-06, not yet built.)*
+
+> There is no noun for the thing a day earns. It is deliberately unnamed: a
+> player reads "you can whack again tomorrow", never a quantity. Naming it would
+> make it feel bankable, and a currency with a wallet is the coin-pack problem in
+> a new dress. _Avoid_: charge, token, energy, credit.
 
 **Consent** — permission to show a squadmate your daily totals. Reciprocal and
 per person: you see theirs when they have agreed *and* you have.

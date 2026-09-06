@@ -1,7 +1,9 @@
 import {
+  ComparisonPredicateOperator,
   queryCategorySamples,
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
+  type FilterForSamples,
   type WorkoutProxyTyped,
 } from '@kingstinct/react-native-healthkit';
 import { currentLocalDate, dayEndUtc, dayStartUtc } from '@kairo/core';
@@ -58,6 +60,70 @@ const HOURLY: { hour: number } = { hour: 1 };
 
 /** Resting heart rate is one figure per day, not per hour. */
 const DAILY: { day: number } = { day: 1 };
+
+/**
+ * A number typed into the Health app is not activity.
+ *
+ * Every quantity read in this file carries this, so "progress you cannot fake"
+ * is true at the source rather than only bounded downstream. It is spread into
+ * the filter beside the date range: the native side ANDs a base predicate with
+ * its `NOT` clause, so this narrows the window rather than replacing it.
+ *
+ * **This is not what sleep and workouts do**, and the resemblance is
+ * misleading enough to be worth the sentence. Those read `HKWasUserEntered` off
+ * the samples they get back and let a pure module decide downstream. A
+ * statistics collection returns *sums*, not samples — the typed-in number is
+ * already inside the bucket by the time it reaches us — so there is nothing
+ * left to filter and the exclusion has to be part of the query.
+ *
+ * **The compound `NOT`, never `operatorType: notEqualTo`.** That reads as the
+ * natural form and is a trap: an automatically-recorded sample carries **no
+ * `HKWasUserEntered` key at all**, and a `!=` comparison against a missing key
+ * is not reliably true. The plausible failure is every quantity read returning
+ * zero, forever, with no error anywhere — the same silent shape as the workout
+ * column that would have credited Body nothing. `NOT [equalTo true]` asks the
+ * opposite question: exclude the samples that *claim* to be hand-entered, and
+ * keep everything else, key or no key.
+ *
+ * It costs the simulator dev loop, and that is accepted rather than accidental.
+ * The usual way to give a simulator a day is to type one into its Health app,
+ * and every one of those samples carries the flag — so they all vanish from
+ * here. `dev-seed.ts` is **expected** to survive, because it saves samples
+ * programmatically and attaches no `HKWasUserEntered` metadata and HealthKit
+ * does not add the key on an app's behalf — **expected, not verified**: it is
+ * a claim about native behaviour, and the device pass this change needs is
+ * where it gets checked. What neither covers is a *squadmate's* day, which only
+ * `seed-health` can fabricate — server-side, fail-closed on `CRON_SECRET`, and
+ * reachable by no client path.
+ */
+const EXCLUDE_TYPED_IN: Pick<FilterForSamples, 'NOT'> = {
+  NOT: [
+    {
+      metadata: {
+        withMetadataKey: 'HKWasUserEntered',
+        operatorType: ComparisonPredicateOperator.equalTo,
+        value: true,
+      },
+    },
+  ],
+};
+
+/**
+ * The filter every statistics collection in this file uses: a date range, and
+ * `EXCLUDE_TYPED_IN`.
+ *
+ * One builder rather than the predicate spread at each call, so there is a
+ * single place a quantity read's filter can come from — which is what lets the
+ * guard in `typed-in-samples.test.ts` make a claim about *every* collection
+ * instead of about seven spellings of one.
+ *
+ * A date predicate is not optional. Without one the native side returns the
+ * entire collection — every hour since the user's first ever sample, which on
+ * someone with years of Health history is tens of thousands of objects.
+ */
+function quantityFilter(from: Date, to: Date): FilterForSamples {
+  return { date: { startDate: from, endDate: to }, ...EXCLUDE_TYPED_IN };
+}
 
 /**
  * Units are always explicit.
@@ -166,7 +232,7 @@ export async function readStepsToday(timeZone: string): Promise<number> {
     ['cumulativeSum'],
     from,
     DAILY,
-    { filter: { date: { startDate: from, endDate: to } }, unit: 'count' },
+    { filter: quantityFilter(from, to), unit: 'count' },
   );
 
   // Summed rather than indexed at [0]. An interval anchored at local midnight
@@ -218,7 +284,7 @@ export async function readDailySteps(
     ['cumulativeSum'],
     from,
     DAILY,
-    { filter: { date: { startDate: from, endDate: to } }, unit: 'count' },
+    { filter: quantityFilter(from, to), unit: 'count' },
   );
 
   const byDate = new Map<string, number>();
@@ -236,10 +302,14 @@ export async function readHealthWindow(
   window: SyncWindow,
   timeZone: string,
 ): Promise<HealthReadResult> {
-  // Without a date predicate the native side returns the entire statistics
-  // collection — every hour since the user's first ever sample. On someone
-  // with years of Health history that is tens of thousands of objects.
-  const filter = {
+  const quantities = quantityFilter(window.fromUtc, window.toUtc);
+
+  // Workouts deliberately take the date range without the exclusion:
+  // `queryWorkoutSamples` returns samples, so a typed-in session is kept whole,
+  // flagged by `wasUserEntered`, and refused server-side in `scoring-inputs.ts`
+  // — which is what lets the *server* hold the rule about what counts as
+  // verified rather than the client deciding it by omission.
+  const workoutWindow = {
     date: { startDate: window.fromUtc, endDate: window.toUtc },
   };
 
@@ -254,28 +324,28 @@ export async function readHealthWindow(
       ['cumulativeSum'],
       window.fromUtc,
       HOURLY,
-      { filter, unit: 'count' },
+      { filter: quantities, unit: 'count' },
     ),
     queryStatisticsCollectionForQuantity(
       'HKQuantityTypeIdentifierDistanceWalkingRunning',
       ['cumulativeSum'],
       window.fromUtc,
       HOURLY,
-      { filter, unit: 'm' },
+      { filter: quantities, unit: 'm' },
     ),
     queryStatisticsCollectionForQuantity(
       'HKQuantityTypeIdentifierActiveEnergyBurned',
       ['cumulativeSum'],
       window.fromUtc,
       HOURLY,
-      { filter, unit: 'kcal' },
+      { filter: quantities, unit: 'kcal' },
     ),
     queryStatisticsCollectionForQuantity(
       'HKQuantityTypeIdentifierAppleExerciseTime',
       ['cumulativeSum'],
       window.fromUtc,
       HOURLY,
-      { filter, unit: 'min' },
+      { filter: quantities, unit: 'min' },
     ),
   ]);
 
@@ -298,7 +368,7 @@ export async function readHealthWindow(
     ['discreteAverage'],
     window.fromUtc,
     HOURLY,
-    { filter, unit: 'count/min' },
+    { filter: quantities, unit: 'count/min' },
   );
 
   for (const interval of heartRate) {
@@ -326,7 +396,7 @@ export async function readHealthWindow(
   }
 
   // `limit` is required, and a non-positive value means "all".
-  const workouts = await queryWorkoutSamples({ filter, limit: 0 });
+  const workouts = await queryWorkoutSamples({ filter: workoutWindow, limit: 0 });
 
   const sessions: WorkoutSessionReading[] = [];
 
@@ -430,7 +500,7 @@ export async function readHealthWindow(
     ['discreteAverage'],
     window.fromUtc,
     DAILY,
-    { filter, unit: 'count/min' },
+    { filter: quantities, unit: 'count/min' },
   );
 
   const restingByDate = new Map<string, number>();

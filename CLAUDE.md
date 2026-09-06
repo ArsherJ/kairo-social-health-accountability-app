@@ -102,6 +102,52 @@ the app as a leaderboard with goals, it is stale — fix it.
   milestone store nor the per-session `app_open` marker; confusing the three is
   how a count becomes a launch counter or a scroll counter.
 
+**Typed-in Health samples are excluded at the query as of 2026-09-06**
+(deviation #67, first of its three parts). `EXCLUDE_TYPED_IN` in
+`src/features/health/read.ts` is spread into the filter of **every**
+`queryStatisticsCollectionForQuantity` call — steps, distance, active energy,
+exercise minutes, hourly heart rate and resting heart rate — so a number typed
+into the Health app stops being Kairo activity at the source rather than only
+being bounded downstream. Four things break easily:
+
+- **`operatorType: notEqualTo` is the trap, and the compound `NOT` is the
+  answer.** An automatically-recorded sample carries **no `HKWasUserEntered`
+  key at all**, and a `!=` against a missing key is not reliably true: the
+  plausible failure is every quantity read returning zero, forever, with no
+  error anywhere — the `activity_type` omission's silent shape in a new place.
+  `NOT [{ metadata: { withMetadataKey, equalTo, true } }]` asks the opposite
+  question, and `createNotPredicateForSamples` ANDs it with the date range
+  rather than replacing it. A test bans the word `notEqualTo` in that file.
+- **This is not what sleep and workouts do, and the doc comment says so.** Those
+  read the flag off *returned samples* and let a pure module decide downstream;
+  a statistics collection returns sums, so there is nothing left to filter.
+  `queryWorkoutSamples` therefore keeps a **date-only** filter (`dateFilter`,
+  beside `quantityFilter`) on purpose: excluding typed-in workouts at the query
+  would make `WorkoutSessionReading.wasUserEntered` dead and move a §3 rule the
+  server owns onto the client, by omission.
+- **The guard is a source scan, and it has no exceptions.**
+  `typed-in-samples.test.ts` resolves each call's filter through one level of
+  `const` and fails any collection that does not reach `EXCLUDE_TYPED_IN` —
+  `calibration-read.test.ts`'s arrangement, for its reason: `read.ts` imports
+  the HealthKit library, whose Flow syntax root Vitest cannot parse, and the
+  behaviour is native anyway. It strips comments first, because the module
+  explains the trap it is avoiding and a guard that fails on that sentence gets
+  deleted.
+- **It costs the simulator dev loop, and `dev-seed.ts` is not the part that
+  breaks.** Typing a day into a simulator's Health app now produces nothing
+  Kairo can see, which is the usual way a simulator gets data. `dev-seed.ts` is
+  **expected** to survive — it saves samples programmatically and attaches no
+  `HKWasUserEntered` metadata, and HealthKit does not add the key on an app's
+  behalf, so do not "fix" it by adding one — but that is a claim about native
+  behaviour and is checked on the same device pass, not before it. What neither
+  covers is a *squadmate's* day, which only `seed-health` can fabricate; it
+  earns its keep for that, fail-closed on `CRON_SECRET` (shared rather than a
+  second credential; the `seed_test_users` allowlist, not secret uniqueness, is
+  what bounds the damage) and reachable by no client path. **Only a real device can
+  see whether this works** — the failure is silent zeroes in one direction and
+  silently-counted fabrication in the other, and no test in this repo can tell
+  them apart.
+
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
 Apple computes active calories against the body profile in the *Health app*,
@@ -225,10 +271,12 @@ replay *mechanism* is untouched and is not what the ADR is about. Design:
   compile time. One module, imported by both.
 - **All deployed Edge Functions redeploy together.** `sync-health`,
   `finalize-days`, `replay-scores` and `dispatch-notifications` all bundle
-  either `core.ts` or `rescore.deno.ts` (`seed-health` does too, but is
-  **undeployed as of 2026-09-02** — it fabricates activity and the beta
-  measures real behaviour; it stays in the tree for a project with no real
-  users). Deploying only `sync-health` leaves
+  either `core.ts` or `rescore.deno.ts` — and so does `seed-health`, which
+  **has been deployed the whole time this file said it was not.** The
+  2026-09-02 undeployment was written down and never run; `functions list` shows
+  it ACTIVE since the 2026-08-29 batch, and deviation #67 makes deployment the
+  right state anyway. It is one of **five** that redeploy together, not four.
+  Deploying only `sync-health` leaves
   `finalize-days` rescoring days with the *old* model — the split-brain that
   took scoring down for two days in August 2026, in a new place. Verified after
   deploy with `supabase/scripts/smoke-sync.mjs`; a `str_points` that is not

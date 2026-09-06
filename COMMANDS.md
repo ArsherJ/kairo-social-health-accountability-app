@@ -163,14 +163,40 @@ supabase functions deploy <name> --project-ref zniopywbwenrzxezolwv
 ```
 
 Functions: `sync-health`, `finalize-days`, `replay-scores`,
-`dispatch-notifications`. (`seed-health` is still in the tree but was
-**undeployed on 2026-09-02**, before external testers — it fabricates activity.
-Redeploy it only to a project with no real users.)
+`dispatch-notifications`, and `seed-health`. (**`seed-health` is deployed, and
+was deployed the whole time the docs said otherwise** — the 2026-09-02
+undeployment was written down and never run, and `functions list` shows it
+ACTIVE since the 2026-08-29 batch. Deviation #67 makes that the right state
+rather than an oversight: excluding typed-in samples means a day typed into a
+simulator's Health app is invisible, and `seed-health` is in any case the only
+route that can fabricate a *squadmate's* day. It
+is guarded by `CRON_SECRET` — fail-closed, unlike `finalize-days` — plus the
+`seed_test_users` allowlist, which is what keeps it off a real player's row. No
+client path can reach it; it is invoked by hand:
 
-**The four deployed Edge Functions that bundle `core.ts` / `rescore.deno.ts`
+```bash
+# The header changed with deviation #67: the deployed function validates
+# `x-seed-secret` against SEED_SECRET until `supabase functions deploy
+# seed-health` is run, and `x-cron-secret` after. If this 403s, check which
+# version is live before checking the secret.
+# verify_jwt is on, so the anon key is needed as well as the cron secret.
+curl -sS -X POST "$SUPABASE_URL/functions/v1/seed-health" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-cron-secret: $CRON_SECRET" -H 'content-type: application/json' \
+  -d '{"action":"seed-days","userIds":["<uuid>"],"from":"2026-09-01","to":"2026-09-06","persona":"active"}'
+```
+
+Personas: `sedentary` · `average` · `active` · `athlete`. The other two actions
+are `create-users` (fabricates squadmates and allowlists them) and
+`add-to-squad`.
+
+Seeding an account you already own means adding it to the allowlist first:
+`./supabase/scripts/remote-sql.sh "insert into public.seed_test_users (user_id, label) values ('<uuid>', 'founder')"`.)
+
+**The five deployed Edge Functions that bundle `core.ts` / `rescore.deno.ts`
 redeploy together** — `sync-health`, `finalize-days`, `replay-scores`,
-`dispatch-notifications`. Deploying only one leaves the others on the old scoring
-model (split-brain).
+`dispatch-notifications` and `seed-health`. Deploying only one leaves the others
+on the old scoring model (split-brain).
 
 **A migration touching a table an Edge Function writes ships with that
 function's redeploy** — applying one without the other took scoring down for two

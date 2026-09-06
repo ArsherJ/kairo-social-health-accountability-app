@@ -11,20 +11,40 @@ import {
 } from '../_shared/seed-plan.ts';
 
 /**
- * seed-health — development-only. NEVER deploy this to a project with real
- * users.
+ * seed-health — development-only, and deployed *because* of deviation #67.
  *
  * Without it, testing a leaderboard means physically walking 10,000 steps and
- * testing week-3 competitive stamina is impossible for one person.
+ * testing week-3 competitive stamina is impossible for one person — and it is
+ * the only one of the three seeding routes that can produce somebody *else's*
+ * day, which is what a leaderboard is made of.
  *
- * Three guards, deliberately independent:
- *   1. SEED_SECRET must be configured AND match. Unlike finalize-days, an
+ * Deviation #67 is why it is worth saying so again. `read.ts` now excludes
+ * hand-entered samples at the query, so typing a day into a simulator's Health
+ * app produces nothing Kairo can see. (`dev-seed.ts` is expected to keep
+ * working — it saves samples programmatically and sets no `HKWasUserEntered`
+ * metadata, which HealthKit does not add on an app's behalf — but that is a
+ * claim about native behaviour awaiting the device pass. It writes only to the
+ * signed-in account's own HealthKit store either way, so it has never been able
+ * to populate a squad.) An unverifiable anti-cheat fix is worse than a
+ * secret-gated seeder.
+ *
+ * **Two guards, deliberately independent — it used to be three.** The third
+ * was "it is not deployed to production", and that leg is gone: the function
+ * has been ACTIVE since 2026-08-29 and deviation #67 gives it a reason to stay.
+ * Saying so plainly matters, because the two that remain were written as the
+ * cheap half of a three-part argument.
+ *
+ *   1. CRON_SECRET must be configured AND match. Unlike finalize-days, an
  *      unset secret refuses everything rather than disabling the check — a
- *      function that fabricates scores must fail closed.
+ *      function that fabricates scores must fail closed. It shares the cron
+ *      secret rather than keeping its own, so it adds no new credential to
+ *      configure and nothing new to rotate; the allowlist below, not secret
+ *      uniqueness, is what bounds the damage. No client holds it, so no client
+ *      path can reach this function.
  *   2. Every target user must appear in seed_test_users. This is what makes a
- *      leaked secret survivable: it cannot reach a real player's row.
- *   3. It is not deployed to production, which is why the other two exist
- *      rather than instead of them.
+ *      leaked secret survivable: it cannot reach a real player's row, so the
+ *      table — empty except for accounts put there by hand — is what
+ *      "founder's accounts only" actually means.
  *
  * It writes health_buckets and then rescores through the same helper as
  * finalize-days. It never writes daily_scores directly:
@@ -34,7 +54,7 @@ import {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const seedSecret = Deno.env.get('SEED_SECRET');
+const cronSecret = Deno.env.get('CRON_SECRET');
 
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -84,10 +104,10 @@ async function assertAllowlisted(userIds: string[]): Promise<string | null> {
 
 Deno.serve(async (req: Request): Promise<Response> => {
   // Fail closed. A missing secret must not mean "no check".
-  if (!seedSecret) {
-    return fail('SEED_SECRET is not configured; seed-health refuses to run', 503);
+  if (!cronSecret) {
+    return fail('CRON_SECRET is not configured; seed-health refuses to run', 503);
   }
-  if (req.headers.get('x-seed-secret') !== seedSecret) {
+  if (req.headers.get('x-cron-secret') !== cronSecret) {
     return fail('forbidden', 403);
   }
 
