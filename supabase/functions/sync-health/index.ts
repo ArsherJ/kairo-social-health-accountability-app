@@ -3,7 +3,9 @@ import { corsHeaders, fail, json } from '../_shared/http.ts';
 import type { HourBucket } from '../_shared/core.ts';
 import { readScoringInputs } from '../_shared/scoring-inputs.deno.ts';
 import {
+  BUCKET_CONFLICT_TARGET,
   affectedDates,
+  bucketRows,
   observesWearable,
   planDay,
   validateSyncRequest,
@@ -77,26 +79,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq('id', userId)
     .neq('timezone', request.timezone);
 
+  // The row shape and the conflict target both live in sync-plan.ts, where the
+  // schema suite drives them against the real table. The target is what bounds
+  // a local date to 24 hours however many timezones a payload has been sent
+  // under, so it is a shared constant rather than a string spelled out here.
   if (request.buckets.length > 0) {
     const { error } = await admin.from('health_buckets').upsert(
-      request.buckets.map((b) => ({
-        user_id: userId,
-        local_date: b.localDate,
-        hour: b.hour,
-        steps: b.steps,
-        distance_m: b.distanceM,
-        active_kcal: b.activeKcal,
-        active_minutes: b.activeMinutes,
-        had_workout: b.hadWorkout ?? false,
-        elevated_heart_rate: b.elevatedHeartRate ?? false,
-        // Null-safe on purpose: `?? null` writes an explicit NULL for an hour
-        // with no reading, which is what overwrites a stale value when a watch
-        // stops reporting. Whole-day emission (deviation #8) is only idempotent
-        // if absence overwrites, and that applies to this column too.
-        avg_heart_rate: b.avgHeartRate ?? null,
-        updated_at: now.toISOString(),
-      })),
-      { onConflict: 'user_id,local_date,hour' },
+      bucketRows(userId, request.buckets, now),
+      { onConflict: BUCKET_CONFLICT_TARGET },
     );
     if (error) return fail(`bucket upsert failed: ${error.message}`, 500);
   }

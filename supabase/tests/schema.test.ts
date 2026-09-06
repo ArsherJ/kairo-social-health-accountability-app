@@ -1,5 +1,12 @@
+import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addDays, isFinalizable, mostRecentlyCompletedLocalDate } from '../../packages/kairo-core/src/day.ts';
+import {
+  addDays,
+  currentLocalDate,
+  isFinalizable,
+  localHourFor,
+  mostRecentlyCompletedLocalDate,
+} from '../../packages/kairo-core/src/day.ts';
 import {
   DEFAULT_SQUAD_PROGRAM,
   SQUAD_PROGRAMS,
@@ -19,7 +26,20 @@ import {
   type ReplayProfileRow,
   type ReplayScoreRow,
 } from '../functions/_shared/replay-plan.ts';
-import { planDay } from '../functions/_shared/sync-plan.ts';
+import {
+  BUCKET_CONFLICT_TARGET,
+  bucketRows,
+  planDay,
+  validateSyncRequest,
+  type HealthBucketRow,
+} from '../functions/_shared/sync-plan.ts';
+// The client's half of the chain. The zone a payload asserts is what decides
+// every `localDate` and `hour` in it, so a test that started from buckets
+// rather than from instants would assume away the thing under test.
+import {
+  toBuckets,
+  type HourlyReading,
+} from '../../src/features/health/hourly-buckets.ts';
 import { setupHarness, type Harness } from './harness.ts';
 // The replay dry run's own board query, imported rather than retyped: a copy
 // here would be a second thing to keep in step with the script, which is the
@@ -723,6 +743,227 @@ describe('profiles.mnd_total', () => {
       h.asUser(user, 'update public.profiles set mnd_total = 999999 where id = $1', [user]),
       /permission denied/i,
     );
+  });
+});
+
+describe('timezone hopping cannot manufacture a day', () => {
+  /**
+   * The property an auditor could not verify by reading: two syncs covering
+   * one UTC window, submitted under two different zones, must never leave more
+   * than 24 hourly buckets on any single local date.
+   *
+   * It holds structurally rather than by care — `health_buckets`' primary key
+   * is (user_id, local_date, hour) with `hour` constrained to 0-23, so the
+   * second sync can only overwrite an hour of a local date, never add one. The
+   * test exists because that is exactly the kind of guarantee that is invisible
+   * until somebody changes the conflict target, and because it is only true
+   * end to end: the client decides `localDate` and `hour` from the zone it
+   * asserts (`toBuckets`), and nothing between there and the table re-derives
+   * them. So the whole chain is driven — the real bucketing, the real
+   * validator, and the real row shape and conflict target the handler upserts
+   * with — rather than restated here.
+   *
+   * **What it deliberately does not claim.** The same UTC hour can legitimately
+   * come to rest on two different local dates, because it fell on a different
+   * calendar day in each zone and both readings are true for the person who
+   * travelled. That inflates no single day, and every per-day consumer is
+   * bounded by the day it reads. It would matter to a consumer that pooled raw
+   * units across dates, which today is the Battle alone.
+   */
+  const ZONE_A = 'Asia/Manila'; // UTC+8, no DST
+  const ZONE_B = 'Pacific/Honolulu'; // UTC-10, no DST
+
+  /** One UTC window: 48 consecutive hours, each carrying the same movement. */
+  const WINDOW_START = new Date('2026-09-04T00:00:00Z');
+  const WINDOW_HOURS = 48;
+  const STEPS_PER_HOUR = 300;
+  const NOW = new Date('2026-09-06T02:00:00Z');
+
+  const READINGS: HourlyReading[] = Array.from({ length: WINDOW_HOURS }, (_, i) => ({
+    metric: 'steps' as const,
+    startDate: new Date(WINDOW_START.getTime() + i * 60 * 60 * 1000),
+    value: STEPS_PER_HOUR,
+  }));
+
+  /** The local dates this window touches in `zone` — what the client would ask for. */
+  function datesIn(zone: string): string[] {
+    return [...new Set(READINGS.map((r) => currentLocalDate(r.startDate, zone)))].sort();
+  }
+
+  /**
+   * The handler's upsert, through the handler's own conflict target — so a
+   * target that stopped being the primary key fails here rather than in
+   * production. Columns are taken from the row rather than named, so a column
+   * added or dropped on either side fails at commit time.
+   */
+  async function upsertBucket(row: HealthBucketRow): Promise<void> {
+    const columns = Object.keys(row);
+    await h.asService(
+      `insert into public.health_buckets (${columns.join(', ')})
+       values (${columns.map((_, i) => `$${i + 1}`).join(', ')})
+       on conflict (${BUCKET_CONFLICT_TARGET}) do update set
+         ${columns.map((c) => `${c} = excluded.${c}`).join(', ')}`,
+      columns.map((c) => (row as unknown as Record<string, unknown>)[c]),
+    );
+  }
+
+  /** The client's bucketing, the server's validation, and the server's write. */
+  async function syncUnder(userId: string, zone: string): Promise<void> {
+    const validated = validateSyncRequest({
+      timezone: zone,
+      buckets: toBuckets(READINGS, datesIn(zone), zone),
+    });
+    if (!validated.ok) throw new Error(validated.error);
+
+    for (const row of bucketRows(userId, validated.value.buckets, NOW)) {
+      await upsertBucket(row);
+    }
+  }
+
+  /** The (local_date, hour) keys a sync under `zone` would write. */
+  function keysIn(zone: string): Set<string> {
+    const keys = new Set<string>();
+    for (const date of datesIn(zone)) {
+      for (let hour = 0; hour < 24; hour += 1) keys.add(`${date}#${hour}`);
+    }
+    return keys;
+  }
+
+  it('the two zones disagree, and still collide on keys the second sync rewrites', () => {
+    // Two guards against a vacuous pass, and the second is the one that
+    // matters. Disagreeing is not enough: two zones whose date sets were
+    // *disjoint* would satisfy the count below trivially, because each sync
+    // would then own its own dates and 24 rows apiece is never 25. The bound
+    // is only tested where the two syncs land on the same key.
+    expect(datesIn(ZONE_A)).not.toEqual(datesIn(ZONE_B));
+
+    const instant = READINGS[0]!.startDate;
+    expect(currentLocalDate(instant, ZONE_A)).not.toBe(currentLocalDate(instant, ZONE_B));
+    expect(localHourFor(instant, ZONE_A)).not.toBe(localHourFor(instant, ZONE_B));
+
+    const shared = [...keysIn(ZONE_A)].filter((k) => keysIn(ZONE_B).has(k));
+    expect(shared.length).toBeGreaterThan(0);
+    // Two whole local dates' worth, so the collision is the common case here
+    // rather than a single boundary hour.
+    expect(shared.length).toBe(48);
+  });
+
+  it('the handler upserts through this row shape and this conflict target', async () => {
+    // The seam the test above cannot reach: `sync-health/index.ts` is a Deno
+    // handler root Vitest cannot load, so the chain is driven through
+    // `bucketRows`/`BUCKET_CONFLICT_TARGET` and nothing here would notice the
+    // handler quietly inlining a different target back. A source scan is the
+    // same arrangement `typed-in-samples.test.ts` uses for its own untestable
+    // module, and for the same reason.
+    const source = await readFile(
+      new URL('../functions/sync-health/index.ts', import.meta.url),
+      'utf8',
+    );
+    const withoutComments = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+
+    expect(withoutComments).toContain('bucketRows(userId, request.buckets, now)');
+    expect(withoutComments).toContain('onConflict: BUCKET_CONFLICT_TARGET');
+    // The literal is what a well-meaning inline would reintroduce, and it
+    // would leave every assertion in this suite green.
+    expect(withoutComments).not.toContain("'user_id,local_date,hour'");
+  });
+
+  it('leaves no local date holding more than 24 hourly buckets', async () => {
+    const user = await h.createUser({ timezone: ZONE_A });
+
+    await syncUnder(user, ZONE_A);
+    await syncUnder(user, ZONE_B);
+
+    const counts = await h.asService<{ local_date: string; buckets: string }>(
+      `select local_date, count(*) as buckets
+         from public.health_buckets
+        where user_id = $1
+        group by local_date
+        order by local_date`,
+      [user],
+    );
+
+    // Both zones' date sets are present, so the second sync genuinely landed
+    // beside the first rather than replacing it wholesale.
+    expect(counts.length).toBe(
+      new Set([...datesIn(ZONE_A), ...datesIn(ZONE_B)]).size,
+    );
+    for (const row of counts) {
+      expect(Number(row.buckets)).toBeLessThanOrEqual(24);
+    }
+  });
+
+  it('an hour re-synced under a second zone is overwritten, never added to', async () => {
+    // The mechanism behind the count above, asserted on a key BOTH syncs wrote
+    // real movement to. `max(steps)` over the whole table would also pass if
+    // every collision happened to be an hour the second sync seeded to zero —
+    // which several of them are, since `toBuckets` emits whole days — so the
+    // key is named rather than searched for.
+    const COLLISION = { date: '2026-09-04', hour: 12 };
+    const user = await h.createUser({ timezone: ZONE_A });
+
+    const before = toBuckets(READINGS, datesIn(ZONE_A), ZONE_A)
+      .find((b) => b.localDate === COLLISION.date && b.hour === COLLISION.hour);
+    const after = toBuckets(READINGS, datesIn(ZONE_B), ZONE_B)
+      .find((b) => b.localDate === COLLISION.date && b.hour === COLLISION.hour);
+    expect(before?.steps).toBe(STEPS_PER_HOUR);
+    expect(after?.steps).toBe(STEPS_PER_HOUR);
+
+    await syncUnder(user, ZONE_A);
+    await syncUnder(user, ZONE_B);
+
+    const stored = await h.asService<{ steps: number }>(
+      `select steps from public.health_buckets
+        where user_id = $1 and local_date = $2 and hour = $3`,
+      [user, COLLISION.date, COLLISION.hour],
+    );
+    expect(stored).toHaveLength(1);
+    expect(Number(stored[0]!.steps)).toBe(STEPS_PER_HOUR);
+  });
+
+  it('refuses a 25th hour outright, which is the other half of the bound', async () => {
+    // The conflict target stops a date *accumulating* hours; this CHECK stops
+    // one being invented. Together they are why the count above cannot exceed
+    // 24 for any zone, any window and any number of syncs.
+    const user = await h.createUser();
+    await rejects(
+      h.asService(
+        `insert into public.health_buckets (user_id, local_date, hour, steps)
+         values ($1, '2026-09-04', 24, 100)`,
+        [user],
+      ),
+      /health_buckets_hour_check|violates check constraint/i,
+    );
+  });
+
+  it('every column bucketRows emits exists and accepts its value', async () => {
+    // `planDay`'s seam, for the other table `sync-health` writes. The bucket
+    // upsert is the one that *committed* during the 2026-08-09 outage while the
+    // score upsert 500'd, and until this nothing joined its shape to the schema.
+    const user = await h.createUser();
+    const [row] = bucketRows(user, [{
+      localDate: '2026-09-04',
+      hour: 9,
+      steps: 1_200,
+      distanceM: 880.25,
+      activeKcal: 42.5,
+      activeMinutes: 12,
+      hadWorkout: true,
+      elevatedHeartRate: true,
+      avgHeartRate: 118.4,
+    }], NOW);
+
+    await upsertBucket(row!);
+
+    const stored = await h.asService<{ steps: number; avg_heart_rate: string }>(
+      `select steps, avg_heart_rate from public.health_buckets
+        where user_id = $1 and local_date = '2026-09-04' and hour = 9`,
+      [user],
+    );
+    expect(stored[0]!.steps).toBe(1_200);
+    expect(Number(stored[0]!.avg_heart_rate)).toBeCloseTo(118.4, 5);
   });
 });
 

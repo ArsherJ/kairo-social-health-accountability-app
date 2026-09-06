@@ -3,6 +3,7 @@ import {
   MAX_BUCKETS_PER_SYNC,
   MAX_SESSIONS_PER_SYNC,
   affectedDates,
+  bucketRows,
   isDayFlagged,
   observesWearable,
   planDay,
@@ -187,6 +188,54 @@ describe('affectedDates', () => {
       '2026-07-27',
     ]);
   });
+});
+
+describe('bucketRows', () => {
+  const NOW = new Date('2026-07-27T04:00:00Z');
+
+  it('maps every incoming field onto its column', () => {
+    const rows = bucketRows('user-1', [
+      bucket({
+        hour: 9,
+        steps: 500,
+        distanceM: 350.5,
+        activeKcal: 20.25,
+        activeMinutes: 5,
+        hadWorkout: true,
+        elevatedHeartRate: true,
+        avgHeartRate: 118.4,
+      }),
+    ], NOW);
+
+    expect(rows).toEqual([
+      {
+        user_id: 'user-1',
+        local_date: DAY,
+        hour: 9,
+        steps: 500,
+        distance_m: 350.5,
+        active_kcal: 20.25,
+        active_minutes: 5,
+        had_workout: true,
+        elevated_heart_rate: true,
+        avg_heart_rate: 118.4,
+        updated_at: NOW.toISOString(),
+      },
+    ]);
+  });
+
+  it('writes an explicit null for an hour with no heart-rate reading', () => {
+    // `undefined` would be omitted from the JSON body and leave a stale bpm.
+    const [row] = bucketRows('user-1', [bucket({ avgHeartRate: undefined })], NOW);
+    expect(row!.avg_heart_rate).toBeNull();
+  });
+
+  it('reads an absent corroborating flag as false, never undefined', () => {
+    const [row] = bucketRows('user-1', [bucket()], NOW);
+    expect(row!.had_workout).toBe(false);
+    expect(row!.elevated_heart_rate).toBe(false);
+  });
+
 });
 
 describe('isDayFlagged', () => {

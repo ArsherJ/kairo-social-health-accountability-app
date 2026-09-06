@@ -415,6 +415,74 @@ function parseRestingHeartRate(
   };
 }
 
+/**
+ * One row of `health_buckets`, exactly as `sync-health` writes it.
+ *
+ * The bucket write lives here rather than inline in the handler for the reason
+ * `planDay`'s row does: the schema suite inserts this function's real output,
+ * so a column added, renamed or dropped on either side fails at commit time
+ * instead of at 500 on a deployed function. That is the seam the 2026-08-09
+ * outage went through — the bucket upsert committed and the score upsert did
+ * not, and nothing joined either shape to the schema.
+ */
+export interface HealthBucketRow {
+  user_id: string;
+  local_date: string;
+  hour: number;
+  steps: number;
+  distance_m: number;
+  active_kcal: number;
+  active_minutes: number;
+  had_workout: boolean;
+  elevated_heart_rate: boolean;
+  avg_heart_rate: number | null;
+  updated_at: string;
+}
+
+/**
+ * The upsert key, and the whole reason a travelled-to timezone cannot
+ * manufacture a day.
+ *
+ * `health_buckets`' primary key is (user_id, local_date, hour) with `hour`
+ * constrained to 0-23, so a second sync covering the same UTC window under a
+ * different zone can only ever *overwrite* an hour of a local date — never add
+ * a twenty-fifth to it. The handler reads this constant instead of spelling
+ * the target out, so the property is pinned by a test rather than by a string
+ * two files apart agreeing.
+ *
+ * It reads two ways because the separator is a comma either way: PostgREST's
+ * `onConflict` takes it as-is, and the schema suite interpolates it straight
+ * into `on conflict (…)`. Change the separator and both readings move together
+ * or neither does — do not split it into a column array on one side only.
+ */
+export const BUCKET_CONFLICT_TARGET = 'user_id,local_date,hour';
+
+/** The hourly rows a payload writes, in the shape `health_buckets` stores. */
+export function bucketRows(
+  userId: string,
+  buckets: readonly IncomingBucket[],
+  now: Date,
+): HealthBucketRow[] {
+  const updatedAt = now.toISOString();
+  return buckets.map((b) => ({
+    user_id: userId,
+    local_date: b.localDate,
+    hour: b.hour,
+    steps: b.steps,
+    distance_m: b.distanceM,
+    active_kcal: b.activeKcal,
+    active_minutes: b.activeMinutes,
+    had_workout: b.hadWorkout ?? false,
+    elevated_heart_rate: b.elevatedHeartRate ?? false,
+    // Null-safe on purpose: `?? null` writes an explicit NULL for an hour with
+    // no reading, which is what overwrites a stale value when a watch stops
+    // reporting. Whole-day emission (deviation #8) is only idempotent if
+    // absence overwrites, and that applies to this column too.
+    avg_heart_rate: b.avgHeartRate ?? null,
+    updated_at: updatedAt,
+  }));
+}
+
 /** Distinct local dates touched by a payload, sorted for stable processing. */
 export function affectedDates(request: SyncRequest): string[] {
   const dates = new Set<string>();
