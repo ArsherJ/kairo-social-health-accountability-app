@@ -88,13 +88,15 @@ const DAILY: { day: number } = { day: 1 };
  * It costs the simulator dev loop, and that is accepted rather than accidental.
  * The usual way to give a simulator a day is to type one into its Health app,
  * and every one of those samples carries the flag — so they all vanish from
- * here. `dev-seed.ts` is **expected** to survive, because it saves samples
- * programmatically and attaches no `HKWasUserEntered` metadata and HealthKit
- * does not add the key on an app's behalf — **expected, not verified**: it is
- * a claim about native behaviour, and the device pass this change needs is
- * where it gets checked. What neither covers is a *squadmate's* day, which only
- * `seed-health` can fabricate — server-side, fail-closed on `CRON_SECRET`, and
- * reachable by no client path.
+ * here. `dev-seed.ts` survives, because it saves samples programmatically and
+ * attaches no `HKWasUserEntered` metadata and HealthKit does not add the key on
+ * an app's behalf — verified on the simulator 2026-09-06, where a day holding
+ * two seed runs and one 50,000-step sample typed into the Health app read as
+ * the seeded total alone. That pairing is also the *test*: two readings that
+ * must disagree, which is the only cheap way to tell "excludes the typed-in
+ * sample" from "excludes everything". What neither covers is a *squadmate's*
+ * day, which only `seed-health` can fabricate — server-side, fail-closed on
+ * `CRON_SECRET`, and reachable by no client path.
  */
 const EXCLUDE_TYPED_IN: Pick<FilterForSamples, 'NOT'> = {
   NOT: [

@@ -20,13 +20,12 @@ import {
  *
  * Deviation #67 is why it is worth saying so again. `read.ts` now excludes
  * hand-entered samples at the query, so typing a day into a simulator's Health
- * app produces nothing Kairo can see. (`dev-seed.ts` is expected to keep
- * working — it saves samples programmatically and sets no `HKWasUserEntered`
- * metadata, which HealthKit does not add on an app's behalf — but that is a
- * claim about native behaviour awaiting the device pass. It writes only to the
- * signed-in account's own HealthKit store either way, so it has never been able
- * to populate a squad.) An unverifiable anti-cheat fix is worse than a
- * secret-gated seeder.
+ * app produces nothing Kairo can see. (`dev-seed.ts` keeps working, verified on
+ * the simulator 2026-09-06 — it saves samples programmatically and sets no
+ * `HKWasUserEntered` metadata, which HealthKit does not add on an app's behalf.
+ * But it writes only to the signed-in account's own HealthKit store, so it has
+ * never been able to populate a squad.) An unverifiable anti-cheat fix is worse
+ * than a secret-gated seeder.
  *
  * **Two guards, deliberately independent — it used to be three.** The third
  * was "it is not deployed to production", and that leg is gone: the function

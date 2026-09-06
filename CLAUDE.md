@@ -135,18 +135,31 @@ being bounded downstream. Four things break easily:
   deleted.
 - **It costs the simulator dev loop, and `dev-seed.ts` is not the part that
   breaks.** Typing a day into a simulator's Health app now produces nothing
-  Kairo can see, which is the usual way a simulator gets data. `dev-seed.ts` is
-  **expected** to survive — it saves samples programmatically and attaches no
-  `HKWasUserEntered` metadata, and HealthKit does not add the key on an app's
-  behalf, so do not "fix" it by adding one — but that is a claim about native
-  behaviour and is checked on the same device pass, not before it. What neither
-  covers is a *squadmate's* day, which only `seed-health` can fabricate; it
-  earns its keep for that, fail-closed on `CRON_SECRET` (shared rather than a
-  second credential; the `seed_test_users` allowlist, not secret uniqueness, is
-  what bounds the damage) and reachable by no client path. **Only a real device can
-  see whether this works** — the failure is silent zeroes in one direction and
-  silently-counted fabrication in the other, and no test in this repo can tell
-  them apart.
+  Kairo can see, which is the usual way a simulator gets data. `dev-seed.ts`
+  survives, **verified on the simulator 2026-09-06**: it saves samples
+  programmatically and attaches no `HKWasUserEntered` metadata, and HealthKit
+  does not add the key on an app's behalf — so do not "fix" it by adding one.
+  What neither covers is a *squadmate's* day, which only `seed-health` can
+  fabricate; it earns its keep for that, fail-closed on `CRON_SECRET` (shared
+  rather than a second credential; the `seed_test_users` allowlist, not secret
+  uniqueness, is what bounds the damage) and reachable by no client path.
+- **A simulator proves more than "it cannot see this failure" suggests, and the
+  test is two readings that must disagree.** The catastrophic failure is the
+  predicate excluding *everything*, and `dev-seed.ts` is exactly the control
+  that rules it out, because it writes unflagged samples through the same read
+  path. The run on 2026-09-06: HealthKit held **71,736** steps for the day — two
+  dev-seed runs plus one 50,000-step sample typed into the Health app — and both
+  Kairo and `health_buckets` held **22,000**, the seeded total alone. The figure
+  moved 11,000 → 22,000 when the second seed landed, so the read was live rather
+  than a cached server value. (The 264 between 50,000 typed and the 49,736
+  HealthKit attributes to it is its own overlap de-duplication of an
+  instantaneous 12:36 sample against a seeded hour-12 interval — same-source
+  merging, nothing the predicate did.) **Re-run this before touching
+  `EXCLUDE_TYPED_IN` or any collection's filter**; it is cheaper than a build and
+  it is the only check that distinguishes the two silent failures from each
+  other. What is still device-only is narrower than the whole change: whether
+  Apple's own *sensor-recorded* samples behave like unflagged programmatic ones.
+  No simulator produces those.
 
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
