@@ -1397,6 +1397,55 @@ loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
 `character-assets.ts` says the cosmetic PNGs are flattened full-character
 previews, not composable layers, so a four-slot tray has no assets behind it.
 
+**The Flock strip is the flock, not your week, as of 2026-09-06** (issue #25,
+the surviving half of deviation #66). One disc per member, filled for everybody
+who cleared the Daily Walk, their initial above it — **above, not on**: the
+filled disc is `colors.accent`, and a letter laid over it would be cream on a
+bright fill, which is the one pairing the palette forbids. `flock-walk.ts` decides every
+mark and the spoken count; `FlockStrip.tsx` only paints them. It costs no
+request — the members come out of the payload the list already fetched. Five
+things break easily:
+
+- **It draws a count, and the week strip's comment said it never could.** That
+  refusal was right about a *moment*: "three of four are in" is a claim that
+  does not exist for everybody at once (§2). The count is not about a moment.
+  `squad_leaderboard(p_mode => 'current')` returns **each member's own** local
+  date, so the sentence is "three of four have cleared their own today" — true
+  continuously, and emptying for each member at their own midnight with nobody
+  else's mark moving. Anything that later ranks or counts this strip off one
+  shared calendar date reintroduces exactly the claim the old comment refused.
+- **A withheld member gets a mark and no verdict.** The consent gate is
+  reciprocal and per row (deviation #47), so `steps: null` means *unknown*, not
+  zero — countable neither as cleared nor as missed. They keep a disc, so the
+  row still has one per member, and it is a **ring rather than a grey fill**:
+  a grey fill is what "did not walk" looks like, and the Philippine market is
+  not to be told it missed a day for keeping its numbers private. They are
+  absent from **both** halves of the count — putting them in the denominator
+  lets a private decision deflate everybody else's number, which is the leak
+  whole-squad gating had.
+- **It withholds itself twice, and the second guard is not the first.**
+  `flockWalk` returns null for a squad of one *and* for fewer than two
+  **visible** members. The second is the normal state for a viewer who never
+  consented — the gate is reciprocal, so their own row reads null alongside
+  everybody else's — and "1 of 1 walked today" is the leader line's
+  congratulating-somebody-for-being-alone wearing a circle.
+- **It follows `mode`.** The board toggles Today/Yesterday and the strip reads
+  the same rows, so the label says "today" or "yesterday" rather than drawing a
+  today claim over a yesterday board. `FlockMarkState`'s `unmet` deliberately
+  carries no tense for the same reason: whether it reads as *not yet* or as
+  *missed* is the label's job, never the disc's.
+- **The clearance bar is `DAILY_STEP_BASELINE`, imported, never 10,000.** Same
+  rule the race keeps — `RACE_FINISH_LINE` *is* that constant — so the third
+  reading of the bar on this tab cannot drift from the other two. The strip is
+  clear of the `AGI`/`AGI_base` trap only because it reads raw steps off the
+  projection and never a stored tier.
+- **The marks keep board order, and that is not the Sky rail's rule.** The rail
+  sorts withheld members last because it has four seats and has to decide who
+  gets dropped; the strip has one mark per member and drops nobody, so there is
+  nothing to protect. Sorting rings to the end would additionally *group* the
+  people who declined into a visible cohort, which is a louder statement about
+  a private decision than leaving them where the board already puts them.
+
 **This whole redesign shipped over the air, and that was verified rather than
 assumed**: the tree's fingerprint was `324fba3e`, byte-identical to build 22's.
 (**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in

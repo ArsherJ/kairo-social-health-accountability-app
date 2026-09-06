@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from './Text.tsx';
 import { colors, font, ramp, radius } from '../theme.ts';
+import { initialFor } from './initial.ts';
 
 /**
  * A squadmate as a coin: their first initial on a tinted disc.
@@ -39,10 +40,7 @@ export function Avatar({
   self?: boolean;
 }) {
   const tint = self ? { bg: colors.accent, ink: colors.bg } : tintFor(name);
-  // Intl-safe: `[...name]` splits by code point, so an emoji or an accented
-  // character survives being taken as an initial instead of becoming half a
-  // surrogate pair.
-  const initial = ([...name.trim()][0] ?? '?').toUpperCase();
+  const initial = initialFor(name);
 
   return (
     <View

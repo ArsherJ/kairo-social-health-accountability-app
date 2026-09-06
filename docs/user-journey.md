@@ -345,7 +345,7 @@ It is always on: there is no creation flow, nothing is stored, and a retroactive
 ### Flock (`flock.tsx`)
 The optional social layer (§7). Named **Flock** on the surface since 2026-08-27 (deviation #57) — the engine keeps `squads`, `squad_members` and `squad_leaderboard()`, deviation #23's split in a third place. `SquadDataConsentSheet`'s body copy still says "squad", deliberately: it is the text members consented under.
 
-**2d's composition, as of 2026-08-27:** the squad name and date, **your week** as seven discs, the program line, your standing, the mode toggle, the ranked rows, the invite block. The week strip shows *your* last seven days rather than the squad's, and says so — the design draws a squadmate's face per day, which needs a per-day, per-member roster no query returns. It draws no count either: a squad spans timezones, and "three of four are in" is a claim about a moment that does not exist for everybody at once (§2). **The board no longer mounts the race track** — that is the Sky tab, and drawing it in both places would be the same picture twice.
+**2d's composition, as of 2026-09-06:** the squad name and member count, **the flock strip**, the day's leader, your standing, the program line, the mode toggle, the ranked rows, the invite block. **The strip is the flock, not your week** (issue #25): one disc per member, filled for everybody who cleared the Daily Walk, with their initial *above* it — never on it, since the filled disc is a bright fill and cream on one is the pairing the palette forbids. Until 2026-09-06 it drew *your* last seven days on the one tab explicitly about other people, and for a new squad that was a row of empty circles. It draws a count now, which the week strip refused to on the grounds that "three of four are in" is a claim about a moment that does not exist for everybody at once (§2) — the count is safe because `squad_leaderboard(p_mode => 'current')` returns *each member's own* local date, so the sentence is "three of four have cleared their own today", true continuously and emptying for each member at their own midnight. A member whose totals the consent gate withholds keeps a mark, drawn as a ring, and is counted in **neither** half. **The board no longer mounts the race track** — that is the Sky tab, and drawing it in both places would be the same picture twice.
 
 **The tab opens on a consent decision before it opens on anything else, as of deviation #47.** Racing means squadmates see four of your daily totals — steps, distance, active calories, sleep duration — and that is real health data leaving the account, so the ask is a screen with a decline path rather than a line in a policy. It appears *instead of* the create or join form (agreeing is part of joining, exactly as consenting to the squad's program already is), and once per launch for anyone already in a squad, because they joined under a model where their totals were never projected. Declining leaves you on the board; your lane and everyone else's simply carry no position. The gate is **reciprocal and per row** — you see a squadmate's totals only if you are sharing yours — which is what stops declining being strictly dominant, and what stops a single holdout's decision being broadcast to the five people who agreed.
 
@@ -405,8 +405,10 @@ notification trigger and routes to `/flock`, because a push sent before the
 deploy can be tapped after it.
 
 The cooperative reading a squad loses with the Battle is picked up by the Flock
-week strip (issue #25), at no new mechanics: one filled circle per member who
-cleared the Daily Walk today, off data already inside the consent projection.
+strip (issue #25, shipped 2026-09-06), at no new mechanics: one filled circle
+per member who cleared the Daily Walk, off data already inside the consent
+projection. See §4's composition above for what it says and what it refuses to
+say about a member who is not sharing.
 
 ## 5b. Train (§5, deviations #32/#33) — the floor and the curve
 

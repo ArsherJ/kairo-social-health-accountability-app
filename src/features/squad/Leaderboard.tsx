@@ -8,9 +8,9 @@ import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
 import { resolveSquadStanding, type SquadStanding } from './standing.ts';
-import { WeekStrip, type WeekDay } from './WeekStrip.tsx';
+import { FlockStrip } from './FlockStrip.tsx';
+import { flockWalk } from './flock-walk.ts';
 import {
-  useOwnRecentDays,
   useSquadLeaderboard,
   useSquadMemberCount,
   type LeaderboardMode,
@@ -21,9 +21,7 @@ import { boostChipLabel, programLabel } from './program-copy.ts';
 import { shareInvite } from './share-invite.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
-import { useProfile } from '@/features/profile/queries.ts';
 import { useRouter } from 'expo-router';
-import { currentLocalDate } from '@kairo/core';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Button, Gradient, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
@@ -49,53 +47,6 @@ const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },
   { mode: 'completed', label: 'Yesterday' },
 ];
-
-/**
- * Your last seven days, as the week strip's input.
- *
- * **The strip shows *your* week, not the squad's, and that is a scope decision
- * rather than an oversight.** 2d draws a squadmate's face on each day, which
- * needs a per-day, per-member roster the app has no query for — a new RPC, and
- * this change ships no backend. `useOwnRecentDays` is already in cache from
- * the Today tab and answers a real question: which of the last seven days you
- * have recorded. The eyebrow says "Your week" so the strip does not imply a
- * claim it cannot make.
- *
- * `timeZone` and not the device clock: §2 runs everybody's day in their own
- * zone, and a squad spans several at any instant. `Intl` is given that zone
- * explicitly for both the date arithmetic and the weekday initial.
- *
- * Today is `waiting` rather than `future` even when nothing has been recorded
- * yet — the day is still open, and marking it `future` would say it is over.
- */
-function weekFrom(
-  days: readonly { localDate: string; steps: number }[],
-  today: string | undefined,
-  timeZone: string | undefined,
-): WeekDay[] {
-  if (!today || !timeZone) return [];
-
-  const recorded = new Set(days.filter((d) => d.steps > 0).map((d) => d.localDate));
-  const initial = new Intl.DateTimeFormat(undefined, { weekday: 'narrow', timeZone });
-
-  // Six days back through today, oldest first. Built from the local date
-  // string rather than from `Date.now()` so it agrees with every other date in
-  // the app.
-  //
-  // Note the `T12:00:00Z` anchor: stepping a `Date` by whole days from
-  // midnight can land on the wrong side of a DST boundary, and midday is far
-  // enough from both edges that it cannot.
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(`${today}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - (6 - i));
-    const iso = d.toISOString().slice(0, 10);
-
-    return {
-      letter: initial.format(d),
-      state: iso === today ? 'waiting' : recorded.has(iso) ? 'done' : 'future',
-    };
-  });
-}
 
 /** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
 function ordinal(n: number): string {
@@ -211,8 +162,6 @@ export function Leaderboard({
   const board = useSquadLeaderboard(squad.id, mode);
   const leave = useLeaveSquad(userId);
 
-  const profile = useProfile(userId);
-
   // This comment used to claim the RPC returns only members who have *scored*,
   // and that deriving slots from `board.data.length` would render an unmoved
   // squadmate as an empty seat. That has never been true: every version of
@@ -234,18 +183,21 @@ export function Leaderboard({
   // correct and free.
   useSquadRealtime(squad.id);
 
-  // Already in cache from the Today tab, on the same key — the strip adds no
-  // request.
-  const days = useOwnRecentDays(userId, profile.data?.timezone);
-  const localToday = profile.data?.timezone
-    ? currentLocalDate(new Date(), profile.data.timezone)
-    : undefined;
-
   const rows = board.data ?? [];
   const boost = boostChipLabel(squad.program);
 
   // One pass over the board, not a scan per row.
   const gaps = leaderboardGaps(rows);
+
+  // The flock's own reading, out of the payload already fetched for the list —
+  // no second request, no new RPC. It follows `mode` for the same reason the
+  // leader line does: a "today" claim drawn over a yesterday board is a false
+  // one. Null means there is nothing cooperative to say (a squad of one, or a
+  // viewer whose own consent withholds every row including their own).
+  const walk = flockWalk({
+    members: rows.map((r) => ({ characterName: r.character_name, steps: r.steps })),
+    mode,
+  });
 
   /*
     The day's best.
@@ -356,12 +308,13 @@ export function Leaderboard({
             </View>
           </View>
 
-          {/* Your last seven days, on the band rather than under a `Label`.
-              The eyebrow went with the move: the strip sits directly under the
-              squad's name on a field of its own, and "Your week" over seven
-              obvious day boxes was labelling a picture that reads itself. It is
-              still spoken — `WeekStrip` names each day. */}
-          <WeekStrip days={weekFrom(days.data ?? [], localToday, profile.data?.timezone)} />
+          {/* How many of the flock cleared the Daily Walk, one mark per
+              member, on the band rather than under a `Label`. No eyebrow: the
+              strip sits directly under the squad's name on a field of its own,
+              and the initials over the marks say what it is. It is still
+              spoken — `flockWalk` composes the count once, for the whole
+              strip. */}
+          {walk && <FlockStrip marks={walk.marks} label={walk.label} />}
 
           {/* Who is ahead, on the band rather than only in the rows below.
 
@@ -605,8 +558,8 @@ const styles = StyleSheet.create({
   },
   leaderLabel: { ...font.body.body, color: colors.bg, flexShrink: 1 },
   /**
-   * The band has no fixed height: it is as tall as the name, the week and the
-   * standing make it. A fixed one is what would clip the week strip at large
+   * The band has no fixed height: it is as tall as the name, the flock strip
+   * and the standing make it. A fixed one is what would clip the strip at large
    * Dynamic Type, and the rounded foot is what makes the page below open out of
    * it rather than start under a rectangle.
    */
