@@ -4,7 +4,8 @@ Date: 2026-08-29
 
 ## Status
 
-Accepted.
+Accepted. **Amended 2026-09-06** — see "Amendment" below. The original decision
+stands; only the expiry condition moved.
 
 ## Context
 
@@ -83,3 +84,38 @@ with.** The principled answer, and genuinely correct. Rejected as premature: it
 is meaningful ongoing complexity in every scoring path, bought to preserve six
 development days. Worth revisiting if the app ever needs a second scoring change
 after launch.
+
+
+---
+
+## Amendment — 2026-09-06: the gate is cohort *size*, not cohort *existence*
+
+**Context.** `docs/superpowers/specs/2026-09-06-road-to-high-rating-design.md`
+proposed two changes that move stored history — the rested threshold shift on
+Body, and the anti-cheat work's effect on what a flagged day contributes — and
+read this ADR as forbidding both after the first outside tester arrives. That
+reading was doing gate work this ADR was never designed for: it was about to
+hold a cohort back by three weeks so that a scoring change could land first.
+
+Two facts the original text did not weigh. **`replay-scores` is a deployed Edge
+Function**, so rescoring is a call, not a project. And the cost the ADR actually
+names is *"rescoring strangers' months"* — a quantity, not a category. A
+twenty-person beta with a fortnight of days is neither strange nor a month.
+
+**Decision.** The licence expires against **cohort size and history depth**, not
+against the arrival of the first non-team account. While the project holds fewer
+than roughly **fifty** accounts with fewer than roughly **sixty days** of scored
+history, a scoring change that moves stored history may ship **provided it ships
+with a `replay-scores` pass in the same deploy**. Past that, the original rule
+returns unchanged: a migration that rescores, or it does not ship.
+
+**What does not change.** Everything else in this ADR. The replay mechanism, the
+two correctness guards, the reasoning about why comparability matters at all, and
+the alternatives considered are all untouched. This amendment loosens *when* the
+licence lapses; it does not weaken what it protects.
+
+**Consequences.** The rescore stops being a reason to sequence a release and
+becomes a line on a deploy checklist — which is what it is at this scale. The
+risk is that "roughly fifty" is a soft number nobody enforces, exactly as the
+original expiry was; the mitigation is the same one, and the same weakness:
+`docs/mvp-scope.md`'s launch checklist carries it, and it is a human checkpoint.
