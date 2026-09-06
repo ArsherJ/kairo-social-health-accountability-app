@@ -9,6 +9,7 @@
 import {
   computeDay,
   evaluateStepBurst,
+  exceedsHourlyCeiling,
   type CoreStat,
   type DayStatus,
   type HourBucket,
@@ -426,9 +427,21 @@ export function affectedDates(request: SyncRequest): string[] {
  * Anti-cheat over the canonical hourly data rather than a client-reported
  * burst — a lying client cannot simply omit the evidence.
  *
+ * **Two rules, one boolean.** A burst nobody corroborates, and an hour that
+ * could not have happened at all. `daily_scores.flagged` stays a boolean
+ * because both produce the same sentence for the player: a reason column would
+ * store a distinction no surface draws. Add one the day a third reason says
+ * something different.
+ *
  * One hour is six ten-minute windows, so the 1,500-steps-per-10-minutes
  * threshold becomes roughly 9,000 steps in an hour before anything is even
- * considered suspicious.
+ * considered suspicious. The ceilings sit above that and are **unsuppressible**
+ * — a workout and a heart rate clear a burst, because a burst is about missing
+ * corroboration, and they do not clear a ceiling, because a payload that
+ * fabricates an hour can claim both.
+ *
+ * Neither rule touches the bucket. This function reads; nothing here clamps and
+ * nothing here rejects. See `exceedsHourlyCeiling` for why.
  */
 export function isDayFlagged(buckets: readonly HourBucket[], extras: {
   hadWorkout: ReadonlySet<number>;
@@ -436,6 +449,7 @@ export function isDayFlagged(buckets: readonly HourBucket[], extras: {
 }): boolean {
   const HOUR_MS = 60 * 60 * 1000;
   return buckets.some((bucket) =>
+    exceedsHourlyCeiling(bucket) ||
     evaluateStepBurst({
       steps: bucket.steps,
       windowMs: HOUR_MS,

@@ -253,6 +253,7 @@ export const DEMO_SCORE: TodayScore = {
   tiers: TIERS,
   contributing_stats: 3,
   status: 'provisional',
+  flagged: false,
 };
 
 /** `shield_available_on: null` is a shield banked *now*, not a missing date. */

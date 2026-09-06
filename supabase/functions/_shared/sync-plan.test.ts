@@ -11,7 +11,7 @@ import {
   type IncomingBucket,
 } from './sync-plan.ts';
 import type { SyncRequest } from './sync-plan.ts';
-import type { HourBucket } from './core.ts';
+import { HOURLY_CEILINGS, type HourBucket } from './core.ts';
 
 const MANILA = 'Asia/Manila';
 const DAY = '2026-07-27';
@@ -248,6 +248,69 @@ describe('isDayFlagged', () => {
 
   it('does not flag an empty day', () => {
     expect(isDayFlagged([], { hadWorkout: none, elevatedHeartRate: none })).toBe(false);
+  });
+
+  it('flags an hour over any plausibility ceiling', () => {
+    for (const over of [
+      { hour: 3, steps: HOURLY_CEILINGS.steps + 1 },
+      { hour: 3, distanceM: HOURLY_CEILINGS.distanceM + 1 },
+      { hour: 3, activeKcal: HOURLY_CEILINGS.activeKcal + 1 },
+    ]) {
+      expect(
+        isDayFlagged(hours([over]), { hadWorkout: none, elevatedHeartRate: none }),
+      ).toBe(true);
+    }
+  });
+
+  it('flags an over-ceiling hour that every suppression signal vouches for', () => {
+    // The velocity rule is about a burst nobody corroborates. A ceiling is
+    // about an hour that could not have happened, so a workout and a heart
+    // rate do not clear it — otherwise a forged payload need only claim one.
+    const buckets = hours([
+      { hour: 6, steps: HOURLY_CEILINGS.steps + 5_000, distanceM: 20_000 },
+    ]);
+    expect(
+      isDayFlagged(buckets, {
+        hadWorkout: new Set([6]),
+        elevatedHeartRate: new Set([6]),
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves the hardest real hour alone', () => {
+    // Exactly at all three ceilings, with matching distance: plausible.
+    const buckets = hours([
+      {
+        hour: 6,
+        steps: HOURLY_CEILINGS.steps,
+        distanceM: HOURLY_CEILINGS.distanceM,
+        activeKcal: HOURLY_CEILINGS.activeKcal,
+      },
+    ]);
+    expect(isDayFlagged(buckets, { hadWorkout: none, elevatedHeartRate: none })).toBe(
+      false,
+    );
+  });
+});
+
+describe('a bucket over a ceiling is stored exactly as reported', () => {
+  // The ceilings flag. They never clamp — buckets are the source of truth every
+  // score replays from — and they never reject, because a refused sync is
+  // indistinguishable from an outage.
+  it('accepts the payload and preserves every figure', () => {
+    const absurd = bucket({
+      steps: 90_000,
+      distanceM: 120_000,
+      activeKcal: 9_000,
+    });
+    const result = validateSyncRequest(body({ buckets: [absurd] }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.buckets[0]).toMatchObject({
+      steps: 90_000,
+      distanceM: 120_000,
+      activeKcal: 9_000,
+    });
   });
 });
 

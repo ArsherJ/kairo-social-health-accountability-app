@@ -244,6 +244,71 @@ oversights, and the calibration half is **issue #43** — it writes a durable
 `quest_tier_override` from steps the day totals will never contain, which is a
 wrong stored value rather than a cosmetic gap.
 
+**An implausible hour flags the day, and a flagged day sets no best day, as of
+2026-09-06** (deviation #67, third and last of its three parts). Per hour:
+`HOURLY_CEILINGS` in `packages/kairo-core/src/anticheat.ts` — 12,000 steps,
+15,000 m, 1,200 active kcal, beside the `<= 60` exercise-minute clamp
+`parseBucket` has always had. `isDayFlagged` checks `exceedsHourlyCeiling`
+alongside `evaluateStepBurst`, and `stat_records()` skips a flagged day
+(migration `20260906120000`). Six things break easily:
+
+- **It flags. It does not clamp and it does not reject**, and both were the
+  first instinct. Hourly buckets are the source of truth every score replays
+  from, so a clamp writes a number Apple never reported into the one store that
+  has to stay true and a later threshold change cannot recover the original —
+  and the ceilings are near real human maxima, so a clamp would *reduce a real
+  day*, which the progress-is-still-progress rule forbids. Rejecting is worse:
+  a refused sync is indistinguishable from the 9–11 August outage. A test sends
+  90,000 steps through `validateSyncRequest` and asserts the payload is
+  accepted with every figure intact.
+- **The ceilings are unsuppressible, and the burst rule stays suppressible.**
+  A workout and a heart rate clear a burst, because a burst is about missing
+  corroboration; they do not clear a ceiling, because a payload that fabricates
+  an hour can claim both. The two rules sit side by side in `isDayFlagged`.
+- **The substantive half is `stat_records()`, not the ceilings.** Almost
+  nothing consumes these numbers uncapped — the race caps at the ridge, points
+  cap per stat, XP is banded, Mastery derives from capped points, quests are
+  boolean — so the personal best is the outcome a forged sync could buy. **One
+  consumer is still uncapped and the flag does not stop it**: a Battle pools raw
+  active calories against a stored target and pays XP, and a flagged day still
+  contributes. That closes when the Battle is retired. The
+  ceilings buy the *claim*; skipping flagged days closes the outcome. A flag
+  removes the whole **local date**, Mind's night included, and the exclusion is
+  `not exists` rather than a join: an inner join would drop a date with no
+  `daily_scores` row at all, narrowing the read silently, and only an actual
+  `flagged = true` may remove a day.
+- **The accused hears it first, and the sentence names a consequence that is
+  real.** `FLAGGED_DAY_NOTE` in `today-details.ts` — *"Some of today's hours
+  don't look like walking, so today can't set a personal best — and your flock
+  sees a flag on your row."* — lands on the flagged player's own details before
+  the chip a squadmate sees on their leaderboard row. **The design's draft ended
+  "so they won't count towards the flock" and that is the one thing that is not
+  true**: `squad_leaderboard()` ranks on the weighted total and only projects
+  the flag, the corridor re-ranks capped steps without reading it, and XP,
+  Mastery and the streak are untouched — a flag is a social signal, never a
+  score reduction (`trust.ts`). Two tests pin the wording and ban the
+  "won't count" claim from coming back. It names no rule, no threshold and
+  no figure, and a test pins that: one sentence for two rules is also why
+  `daily_scores.flagged` stays a **boolean**, and naming the bar would publish
+  it to the one reader with a motive to sit just under it. `useTodayScore`
+  selects `flagged` for this and nothing else decides anything from it.
+- **The distance comment was corrected and the rule was not touched.**
+  `DistanceWalkingRunning` is pedometer-estimated by the motion coprocessor on
+  iPhone, not GPS-derived. Requiring a workout or heart rate *beside* the
+  distance would make `MIN_PLAUSIBLE_STRIDE_M` dead code — a workout returns
+  early and heart rate alone already clears — and would flag the honest
+  phone-only runner, whose hour at running cadence clears the 9,000-step bar
+  with only the distance to vouch for them; `EXCLUDE_TYPED_IN` kills the attack
+  it aimed at anyway. `SuppressionSignal`'s `'gps_distance'` value is
+  deliberately **not** renamed: it is reporting only, nothing stores it, and it
+  is what the suppression tests already say.
+- **All five Edge Functions redeploy together**, because the planner is shared,
+  and the deployed behaviour was verified rather than assumed on 2026-09-06:
+  `smoke-sync.mjs` passed, and a one-off through the real door sent a
+  30,000-step hour with a workout and a heart rate vouching for it — the
+  payload was accepted, the bucket stored as `30000 / 22500 / 700`, the day
+  flagged, and `stat_records()` returned no rows.
+
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
 Apple computes active calories against the body profile in the *Health app*,

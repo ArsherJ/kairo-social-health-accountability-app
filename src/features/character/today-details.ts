@@ -54,6 +54,35 @@ function droppedSourcesNote(names: readonly string[]): string | null {
   return `Steps from ${list} aren't counted yet.`;
 }
 
+/**
+ * What a flagged day says to the player it was flagged on.
+ *
+ * **The accused hears it first.** The flag is a social signal — a chip on a
+ * leaderboard row every squadmate can see — and until this line existed the
+ * first anybody learned of it was through a friend's screen. This sentence
+ * lands on their own day, in plain language, before that.
+ *
+ * It names no rule and no number. Two rules produce this one sentence — a step
+ * burst nothing corroborates, and an hour over a plausibility ceiling — and
+ * they mean the same thing to a person, which is the same reason
+ * `daily_scores.flagged` is a boolean and not a reason column. Naming the
+ * threshold would also publish the bar to the one reader with a motive to sit
+ * just under it.
+ *
+ * **It names the consequence that is real, which is not the one the design
+ * drafted.** That sentence ended "so they won't count towards the flock", and
+ * the flock is exactly where a flagged day *does* still count:
+ * `squad_leaderboard()` ranks on the weighted total and only projects the flag
+ * for the chip, the Sky corridor re-ranks capped steps without reading it, and
+ * XP, Mastery and the streak are all untouched — `trust.ts` states the rule
+ * outright, a flag is a social signal and never a score reduction. The one
+ * thing a flag now stops is `stat_records()`, so that is what this says. A
+ * false claim on a player-facing surface is the worst kind and gets rewritten
+ * rather than annotated, exactly as the HealthKit privacy line was.
+ */
+const FLAGGED_DAY_NOTE =
+  "Some of today's hours don't look like walking, so today can't set a personal best — and your flock sees a flag on your row.";
+
 export function todayDetails(input: {
   totals: DayTotals;
   verifiedStrengthMinutes: number;
@@ -71,6 +100,14 @@ export function todayDetails(input: {
    * projection and no telemetry payload, and no other player can see it.
    */
   droppedStepSources: readonly string[];
+  /**
+   * `daily_scores.flagged` for today — the anti-cheat verdict on this day.
+   *
+   * Unlike `droppedStepSources`, which is an observation about the phone, this
+   * one *is* visible to squadmates, as a chip on the leaderboard row. It is
+   * read here so the player it accuses reads it first.
+   */
+  flagged: boolean;
 }): TodayDetailSection[] {
   const dropped = droppedSourcesNote(input.droppedStepSources);
   const sections: TodayDetailSection[] = [
@@ -86,6 +123,10 @@ export function todayDetails(input: {
         // Last, like `motion-note`: somebody opens this sheet *because* the
         // steps figure looks wrong, and they read the section to find out why.
         ...(dropped ? [row('dropped-sources', 'Not counted', dropped)] : []),
+        // Last of all, and the heaviest of the three: this is the only line
+        // here with a consequence attached, and the only one anybody else can
+        // see the effect of.
+        ...(input.flagged ? [row('flagged', "Today's data", FLAGGED_DAY_NOTE)] : []),
       ],
     },
     {

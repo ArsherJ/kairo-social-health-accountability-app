@@ -2275,6 +2275,70 @@ describe('stat_records()', () => {
     expect(Number(rows[0]!.value)).toBe(360);
   });
 
+  // The substantive half of the plausibility ceilings. Nothing else uncapped
+  // consumes a raw daily figure — the race caps at the ridge, points cap per
+  // stat, XP is banded, quests are boolean — so a personal best is the last
+  // outcome a forged sync could buy, and a flagged day must not set one.
+  it('sets no record from a flagged day', async () => {
+    const user = await h.createUser();
+    await seedRecords(user);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, flagged)
+       values ($1, '2026-07-28', true)`,
+      [user],
+    );
+
+    const rows = await h.asUser<{ stat: string; value: string; local_date: string }>(
+      user,
+      'select stat, value, local_date::text as local_date from public.stat_records() order by stat',
+    );
+    const by = Object.fromEntries(rows.map((r) => [r.stat, r]));
+
+    // The 9,000-step day is gone; the honest 7,000-step day is the record now.
+    expect(Number(by.AGI!.value)).toBe(7_000);
+    expect(by.AGI!.local_date).toBe('2026-07-27');
+    // Mind is keyed by local date too, so a flagged day takes its night with it.
+    expect(Number(by.MND!.value)).toBe(400);
+    expect(by.MND!.local_date).toBe('2026-07-27');
+  });
+
+  it('omits a stat whose only qualifying day is flagged rather than reporting zero', async () => {
+    const user = await h.createUser();
+    await h.asService(
+      `insert into public.health_buckets (user_id, local_date, hour, steps, active_kcal)
+       values ($1, '2026-07-27', 7, 5000, 300)`,
+      [user],
+    );
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, flagged)
+       values ($1, '2026-07-27', true)`,
+      [user],
+    );
+    const rows = await h.asUser<{ stat: string }>(
+      user,
+      'select stat from public.stat_records()',
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('keeps a day whose score row exists and is not flagged, and one with no row at all', async () => {
+    // A record predates its `daily_scores` row on no path in production, but a
+    // join that dropped a day without one would silently narrow the read; only
+    // an actual flag may remove a day.
+    const user = await h.createUser();
+    await seedRecords(user);
+    await h.asService(
+      `insert into public.daily_scores (user_id, local_date, flagged)
+       values ($1, '2026-07-27', false)`,
+      [user],
+    );
+    const rows = await h.asUser<{ stat: string; value: string }>(
+      user,
+      "select stat, value from public.stat_records() where stat = 'AGI'",
+    );
+    expect(Number(rows[0]!.value)).toBe(9_000);
+  });
+
   // It takes no argument precisely so this cannot be got wrong — there is no
   // parameter to point at somebody else. A personal best must never be
   // reachable from another account: headroom pays the character, not the rank.

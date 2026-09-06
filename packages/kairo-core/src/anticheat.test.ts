@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   FLAG_CLEARS_AFTER_CLEAN_DAYS,
+  HOURLY_CEILINGS,
   VELOCITY_STEP_THRESHOLD,
   VELOCITY_WINDOW_MS,
   evaluateStepBurst,
+  exceedsHourlyCeiling,
   shouldClearFlag,
 } from './anticheat.ts';
-import type { StepBurst } from './anticheat.ts';
+import type { HourlyReading, StepBurst } from './anticheat.ts';
 
 const TEN_MINUTES = 10 * 60 * 1000;
 
@@ -109,5 +111,46 @@ describe('flag lifecycle', () => {
     expect(shouldClearFlag(2)).toBe(false);
     expect(shouldClearFlag(3)).toBe(true);
     expect(shouldClearFlag(10)).toBe(true);
+  });
+});
+
+describe('hourly plausibility ceilings', () => {
+  const hour = (overrides: Partial<HourlyReading> = {}): HourlyReading => ({
+    steps: 0,
+    distanceM: 0,
+    activeKcal: 0,
+    ...overrides,
+  });
+
+  it('publishes the three ceilings', () => {
+    expect(HOURLY_CEILINGS.steps).toBe(12_000);
+    expect(HOURLY_CEILINGS.distanceM).toBe(15_000);
+    expect(HOURLY_CEILINGS.activeKcal).toBe(1_200);
+  });
+
+  it('leaves an ordinary hour alone', () => {
+    expect(exceedsHourlyCeiling(hour({ steps: 4_000, distanceM: 3_200, activeKcal: 250 }))).toBe(
+      false,
+    );
+  });
+
+  // The ceilings sit at real human maxima on purpose: a fast runner's hour and
+  // a hard cyclist's hour are *inside* them, which is what makes flagging
+  // rather than clamping safe.
+  it('leaves a fast runner and a hard cyclist alone', () => {
+    expect(exceedsHourlyCeiling(hour({ steps: 11_000, distanceM: 14_500 }))).toBe(false);
+    expect(exceedsHourlyCeiling(hour({ activeKcal: 1_150 }))).toBe(false);
+  });
+
+  it('treats a value exactly at a ceiling as plausible', () => {
+    expect(exceedsHourlyCeiling(hour({ steps: HOURLY_CEILINGS.steps }))).toBe(false);
+    expect(exceedsHourlyCeiling(hour({ distanceM: HOURLY_CEILINGS.distanceM }))).toBe(false);
+    expect(exceedsHourlyCeiling(hour({ activeKcal: HOURLY_CEILINGS.activeKcal }))).toBe(false);
+  });
+
+  it('reports an hour over any one of the three', () => {
+    expect(exceedsHourlyCeiling(hour({ steps: 12_001 }))).toBe(true);
+    expect(exceedsHourlyCeiling(hour({ distanceM: 15_001 }))).toBe(true);
+    expect(exceedsHourlyCeiling(hour({ activeKcal: 1_201 }))).toBe(true);
   });
 });

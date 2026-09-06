@@ -19,7 +19,51 @@ const base = {
   quests: [],
   selectedQuestIndex: null,
   droppedStepSources: [] as string[],
+  flagged: false,
 };
+
+describe('todayDetails — a flagged day', () => {
+  const motionRows = (flagged: boolean) =>
+    todayDetails({ ...base, flagged }).find((section) => section.id === 'motion')!.rows;
+
+  it('says nothing on an ordinary day', () => {
+    expect(motionRows(false).some((row) => row.id === 'flagged')).toBe(false);
+  });
+
+  // The accused hears it first: on their own day's details, before the chip
+  // every squadmate sees.
+  it('tells the flagged player, in plain language, on their own screen', () => {
+    const note = motionRows(true).find((row) => row.id === 'flagged');
+    expect(note?.value).toBe(
+      "Some of today's hours don't look like walking, so today can't set a personal best — and your flock sees a flag on your row.",
+    );
+  });
+
+  it('claims only what a flag actually does', () => {
+    // A flag is a social signal, never a score reduction (§20, `trust.ts`): a
+    // flagged day still ranks on the board, still flies the corridor and still
+    // pays XP, Mastery and the streak. The design's own draft said the hours
+    // "won't count towards the flock", which is the one thing that is not true
+    // — so the sentence may name the record and the chip, and nothing else.
+    const value = motionRows(true).find((row) => row.id === 'flagged')!.value;
+    expect(value).toContain('personal best');
+    expect(value.toLowerCase()).not.toMatch(/won't count|not count|doesn't count/);
+  });
+
+  // Deliberately **not** held to the dropped-sources row's ban on accusing
+  // words two describes below. That line reports an inert exclusion and must
+  // never read as suspicion; this one is the flag, which §20 makes a social
+  // signal — an accusation, stated plainly, to the person accused. Widening
+  // that ban across the file would break this row.
+  it('names no rule, no threshold and no figure', () => {
+    // One sentence, two rules behind it. The player is told the consequence,
+    // not which ceiling an hour crossed — the flag column is a boolean for the
+    // same reason.
+    const value = motionRows(true).find((row) => row.id === 'flagged')!.value;
+    expect(value).not.toMatch(/\d/);
+    expect(value.toLowerCase()).not.toMatch(/ceiling|threshold|limit|implausible/);
+  });
+});
 
 describe('todayDetails — uncounted step sources', () => {
   const motionRows = (dropped: string[]) =>

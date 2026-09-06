@@ -342,6 +342,10 @@ export default function Today() {
     // observation about this phone, for this player, and no projection carries
     // it.
     droppedStepSources,
+    // The one line on this sheet a squadmate can also see the effect of, and
+    // the reason it is here: the accused reads it on their own day before the
+    // chip appears on anybody's leaderboard row.
+    flagged: today?.flagged ?? false,
   });
 
   // Once per the user's own local day, not per render: fired on render this

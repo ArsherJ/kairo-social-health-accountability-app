@@ -19,6 +19,14 @@ export type TodayScore = {
   tiers: Record<string, string>;
   contributing_stats: number;
   status: 'provisional' | 'final';
+  /**
+   * The anti-cheat verdict on this day, as `sync-health` wrote it.
+   *
+   * Read so the flagged player is told on their own details sheet, before the
+   * chip their squadmates see on the leaderboard row. Nothing here decides
+   * anything — the flag is written server-side and this is a display read.
+   */
+  flagged: boolean;
 };
 
 /**
@@ -49,7 +57,7 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
         .select(
           'agi_points, str_points, mind_points, ' +
             'consistency_points, total, tiers, ' +
-            'contributing_stats, status',
+            'contributing_stats, status, flagged',
         )
         .eq('user_id', userId as string)
         .eq('local_date', localDate as string)

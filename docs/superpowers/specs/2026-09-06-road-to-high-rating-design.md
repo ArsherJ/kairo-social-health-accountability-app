@@ -242,6 +242,18 @@ today's hours don't look like walking, so they won't count towards the flock"* �
 before the chip anyone else sees. The social signal stays (§20); the accusation
 stops arriving first through a friend's screen.
 
+> **Corrected 2026-09-06, on building it (issue #21).** That sentence is false,
+> and the flock is the part that is false. A flagged day still ranks on
+> `squad_leaderboard()`, which orders by the weighted total and only *projects*
+> the flag for the chip; the Sky corridor re-ranks capped steps without reading
+> it; XP, Mastery and the streak are untouched. §20 and `trust.ts` say so
+> outright — a flag is a social signal, never a ban and never a score
+> reduction — which is the same paragraph this section is arguing from. The one
+> thing A2 actually stops is the personal best, so the shipped line names that
+> and the chip: *"Some of today's hours don't look like walking, so today can't
+> set a personal best — and your flock sees a flag on your row."* The
+> ordering claim above is unaffected and is what the line is for.
+
 ---
 
 ## Part B — Remove the Battle (Phase 1, MIGRATION)
