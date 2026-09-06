@@ -175,10 +175,9 @@ is guarded by `CRON_SECRET` — fail-closed, unlike `finalize-days` — plus the
 client path can reach it; it is invoked by hand:
 
 ```bash
-# The header changed with deviation #67: the deployed function validates
-# `x-seed-secret` against SEED_SECRET until `supabase functions deploy
-# seed-health` is run, and `x-cron-secret` after. If this 403s, check which
-# version is live before checking the secret.
+# The header changed with deviation #67: `x-cron-secret`, not `x-seed-secret`.
+# Live since seed-health v7 (2026-09-06). SEED_SECRET is still set on the
+# project and now reaches nothing — delete it when convenient.
 # verify_jwt is on, so the anon key is needed as well as the cron secret.
 curl -sS -X POST "$SUPABASE_URL/functions/v1/seed-health" \
   -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
