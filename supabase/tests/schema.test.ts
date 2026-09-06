@@ -3675,11 +3675,69 @@ describe('squad_leaderboard viewed on behalf of a user', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Events (20260828090000) — deviations #45, #48, #49
+// Events (20260828090000, retired by 20260906130000) — deviations #45/#48/#49,
+// then #66
 // ---------------------------------------------------------------------------
 //
 // The harness shares one PGlite instance with no per-test reset, so these use
 // their own users and October dates, clear of every other suite's fixtures.
+
+/**
+ * Seed a closed event with its roster, as the service role.
+ *
+ * The only way an event row exists at all now: `create_event()` was dropped
+ * with the Battle (deviation #66) and the client has no INSERT grant, so the
+ * harness stands in for the history the retirement migration left behind —
+ * exactly as it stands in for an Edge Function elsewhere. Closed, because the
+ * migration closed every live row and a live one is a state the database can no
+ * longer reach.
+ *
+ * One helper rather than one per describe: four suites need the same two
+ * inserts, and a roster silently missing from one of them reads as a visibility
+ * bug rather than as a missing fixture.
+ */
+async function seedClosedEvent(
+  squadId: string | null,
+  createdBy: string,
+  roster: readonly string[],
+  over: Partial<{
+    title: string;
+    kind: string;
+    metric: string;
+    target: number;
+    startsOn: string;
+    endsOn: string;
+    /** Leave live. Only the retirement suite, which stages the migration, has a
+     * legitimate reason to want one — everywhere else a live row is a lie. */
+    live: boolean;
+  }> = {},
+): Promise<string> {
+  const rows = await h.asService<{ id: string }>(
+    `insert into public.challenge_events
+       (squad_id, created_by, title, kind, metric, target, starts_on, ends_on, closed_at)
+     values ($1, $2, $3, $4, $5, $6, $7::date, $8::date, case when $9 then null else now() end)
+     returning id`,
+    [
+      squadId,
+      createdBy,
+      over.title ?? 'The Carabao',
+      over.kind ?? 'battle',
+      over.metric ?? 'active_kcal',
+      over.target ?? 4_000,
+      over.startsOn ?? '2026-10-01',
+      over.endsOn ?? '2026-10-07',
+      over.live ?? false,
+    ],
+  );
+  const eventId = rows[0]!.id;
+  for (const userId of roster) {
+    await h.asService(
+      'insert into public.event_participants (event_id, user_id) values ($1, $2)',
+      [eventId, userId],
+    );
+  }
+  return eventId;
+}
 
 describe('challenge_events after the Battle was retired', () => {
   /** A squad with `extra` members beyond the leader. */
@@ -3699,35 +3757,6 @@ describe('challenge_events after the Battle was retired', () => {
     }
     return { leader, members, squadId };
   }
-
-  /**
-   * Seed an event row directly, as the service role.
-   *
-   * `create_event()` was dropped with the Battle (deviation #66), so the only
-   * remaining way an event row comes into existence is the one the migration
-   * left behind: a row already in the table. The harness stands in for that
-   * history exactly as it stands in for an Edge Function elsewhere.
-   */
-  const seedEvent = (
-    squadId: string | null,
-    createdBy: string,
-    over: Partial<{ title: string; kind: string; target: number; closedAt: boolean }> = {},
-  ) =>
-    h.asService<{ id: string }>(
-      `insert into public.challenge_events
-         (squad_id, created_by, title, kind, metric, target, starts_on, ends_on, closed_at)
-       values ($1, $2, $3, $4, 'active_kcal', $5, '2026-10-01', '2026-10-07',
-               case when $6 then now() end)
-       returning id`,
-      [
-        squadId,
-        createdBy,
-        over.title ?? 'The Carabao',
-        over.kind ?? 'battle',
-        over.target ?? 4_000,
-        over.closedAt ?? false,
-      ],
-    );
 
   it('rejects a goal kind on a LIVE row', async () => {
     const { leader, squadId } = await seedSquad(0);
@@ -3798,25 +3827,19 @@ describe('challenge_events after the Battle was retired', () => {
     // design's sequencing says revoke nothing else, and a title edit on a
     // closed row is inert.
     const { leader, squadId } = await seedSquad(0);
-    const created = await seedEvent(squadId, leader, { closedAt: true });
     // On the roster, because an UPDATE with a WHERE clause is scanned through
     // the SELECT policy too — and the recreated policy is participation.
-    await h.asService(
-      'insert into public.event_participants (event_id, user_id) values ($1, $2)',
-      [created[0]!.id, leader],
-    );
+    const eventId = await seedClosedEvent(squadId, leader, [leader]);
     await h.asUser(leader, `update public.challenge_events set title = 'Renamed' where id = $1`, [
-      created[0]!.id,
+      eventId,
     ]);
     await rejects(
-      h.asUser(leader, `update public.challenge_events set target = 1 where id = $1`, [
-        created[0]!.id,
-      ]),
+      h.asUser(leader, `update public.challenge_events set target = 1 where id = $1`, [eventId]),
       /permission denied/i,
     );
     const stored = await h.asService<{ title: string; target: number }>(
       'select title, target from public.challenge_events where id = $1',
-      [created[0]!.id],
+      [eventId],
     );
     expect(stored[0]!).toEqual({ title: 'Renamed', target: 4_000 });
   });
@@ -3827,24 +3850,20 @@ describe('challenge_events after the Battle was retired', () => {
     // renders it, and the mutual recursion the definer function existed to
     // break cannot be written inline.
     const { leader, squadId } = await seedSquad(1);
-    const created = await seedEvent(squadId, leader, { closedAt: true });
+    const eventId = await seedClosedEvent(squadId, leader, [leader]);
     const outsider = await h.createUser();
-    await h.asService(
-      'insert into public.event_participants (event_id, user_id) values ($1, $2)',
-      [created[0]!.id, leader],
-    );
 
     const mine = await h.asUser<{ id: string }>(
       leader,
       'select id from public.challenge_events where id = $1',
-      [created[0]!.id],
+      [eventId],
     );
     expect(mine).toHaveLength(1);
 
     const theirs = await h.asUser<{ id: string }>(
       outsider,
       'select id from public.challenge_events where id = $1',
-      [created[0]!.id],
+      [eventId],
     );
     expect(theirs).toHaveLength(0);
   });
@@ -3890,7 +3909,7 @@ describe('retiring the Battle (20260906130000)', () => {
    * it. These two assertions are the acceptance criteria of the retirement and
    * neither is expressible any other way.
    */
-  async function before() {
+  async function stagedWithLiveEvent() {
     const staged = await setupHarness({ stopBefore: MIGRATION });
     const leader = await staged.createUser({ characterName: 'Leader' });
     const squad = await staged.asUser<{ id: string }>(
@@ -3909,7 +3928,7 @@ describe('retiring the Battle (20260906130000)', () => {
   }
 
   it('closes every live event, so no read can render one', async () => {
-    const { staged, eventId } = await before();
+    const { staged, eventId } = await stagedWithLiveEvent();
     try {
       const live = await staged.asService<{ closed_at: string | null }>(
         'select closed_at from public.challenge_events where id = $1',
@@ -3934,7 +3953,7 @@ describe('retiring the Battle (20260906130000)', () => {
     // recompute that sums `event_completions.xp_awarded`; if the retirement had
     // taken the rows with it, every account's level would fall on the next
     // write with nothing to notice.
-    const { staged, leader, eventId } = await before();
+    const { staged, leader, eventId } = await stagedWithLiveEvent();
     try {
       await staged.asService(
         `insert into public.event_completions (event_id, user_id, completed_on, xp_awarded)
@@ -3974,22 +3993,8 @@ describe('event_progress', () => {
     );
     const bob = await h.createUser({ characterName: 'Bob' });
     await h.asUser(bob, 'select public.join_squad($1)', [squad[0]!.invite_code]);
-    // Seeded directly, and closed: `create_event()` went with the Battle
-    // (deviation #66), so a row this function can read is by definition one the
-    // retirement left behind.
-    const event = await h.asService<{ id: string }>(
-      `insert into public.challenge_events
-         (squad_id, created_by, title, kind, metric, target, starts_on, ends_on, closed_at)
-       values ($1, $2, 'The Carabao', 'battle', 'active_kcal', 4000,
-               '2026-10-01', '2026-10-07', now())
-       returning id`,
-      [squad[0]!.id, alice],
-    );
-    await h.asService(
-      `insert into public.event_participants (event_id, user_id) values ($1, $2), ($1, $3)`,
-      [event[0]!.id, alice, bob],
-    );
-    return { alice, bob, squadId: squad[0]!.id, eventId: event[0]!.id };
+    const eventId = await seedClosedEvent(squad[0]!.id, alice, [alice, bob]);
+    return { alice, bob, squadId: squad[0]!.id, eventId };
   }
 
   const consent = (userId: string) =>
@@ -4180,22 +4185,14 @@ describe("other people's events", () => {
     );
     const member = await h.createUser({ characterName: 'Other' });
     await h.asUser(member, 'select public.join_squad($1)', [squad[0]!.invite_code]);
-    // Seeded directly and closed. `create_event()` went with the Battle
-    // (deviation #66); the erasure behaviour it set up did not, and these are
-    // the tests that hold it.
-    const event = await h.asService<{ id: string }>(
-      `insert into public.challenge_events
-         (squad_id, created_by, title, kind, metric, target, starts_on, ends_on, closed_at)
-       values ($1, $2, 'Shared', 'battle', 'active_kcal', 1000,
-               '2026-10-01', '2026-10-30', now())
-       returning id`,
-      [squad[0]!.id, leader],
-    );
-    await h.asService(
-      `insert into public.event_participants (event_id, user_id) values ($1, $2), ($1, $3)`,
-      [event[0]!.id, leader, member],
-    );
-    return { leader, member, eventId: event[0]!.id };
+    // `create_event()` went with the Battle (deviation #66); the erasure
+    // behaviour it set up did not, and these are the tests that hold it.
+    const eventId = await seedClosedEvent(squad[0]!.id, leader, [leader, member], {
+      title: 'Shared',
+      target: 1_000,
+      endsOn: '2026-10-30',
+    });
+    return { leader, member, eventId };
   }
 
   it('survives with a null creator rather than being destroyed', async () => {
@@ -4743,23 +4740,17 @@ describe('squad_leaderboard projects species', () => {
       );
     }
 
-    const event = await h.asService<{ id: string }>(
-      `insert into public.challenge_events
-         (squad_id, created_by, title, kind, metric, target, starts_on, ends_on, closed_at)
-       values ($1, $2, 'Together', 'battle', 'active_kcal', 5000,
-               '2026-01-01', '2026-01-31', now())
-       returning id`,
-      [squad[0]!.id, leader],
-    );
-    await h.asService(
-      `insert into public.event_participants (event_id, user_id) values ($1, $2), ($1, $3)`,
-      [event[0]!.id, leader, member],
-    );
+    const eventId = await seedClosedEvent(squad[0]!.id, leader, [leader, member], {
+      title: 'Together',
+      target: 5_000,
+      startsOn: '2026-01-01',
+      endsOn: '2026-01-31',
+    });
 
     const rows = await h.asUser<{ character_name: string; species: string | null }>(
       leader,
       'select character_name, species from public.event_progress($1)',
-      [event[0]!.id],
+      [eventId],
     );
     expect(rows.find((r) => r.character_name === 'Beta')?.species).toBe('carabao');
     // Null is the pre-migration state and must survive as null — the roster

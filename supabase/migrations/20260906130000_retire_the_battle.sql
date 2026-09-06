@@ -34,16 +34,23 @@
 -- That is what makes dropping `can_see_event()` a real change rather than a
 -- deletion: three RLS policies and this function all read that rule, so the
 -- policies are recreated without it and the function carries the rule itself.
--- After this migration `event_progress()` is the rule's ONLY consumer, so the
--- inline predicate is the single copy rather than a second one — which is what
--- the old comment there was guarding against.
 --
--- What the recreated policies give up, deliberately: a squad member who was
--- never a participant could previously read the squad's event rows. Nothing
--- renders them any more, and the mutual recursion `can_see_event()` existed to
--- break (challenge_events' policy reads event_participants, whose policy read
--- challenge_events) cannot be written inline. Owner-scoped participation is
--- the honest surface for a retired mechanic's history.
+-- **The two do not end up saying the same thing, and that is deliberate.**
+-- `event_progress()` keeps the WHOLE old rule — participant OR member of the
+-- event's squad — because it is the surviving read and narrowing it would be a
+-- behaviour change smuggled in under a deletion. The policies keep only the
+-- participant half: a squad member who was never a participant could previously
+-- read the squad's event ROWS and no longer can. That is a real loss, stated
+-- rather than glossed, and it is taken because the mutual recursion
+-- `can_see_event()` existed to break (challenge_events' policy reads
+-- event_participants, whose policy read challenge_events) cannot be written
+-- inline, and because nothing renders those rows any more.
+--
+-- So the participant half is now written in two places — once in plpgsql, once
+-- in `events_select_visible`. That is one more copy than `can_see_event()`
+-- allowed and one fewer function than it cost; the honest reading is that the
+-- rule survives in the function and the policy is a narrower guard beside it,
+-- not a restatement of it.
 --
 -- `events_update_own` and the column-level `update (title, description)` grant
 -- are LEFT ALONE. The design's sequencing says "revoke nothing else", and a
@@ -120,10 +127,12 @@ begin
     raise exception 'no such event' using errcode = '42501';
   end if;
 
-  -- The visibility rule, in the one place that still holds it. This function is
-  -- SECURITY DEFINER so RLS is bypassed and the check has to be explicit; it is
-  -- written here rather than behind `can_see_event()` because that function was
-  -- dropped with the Battle and this is now its only reader.
+  -- The whole of the old `can_see_event()` rule — participant OR member of the
+  -- event's squad — unchanged. This function is SECURITY DEFINER so RLS is
+  -- bypassed and the check has to be explicit; it is written here rather than
+  -- behind that function because it was dropped with the Battle. The recreated
+  -- `events_select_visible` policy keeps only the participant half, so this is
+  -- deliberately the more permissive of the two: see the header.
   select exists (
     select 1 from public.event_participants ep
      where ep.event_id = p_event_id and ep.user_id = v_user
@@ -192,7 +201,7 @@ end;
 $$;
 
 comment on function public.event_progress(uuid, uuid) is
-  'Historical, read-only since the Battle was retired (deviation #66). Per-participant, per-day RAW metric totals inside a closed Event window, plus the pooled figure for each day. Rows only — the arithmetic lives in kairo-core (deviation #18), where it is kept deprecated so a banked completion can still be explained. Daily sums only: no argument exposes hourly movement, heart rate, workout sessions, pace or timestamps. `value` is behind the same reciprocal consent gate as squad_leaderboard()''s raw totals (deviation #47); `pooled_value` is not. Holds the participant-or-squad visibility rule inline: it is the only reader left of it.';
+  'Historical, read-only since the Battle was retired (deviation #66). Per-participant, per-day RAW metric totals inside a closed Event window, plus the pooled figure for each day. Rows only — the arithmetic lives in kairo-core (deviation #18), where it is kept deprecated so a banked completion can still be explained. Daily sums only: no argument exposes hourly movement, heart rate, workout sessions, pace or timestamps. `value` is behind the same reciprocal consent gate as squad_leaderboard()''s raw totals (deviation #47); `pooled_value` is not. Holds the whole of the retired can_see_event() rule inline — participant OR member of the event''s squad — unchanged, because narrowing the surviving read would be a behaviour change smuggled in under a deletion. The recreated events_select_visible policy keeps only the participant half, so this function is deliberately the more permissive of the two.';
 
 -- ---------------------------------------------------------------------------
 -- 4. Drop can_see_event, by exact argument list, with its policies

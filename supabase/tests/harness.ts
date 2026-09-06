@@ -151,6 +151,10 @@ export interface Harness {
    * The only way to test what a migration *does to existing rows*: the suite
    * otherwise applies every file before the first test runs, so a row the
    * migration was written to rewrite can never exist in front of it.
+   *
+   * Deliberately does **not** consult `UNSUPPORTED_MIGRATIONS`. A caller naming
+   * an entry on that list is asking for something this harness cannot do, and
+   * the underlying failure says so more precisely than a silent skip would.
    */
   applyMigration(file: string): Promise<void>;
   /** Create an auth user plus a profile, returning the id. */
@@ -184,6 +188,14 @@ export async function setupHarness(
     } catch (error) {
       throw new Error(`Migration ${file} failed: ${(error as Error).message}`);
     }
+  }
+
+  // Fail loudly on a name that is not a migration. Without this a typo applies
+  // every file, the caller's seed lands on the post-migration schema, and the
+  // assertion that the migration *changed* something passes for the wrong
+  // reason — which is exactly the failure a staged harness exists to catch.
+  if (opts.stopBefore !== undefined && !files.includes(opts.stopBefore)) {
+    throw new Error(`stopBefore names no migration: ${opts.stopBefore}`);
   }
 
   for (const file of files) {

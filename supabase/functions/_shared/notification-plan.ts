@@ -30,10 +30,11 @@ export const DIGEST_HOUR = 8;
  * The triggers a clock can produce.
  *
  * Narrower than `NotificationTrigger` on purpose, and narrower than it used to
- * be: `event_completed` and `challenge_cleared` fire from `finalize-days` when
- * something latches, and the three retired evening triggers fire from nowhere
- * at all. Expressing that in the type is what lets the copy layer be exhaustive
- * without a throw for a case that cannot happen.
+ * be: `challenge_cleared` fires from `finalize-days` when something latches,
+ * and the three retired evening triggers fire from nowhere at all — as does
+ * `event_completed` since deviation #66 retired the Battle on 2026-09-06.
+ * Expressing that in the type is what lets the copy layer be exhaustive without
+ * a throw for a case that cannot happen.
  */
 export type ScheduledTrigger = Extract<NotificationTrigger, 'daily_digest'>;
 

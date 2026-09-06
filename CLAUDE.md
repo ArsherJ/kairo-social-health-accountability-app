@@ -623,9 +623,12 @@ closes every live row, so no read can render one. Four things break easily:
   expression registers a dependency, and the drop is refused unless the policies
   go first. They are recreated **narrower** — participation for
   `challenge_events`, owner-only for the two child tables — so the mutual
-  recursion the definer function existed to break cannot form. That function's
-  comment used to forbid a "second copy of the rule"; it is now the *only* copy,
-  because the policies no longer ask the question. `events_update_own` and the
+  recursion the definer function existed to break cannot form. The function and
+  the policy deliberately disagree: `event_progress()` keeps the **whole** old
+  rule (participant OR member of the event's squad), because narrowing the
+  surviving read would be a behaviour change smuggled in under a deletion; the
+  policy keeps only the participant half, so a squad member who was never a
+  participant loses read on the historical *rows*. `events_update_own` and the
   `update (title, description)` grant are deliberately untouched.
 - **Testing a migration's effect on existing rows needs a staged harness.**
   `setupHarness({ stopBefore })` + `applyMigration()` exist for exactly this: the
