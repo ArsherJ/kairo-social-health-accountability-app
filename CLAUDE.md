@@ -240,7 +240,9 @@ to `readHealthWindow` only: `readStepsToday` (the onboarding reveal) and
 `readDailySteps` (calibration) still read every source, so an account whose only
 source is an unrecognised band sees a real number on `/connect` and is
 calibrated on steps that will not later count. Both are follow-ups, not
-oversights.
+oversights, and the calibration half is **issue #43** — it writes a durable
+`quest_tier_override` from steps the day totals will never contain, which is a
+wrong stored value rather than a cosmetic gap.
 
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
