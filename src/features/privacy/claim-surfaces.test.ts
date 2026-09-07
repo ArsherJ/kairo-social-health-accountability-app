@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HEALTH_DISCLOSURE } from '../health/disclosure.ts';
 import { INVITE_HOST } from '../squad/invite-link.ts';
@@ -214,11 +215,17 @@ interface ClaimSurface {
   /** The claim itself — what the positive rules read. */
   claim: () => string;
   /**
-   * What the bans read. Defaults to the claim, and is wider only where the
-   * claim is a section of a longer document: a ban that reads the section
-   * alone misses the retired sentence that merely moved out of it.
+   * Read by the bans **in addition to** the claim, never instead of it.
+   *
+   * Both halves are needed and each covers the other's blind spot. A ban that
+   * reads only the claim misses the retired sentence that merely moved out of
+   * it — into the rest of the policy page, or into a caption one element over.
+   * A ban that reads only the document misses the claim itself once the copy
+   * lives in `claim-copy.ts` and the screen only imports it, which is how
+   * restoring "never the raw numbers" to `/connect` passed this file once
+   * before being caught.
    */
-  whole?: () => string;
+  alsoScan?: () => string;
   makes: RuleName[];
 }
 
@@ -261,7 +268,7 @@ const SURFACES: ClaimSurface[] = [
     // in the Daily Walk card too. A guard that survives the deletion of its
     // subject is not a guard.
     claim: () => sectionText('web/index.html', 'privacy'),
-    whole: () => pageText('web/index.html'),
+    alsoScan: () => pageText('web/index.html'),
     makes: ['fourTotals', 'mutual', 'neverHeartRate', 'neverWorkouts'],
   },
   {
@@ -284,6 +291,18 @@ const SURFACES: ClaimSurface[] = [
     makes: ['totalsOnly', 'mutual'],
   },
   {
+    name: 'the Health ask on /connect',
+    where: 'app/(onboard)/connect.tsx',
+    claim: () => PRIVACY_CLAIM.connectHealth,
+    // The bans read the whole screen, not just the help line: this is the
+    // screen an App Store reviewer opens for the health-data disclosure rule,
+    // and a retired stat in the title or a stray engine key in a caption is
+    // the same defect one element over. Comments stripped, so the reasoning
+    // beside the copy is not mistaken for the copy.
+    alsoScan: () => code(readFileSync('app/(onboard)/connect.tsx', 'utf8')),
+    makes: ['fourTotals', 'totalsOnly', 'mutual'],
+  },
+  {
     name: 'the invite message',
     where: 'src/features/squad/invite-message.ts',
     claim: () => inviteMessage({ squadName: 'Barangay Runners', inviteCode: 'NRN7P7' }),
@@ -296,6 +315,24 @@ const SURFACES: ClaimSurface[] = [
  * without being registered here.
  */
 const CLAIM_MARKERS = /hour-by-hour|never your route|both agreed|raw numbers/i;
+
+/** Where in-app claim copy lives, and the only file allowed to write one. */
+const CLAIM_COPY = 'src/features/privacy/claim-copy.ts';
+
+/** Source with comments removed, so prose about a claim is not a claim. */
+function code(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/** Every non-test TypeScript source under a directory, read. */
+function sourcesUnder(dir: string): { path: string; source: string }[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return sourcesUnder(path);
+    if (!/\.tsx?$/.test(entry) || entry.includes('.test.')) return [];
+    return [{ path, source: readFileSync(path, 'utf8') }];
+  });
+}
 
 /* -------------------------------------------------------------- the suite */
 
@@ -321,7 +358,7 @@ describe('the privacy claim, across every surface that makes it', () => {
 
       for (const ban of BANS) {
         it(ban.the, () => {
-          expect((surface.whole ?? surface.claim)()).not.toMatch(ban.pattern);
+          expect(`${surface.claim()}\n${surface.alsoScan?.() ?? ''}`).not.toMatch(ban.pattern);
         });
       }
     });
@@ -367,6 +404,26 @@ describe('the list is the whole list', () => {
     for (const sentence of Object.values(PRIVACY_CLAIM)) {
       expect(claimed).toContain(sentence);
     }
+  });
+
+  it('lets no screen write a claim of its own', () => {
+    // The sweep. A screen that hand-writes the sentence instead of importing
+    // it is a fifth copy the moment it exists, which is the whole shape of the
+    // failure this file was built after — and it is one line away at any time,
+    // because a sentence in a `<Text>` is the most ordinary thing in the app.
+    //
+    // Comments stripped first: this repo explains its claims in prose beside
+    // them, and a guard that fails on its own doc comment gets deleted.
+    // Registered surfaces are **not** exempt. Being on the list means the
+    // claim is guarded, not that the screen may write one: `/privacy` and
+    // `/connect` are both registered and both read the module. Only the module
+    // itself is allowed the words.
+    const offenders = [...sourcesUnder('app'), ...sourcesUnder('src')]
+      .filter(({ path }) => path !== CLAIM_COPY)
+      .filter(({ source }) => CLAIM_MARKERS.test(code(source)))
+      .map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
   });
 
   it('registers every line of the HealthKit disclosure', () => {

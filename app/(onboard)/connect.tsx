@@ -13,6 +13,7 @@ import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { hatchingWindow, msUntilNextChange } from '@/features/onboarding/hatching-window.ts';
 import { runCalibration } from '@/features/onboarding/calibration.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
+import { PRIVACY_CLAIM } from '@/features/privacy/claim-copy.ts';
 import { track } from '@/features/telemetry/events.ts';
 import { Button, Label, Numeral, Text } from '@/ui/index.ts';
 import { colors, font, ramp, space } from '@/theme.ts';
@@ -207,7 +208,7 @@ export default function Connect() {
         </Text>
         <Text style={styles.help}>
           {healthSource.policy.supportsPermission
-            ? 'Kairo reads your steps, active minutes and calories from Apple Health. Your squad sees your progress — never the raw numbers.'
+            ? PRIVACY_CLAIM.connectHealth
             : 'This build is for account, navigation and native-device smoke tests. It does not request health permissions, read device health data or sync health data.'}
         </Text>
 

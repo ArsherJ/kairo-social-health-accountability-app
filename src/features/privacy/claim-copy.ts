@@ -43,4 +43,32 @@ export const PRIVACY_CLAIM = {
   sharingTotals:
     'Daily totals only — never your route, never an hour-by-hour trail. ' +
     'Off means the sky is empty both ways.',
+
+  /**
+   * The help line under the Health ask on `/connect`, which is the screen an
+   * App Store reviewer reads for the health-data disclosure rule and the one
+   * a person reads before the single permission dialog iOS grants per install.
+   *
+   * It said "Your squad sees your progress — never the raw numbers", and named
+   * "active minutes" among the things Kairo scores. Both went stale in one
+   * pass each: deviation #47's reciprocal consent gate made a consenting
+   * squadmate's four daily totals visible, and deviation #41 stopped active
+   * minutes being a stat two weeks after that. The privacy beat two screens
+   * later has worded the same claim correctly the whole time.
+   *
+   * **Three sentences rather than one, deliberately.** The retired line was
+   * shorter and that is what was wrong with it — the same compression that
+   * made the invite message's "Steps, never Health data" both
+   * self-contradictory and subject-less. Each clause here has one job: what is
+   * read, what a flockmate sees of it, and what they never see. It does not
+   * enumerate the read list, because eight identifiers do not belong in a
+   * sentence and Apple's own sheet is the authority on that list — naming four
+   * of them here as though they were all of them would understate the ask on
+   * the one screen where understating it is a trust problem.
+   */
+  connectHealth:
+    "Kairo reads your activity from Apple Health — Apple's own sheet lists " +
+    'exactly what. Your flock sees daily totals only: steps, distance, active ' +
+    'calories and sleep. Never your route, never an hour-by-hour trail, and ' +
+    'only where you have both agreed.',
 } as const;

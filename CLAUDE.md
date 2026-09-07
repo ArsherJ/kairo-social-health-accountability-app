@@ -15,7 +15,7 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
-- **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded by `src/features/support/links.test.ts`. The App Store answers are `docs/app-store-privacy.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields, the `NSHealthShareUsageDescription` build.
+- **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded — since 2026-09-07 — by `src/features/privacy/claim-surfaces.test.ts` along with every other surface that makes the claim. The App Store answers are `docs/app-store-privacy.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields, the `NSHealthShareUsageDescription` build.
 
 Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
 
@@ -946,25 +946,63 @@ easily:
   surface a non-user can reach — the very failure this pass corrects,
   reintroduced by sequencing.
 
-**The privacy claim is made in three places as of 2026-09-02**, and one test
-owns it across two of them. *Later the same day the policy page became a
-fourth, with its own test:* `src/features/support/links.test.ts` reads
-`web/privacy.html` off disk and pins the contact address against
-`SUPPORT_EMAIL`, the four totals, the pooled-Battle clause (rewritten to the
-past tense by deviation #66, and pinned as saying so), the deletion
-clause, and bans engine keys, tier names, retired promises and `[[TODO`
-placeholders — so the page cannot deploy with a blank in it. The HealthKit
-permission sheet is the other surface corrected that day: `disclosure.ts`
-said "Score your AGI / STR / MND", engine keys on the one screen a 5.1.3
-reviewer reads, invisible to the "Agility" scan because a key is not a word.
-`disclosure.test.ts` bans `\b(AGI|STR|MND)\b` there now. The invite *message* dropped its clause: it read
-"Steps, never Health data", which is self-contradictory (steps *are* Health
-data), subject-less, and stale since deviation #47's consent gate made four
-daily totals visible to a consenting squadmate. **A shorter true clause is not
-the fix** — the compression is the cause, and the next one fails the same way.
-The claim lives on the landing page instead, and `invite-message.test.ts` reads
-`web/index.html` to assert it: that is the structural answer to how one claim
-went stale in four places at once. Three more things:
+**One test owns the privacy claim, across a declared list of surfaces, as of
+2026-09-07** (issues #19 and #27). `src/features/privacy/claim-surfaces.test.ts`
+is that test and there is no second one; `src/features/privacy/claim-copy.ts` is
+where every in-app sentence making the claim lives, zero-runtime-import so root
+Vitest can hold it — the `ask-copy.ts` split, for the same reason. The list is
+`web/privacy.html`, `web/index.html`, `disclosure.ts` (the HealthKit sheet),
+`app/(onboard)/privacy.tsx`, `app/(onboard)/connect.tsx`, and the invite
+message, which is registered as a surface that makes **no** claim and points at
+one that does. Each declares the rules it makes — the contact address, the four
+totals, reciprocity, what a squadmate never sees, the pooled-Battle and deletion
+clauses — and the **bans apply to all of them**, because a retired promise is
+wrong wherever it appears: engine keys, retired stats, tier names, the retired
+promises themselves, `[[TODO`. Seven things break easily:
+
+- **This replaced three scans and they were removed, not left alongside.** One
+  was named after the invite message, one after the support links, one after the
+  HealthKit disclosure — so a fourth surface making the claim had nowhere
+  obvious to be registered, which is exactly how the claim went stale in four
+  places at once. Two scans of one rule always drift, and one always ends up
+  quietly narrower. Do not start a second one beside this; that is the whole
+  defect.
+- **Bans read the claim *and* the wider document, never one instead of the
+  other**, and each covers the other's blind spot. Reading only the claim misses
+  a retired sentence that merely moved into a caption one element over; reading
+  only the document misses the claim itself, now that the copy lives in
+  `claim-copy.ts` and the screen only imports it. Restoring "never the raw
+  numbers" to `/connect` passed this file once, on the document-only reading,
+  before being caught.
+- **A registered surface is not exempt from the hand-written-claim sweep.**
+  Being on the list means the claim is guarded, not that the screen may write
+  one — `/privacy` and `/connect` are both registered and both read the module.
+  `claim-copy.ts` is the only file under `app/` or `src/` allowed the words, and
+  a screen writing "hour-by-hour" itself fails. That exemption was briefly
+  wrong and let a screen hand-write the claim.
+- **The list is held whole by three sweeps**, because "removing a surface" must
+  fail rather than quietly narrow the guard: every `web/*.html` page is
+  registered, every sentence exported from `claim-copy.ts` is registered, and
+  every line of `HEALTH_DISCLOSURE` is covered by the sheet's entry.
+- **`/connect`'s help line was the stale one, corrected on 2026-09-07** (issue
+  #27). It promised the squad sees your progress "never the raw numbers" —
+  false since deviation #47's per-row consent gate — and named "active
+  minutes", not a stat since deviation #41, on the screen a 5.1.3 reviewer
+  reads and two beats before the privacy beat wording the same claim correctly.
+  It carries the beat's claim now: **daily totals only, never your route, never
+  an hour-by-hour trail, and only where you have both agreed.**
+- **The `/connect` line does not enumerate the read list, deliberately.** Eight
+  identifiers do not belong in a sentence and Apple's own sheet is the
+  authority; naming four of them as though they were all of them understates the
+  ask on the one screen where understating it is a trust problem. So it names
+  what is read in the general, and the four totals as *what a flockmate sees*.
+- **A shorter true sentence is never the fix.** The compression is the cause —
+  it is what made the invite message's "Steps, never Health data" both
+  self-contradictory (steps *are* Health data) and subject-less — and the next
+  compression fails the same way. Say the whole claim and let the scan hold it.
+  What no test reaches: `NSHealthShareUsageDescription`, App Store Connect's
+  fields, and TestFlight's test information all carry the claim outside the
+  repo. Three more things:
 
 - **The landing page shows the recipient their own code**, revealed by an
   inline script that validates six characters *before* filling the box. Hidden
