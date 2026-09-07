@@ -11,6 +11,7 @@ import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
 import { startSessionListener, useSessionStore } from '@/features/auth/session.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { flushTelemetryBuffer } from '@/features/telemetry/events.ts';
+import { hideDevMenuFloatingButton } from '@/lib/dev-menu-fab.ts';
 import { Panel, Button, Text } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, space } from '@/theme.ts';
@@ -68,6 +69,12 @@ export default function RootLayout() {
   // pass measured. Effects still run on a render that returns null, so this
   // fires on the first frame either way.
   useEffect(() => startSessionListener(), []);
+
+  // The dev client's floating gear, off. A no-op in anything but a development
+  // build — see the module for why it is a runtime write and not the
+  // Info.plist key that would say the same thing at the cost of a native
+  // build.
+  useEffect(() => hideDevMenuFloatingButton(), []);
 
   // A blank frame, for as long as the fonts take. There is no splash-screen
   // plugin holding anything over it, so this *was* the cream nothing the user

@@ -1,5 +1,12 @@
-import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  type LayoutChangeEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -21,6 +28,7 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
+import { flightFrame } from '@/features/squad/flight-frame.ts';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
 import { shareInvite } from '@/features/squad/share-invite.ts';
@@ -80,6 +88,15 @@ export default function Sky() {
   // itself. There is no `Screen` here: this tab is a picture the size of the
   // glass with things floating on it, not a scrolling column of cards.
   const insets = useSafeAreaInsets();
+
+  // How tall the pinned flock rail actually is. Measured because the rail
+  // carries a line of type: at the largest accessibility size it is about a
+  // third taller than at the default, and the flight has to clear whichever it
+  // is. Zero until the first layout pass, which `flightFrame` treats as "no
+  // chrome to clear yet" rather than as a negative inset.
+  const [railHeight, setRailHeight] = useState(0);
+  const measureRail = (e: LayoutChangeEvent) => setRailHeight(e.nativeEvent.layout.height);
+
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -149,101 +166,120 @@ export default function Sky() {
   const placements = placeRacers(racers.map((r) => r.progress));
 
   /**
-   * Where to open the flight.
+   * Where the flight starts and where it opens — `flightFrame`'s, not this
+   * screen's.
    *
-   * On your own bird, a third of the way down the viewport — the design's
-   * `componentDidMount` does the same thing, and for the same reason: a flight
-   * that opens at the ground shows a brand-new day's worth of empty sky, and
-   * one that opens at the ridge shows the flag to somebody who has not reached
-   * it. Opening on the reader puts what they came for on screen and leaves the
-   * climb above them visible as the thing to do.
+   * The flight is inset below the flock rail rather than starting under it.
+   * The top of the path is the ridge, which is where everybody who cleared the
+   * Daily Walk sits, so an uninset corridor drew that bird with its head under
+   * the rail — and because the scroller cannot go above zero, no amount of
+   * dragging recovered it. The inset makes the clearance a property of the
+   * layout at every offset.
+   *
+   * The rail's height is **measured**, not assumed: it carries a line of type
+   * and grows with Dynamic Type, so a constant here would be right at one text
+   * size and wrong at the largest.
    *
    * `contentOffset` rather than a `scrollTo` in an effect: the effect version
    * paints at the ground for one frame and then jumps, which reads as the
    * screen glitching every single time it is opened.
    */
-  const myY = me ? pointAt(me.progress).y * boxHeight : boxHeight;
-  const openAt = Math.max(0, Math.min(boxHeight - height, myY - height / 3));
+  const frame = flightFrame({
+    boxHeight,
+    viewportHeight: height,
+    chromeBottom: insets.top + space.sm + railHeight,
+    gap: space.md,
+    focusY: me ? pointAt(me.progress).y * boxHeight : null,
+  });
 
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentOffset={{ x: 0, y: openAt }}
+        contentOffset={{ x: 0, y: frame.openAt }}
         showsVerticalScrollIndicator={false}
         style={StyleSheet.absoluteFill}
       >
-        <View style={{ width: boxWidth, height: boxHeight }}>
+        {/* The sky runs the whole scroller, inset included — the inset is
+            clear air above the flight rather than a band of a different
+            colour, so the gradient has to reach over it. */}
+        <View style={{ width: boxWidth, height: frame.contentHeight }}>
           <Gradient stops={FLIGHT} steps={40} />
 
-          {/* Clouds, thinning as the flight climbs. Decoration only — the
-              race's meaning is entirely in the birds and the ridge. */}
-          {CLOUDS.map((cloud, i) => (
-            <View
-              key={i}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={[
-                styles.cloud,
-                {
-                  top: boxHeight * cloud.at,
-                  left: cloud.left === null ? undefined : boxWidth * cloud.left,
-                  right: cloud.right === null ? undefined : boxWidth * cloud.right,
-                  width: cloud.w,
-                  height: cloud.h,
-                  opacity: cloud.opacity,
-                },
-              ]}
-            />
-          ))}
-
-          <SkyCorridor width={boxWidth}>
-            {racers.map((racer, i) => (
-              <SkyMarker
-                key={racer.userId}
-                racer={racer}
-                placement={placements[i] as (typeof placements)[number]}
-                boxWidth={boxWidth}
-                boxHeight={boxHeight}
+          {/* The drawing box. Everything the corridor knows about is
+              positioned inside it, so insetting it moves the clouds, the
+              band, the birds and both labels together — there is no second
+              place a coordinate could be left behind. */}
+          <View style={{ width: boxWidth, height: boxHeight, marginTop: frame.topInset }}>
+            {/* Clouds, thinning as the flight climbs. Decoration only — the
+                race's meaning is entirely in the birds and the ridge. */}
+            {CLOUDS.map((cloud, i) => (
+              <View
+                key={i}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  styles.cloud,
+                  {
+                    top: boxHeight * cloud.at,
+                    left: cloud.left === null ? undefined : boxWidth * cloud.left,
+                    right: cloud.right === null ? undefined : boxWidth * cloud.right,
+                    width: cloud.w,
+                    height: cloud.h,
+                    opacity: cloud.opacity,
+                  },
+                ]}
               />
             ))}
-          </SkyCorridor>
 
-          {/* The ridge, named once, beside the line the corridor draws.
+            <SkyCorridor width={boxWidth}>
+              {racers.map((racer, i) => (
+                <SkyMarker
+                  key={racer.userId}
+                  racer={racer}
+                  placement={placements[i] as (typeof placements)[number]}
+                  boxWidth={boxWidth}
+                  boxHeight={boxHeight}
+                />
+              ))}
+            </SkyCorridor>
 
-              `RACE_FINISH_LINE` **is** `DAILY_STEP_BASELINE` by derivation, so
-              this figure and the Daily Walk's are one number with two readings.
-              No literal appears here and none may — and note the race reaches
-              it through raw steps rather than through a tier, which is what
-              keeps the whole screen clear of the `AGI`/`AGI_base` trap. */}
-          <View
-            accessible
-            accessibilityLabel={`The ridge, ${RACE_FINISH_LINE.toLocaleString()} steps`}
-            style={[styles.ridge, { top: pointAt(1).y * boxHeight - 14 }]}
-          >
-            <Text
-              scale="fixed"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={styles.ridgeText}
+            {/* The ridge, named once, beside the line the corridor draws.
+
+                `RACE_FINISH_LINE` **is** `DAILY_STEP_BASELINE` by derivation, so
+                this figure and the Daily Walk's are one number with two readings.
+                No literal appears here and none may — and note the race reaches
+                it through raw steps rather than through a tier, which is what
+                keeps the whole screen clear of the `AGI`/`AGI_base` trap. */}
+            <View
+              accessible
+              accessibilityLabel={`The ridge, ${RACE_FINISH_LINE.toLocaleString()} steps`}
+              style={[styles.ridge, { top: pointAt(1).y * boxHeight - 14 }]}
             >
-              {`${(RACE_FINISH_LINE / 1000).toFixed(0)}k · ridge`}
-            </Text>
-          </View>
+              <Text
+                scale="fixed"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.ridgeText}
+              >
+                {`${(RACE_FINISH_LINE / 1000).toFixed(0)}k · ridge`}
+              </Text>
+            </View>
 
-          {/* The ground the day started from. */}
-          <View
-            accessible
-            accessibilityLabel="Midnight, where the day started"
-            style={[styles.ground, { top: pointAt(0).y * boxHeight + 24 }]}
-          >
-            <Text
-              scale="fixed"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={styles.groundText}
+            {/* The ground the day started from. */}
+            <View
+              accessible
+              accessibilityLabel="Midnight, where the day started"
+              style={[styles.ground, { top: pointAt(0).y * boxHeight + 24 }]}
             >
-              midnight
-            </Text>
+              <Text
+                scale="fixed"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.groundText}
+              >
+                midnight
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -253,7 +289,9 @@ export default function Sky() {
         pointerEvents="box-none"
         style={[styles.pinnedTop, { top: insets.top + space.sm }]}
       >
-        <SkyFlockRail racers={racers} withheld={withheld} />
+        <View onLayout={measureRail}>
+          <SkyFlockRail racers={racers} withheld={withheld} />
+        </View>
 
         {/* `isSuccess && !consented`, never `!consented` alone: the query reads
             false while in flight, which is indistinguishable from a refusal

@@ -1436,6 +1436,53 @@ somewhere, applied in one place and not the next.
   sheet lessons are about the *top* and the width; this is the third edge, and
   `Screen` already applies the rule for every tab.
 
+**Three more device-seen layout faults, fixed 2026-09-07** (issue #28). Same
+shape as the four above: a rule the app already knew, not applied in the next
+place.
+
+- **The flight is inset below the flock rail**, and `flight-frame.ts` owns the
+  arithmetic. The Sky's drawing box began at content offset zero while the rail
+  is pinned over the top of the screen, so the *top* of the path — the ridge,
+  where everyone who cleared the Daily Walk sits, because `cappedSteps` stops at
+  the line — was drawn under the rail with its head cut off, on the tab meant to
+  be the second screenshot. An inset rather than a clamp on where the screen
+  opens: the scroller cannot go above zero, so the clearance becomes a property
+  of the layout at **every** offset instead of only at the one the screen chose.
+  Three things break easily. **The rail's height is measured, not assumed** — it
+  carries a line of type, so it is about a third taller at the largest
+  accessibility size, and a constant would be right once. **The gradient spans
+  the whole scroller**, inset included, or the inset is a band of `colors.night`
+  above the sky rather than clear air. And **the inset moves the drawing box,
+  not the path**: clouds, band, birds and both labels are positioned inside that
+  one box, so nothing can be left behind at an old coordinate. `flightFrame`
+  also took over the open-offset arithmetic the screen had inline, which is what
+  makes "opens on your own bird, a third down" testable at all.
+- **The invite code shrinks rather than reflows.** It took the default `prose`
+  scale — 1.8x on a 38pt face with 10pt of letter-spacing — and broke to a
+  second line at the largest sizes with one character orphaned under the tab
+  bar. A code is drawn geometry, so it takes `fixed` and then
+  `numberOfLines={1}` + `adjustsFontSizeToFit` + a `minimumFontScale` floor. The
+  three are only correct together: the line limit alone truncates a character,
+  `adjustsFontSizeToFit` alone is free to wrap, and no floor lets iOS shrink six
+  characters that have to be read aloud past legibility. Guarded by a source
+  scan in `invite-code.test.ts` that reads the `<Text style={styles.code}>` tag
+  itself, not the file — a `numberOfLines` elsewhere on the board must not
+  satisfy it.
+- **The dev client's floating gear is off, and it was never in TestFlight.**
+  `expo-dev-client`'s podspec declares
+  `s.dependency 'expo-dev-menu', :configurations => :debug`, so the pod that
+  draws it is not linked into a Release configuration at all and `ios-production`
+  builds Release — the confirmation the ticket asked for is in the podspec, not
+  in a build. For the development build `hideDevMenuFloatingButton()` writes
+  `showFloatingActionButton: false` through the optional `DevMenuPreferences`
+  native module, `__DEV__`-guarded, from the root layout. **Deliberately a
+  runtime write rather than `ios.infoPlist.EXDevMenuShowFloatingActionButton`**,
+  which sets the same default declaratively and is a fingerprint input: measured
+  on 2026-09-07, that one line took the tree's runtimeVersion from `9d76c5d3…`
+  to `89a1b399…`, so it costs a native build and withholds every OTA until that
+  build lands. Shake, the three-finger long press and ⌘D still open the menu;
+  only the gear is gone.
+
 **The You tab's header band carries no bird of its own.** It drew a 104pt one,
 centred, and the avatar ring then overlapped the band by 42pt and landed on it —
 the same art at two sizes, the larger sliced across the chest by the smaller.

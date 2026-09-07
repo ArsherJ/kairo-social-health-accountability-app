@@ -77,7 +77,28 @@ function InviteCode({ code, squadName }: { code: string; squadName: string }) {
   return (
     <Panel variant="plain" style={styles.codeCard}>
       <Text style={styles.codeLabel}>INVITE CODE</Text>
-      <Text style={styles.code} selectable>
+      {/* A code is drawn geometry, not prose. At the largest accessibility
+          sizes the default `prose` scale took 38pt to ~68pt, and with the
+          letter-spacing below that is wider than a 320pt screen: it broke to a
+          second line with a single character orphaned under the tab bar, six
+          characters that have to be read aloud in one breath rendered as five
+          and one.
+
+          So it takes the `fixed` scale — type locked to geometry the app draws,
+          the same reading a rank in a fixed-height row gets — and then shrinks
+          to fit rather than reflowing. `numberOfLines={1}` is what makes
+          `adjustsFontSizeToFit` a shrink instead of a wrap, and the two are
+          only ever correct together. `minimumFontScale` keeps the floor
+          legible: without it iOS is free to shrink as far as it likes, and a
+          code nobody can read is not better than a wrapped one. */}
+      <Text
+        scale="fixed"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+        style={styles.code}
+        selectable
+      >
         {code}
       </Text>
 
