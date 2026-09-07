@@ -7,6 +7,7 @@ import { OnboardingRail } from '@/features/onboarding/OnboardingChrome.tsx';
 import { beatCta, onboardingBeat } from '@/features/onboarding/beats.ts';
 import { useBeatImpression } from '@/features/onboarding/useBeatImpression.ts';
 import { useOnboardingAnswers } from '@/features/onboarding/answers.ts';
+import { PRIVACY_CLAIM } from '@/features/privacy/claim-copy.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Gradient, Text } from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
@@ -25,9 +26,9 @@ const FIELD: Stop[] = [
  * raw numbers", and deviation #47 stopped that being true when the race began
  * projecting capped steps behind a reciprocal consent gate. A stale privacy
  * claim is the worst kind, and that one was rewritten rather than annotated.
- * This screen inherits the corrected wording: **daily totals only, never a
- * route, never an hour-by-hour trail** — which is what `squad_leaderboard()`
- * actually projects.
+ * This screen inherits the corrected wording, which lives in
+ * `claim-copy.ts` beside every other sentence that makes the claim, with
+ * `claim-surfaces.test.ts` holding all of them to one rule.
  *
  * Health data is named first because it is the one thing that leaves the phone
  * at all, and it carries a lock rather than a switch: the app cannot function
@@ -85,7 +86,7 @@ export default function Privacy() {
             icon="heart-pulse"
             tint={ramp.gold[400]}
             title="Health data"
-            body="Steps, active calories, sleep. Required — it is the whole game."
+            body={PRIVACY_CLAIM.healthRequired}
             locked
           />
 
@@ -93,10 +94,7 @@ export default function Privacy() {
             icon="account-multiple"
             tint="#4ce3ff"
             title="Share totals with your flock"
-            body={
-              'Daily totals only — never your route, never an hour-by-hour ' +
-              'trail. Off means the sky is empty both ways.'
-            }
+            body={PRIVACY_CLAIM.sharingTotals}
             value={shareTotals}
             onChange={setShareTotals}
           />

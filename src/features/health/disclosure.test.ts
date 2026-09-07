@@ -33,33 +33,20 @@ describe('health disclosure', () => {
     }
   });
 
-  it('never names a stat that no longer exists', () => {
-    // The gap that let "Score your END" ship to users for a day. The parity
-    // test above compares IDENTIFIERS against read-types.ts, so it pins the
-    // half that cannot drift silently — a type removed from one side fails
-    // loudly — and says nothing about the prose beside them. END, VIT and REC
-    // were retired on 2026-08-20 (deviation #41) and this sheet kept naming
-    // two of them, in the one screen where a user decides what to hand over.
-    //
-    // Matched as whole words: "REC" must not catch "record", and CoreStat ids
-    // are always upper case in copy.
-    for (const group of HEALTH_DISCLOSURE) {
-      expect(group.purpose).not.toMatch(/\b(END|VIT|REC)\b/);
-      expect(group.label).not.toMatch(/\b(END|VIT|REC)\b/);
-    }
-  });
+  /*
+    The retired-stat, engine-key and never-scored-heart-rate rules used to sit
+    here, and they are `claim-surfaces.test.ts`'s now.
 
-  it('speaks the surface words, never an engine key', () => {
-    // Deviation #51 renamed the stats to Body, Motion and Mind on every
-    // surface, and this sheet kept saying "Score your AGI" for a week: the
-    // guard in stat-names.test.ts scans for "Agility", which a three-letter
-    // key does not contain. Word-bounded and case-sensitive, like every
-    // engine-key guard in the repo — a loose /str/i would match "strain".
-    for (const group of HEALTH_DISCLOSURE) {
-      expect(group.purpose).not.toMatch(/\b(AGI|STR|MND)\b/);
-      expect(group.label).not.toMatch(/\b(AGI|STR|MND)\b/);
-    }
-  });
+    They were not wrong; they were one of three scans of one rule, and two
+    scans of one rule always drift — one always ends up quietly narrower. This
+    sheet is registered there as a claim-bearing surface, so the bans that
+    caught "Score your END" and "Score your AGI" apply to it beside the policy
+    page and the onboarding beats rather than only here.
+
+    What stays in this file is what it is named after: the sheet is *derived*
+    from `KAIRO_READ_TYPES`, and these are the assertions that keep the copy in
+    step with the identifiers underneath it.
+  */
 
   it('scores sleep, and says so', () => {
     // Sleep was promoted from a bonus to a full stat. This entry is the one
