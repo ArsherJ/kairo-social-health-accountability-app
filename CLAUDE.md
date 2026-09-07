@@ -1397,6 +1397,20 @@ loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
 `character-assets.ts` says the cosmetic PNGs are flattened full-character
 previews, not composable layers, so a four-slot tray has no assets behind it.
 
+**Avatar's tint table lives in `avatar-tint.ts`, and that is why its inks are
+tested.** The table sat in `Avatar.tsx`, which reaches React Native, so
+`contrast.test.ts` — the file whose whole job is *every painted fill and what
+may be set on it* — could not read it, and the self tint set **cream on
+`colors.accent` at 2.65:1** for as long as the component existed: the one
+pairing the `brightFills` block asserts must fail, one file away from it. This
+is `stat-names.ts`'s move in a fourth place, and the rule it makes concrete is
+that a fill table with no reachable ink is a fill table with no ink rule.
+`colors.text` is the ink (5.53); `ramp.accent[900]` is the tempting wrong answer
+at **4.39**, because it is what the other four rows use, and a test asserts that
+failure so nobody reaches for it. **Nothing mounts `Avatar` today** — deviation
+#55 resolved its six fallbacks through `displaySpecies()` — so this was latent
+rather than shipped, and the table is what a remount now inherits.
+
 **The Flock strip is the flock, not your week, as of 2026-09-06** (issue #25,
 the surviving half of deviation #66). One disc per member, filled for everybody
 who cleared the Daily Walk, their initial above it — **above, not on**: the

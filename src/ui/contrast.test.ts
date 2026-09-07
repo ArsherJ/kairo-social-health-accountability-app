@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast.ts';
+import { AVATAR_TINTS, SELF_AVATAR_TINT } from './avatar-tint.ts';
 import { colors, ramp } from '../theme.ts';
 
 /**
@@ -241,6 +242,40 @@ describe('a bright fill takes ink, never cream', () => {
   it('coralEdge carries no label at all — it is a lip, and only a lip', () => {
     expect(contrastRatio(colors.text, colors.coralEdge)).toBeLessThan(AA_BODY);
     expect(contrastRatio(colors.bg, colors.coralEdge)).toBeLessThan(AA_BODY);
+  });
+});
+
+/**
+ * The avatar tints, which are the same rule applied by a table.
+ *
+ * This block is here because the self tint set **cream on `colors.accent`** —
+ * 2.65:1, the exact pairing the `brightFills` block above asserts must fail —
+ * and it survived every pass of that block, because the table lived in
+ * `Avatar.tsx` where root Vitest cannot reach it. Moving it to
+ * `avatar-tint.ts` is what makes these five rows assertable at all.
+ *
+ * Each row is checked against **its own** ground rather than against a shared
+ * one: that is the whole shape of a tint table, and a row whose ink drifts from
+ * its ground is invisible in every other test.
+ */
+describe('every avatar tint carries its own initial', () => {
+  it.each([...AVATAR_TINTS, SELF_AVATAR_TINT].map((t, i) => [i, t] as const))(
+    'tint %i',
+    (_i, tint) => {
+      // Body threshold, not large: the initial is `size * 0.38`, so a 44pt disc
+      // sets it at ~17pt and the smaller call sites go lower.
+      expect(contrastRatio(tint.ink, tint.bg)).toBeGreaterThanOrEqual(AA_BODY);
+    },
+  );
+
+  it('the self tint is ink on the primary fill, and cream is what it must not be', () => {
+    expect(SELF_AVATAR_TINT.bg).toBe(colors.accent);
+    // `ramp.accent[900]` is the tempting alternative — it is the ink the other
+    // four rows use — and it measures 4.39 on this brighter ground. Near enough
+    // to pass a glance, not near enough to pass AA. Asserting the failure is
+    // what stops it being reached for.
+    expect(contrastRatio(ramp.accent[900], colors.accent)).toBeLessThan(AA_BODY);
+    expect(contrastRatio(colors.bg, colors.accent)).toBeLessThan(AA_BODY);
   });
 });
 

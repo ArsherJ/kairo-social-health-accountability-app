@@ -1,31 +1,22 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from './Text.tsx';
-import { colors, font, ramp, radius } from '../theme.ts';
+import { font, ramp, radius } from '../theme.ts';
+import { avatarTint } from './avatar-tint.ts';
 import { initialFor } from './initial.ts';
 
 /**
  * A squadmate as a coin: their first initial on a tinted disc.
  *
- * The tint is derived from the name rather than stored, so a squad reads as
- * four distinguishable people the first time it renders and without a column
- * that could disagree with itself across devices. Only two hues are in play —
- * terracotta and sage — because the palette has exactly two, and inventing a
- * third to tell four people apart would cost more than it buys.
+ * **Nothing mounts this today.** Deviation #55 made every character a
+ * Philippine eagle, and the six render boundaries that used to fall back to a
+ * lettered disc each resolve through `displaySpecies()` instead. It is kept
+ * because the fallback is one line away the next time a surface has a name and
+ * no bird — and `avatar-tint.ts` is what makes that remount safe rather than a
+ * fresh contrast bug.
+ *
+ * The tint table and the ink that goes on each ground live there, testable;
+ * this file draws them.
  */
-const TINTS = [
-  { bg: ramp.accent[400], ink: ramp.accent[900] },
-  { bg: ramp.sage[400], ink: ramp.sage[900] },
-  { bg: ramp.accent[300], ink: ramp.accent[900] },
-  { bg: ramp.sage[300], ink: ramp.sage[900] },
-] as const;
-
-/** djb2, trimmed. Any stable spread will do; this one is four lines. */
-function tintFor(name: string): (typeof TINTS)[number] {
-  let hash = 5381;
-  for (let i = 0; i < name.length; i++) hash = ((hash << 5) + hash + name.charCodeAt(i)) | 0;
-  return TINTS[Math.abs(hash) % TINTS.length]!;
-}
-
 export function Avatar({
   name,
   size = 44,
@@ -39,7 +30,7 @@ export function Avatar({
   ringed?: boolean;
   self?: boolean;
 }) {
-  const tint = self ? { bg: colors.accent, ink: colors.bg } : tintFor(name);
+  const tint = avatarTint(name, self);
   const initial = initialFor(name);
 
   return (
