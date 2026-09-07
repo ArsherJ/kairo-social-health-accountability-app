@@ -97,6 +97,12 @@ export default function Sky() {
   const [railHeight, setRailHeight] = useState(0);
   const measureRail = (e: LayoutChangeEvent) => setRailHeight(e.nativeEvent.layout.height);
 
+  // Where the pinned chrome starts. Read twice — by the chrome itself and by
+  // the flight that has to clear it — and the two have to agree, so it is
+  // written once. They were a hundred lines apart and nothing tied them
+  // together.
+  const chromeTop = insets.top + space.sm;
+
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -187,7 +193,7 @@ export default function Sky() {
   const frame = flightFrame({
     boxHeight,
     viewportHeight: height,
-    chromeBottom: insets.top + space.sm + railHeight,
+    chromeBottom: chromeTop + railHeight,
     gap: space.md,
     focusY: me ? pointAt(me.progress).y * boxHeight : null,
   });
@@ -287,7 +293,7 @@ export default function Sky() {
       {/* Pinned over the flight, so scrolling moves the climb underneath it. */}
       <View
         pointerEvents="box-none"
-        style={[styles.pinnedTop, { top: insets.top + space.sm }]}
+        style={[styles.pinnedTop, { top: chromeTop }]}
       >
         <View onLayout={measureRail}>
           <SkyFlockRail racers={racers} withheld={withheld} />

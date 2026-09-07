@@ -4,6 +4,12 @@ import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
 import { colors, font, radius, ramp, space } from '@/theme.ts';
 import { Text } from '@/ui/index.ts';
+// The figure's box — how big a bird on the corridor is, ordinary and your own.
+// Imported rather than declared here: the Sky's top inset exists to keep the
+// topmost bird clear of the pinned flock rail, and the only test that can
+// prove it has to know how big a bird is. See `flight-frame.ts` for why that
+// puts the two numbers in a module root Vitest can load.
+import { SKY_FIGURE, SKY_SELF_FIGURE } from './flight-frame.ts';
 import { raceLaneLabel } from './race-label.ts';
 
 /**
@@ -30,10 +36,6 @@ import { raceLaneLabel } from './race-label.ts';
  * what `numberOfLines` and the pill's intrinsic width do below.
  */
 
-/** The figure's box. Six of these share one corridor. */
-const FIGURE = 44;
-const SELF_FIGURE = 60;
-
 const HIDDEN = {
   accessibilityElementsHidden: true,
   importantForAccessibility: 'no-hide-descendants',
@@ -59,7 +61,7 @@ export function SkyMarker({
     isGhost: racer.isGhost ?? false,
   });
 
-  const size = racer.isSelf ? SELF_FIGURE : FIGURE;
+  const size = racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE;
 
   return (
     <View

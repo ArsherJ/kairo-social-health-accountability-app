@@ -1445,12 +1445,22 @@ place.
   is pinned over the top of the screen, so the *top* of the path — the ridge,
   where everyone who cleared the Daily Walk sits, because `cappedSteps` stops at
   the line — was drawn under the rail with its head cut off, on the tab meant to
-  be the second screenshot. An inset rather than a clamp on where the screen
-  opens: the scroller cannot go above zero, so the clearance becomes a property
-  of the layout at **every** offset instead of only at the one the screen chose.
+  be the second screenshot. An inset rather than a nudge to where the screen
+  opens: a scroller cannot go above offset zero, so the **top of the path**
+  becomes unreachable by the rail at any offset the reader can produce, instead
+  of being clear only at the one offset the screen chose. It claims nothing
+  more — birds below the top scroll under the rail as the reader climbs, which
+  is what pinned chrome means and is not what was broken.
   Three things break easily. **The rail's height is measured, not assumed** — it
-  carries a line of type, so it is about a third taller at the largest
-  accessibility size, and a constant would be right once. **The gradient spans
+  carries a line of type, so it grows with Dynamic Type and a constant would be
+  right at one text size only. The measurement lands a frame late, and that is
+  harmless by construction rather than by luck: the inset and the opening
+  offset move together, so the flight does not visibly shift when the rail
+  reports, and a test pins it. **`flightFrame` is handed `chromeBottom`, so
+  every assertion about it holds for whatever the screen composes** — drop the
+  rail out of that sum and the flight goes back under it with the whole suite
+  green. A source scan on `sky.tsx` is what closes that, the same move
+  `bleed-inset.test.ts` makes. **The gradient spans
   the whole scroller**, inset included, or the inset is a band of `colors.night`
   above the sky rather than clear air. And **the inset moves the drawing box,
   not the path**: clouds, band, birds and both labels are positioned inside that
