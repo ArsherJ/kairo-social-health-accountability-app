@@ -33,6 +33,15 @@ walk, run). The render path is built; the nine growth-stage images are issue
 #31, so every stage draws the adult art for now and the change is verifiable in
 the development asset lab (`/kairo-lab`) rather than by a player.
 
+**Two eagles in a flock do not look identical** as of 2026-09-07 (issue #33).
+The crest takes the hue of whichever stat has earned the most over the account's
+lifetime — Motion, Body or Mind, from the one table the design allows per-stat
+colour in — and a player whose stats are level takes no hue at all. The body's
+scale falls with the growth stage, inside the frame the caller sized, so nothing
+around the figure moves. Both are visible today — on the day screen, on a
+flock row, on the band above it and on the You tab — whatever happens to the
+nine images.
+
 ## Docs
 
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.

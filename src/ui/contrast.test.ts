@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast.ts';
 import { AVATAR_TINTS, SELF_AVATAR_TINT } from './avatar-tint.ts';
+import { STAT_COLORS } from './stat-colors.ts';
 import { colors, ramp } from '../theme.ts';
 
 /**
@@ -242,6 +243,58 @@ describe('a bright fill takes ink, never cream', () => {
   it('coralEdge carries no label at all — it is a lip, and only a lip', () => {
     expect(contrastRatio(colors.text, colors.coralEdge)).toBeLessThan(AA_BODY);
     expect(contrastRatio(colors.bg, colors.coralEdge)).toBeLessThan(AA_BODY);
+  });
+});
+
+/**
+ * The stat hues — the third table this file reaches, and the reason
+ * `STAT_COLORS` moved out of `StatIcon.tsx` on 2026-09-07.
+ *
+ * That file reaches `@expo/vector-icons`, so root Vitest could not load it and
+ * these three values had no assertion of any kind — exactly the state the
+ * avatar tints below were in while they lived in `Avatar.tsx`.
+ *
+ * **What is asserted here is separation, not contrast, and that is deliberate.**
+ * Measured on the cream ground these are 2.65:1, 2.93:1 and 4.50:1, so two of
+ * the three sit under WCAG 1.4.11's 3:1 for meaningful non-text. They are not
+ * meaningful non-text: a stat glyph never carries a fact by itself — the rating
+ * is printed beside it, and a Flock row is one accessibility element whose label
+ * (`row-label.ts`) speaks every stat by name. The hues make a dense row
+ * *scannable* for somebody who can already read it. Raising them is a palette
+ * decision with ~37 call sites behind it, not a change to smuggle in under a
+ * crest.
+ *
+ * So the rule that binds this table is that its three values stay apart, which
+ * is the whole reason it exists — three glyphs at 11pt with no words beside
+ * them, and since issue #33 three crests at 44pt in a flock row. The ratios are
+ * pinned alongside, so a palette shift that moved one is visible here rather
+ * than only on a device.
+ *
+ * A caller wanting to *write* a stat's name still needs the matching ink —
+ * `accentDeep`, `damage`, `ramp.sage[700]` — never this table. No single rule
+ * covers it: `ramp.sage[500]` is a mid-tone that takes cream where
+ * `colors.accent` takes ink, which is precisely why the inks are named
+ * individually.
+ */
+describe('the stat hues stay apart, and stay off words', () => {
+  const statHues = Object.entries(STAT_COLORS);
+
+  it('keeps the three visibly apart, which is the whole reason they exist', () => {
+    expect(new Set(Object.values(STAT_COLORS)).size).toBe(statHues.length);
+  });
+
+  it.each(statHues)('%s sits where it sat when this was written', (_stat, hue) => {
+    // A characterization pin, not a bar: it notices a hue moving, and says
+    // nothing about which way is better.
+    const measured: Record<string, number> = { AGI: 2.65, STR: 2.93, MND: 4.5 };
+    expect(contrastRatio(hue, colors.bg)).toBeCloseTo(measured[_stat] as number, 1);
+  });
+
+  it.each(statHues)('%s carries no word on cream at body size', (_stat, hue) => {
+    // The claim the table's own doc makes. MND clears 4.5 by three thousandths
+    // and is still not a text colour — `ramp.sage[700]` is — so the bar here is
+    // the large-text one, which all three genuinely fail.
+    expect(contrastRatio(hue, colors.bg)).toBeLessThan(AA_BODY * 1.01);
   });
 });
 

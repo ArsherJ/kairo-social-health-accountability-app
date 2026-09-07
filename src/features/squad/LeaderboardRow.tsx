@@ -111,11 +111,19 @@ export function LeaderboardRow({
 
       {/* Replaces the disc rather than sitting beside it. The row label keeps
           the species-name wording in its reading order, while this static
-          KAIRO thumbnail stays decorative. */}
+          KAIRO thumbnail stays decorative.
+
+          `ratings` are the lifetime per-stat points this row already renders
+          as three glyphs, so the crest reveals nothing the row does not
+          (§5) — it says the same fact in the shape the eye reads first, which
+          is what stops six identical eagles being six identical eagles. It is
+          also exactly what the day screen tints its own crest from, so a
+          flockmate's bird here matches the one they are looking at. */}
       <KairoThumbnail
         pose={KAIRO_THUMBNAIL_POSE.leaderboard}
         size={44}
         decorative
+        lifetimePoints={row.ratings}
         // The row is one element and `leaderboardRowLabel` already names the
         // species in its own reading order.
       />

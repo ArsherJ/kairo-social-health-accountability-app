@@ -213,9 +213,12 @@ export default function Today() {
   const inviteCode = squad.data?.invite_code ?? null;
   const today = score.data;
 
-  // Lifetime rollups, for the presence ring. The rail that reads the same three
-  // numbers lives on You; the ring is the figure's own business and is not
-  // gated, because it is shape rather than a readout.
+  // Lifetime rollups. They drive two things on the figure and neither is a
+  // readout: the presence ring (`aura.ts`) and, since issue #33, the crest's
+  // hue. The rail that reads the same three numbers lives on You and is gated;
+  // these are not, because they are shape rather than a figure — and the crest
+  // reads *these* rather than `dominance` precisely so a flock row, which can
+  // only see the lifetime rollups, draws the same bird.
   const lifetimePoints: Record<CoreStat, number> | undefined = profile.data && {
     AGI: profile.data.agi_total,
     STR: profile.data.str_total,

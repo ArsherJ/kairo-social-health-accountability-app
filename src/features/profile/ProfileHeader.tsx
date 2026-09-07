@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
+import type { LifetimePoints } from '@/features/character/plumage.ts';
 import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
 import { Gradient, ProgressRing, Text } from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
@@ -62,6 +63,7 @@ export function ProfileHeader({
   totalXp,
   species,
   joined,
+  lifetimePoints,
 }: {
   name: string;
   /** `@bagwis`, derived by the caller from the name. */
@@ -71,6 +73,14 @@ export function ProfileHeader({
   species: string;
   /** "Joined August 2026", or null while the profile is loading. */
   joined: string | null;
+  /**
+   * The account's own lifetime rollups — the same three the rail below reads,
+   * and the same three a flock row projects. The bird in the ring is *you*, so
+   * it wears the crest Today and the flock draw it with (issue #33); leaving it
+   * plain here would be one player with two crests, which is the disagreement
+   * `plumage.ts` exists to prevent.
+   */
+  lifetimePoints: LifetimePoints | undefined;
 }) {
   const router = useRouter();
   // The You tab bleeds, so the inset comes back here — see the note above.
@@ -140,7 +150,7 @@ export function ProfileHeader({
               track={ramp.neutral[200]}
             >
               <View style={styles.disc2}>
-                <KairoThumbnail pose="idle" size={DISC - 12} decorative />
+                <KairoThumbnail pose="idle" size={DISC - 12} decorative lifetimePoints={lifetimePoints} />
               </View>
             </ProgressRing>
           </View>

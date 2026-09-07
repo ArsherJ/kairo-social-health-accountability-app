@@ -1,5 +1,10 @@
 import type { EvolutionStage } from '@kairo/core';
 import type { AuraStrength } from './aura.ts';
+// The one value import in a module that is otherwise types only, and it is the
+// point: the adult stage is the size everything else is measured against, and a
+// second `4` here would restate a growth threshold `character-contract.ts`
+// already owns.
+import { ADULT_STAGE } from './character-contract.ts';
 
 /**
  * How much the character has visibly become.
@@ -22,6 +27,13 @@ import type { AuraStrength } from './aura.ts';
  * term now nudges the shadow at every level, with the band boundary still much
  * the bigger jump — so the four artworks stay the milestone and each level in
  * between is still a reward.
+ *
+ * **The body itself follows the growth stage** (issue #33). The four artworks
+ * are one bird at four ages, and until issue #31 commissions them they are one
+ * bird four times; a scale that falls with the stage means a hatchling reads as
+ * a hatchling either way, and it is a number rather than a commission. It is a
+ * multiple of the art's box and never of the box itself, so nothing around the
+ * figure moves.
  *
  * No new dependency. `react-native-svg`, Rive and Reanimated all stay
  * uninstalled; this is a tuning pass on the primitives that already draw
@@ -50,6 +62,22 @@ const SHADOW_PER_LEVEL = 2.6;
  */
 const LEVEL_CEILING = 40;
 
+/**
+ * How much of the adult's size a stage loses, per stage below adult.
+ *
+ * The second half of the ticket, and deliberately the cheap half: the nine
+ * growth-stage images are somebody else's commission (issue #31) and scale is
+ * a number, so a hatchling reads as small today whether or not that artwork
+ * lands on time.
+ *
+ * **The figure's box does not move.** The art is drawn inside the frame the
+ * caller sized and the frame stands the figure on its bottom edge, so a smaller
+ * body sits lower in the same space rather than pushing anything around it —
+ * which is what stops a level-up from relaying the day screen. This is why the
+ * scale is a multiple of the art rather than a change to `height`.
+ */
+const BODY_SCALE_PER_STAGE = 0.09;
+
 const OPACITY_BASE = 0.15;
 const OPACITY_PER_STAGE = 0.055;
 /** Past this the contact patch stops reading as a shadow and starts as a hole. */
@@ -70,6 +98,11 @@ const RING_SCALE: Record<AuraStrength, number | null> = {
 export interface FigureResponse {
   shadowWidth: number;
   shadowOpacity: number;
+  /**
+   * The art's size as a multiple of its box. 1 at the adult stage and below it
+   * at every stage under that, so the drawn body never leaves the frame.
+   */
+  bodyScale: number;
   /** Null when there is no ring to draw. */
   ringSize: number | null;
   ringWidth: number;
@@ -108,6 +141,10 @@ export function figureResponse(input: {
   return {
     shadowWidth: width,
     shadowOpacity: opacity,
+    // Unitless on purpose: the caller multiplies its own box by it, so one
+    // number is right for a 220pt diorama and a 120pt card alike. Scaling
+    // `height` here instead would move the frame and relay the screen.
+    bodyScale: 1 - (ADULT_STAGE - input.stage) * BODY_SCALE_PER_STAGE,
     ringSize: ringScale === null ? null : width * ringScale,
     // The ring reads the mastery through `aura`; thickening it by band
     // lets it read level too, so the one earned device on the figure answers to

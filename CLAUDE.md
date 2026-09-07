@@ -1539,6 +1539,78 @@ adult art until issue #31 lands the nine images, so this is verifiable in
   the artwork and the asset lab; the figure's accessible name says the level,
   and no player surface speaks a stage.
 
+**Two eagles in a flock stop looking identical as of 2026-09-07** (issue #33).
+The **crest** takes the hue of the dominant stat and the **body's scale**
+follows the growth stage, so the cohort gate's "the bird changes" is met by two
+things that do not depend on the nine images landing. Eight things break easily:
+
+- **`plumage.ts` reads lifetime points, and the `dominance` prop is the trap.**
+  `useDominantStat` is the last fortnight, which is right for the lane and for
+  the All-Rounder's ring and wrong here for a structural reason:
+  `squad_leaderboard()` projects the **lifetime** rollups and nothing narrower,
+  so a flock row could not compute the fortnight's answer without widening a
+  projection §5 keeps narrow. Both surfaces feed `crestTint` the same three
+  numbers — Today the `profiles` rollups it already passes as `lifetimePoints`,
+  the row its own `ratings` — so one player cannot wear a violet crest on their
+  own screen and a coral one in a friend's list. `CharacterFigure` therefore
+  gained no prop; it reads the one it already had.
+- **The crest, never the bird, and a balanced player takes no hue.** The figure
+  already says four things by shape (stage, the shadow's spread by level, its
+  weight and tint by Body, the presence ring by mastery) and a fifth drawn on
+  the body makes the centrepiece a readout. `crestTint` goes through
+  `laneStat`, so the balanced rule and the two absences — `null` for an
+  unstarted character, `undefined` for a query in flight — have **one** home
+  rather than a second copy that disagrees; `lane.ts` already carries the
+  argument that picking a stat for somebody whose stats are level invents a
+  preference they have not shown.
+- **The art is flattened, so the crest is a generated mask and not a layer.**
+  `scripts/generate_crest_masks.py` writes one per render into
+  `assets/character/crests/`, named `crest_<the render's own filename>` — the
+  name is the mapping. It finds the crest by **geometry, not colour**: the
+  topmost opaque row inside the central 44% of the canvas, because
+  `race_victory` and `workout` raise the wings above the eyes and a full-width
+  scan tints a wingtip. Multiplying by the figure's own alpha is what keeps the
+  hue off the sky. **Rerun it after any change to the art it reads**, issue
+  #31's nine images included; the script's own `SOURCES` is the fourth copy of
+  the render list and the only one no compiler sees, so a test parses it and
+  fails when it drifts from `REQUIRED_PNG`.
+- **A runtime rectangle was the alternative and it is worse.** React Native has
+  no mask or blend primitive without a native module, and a native module costs
+  one of the month's fifteen builds and withholds every OTA until that build
+  lands — the same trade `Glass` and the Sky corridor already refused. A clipped
+  rectangle can say *where* but not *how softly*, and a hard horizontal cut
+  across a head reads as a bug. Verified OTA-safe: the tree's fingerprint is
+  still `9d76c5d3`, build 23's.
+- **`CREST_TINT_OPACITY` is 0.62 and full strength is the mistake.**
+  `tintColor` keeps an image's alpha and replaces everything else, so a mask
+  filled at full strength erases the outlines and shading underneath and the
+  crest reads as a coloured blob glued to a bird.
+- **`STAT_COLORS` moved to `src/ui/stat-colors.ts`**, re-exported from
+  `StatIcon.tsx` so no call site changed. It was unreachable from a test —
+  `@expo/vector-icons` reaches React Native's Flow syntax — which is
+  `stat-names.ts`'s move out of the same file, and `avatar-tint.ts`'s out of
+  `Avatar.tsx`, where a fill table with no reachable ink turned out to have no
+  ink rule at all.
+- **The crest is never spoken, and the guard is scoped to the labels.** The
+  dominant stat is already in a flock row's reading order as three ratings, so
+  a hue announced beside it says the same fact twice. `plumage.test.ts` scans
+  from `livingCharacterLabel`'s and `leaderboardRowLabel`'s own declarations
+  rather than over their files, because `living-mirror.ts` legitimately names
+  `colors` for the ground shadow's shade — a guard that fails on honest code
+  gets loosened until it guards nothing.
+- **The scale is a multiple of the art, never of the frame.** `bodyScale` in
+  `figureResponse` returns 1 at the adult stage and less below it; the caller's
+  box does not move, so a hatchling stands smaller and lower in the same space
+  and no screen relays. It lives there rather than inline in
+  `CharacterFigure.tsx` for the reason the whole module exists. **The
+  thumbnail deliberately does not scale** — its `size` *is* a caller's layout
+  geometry, and a flock row differentiates by crest.
+- **"Crest" now names two things and `CONTEXT.md` separates them.** Capital-C
+  is the ceiling day's **sky** (`Diorama`'s `crest` prop, `ceilingLine`);
+  lowercase is the bird's head feathers, which the Rive artboard has named that
+  way since the asset contract. The feature word is **plumage**, which is what
+  the module and the lab section are called.
+
 **The You tab's header band carries no bird of its own.** It drew a 104pt one,
 centred, and the avatar ring then overlapped the band by 42pt and landed on it —
 the same art at two sizes, the larger sliced across the chest by the smaller.

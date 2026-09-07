@@ -15,6 +15,7 @@ If the Bible and spec conflict, stop and resolve the canonical decision before p
 
 - Rive work is parked. No `.riv` asset or Rive runtime is part of the current character delivery.
 - `base/`, `poses/`, `states/`, and `cosmetics/` hold a **provisional v1 static PNG pack** generated from `assets/reference/KAIRO_GOLDEN_REFERENCE.png`. These files are fallbacks and QA previews, not Rive exports and not a compositional runtime.
+- `crests/` holds one **generated** mask per render in `base/`, `poses/` and `states/` — the fan of head feathers in the alpha channel, white everywhere it is opaque. The app draws it over the figure with `tintColor` set to the dominant stat's hue (issue #33). These are derivatives, not exports: `scripts/generate_crest_masks.py` writes them, the filename is the mapping (`crest_<the render's own filename>`), and the script is rerun whenever the art it reads changes. `character-assets.test.ts` fails if a render has no mask beside it, or if a mask paints a pixel the bird does not occupy.
 - `assets/reference/` holds the approved golden reference.
 - `data/character.json`, `data/cosmetics.json`, and `data/animations.json` are the versioned semantic source for IDs, defaults, compatibility, property paths, and behavior.
 - `src/features/character/character-assets.ts` will own every Metro registration using literal `require()` calls. JSON never contains computed module paths.

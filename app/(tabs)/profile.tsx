@@ -182,6 +182,14 @@ export default function ProfileTab() {
             totalXp={profile.data.total_xp}
             species={SPECIES[displaySpecies(profile.data.species)].name}
             joined={joinedLabel(profile.data.created_at)}
+            // The same three rollups the rail below reads. The bird in the ring
+            // is this account's own, so it wears the crest Today and the flock
+            // draw it with (issue #33).
+            lifetimePoints={{
+              AGI: profile.data.agi_total,
+              STR: profile.data.str_total,
+              MND: profile.data.mnd_total,
+            }}
           />
 
           <View style={styles.page}>

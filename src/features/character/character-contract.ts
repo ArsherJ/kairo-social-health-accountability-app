@@ -67,6 +67,23 @@ export const GROWTH_STAGES = Object.keys(GROWTH_STAGE_NAMES).map(
   Number,
 ) as readonly EvolutionStage[];
 
+/**
+ * The stage the checked-in art is drawn at, and the one every other stage is
+ * measured against — the adult's body is full size and the pose set that has no
+ * pre-adult art (`race_victory`, `workout`, the Mind states) belongs to it.
+ *
+ * Named here rather than in each reader, because there were two readers within
+ * a day of each other: `living-mirror.ts` deciding what a pre-adult reaction
+ * draws, and `level-response.ts` deciding how much of the adult's size a stage
+ * loses. Two `const ADULT_STAGE = 4` is a growth threshold restated, which is
+ * exactly what deriving `GROWTH_STAGES` from `GROWTH_STAGE_NAMES` and
+ * `firstLevelOfStage` from `evolutionStageForLevel` already refused.
+ *
+ * Written rather than taken off the end of `GROWTH_STAGES`, which would need an
+ * `undefined` answered for and would read no more clearly than the 4.
+ */
+export const ADULT_STAGE: EvolutionStage = 4;
+
 export type SleepState = (typeof SLEEP_STATES)[number];
 export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 export type KairoPose = (typeof KAIRO_POSES)[number];

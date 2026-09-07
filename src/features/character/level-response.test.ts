@@ -11,6 +11,10 @@ const at = (level: number, aura: 'none' | 'present' | 'strong' = 'none') =>
     height: 220,
   });
 
+/** One stage at a fixed level, so only the stage moves. */
+const atStage = (stage: 1 | 2 | 3 | 4) =>
+  figureResponse({ level: 1, stage, aura: 'none', shadowWeight: 0, height: 220 });
+
 describe('figureResponse', () => {
   it('grows the shadow at every single level-up, not only at band boundaries', () => {
     // The whole point of the change. `stage` moves at 6, 11 and 21 only, so
@@ -44,6 +48,37 @@ describe('figureResponse', () => {
   it('stops growing past the last band, so a year-old account is not a poster', () => {
     // Unbounded growth would eventually push the figure out of the diorama.
     expect(at(200).shadowWidth).toBe(at(120).shadowWidth);
+  });
+
+  it('draws a smaller body at every stage below the adult', () => {
+    // The ticket's third criterion. Four artworks that are one bird at four
+    // ages should not all be the same size — least of all today, when stages
+    // 1-3 alias the adult art and scale is the only thing separating them.
+    expect(atStage(1).bodyScale).toBeLessThan(atStage(2).bodyScale);
+    expect(atStage(2).bodyScale).toBeLessThan(atStage(3).bodyScale);
+    expect(atStage(3).bodyScale).toBeLessThan(atStage(4).bodyScale);
+  });
+
+  it('draws the adult at its own size, and never larger than the box', () => {
+    // The art is drawn at the adult's proportions, so the adult is the
+    // reference and nothing may exceed it: a body scaled past 1 would leave
+    // the frame the caller sized, which is the layout change this must not be.
+    expect(atStage(4).bodyScale).toBe(1);
+    for (const level of [1, 6, 11, 21, 40]) expect(at(level).bodyScale).toBeLessThanOrEqual(1);
+  });
+
+  it('makes a hatchling visibly smaller rather than measurably smaller', () => {
+    // The same argument the shadow's own span makes: a change you need two
+    // screenshots to see is not a change.
+    expect(at(1).bodyScale).toBeLessThan(0.8);
+  });
+
+  it('scales the body by the box rather than instead of it', () => {
+    // A multiple, not a size. One number has to be right for the 220pt diorama
+    // and for a card, and the frame the caller sized must not move.
+    const small = figureResponse({ level: 3, stage: 1, aura: 'none', shadowWeight: 0, height: 110 });
+    const large = figureResponse({ level: 3, stage: 1, aura: 'none', shadowWeight: 0, height: 220 });
+    expect(large.bodyScale).toBe(small.bodyScale);
   });
 
   it('gives no ring without an aura, and a bigger one with a strong aura', () => {

@@ -1,5 +1,6 @@
 import { DAILY_STEP_BASELINE, type EvolutionStage } from '@kairo/core';
 import {
+  ADULT_STAGE,
   STAGE_POSES,
   type KairoPose,
   type KairoReactionId,
@@ -76,15 +77,6 @@ export function motionLocationForSteps(value: number): MotionLocation {
 export function locationName(location: MotionLocation): string {
   return location[0]!.toUpperCase() + location.slice(1);
 }
-
-/**
- * The stage every pose has art for, and the one the adult-only images belong to.
- *
- * Named rather than written as `4` at each use, so a fifth stage is one edit
- * here instead of one per branch. It cannot be derived from `GROWTH_STAGES`
- * without an `undefined` to answer for, and the answer would be no clearer.
- */
-const ADULT_STAGE: EvolutionStage = 4;
 
 /** Whether the growth stage has art for this pose. A predicate, not a cast:
  *  `character-resolver.ts`'s `isKairoPose` is the same shape for the same

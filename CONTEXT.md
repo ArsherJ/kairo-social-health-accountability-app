@@ -87,8 +87,20 @@ a sleep source buys a third *route* to the ceiling, never a higher one.
 **Headroom** — what a day does past the ceiling. It pays the character and never
 the ranking, because the cap is the anti-cheat.
 
-**Crest** — the character's visible state on a day that went past the ceiling.
-Lasts that day only.
+**Crest** — two things, and they are worth keeping apart. Capital-C, it is the
+character's visible state on a day that went past the ceiling: it changes the
+**sky**, lasts that day only, and is always paired with a sentence saying why.
+Lowercase, it is the fan of feathers on the bird's head — an anatomical part,
+which the Rive artboard has always named that way. The **plumage** is what the
+lowercase one carries.
+
+**Plumage** — the crest's hue, taken from the dominant stat: Motion, Body or
+Mind, from `STAT_COLORS`. It reads **lifetime** points rather than the fortnight
+`useDominantStat` measures, because a flock row can only see the lifetime
+figures and one player must not wear two crests. A player whose stats are level
+takes none, for the reason a lane is not chosen for them either. It is the
+crest and never the body — the figure already says four things by shape, and a
+fifth would make the centrepiece a readout. *(Built 2026-09-07.)*
 
 **Counted source** — an app whose steps Kairo adds up: the phone and watch that
 recorded them, plus a short list of bridges. Anything else is **not counted**,

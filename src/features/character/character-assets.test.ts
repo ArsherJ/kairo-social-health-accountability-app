@@ -33,6 +33,10 @@ const REQUIRED_REGISTRY_EXPORTS = [
   'KAIRO_POSE_ASSETS',
   'KAIRO_STAGE_ASSETS',
   'KAIRO_STATE_ASSETS',
+  'KAIRO_BASE_CREST',
+  'KAIRO_POSE_CRESTS',
+  'KAIRO_STAGE_CRESTS',
+  'KAIRO_STATE_CRESTS',
   'KAIRO_COSMETIC_ASSETS',
 ] as const;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -61,6 +65,20 @@ const REQUIRED_PNG = [
   'assets/character/cosmetics/cosmetic_effect_firefly_aura_v1.png',
 ];
 
+/**
+ * Every render that needs a crest mask, paired with the mask it needs.
+ *
+ * **Derived from `REQUIRED_PNG` rather than listed again**, so the pairing is a
+ * consequence of the art list rather than a third statement of it — the name is
+ * the whole mapping (`crest_<the render's own filename>`), and the registry
+ * guard below rebuilds the same path from the *registry* independently, so the
+ * two have to agree. Cosmetics are excluded because they are flattened QA
+ * previews no product surface mounts.
+ */
+const CREST_MASK_PAIRS = REQUIRED_PNG.filter((path) => !path.includes('/cosmetics/')).map(
+  (art) => [`assets/character/crests/crest_${art.split('/').pop()}`, art] as const,
+);
+
 const COSMETIC_CHANGE_RECTS = {
   'cosmetic_head_runner_cap_v1.png': { left: 70, top: 0, right: 500, bottom: 215 },
   'cosmetic_head_woven_salakot_v1.png': { left: 45, top: 0, right: 525, bottom: 230 },
@@ -77,6 +95,11 @@ const COSMETIC_CHANGE_RECTS = {
 
 function decodePng(relativePath: string) {
   return PNG.sync.read(readFileSync(resolve(REPO_ROOT, relativePath)));
+}
+
+/** The mask that belongs to one render — the naming rule, in one place. */
+function crestPathFor(artPath: string) {
+  return `../../../assets/character/crests/crest_${artPath.split('/').pop()}`;
 }
 
 function pixelOffset(width: number, x: number, y: number) {
@@ -180,7 +203,8 @@ function collectExportedNames(source: string): string[] {
 }
 
 /**
- * Every `require('…')` path in a nested object literal, keyed `outer.inner`.
+ * Every `require('…')` path in an object literal, keyed by property — `inner`
+ * for a flat table, `outer.inner` for a nested one.
  *
  * Parsed rather than matched with a regex because the property this guards is
  * *shape*: a cell that is missing, duplicated, or built from a template string
@@ -189,7 +213,7 @@ function collectExportedNames(source: string): string[] {
  * the failure that matters — Metro resolves `require` statically, so a computed
  * path is a blank image on a device and nothing at build time.
  */
-function collectNestedRequirePaths(source: string, exportName: string): Map<string, string> {
+function collectRequirePaths(source: string, exportName: string): Map<string, string> {
   const sourceFile = ts.createSourceFile(
     'character-assets.ts',
     source,
@@ -225,6 +249,11 @@ function collectNestedRequirePaths(source: string, exportName: string): Map<stri
       for (const outer of initializer.properties) {
         const outerName = propertyName(outer);
         if (outerName === null || !ts.isPropertyAssignment(outer)) continue;
+        const flat = requirePath(outer.initializer);
+        if (flat !== null) {
+          paths.set(outerName, flat);
+          continue;
+        }
         if (!ts.isObjectLiteralExpression(outer.initializer)) continue;
         for (const inner of outer.initializer.properties) {
           const innerName = propertyName(inner);
@@ -281,7 +310,7 @@ describe('KAIRO character assets', () => {
   // there or a path Metro cannot follow.
   it('resolves every growth stage x pose to a checked-in file by a literal path', () => {
     const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
-    const cells = collectNestedRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
+    const cells = collectRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
 
     const expectedCells = GROWTH_STAGES.flatMap((stage) =>
       STAGE_POSES.map((pose) => `${stage}.${pose}`),
@@ -301,13 +330,90 @@ describe('KAIRO character assets', () => {
   // above gets deleted rather than quietly going stale.
   it('still aliases every pre-adult stage to the adult art', () => {
     const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
-    const cells = collectNestedRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
+    const cells = collectRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
 
     for (const pose of STAGE_POSES) {
       const adult = cells.get(`4.${pose}`);
       expect(adult).toBe(`../../../assets/character/poses/kairo_pose_${pose}_v1.png`);
       for (const stage of [1, 2, 3]) expect(cells.get(`${stage}.${pose}`), `${stage}.${pose}`).toBe(adult);
     }
+  });
+
+  // Issue #33. A crest mask belongs to exactly one drawing, so the registries
+  // have to move together: the expected path is rebuilt from the art registry
+  // rather than restated, which is what makes "every render has a mask" true by
+  // construction instead of by review.
+  it('registers a crest mask beside every render the two components can draw', () => {
+    const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
+    const stageArt = collectRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
+    const stageCrests = collectRequirePaths(registrySource, 'KAIRO_STAGE_CRESTS');
+    expect([...stageCrests.keys()].sort()).toEqual([...stageArt.keys()].sort());
+    for (const [cell, artPath] of stageArt) {
+      expect(stageCrests.get(cell), cell).toBe(crestPathFor(artPath));
+    }
+
+    for (const [artExport, crestExport] of [
+      ['KAIRO_POSE_ASSETS', 'KAIRO_POSE_CRESTS'],
+      ['KAIRO_STATE_ASSETS', 'KAIRO_STATE_CRESTS'],
+    ] as const) {
+      const art = collectRequirePaths(registrySource, artExport);
+      const crests = collectRequirePaths(registrySource, crestExport);
+      expect([...crests.keys()].sort(), crestExport).toEqual([...art.keys()].sort());
+      for (const [cell, artPath] of art) {
+        expect(crests.get(cell), `${crestExport}.${cell}`).toBe(crestPathFor(artPath));
+      }
+    }
+
+    expect(registrySource).toContain(`require('${crestPathFor('../../../assets/character/base/kairo_base_front_v1.png')}')`);
+  });
+
+  // A mask paints the crest and nothing else, so the two properties that make
+  // it a mask rather than a second drawing are worth pinning: it covers the top
+  // of the head only, and it never reaches a pixel the bird does not occupy —
+  // otherwise the tint would paint the sky behind it.
+  it('keeps every crest mask on the bird and on the top of its head', () => {
+    for (const [relativePath, artPath] of CREST_MASK_PAIRS) {
+      const mask = decodePng(relativePath);
+      const art = decodePng(artPath);
+      expect([mask.width, mask.height], relativePath).toEqual([570, 636]);
+
+      let painted = 0;
+      let lowest = 0;
+      for (let y = 0; y < mask.height; y += 1) {
+        for (let x = 0; x < mask.width; x += 1) {
+          const offset = pixelOffset(mask.width, x, y);
+          const alpha = channel(mask.data, offset + 3);
+          if (alpha === 0) continue;
+          painted += 1;
+          lowest = y;
+          expect(
+            channel(art.data, offset + 3),
+            `${relativePath} paints ${x},${y}, where the bird is not`,
+          ).toBeGreaterThan(0);
+        }
+      }
+
+      expect(painted, relativePath).toBeGreaterThan(1_000);
+      // The head, not the body: the crest fades out well above halfway down a
+      // canvas whose bottom edge is the feet.
+      expect(lowest, relativePath).toBeLessThan(mask.height * 0.4);
+    }
+  });
+
+  // The fourth copy of the render list, and the one nothing else watches: the
+  // registries are held to each other by the guard above and `REQUIRED_PNG` by
+  // the file checks below, but the generator's own list is a Python literal no
+  // TypeScript sees. A render added there and forgotten here — or here and
+  // forgotten there — is a bird whose crest cannot be tinted, and issue #31
+  // touches every one of the four.
+  it('generates a mask for exactly the renders that need one', () => {
+    const script = readFileSync(resolve(REPO_ROOT, 'scripts/generate_crest_masks.py'), 'utf8');
+    const sources = script
+      .slice(script.indexOf('SOURCES = ['), script.indexOf(']', script.indexOf('SOURCES = [')))
+      .match(/"([^"]+\.png)"/g)
+      ?.map((quoted) => `assets/character/${quoted.slice(1, -1)}`);
+
+    expect(sources?.sort()).toEqual(CREST_MASK_PAIRS.map(([, art]) => art).sort());
   });
 
   it('registers every checked-in PNG with literal React Native requires', () => {
@@ -339,7 +445,11 @@ describe('KAIRO character assets', () => {
       export const KAIRO_POSE_ASSETS = 2;
       export const KAIRO_STAGE_ASSETS = 3;
       export const KAIRO_STATE_ASSETS = 4;
-      export const KAIRO_COSMETIC_ASSETS = 5;
+      export const KAIRO_BASE_CREST = 5;
+      export const KAIRO_POSE_CRESTS = 6;
+      export const KAIRO_STAGE_CRESTS = 7;
+      export const KAIRO_STATE_CRESTS = 8;
+      export const KAIRO_COSMETIC_ASSETS = 9;
       export const helper = 5, secondHelper = 6;
       export async function helperFunction() {}
       export type Helper = string;

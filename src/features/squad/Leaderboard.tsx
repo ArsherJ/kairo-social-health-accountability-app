@@ -3,6 +3,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
+import type { LifetimePoints } from '@/features/character/plumage.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
@@ -310,7 +311,12 @@ export function Leaderboard({
               It follows `mode`, so the claim always matches the day the board
               is showing. */}
           {rows.length > 1 && leader && (
-            <DayLeader name={leader.character_name} isSelf={leader.is_self} mode={mode} />
+            <DayLeader
+              name={leader.character_name}
+              isSelf={leader.is_self}
+              mode={mode}
+              lifetimePoints={leader.ratings}
+            />
           )}
 
           {/* A squad of one gets the Sky's own sentence instead of a standing.
@@ -484,10 +490,14 @@ function DayLeader({
   name,
   isSelf,
   mode,
+  lifetimePoints,
 }: {
   name: string;
   isSelf: boolean;
   mode: LeaderboardMode;
+  /** The leader's own `ratings`, so their bird here matches their bird in the
+   *  row directly beneath — same person, same crest (issue #33). */
+  lifetimePoints: LifetimePoints;
 }) {
   const line =
     mode === 'current'
@@ -506,7 +516,7 @@ function DayLeader({
   return (
     <View accessible accessibilityLabel={line} style={styles.leader}>
       <View {...hidden} style={styles.leaderBird}>
-        <KairoThumbnail pose="race_victory" size={26} decorative />
+        <KairoThumbnail pose="race_victory" size={26} decorative lifetimePoints={lifetimePoints} />
       </View>
       <MaterialCommunityIcons {...hidden} name="crown" size={15} color={ramp.gold[300]} />
       <Text {...hidden} scale="chrome" numberOfLines={1} style={styles.leaderLabel}>

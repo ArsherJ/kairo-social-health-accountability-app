@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
-import { evolutionStageForLevel } from '@kairo/core';
+import { evolutionStageForLevel, type CoreStat } from '@kairo/core';
 
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
@@ -10,6 +10,7 @@ import { colors, font, space } from '@/theme.ts';
 import { Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { Diorama } from './Diorama.tsx';
+import { KairoThumbnail } from './KairoThumbnail.tsx';
 import { ceilingLine, spreadLine } from './kairo-voice.ts';
 import {
   MOTION_LOCATIONS,
@@ -188,6 +189,7 @@ function MirrorSky({
   hasSleepSource = true,
   sleepMinutes = 420,
   lifetimeBodyPoints = 3_000,
+  lifetimePoints,
   reaction = null,
   crest = false,
 }: {
@@ -198,6 +200,8 @@ function MirrorSky({
   hasSleepSource?: boolean;
   sleepMinutes?: number | null;
   lifetimeBodyPoints?: number;
+  /** Lifetime rollups — the presence ring, and the crest's hue (issue #33). */
+  lifetimePoints?: Record<CoreStat, number>;
   reaction?: LivingReaction | null;
   crest?: boolean;
 }) {
@@ -224,6 +228,7 @@ function MirrorSky({
       figure={mirror.figure}
       body={mirror.body}
       dominance="AGI"
+      lifetimePoints={lifetimePoints}
       figureLabel={livingCharacterLabel({
         characterName: 'Dagit', level, location: mirror.motion.location, mind: mirror.mind,
       })}
@@ -282,6 +287,61 @@ function GrowthStages() {
             {`Resolver: level ${firstLevelOfStage(stage)} at the Ridge — ${GROWTH_STAGE_NAMES[stage]}, running`}
           </Text>
           <MirrorSky location="ridge" level={firstLevelOfStage(stage)} />
+        </View>
+      ))}
+    </Section>
+  );
+}
+
+/**
+ * The crest by dominance — the other half of issue #33's verification surface.
+ *
+ * Two readings again, and again because they fail differently. The **thumbnail**
+ * row is the flock row's own size, where the question is whether the hue reads
+ * at 44pt at all; the **figure** row drives `resolveLivingMirror` and the real
+ * component, where the question is whether the mask lands on the head feathers
+ * rather than beside them. A swatch would answer neither.
+ *
+ * The balanced entry is not padding: a player whose stats are level takes no
+ * hue, and "no tint" is a state somebody has to be able to look at.
+ */
+function Plumage() {
+  const cases: { title: string; points: Record<CoreStat, number> | undefined }[] = [
+    { title: 'Motion-dominant', points: { AGI: 9_000, STR: 1_200, MND: 800 } },
+    { title: 'Body-dominant', points: { AGI: 1_200, STR: 9_000, MND: 800 } },
+    { title: 'Mind-dominant', points: { AGI: 1_200, STR: 800, MND: 9_000 } },
+    { title: 'Balanced — no hue at all', points: { AGI: 3_000, STR: 2_800, MND: 2_700 } },
+    { title: 'Unstarted — nothing earned, nothing tinted', points: undefined },
+  ];
+
+  return (
+    <Section title="Plumage by dominance">
+      <Text style={labStyles.sentence}>
+        The crest takes the dominant stat's hue from `STAT_COLORS`, at every surface that draws a
+        particular player. It reads lifetime points rather than the fortnight `useDominantStat`
+        measures, because a flock row can only see the lifetime rollups and one player must not
+        wear two crests. A balanced character takes none.
+      </Text>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Flock row — 44pt, the size it has to read at</Text>
+        <View style={styles.previews}>
+          {cases.map((entry) => (
+            <KairoThumbnail
+              key={entry.title}
+              pose="idle"
+              size={44}
+              decorative
+              lifetimePoints={entry.points}
+            />
+          ))}
+        </View>
+      </View>
+
+      {cases.map((entry) => (
+        <View key={entry.title} style={styles.entry}>
+          <Text style={styles.entryTitle}>{`Figure: ${entry.title}`}</Text>
+          <MirrorSky location="valley" lifetimePoints={entry.points} />
         </View>
       ))}
     </Section>
@@ -384,6 +444,8 @@ export function KairoLab() {
       <CopySurfaces />
 
       <GrowthStages />
+
+      <Plumage />
 
       <LivingMirrorMatrix />
 

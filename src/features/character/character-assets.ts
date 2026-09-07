@@ -63,6 +63,73 @@ export const KAIRO_STATE_ASSETS: Record<SleepState, ImageSourcePropType> = {
   well_rested: require('../../../assets/character/states/kairo_state_well_rested_v1.png'),
 };
 
+/**
+ * The **crest mask** beside every render above.
+ *
+ * A mask is the same 570×636 canvas with the fan of head feathers in its alpha
+ * and white everywhere it is opaque, so `<Image tintColor>` paints the crest
+ * the hue of the player's dominant stat and nothing else (issue #33). Two
+ * eagles in a flock stop looking identical without a second set of artwork.
+ *
+ * **Generated, not drawn.** `scripts/generate_crest_masks.py` reads the art and
+ * writes `assets/character/crests/crest_<the art's own filename>`; the name is
+ * the mapping, and `character-assets.test.ts` builds each expected path from
+ * the art registry rather than restating it, so a render with no mask beside it
+ * is a red test rather than a tint that sits next to somebody's head. Rerun the
+ * script after any change to the art it reads — the nine growth-stage images of
+ * issue #31 included.
+ *
+ * The same literal-`require` rule applies for the same reason: Metro resolves
+ * `require` statically, so a computed path is a blank image on a device and
+ * nothing at build time.
+ */
+export const KAIRO_BASE_CREST: ImageSourcePropType =
+  require('../../../assets/character/crests/crest_kairo_base_front_v1.png');
+
+export const KAIRO_POSE_CRESTS: Record<KairoPose, ImageSourcePropType> = {
+  idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
+  sleep: require('../../../assets/character/crests/crest_kairo_pose_sleep_v1.png'),
+  walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
+  run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+  workout: require('../../../assets/character/crests/crest_kairo_pose_workout_v1.png'),
+  race_victory: require('../../../assets/character/crests/crest_kairo_pose_race_victory_v1.png'),
+};
+
+/**
+ * Stage × pose, mirroring `KAIRO_STAGE_ASSETS` cell for cell — a crest belongs
+ * to one drawing, so the two tables have to move together. They alias the same
+ * three poses today because the art does; when issue #31's images land, both
+ * tables are repointed in the same edit and the script is rerun.
+ */
+export const KAIRO_STAGE_CRESTS: Record<EvolutionStage, Record<StagePose, ImageSourcePropType>> = {
+  1: {
+    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+  },
+  2: {
+    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+  },
+  3: {
+    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+  },
+  4: {
+    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+  },
+};
+
+export const KAIRO_STATE_CRESTS: Record<SleepState, ImageSourcePropType> = {
+  sleepy: require('../../../assets/character/crests/crest_kairo_state_sleepy_v1.png'),
+  normal: require('../../../assets/character/crests/crest_kairo_state_normal_v1.png'),
+  well_rested: require('../../../assets/character/crests/crest_kairo_state_well_rested_v1.png'),
+};
+
 // Cosmetic entries are flattened full-character QA previews, not composable layers.
 export const KAIRO_COSMETIC_ASSETS: Record<CosmeticId, ImageSourcePropType> = {
   runner_cap: require('../../../assets/character/cosmetics/cosmetic_head_runner_cap_v1.png'),

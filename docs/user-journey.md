@@ -11,7 +11,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 - **Onboarding is seven beats and the last one is the name.** `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` — `/mirror` sits between the sky card and the Health ask (deviation #62, 2026-09-04) — and the profile row commits exactly once, on `/name`. Add steps *before* the name, never after. The hatch is an eighth *beat* but not a route: it is a phase `/connect` swaps to in place, which is why `beats.ts` gives it `route: null`.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one; every live row was closed by the migration. What survives is history — the three tables, `event_progress()` read-only, and `@kairo/core`'s `event.ts` marked deprecated — so banked XP is neither lost nor unexplainable. Section 5 below carries the reasoning.
 - **Four tabs — Today · Sky · Flock · You**, flat, no raised disc, no character tab.
-- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30) — built, with the artwork outstanding, so stages 1–3 draw the adult art. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
+- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30) — built, with the artwork outstanding, so stages 1–3 draw the adult art, at a **scale that falls with the stage** (issue #33). Its **crest takes the dominant stat's hue** from the same date, on this screen and on a flock row alike. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
 - **The race is one shared corridor and it lives on the Sky** (deviation #56). Crossing the line *is* clearing the Daily Walk: `RACE_FINISH_LINE` is `DAILY_STEP_BASELINE`. A player alone on it gets the corridor drawn, the ridge named as the opponent, and an invitation where the rivals would be — never a rank and never a fabricated rival (2026-09-02).
 - **The disclosure gate is unchanged and its list on Today is one item**: the Challenge link inside the details sheet. `/train`'s own `resolved && stage` redirect is the real door.
 - **The scoring engine is untouched** by everything above, and by everything on this page. Scores are replayed from stored buckets, and a retroactive Apple revision still flows through every derived reading.
@@ -323,6 +323,31 @@ The character tab and the old Today tab merged here on 2026-08-27 (deviation #50
   consequence: a pre-adult celebration shows the walk rather than the wings-out
   pose, and is carried by the reaction's sentence until the art and the
   animation land. Verifiable in `/kairo-lab`, not by a player.
+- **The crest carries the dominant stat as of 2026-09-07 (issue #33), and the
+  body's scale carries the stage.** Two eagles in a flock were the same picture
+  at different sizes of nothing; they are now different at a glance, and by two
+  independent things rather than by artwork arriving on time. The crest — the
+  fan of head feathers, the one part of the silhouette that reads at 44pt in a
+  flock row and at 220pt on the day screen — takes the stat's hue from
+  `STAT_COLORS`, held below full strength so the drawing underneath still shows
+  through. **The crest, never the bird**: the figure already says four things by
+  shape and a fifth on the body would turn the centrepiece into a readout. **A
+  balanced player takes no hue**, because choosing a stat to speak for somebody
+  whose stats are level invents a preference they have not shown — the argument
+  `laneStat` already makes for the lane bar. It reads the **lifetime** rollups
+  rather than the fortnight `useDominantStat` measures, because a flock row can
+  only see the lifetime figures it already draws as three ratings, and one
+  player wearing two crests on two tabs is the disagreement this exists to
+  remove. It reaches every surface that draws a **particular** player — Today's
+  figure, a flock row, the Flock band's leader bird and the You tab's own
+  avatar disc — because one player wearing two crests is the disagreement this
+  exists to remove. The Sky rail and its markers are the stated exception:
+  `RacerInput` carries no ratings, so tinting there means widening the race
+  payload, which is a §5 decision. Onboarding's birds stand for nobody and stay
+  plain. Nothing is spoken: the dominant stat is already in the row's reading
+  order, so the accessible names are untouched. The scale is the same ticket's
+  cheap half — a hatchling is drawn smaller **inside the frame the caller
+  sized**, so it stands lower in the same space and no screen relays.
 - **Three things move the figure, and they are independent.** `stage` (level bands) widens and deepens the ground shadow, so levelling shows whatever you grind; `dominance` changes the build's proportions and the shadow's tint per §6; and the **presence ring** carries the ability rating (`src/features/character/aura.ts`) — present from rating 5, stronger at 10, and still always on for the balanced All-Rounder, whose ring means *shape* rather than magnitude. The August QA pass reported the character as static: the first two already existed and were invisible because nothing had scored since the 9th, so level sat at 1 and dominance was null. The ring is the only genuinely new one, and it reuses an element already on screen rather than inventing a third visual language.
 - **It answers at every level now, not only at three boundaries (2026-08-25).** The QA finding survived the ring, and only half of it was the missing data: the arithmetic was also almost invisible — 146 points of shadow at level 1 against 200 at level 21, a 37% span across the entire game — and `stage` moves at levels 6, 11 and 21 and nowhere else, so levelling 12 → 13 genuinely changed nothing. `figureResponse()` in `src/features/character/level-response.ts` widens the span past 1.7× and adds a within-band term, with the band boundary still much the bigger jump so the four artworks stay the milestone. It is a tested pure module rather than three expressions inline, precisely so the bands could be widened against assertions rather than by eye — and it grows to a ceiling at level 40, because unbounded growth eventually pushes the figure out of the diorama. **With no cosmetics and no coins in Phase 1, the figure is the reward**, which is what makes this worth doing before any of them.
 - A rest day scores 0 and still costs the streak, and the streak shield is what makes the app worth opening on a bad day (§6). The Battle card used to carry a days-remaining count for the same purpose; it went with deviation #66.
