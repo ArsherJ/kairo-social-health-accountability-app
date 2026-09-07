@@ -148,7 +148,11 @@ export function SoloBoard({
           case `leaderboardGaps` returns null for on a real board. This is the
           one place a solo user sees their own day on this tab, and it is real
           numbers, which is why it survived the rest of this screen. */}
-      <LeaderboardRow row={selfRow} mode="current" gap={null} />
+      {/* `ranked={false}`: this screen's own doc argues there is no "1st of 1"
+          to draw here, and the row was drawing the "1" anyway — and speaking
+          it. The `rank: 1` above stays, because the row type requires a
+          position; what changes is that nothing renders it. */}
+      <LeaderboardRow row={selfRow} mode="current" gap={null} ranked={false} />
 
       {/* One seat. `resolveSlots` is no longer called: it answered "how many
           seats are free under the free cap", and the answer stopped being what

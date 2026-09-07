@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
 import { colors, font, ramp, radius, space } from '@/theme.ts';
 import { Label, Text } from '@/ui/index.ts';
+import { shieldNote } from './shield-note.ts';
 import type { Streak } from './queries.ts';
 
 /**
@@ -11,10 +12,13 @@ import type { Streak } from './queries.ts';
  * first scoring day — so this renders zeros rather than an error. A new user
  * seeing "0 days" is correct; a new user seeing a failure is not.
  *
- * `shield_available_on` null means a shield is banked *now* (see the column
- * comment in 20260727120300_progression_and_infra.sql). Saying so out loud is
- * the point of the mechanic: the shield only prevents churn if the user knows
- * they have one before the day they need it.
+ * What the shield pill says is `shieldNote`'s decision, not this component's.
+ * Saying it out loud is the point of the mechanic — the shield only prevents
+ * churn if the user knows they have one before the day they need it — which is
+ * exactly why it has to be true: this card read `shield_available_on === null`
+ * as "banked" and promised a safe missed day to accounts four days short of
+ * one. The column only means no shield is *recharging*; the streak minimum is
+ * the other half, and both now live in one place.
  *
  * The card is sage in both states. It used to flip `Panel` between `plain` and
  * `earned`, which made the whole block change colour on a fact the pill below
@@ -24,7 +28,7 @@ import type { Streak } from './queries.ts';
 export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
   const current = streak?.current_streak ?? 0;
   const longest = streak?.longest_streak ?? 0;
-  const shieldBanked = streak ? streak.shield_available_on === null : false;
+  const shield = shieldNote(streak);
 
   return (
     <View style={styles.card}>
@@ -83,7 +87,7 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
       {/* The shield is a thing you hold, not a note in the margin. §19 only
           works if you know you have one *before* the day you need it, and a
           line of small print under two big numbers is not where anyone looks. */}
-      <View style={[styles.shield, shieldBanked && styles.shieldBanked]}>
+      <View style={[styles.shield, shield.banked && styles.shieldBanked]}>
         {/* The sentence beside it already says whether the shield is banked,
             so an announced glyph would prefix every reading with "shield". */}
         <MaterialCommunityIcons
@@ -93,12 +97,8 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
-        <Text style={shieldBanked ? styles.shieldReady : styles.shieldSpent}>
-          {shieldBanked
-            ? 'Shield banked — one missed day is safe'
-            : streak
-              ? `Shield recharges ${streak.shield_available_on}`
-              : 'Score once to start a streak'}
+        <Text style={shield.banked ? styles.shieldReady : styles.shieldSpent}>
+          {shield.text}
         </Text>
       </View>
     </View>

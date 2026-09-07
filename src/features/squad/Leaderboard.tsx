@@ -7,7 +7,8 @@ import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
-import { resolveSquadStanding, type SquadStanding } from './standing.ts';
+import { resolveSquadStanding, standingHero, standingSubline } from './standing.ts';
+import { SOLO_SKY_OBSERVATION } from './sky-reading.ts';
 import { FlockStrip } from './FlockStrip.tsx';
 import { flockWalk } from './flock-walk.ts';
 import {
@@ -48,22 +49,6 @@ const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'completed', label: 'Yesterday' },
 ];
 
-/** "1st", "2nd", "3rd", "4th"... "11th"–"13th" are the irregular teens. */
-function ordinal(n: number): string {
-  const teens = n % 100;
-  if (teens >= 11 && teens <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
-}
-
 /**
  * 'YYYY-MM-DD' -> 'Aug 4'. Parsed as UTC on purpose: these strings are already
  * the correct local calendar date for the member(s) they describe, and
@@ -79,35 +64,6 @@ function formatLocalDate(isoDate: string): string {
     day: 'numeric',
     timeZone: 'UTC',
   }).format(date);
-}
-
-/**
- * The hero line, now sitting *beside* the rank rather than under it.
- *
- * Returned in segments so the gap can carry the emphasis the design puts on
- * it without picking the number back out of a finished sentence with a regex.
- * `back === null` means nobody is ahead; `back === 0` means tied with the row
- * directly above — two different facts that must not collapse into one.
- */
-type SublinePart = { text: string; emphasis?: boolean };
-
-function standingSubline(standing: SquadStanding): SublinePart[] | null {
-  switch (standing.kind) {
-    case 'unknown':
-      return null;
-    case 'unranked':
-      return [{ text: `of ${standing.of}` }];
-    case 'ranked': {
-      const of = `of ${standing.of}`;
-      if (standing.back === null) return [{ text: `${of} · leading` }];
-      if (standing.back === 0) return [{ text: `${of} · tied with the player above` }];
-      return [
-        { text: `${of} · ` },
-        { text: standing.back.toLocaleString(), emphasis: true },
-        { text: ' back' },
-      ];
-    }
-  }
 }
 
 /**
@@ -209,13 +165,11 @@ export function Leaderboard({
   */
   const [leader] = rows;
 
+  // What the band leads with, and what it says beside it. Both decisions are
+  // in `standing.ts` rather than here: the words a squad of one may never read
+  // are a rule, and root Vitest cannot load a component file to guard one.
   const standing = resolveSquadStanding({ rows: board.data, memberCount: memberCount.data });
-  const heroValue =
-    standing.kind === 'ranked'
-      ? ordinal(standing.rank)
-      : standing.kind === 'unranked'
-        ? 'Unranked'
-        : null;
+  const heroValue = standingHero(standing);
   const subline = standingSubline(standing);
 
   // In completed mode every member is ranked on their OWN yesterday, so a
@@ -338,6 +292,17 @@ export function Leaderboard({
             <DayLeader name={leader.character_name} isSelf={leader.is_self} mode={mode} />
           )}
 
+          {/* A squad of one gets the Sky's own sentence instead of a standing.
+              The tab next door already tells this player the ridge is the
+              opponent; this band used to answer "1st · of 1 · leading" — the
+              app refusing to flatter them on one screen and doing exactly that
+              on the next. The same string, read from the same place, so the
+              two readings of a day alone cannot drift. The invite block below
+              is the half that offers to change it. */}
+          {standing.kind === 'alone' && (
+            <Text style={styles.alone}>{SOLO_SKY_OBSERVATION}</Text>
+          )}
+
           {/* A pending standing query must never render a claim: nothing beats
               a placeholder or a dash, both of which would state something
               false. */}
@@ -429,12 +394,16 @@ export function Leaderboard({
         </View>
       )}
 
+      {/* `ranked` is the band's rule applied to the rows: a board of one draws
+          and speaks "1" for a position nobody is being held against, which is
+          the same sentence the standing above it stopped saying. */}
       {rows.map((row) => (
         <LeaderboardRow
           key={row.user_id}
           row={row}
           mode={mode}
           gap={gaps.get(row.user_id) ?? null}
+          ranked={rows.length > 1}
         />
       ))}
 
@@ -597,6 +566,15 @@ const styles = StyleSheet.create({
     ...font.body.body,
     paddingBottom: 8,
     flexShrink: 1,
+  },
+  /* The sentence a squad of one reads where the ordinal would be. The same
+     near-white the standing beside it uses on this band — and deliberately
+     without the `numberOfLines` that standing carries: this is a sentence
+     rather than a figure, so clipping it would leave half a claim on screen. */
+  alone: {
+    ...font.body.body,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: space.sm,
   },
   // Family off the token rather than a string literal: weights are chosen by
   // face here, never by `fontWeight`. Gold for the gap, because on this band

@@ -21,7 +21,16 @@ import { CORE_STATS, type CoreStat } from '@kairo/core';
  */
 
 export interface RowLabelInput {
-  rank: number;
+  /**
+   * The row's position, or **null when there is nobody to be ranked against**.
+   *
+   * `SkyStanding` dropped its own "1 of 1" on 2026-09-02 for this reason and
+   * the board kept saying it: "Rank 1" on a board of one can only mean the
+   * reader beat nobody, which is exactly the flattery the band above it was
+   * rewritten to stop (issue #26). Null rather than a `ranked` flag beside a
+   * number, so there is no second field to disagree with the first.
+   */
+  rank: number | null;
   characterName: string;
   isSelf: boolean;
   /**
@@ -60,8 +69,9 @@ export function leaderboardRowLabel(input: RowLabelInput): string {
 
   // "Rank 1, Jay, you" — position first, because position is what a
   // leaderboard is. Saying the name first would make every row sound the same
-  // for the first second.
-  parts.push(`Rank ${input.rank}`);
+  // for the first second. Omitted entirely on a board of one, where the
+  // position is not a fact about anybody.
+  if (input.rank !== null) parts.push(`Rank ${input.rank}`);
   parts.push(input.isSelf ? `${input.characterName}, you` : input.characterName);
 
   // Directly after the person, because it *is* part of who: the row draws the

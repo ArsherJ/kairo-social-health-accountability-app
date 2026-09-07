@@ -83,6 +83,21 @@ export interface SkyReading {
   solo: SkySolo | null;
 }
 
+/**
+ * What today is when nobody else is on the corridor.
+ *
+ * A constant rather than an inline string because the Flock band reads it too:
+ * a squad of one is the same fact on the tab next door, and that band used to
+ * answer it with "1st · of 1 · leading" — the app refusing to flatter you on
+ * one screen and doing exactly that on the next. One sentence, two surfaces,
+ * so the two readings of a day alone cannot drift apart.
+ *
+ * No literal here and none may appear: the figure is derived from
+ * `RACE_FINISH_LINE`, which is the Daily Walk's baseline, so the ridge on this
+ * screen and the floor on Today are one number with two readings.
+ */
+export const SOLO_SKY_OBSERVATION = `You have the sky to yourself. The ridge is the opponent — ${RACE_FINISH_LINE.toLocaleString()} steps, the same every day.`;
+
 export function skyReading(
   racers: readonly SkyRacerFacts[],
   /**
@@ -101,10 +116,7 @@ export function skyReading(
   return {
     raceExists: false,
     solo: {
-      // No literal here and none may appear: the figure is derived from
-      // `RACE_FINISH_LINE`, which is the Daily Walk's baseline, so the ridge on
-      // this screen and the floor on Today are one number with two readings.
-      observation: `You have the sky to yourself. The ridge is the opponent — ${RACE_FINISH_LINE.toLocaleString()} steps, the same every day.`,
+      observation: SOLO_SKY_OBSERVATION,
       // Kept short on purpose: this lands in pinned chrome over the flight,
       // which grows upward against a fixed screen rather than scrolling. Every
       // extra line costs headroom at the largest text sizes.

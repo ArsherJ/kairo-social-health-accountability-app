@@ -1,3 +1,5 @@
+import { ordinal } from './ordinal.ts';
+
 /**
  * A racer on the corridor, said out loud.
  *
@@ -26,21 +28,6 @@ export interface RaceLabelInput {
   progressPercent: number;
   finished: boolean;
   isGhost: boolean;
-}
-
-function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
 }
 
 export function raceLaneLabel(input: RaceLabelInput): string {

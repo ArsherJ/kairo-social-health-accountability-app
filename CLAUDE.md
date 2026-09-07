@@ -1529,6 +1529,51 @@ things break easily:
   people who declined into a visible cohort, which is a louder statement about
   a private decision than leaving them where the board already puts them.
 
+**Two sentences stopped being false on 2026-09-07** (issue #26). Both are copy
+the app states as fact, and both now live in pure modules root Vitest can hold.
+
+- **A squad of one reads the Sky's sentence, not a standing.** The Flock band
+  answered `1st · of 1 · leading` on the tab immediately next to the one saying
+  *"You have the sky to yourself. The ridge is the opponent"* — the app refusing
+  to flatter you on one screen and doing exactly that on the next. The leader
+  line beside it was already guarded on two or more rows; this was a **second,
+  separate sentence** that never got the same guard. `resolveSquadStanding`
+  answers `{ kind: 'alone' }` first and the band renders `SOLO_SKY_OBSERVATION`
+  — the Sky's own string, **imported**, because two copies of one true sentence
+  is two things to keep true. Three things break easily. **The squad's size
+  decides it, never the board**: `squad_leaderboard()` left-joins
+  `daily_scores`, so an unmoved member is still a row and an empty board is
+  still a squad of one — `rows.length` would call a two-person squad alone for
+  the frame before its second row lands. **`alone` carries no rank and no
+  denominator**, and a test asserts the key list, so no later edit can reach for
+  one. And **the copy moved out of `Leaderboard.tsx` into `standing.ts`** —
+  `ordinal`, `standingHero` and `standingSubline` — because a rule about what a
+  screen may say has no guard on it while it lives in a `.tsx` that root Vitest
+  cannot load. `SkyStanding` had already made this fix for `1 of 1` on
+  2026-09-02; this is the same fix in the second surface — and in the third,
+  since **the rows beneath the band were saying it too**. `LeaderboardRow` takes
+  `ranked`, false on a board of one, which withholds the rank glyph *and* the
+  `Rank 1` that `leaderboardRowLabel` spoke; `RowLabelInput.rank` is
+  `number | null` rather than a flag beside a number, so there is no second
+  field to disagree with the first. `SoloBoard` passes it too: its own doc
+  argued there was no "1st of 1" to draw there while the row drew the 1 anyway.
+  `ordinal()` is one module now (`ordinal.ts`) rather than a copy each in
+  `standing.ts` and `race-label.ts`.
+- **The shield sentence names the streak minimum below it.**
+  `shield_available_on === null` means only that no shield is *recharging* —
+  it is null from the first scored day — while `advanceStreak` also requires
+  `SHIELD_MINIMUM_STREAK`, so "Shield banked — one missed day is safe" was the
+  first promise a new account read on the You tab and was false for its first
+  four days, on the one mechanic whose whole value is being believed *before*
+  the day it is needed. `shield-note.ts` holds both halves of the eligibility
+  and derives the `5`. **A pending recharge is named first, at any streak
+  length**: it is the binding constraint and was never the false half — a spent
+  shield catches nothing however long the streak grows, and a streak that breaks
+  after one is spent reaches five days again a fortnight before the charge
+  returns, so naming only the streak bar there is the same understatement in a
+  second place. The pill's colour reads `banked` off the same decision as its
+  words, rather than re-deriving it from the raw column.
+
 **This whole redesign shipped over the air, and that was verified rather than
 assumed**: the tree's fingerprint was `324fba3e`, byte-identical to build 22's.
 (**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in

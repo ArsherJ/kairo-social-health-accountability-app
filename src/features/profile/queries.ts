@@ -127,10 +127,18 @@ export function useProfile(userId: string | undefined) {
 /**
  * The caller's streak row (§19).
  *
- * `shield_available_on` null means a Streak Shield is banked right now — see
- * the column comment in `20260727120300_progression_and_infra.sql`. Turning
- * the biggest churn event into a relief moment is the point, so the profile
- * screen says out loud whether one is in hand.
+ * `shield_available_on` null means **no shield is recharging**. It does *not*
+ * mean one is banked — and both this comment and the column's own, in
+ * `20260727120300_progression_and_infra.sql`, said it did (that migration is
+ * applied and stays as written; this is the reader's correction).
+ * `advanceStreak` also requires `SHIELD_MINIMUM_STREAK`, and the column is null
+ * from the first scored day, so reading it alone told every account for its
+ * first four days that a missed day was safe. `shield-note.ts` holds both
+ * halves and is the only thing that decides what the screen says.
+ *
+ * Turning the biggest churn event into a relief moment is the point, so the
+ * profile screen does say out loud whether one is in hand — which is exactly
+ * why it has to be right.
  */
 export type Streak = {
   current_streak: number;

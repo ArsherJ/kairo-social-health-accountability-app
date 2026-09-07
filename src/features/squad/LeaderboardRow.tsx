@@ -33,12 +33,26 @@ export function LeaderboardRow({
   row,
   mode,
   gap,
+  ranked = true,
 }: {
   row: Row;
   mode: LeaderboardMode;
   gap: number | null;
+  /**
+   * Whether there is anybody to be ranked against.
+   *
+   * False on a board of one, where the position is drawn and spoken but is not
+   * a fact about anybody: "Rank 1" there can only mean the reader beat nobody,
+   * which is the flattery the band above was rewritten to stop (issue #26) and
+   * which `SkyStanding` had already dropped its own "1 of 1" for. Defaulted
+   * true because a board is the normal case; the two callers that can hold one
+   * row say so explicitly.
+   */
+  ranked?: boolean;
 }) {
-  const isLeader = row.rank === 1;
+  // Not `row.rank === 1`: on a board of one the highlight would say the same
+  // thing the rank glyph is being withheld for.
+  const isLeader = ranked && row.rank === 1;
 
   return (
     <View
@@ -55,7 +69,7 @@ export function LeaderboardRow({
       // implicit behaviour. Do not remove one half thinking it is redundant.
       accessible
       accessibilityLabel={leaderboardRowLabel({
-        rank: row.rank,
+        rank: ranked ? row.rank : null,
         characterName: row.character_name,
         isSelf: row.is_self,
         // The name, resolved here — `row-label.ts` takes the word, never the
@@ -84,14 +98,16 @@ export function LeaderboardRow({
         row.is_self && styles.self,
       ]}
     >
-      <Text
-        scale="fixed"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={[styles.rank, row.is_self && styles.rankSelf]}
-      >
-        {row.rank}
-      </Text>
+      {ranked && (
+        <Text
+          scale="fixed"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.rank, row.is_self && styles.rankSelf]}
+        >
+          {row.rank}
+        </Text>
+      )}
 
       {/* Replaces the disc rather than sitting beside it. The row label keeps
           the species-name wording in its reading order, while this static

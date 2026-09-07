@@ -161,4 +161,24 @@ describe('leaderboardRowLabel', () => {
     expect(label).not.toContain('behind');
     expect(label).toBe('Rank 1, Ana, Level 10');
   });
+
+  it('speaks no rank when there is nobody to be ranked against', () => {
+    // A board of one. "Rank 1" there can only mean the reader beat nobody,
+    // which is the flattery the band beside it was rewritten to stop
+    // (issue #26) — and `SkyStanding` had already dropped its own "1 of 1"
+    // for the same reason. Null rather than a boolean beside a number, so
+    // there is no second field that can disagree with the first.
+    const label = leaderboardRowLabel({
+      rank: null,
+      characterName: 'Ana',
+      isSelf: true,
+      level: 10,
+      gap: null,
+      ratings: {},
+      statNames,
+    });
+
+    expect(label).toBe('Ana, you, Level 10');
+    expect(label).not.toMatch(/\brank\b/i);
+  });
 });
