@@ -11,7 +11,9 @@ rule the HealthKit disclosure already follows.
 
 **Status, end of 2026-09-02:** the policy exists — `web/privacy.html`, served
 at `https://kairo-teal-nine.vercel.app/privacy`, linked from Settings and from
-the landing page's footer, and guarded by `src/features/support/links.test.ts`.
+the landing page's footer, and guarded by
+`src/features/privacy/claim-surfaces.test.ts` (it was `links.test.ts` until
+2026-09-07, when the three claim scans were consolidated into one surface list).
 The first version of this file said the body-metric columns were never written;
 that was wrong (§1, §6) and the answers in §2 now declare them.
 
@@ -157,11 +159,13 @@ now bans the keys there. The `Info.plist` string is corrected in the same pass
 infrastructure, no build step, no script, no external request. It keeps the one
 privacy surface a stranger can already reach on the same origin as the invite
 page. `PRIVACY_POLICY_URL` in `src/features/support/links.ts` derives it from
-`INVITE_HOST`, and `links.test.ts` reads the page off disk to assert the
-contact address, the four daily totals, the pooled-Battle clause, the
+`INVITE_HOST`, and `claim-surfaces.test.ts` reads the page off disk to assert
+the contact address, the four daily totals, the pooled-Battle clause, the
 deletion clause, no engine key, no retired tier name, no retired promise and no
-`[[TODO` placeholder — the same structural guard `invite-message.test.ts` puts
-on the landing page.
+`[[TODO` placeholder. That file applies the same rules to the landing page, the
+HealthKit permission sheet, the privacy beat, the Health ask on `/connect` and
+the invite message, from one declared list — three separate scans is how a
+surface making the claim ended up with nowhere to be registered.
 
 **The decisions the legal drafts left blank were all taken on 2026-09-02**
 (founder): controller is Arsher James Basilio personally; contact is
@@ -204,7 +208,7 @@ of which does not:
 ## 5. Order of operations
 
 1. ✅ `web/privacy.html` written and deployed (`vercel deploy --prod`,
-   2026-09-02). `links.test.ts` fails on any `[[TODO` left in the page, which
+   2026-09-02). `claim-surfaces.test.ts` fails on any `[[TODO` left in the page, which
    is how the controller's name was kept from shipping blank.
 2. ✅ The Settings rows — **JS only, ships over the air.** Publish the OTA
    *before* step 3, while the tree's fingerprint still matches build 22.

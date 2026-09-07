@@ -2,7 +2,7 @@
 
 **Superseded on 2026-09-02.** The privacy policy that ships is
 `web/privacy.html`, served at `https://kairo-teal-nine.vercel.app/privacy` and
-guarded by `src/features/support/links.test.ts`; the App Store answers are in
+guarded by `src/features/privacy/claim-surfaces.test.ts`; the App Store answers are in
 `docs/app-store-privacy.md`. Every decision in the table below was taken that
 day (founder): controller is the founder personally, by legal name; contact is
 `arsherjames25@icloud.com`; the founder is DPO; retention is the life of the
