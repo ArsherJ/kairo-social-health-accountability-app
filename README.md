@@ -1,6 +1,6 @@
 # Kairo
 
-Kairo is a Philippines-market health accountability app, **solo-first**: your character — a Philippine eagle — levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line, plus a pooled Battle the squad fights together.
+Kairo is a Philippines-market health accountability app, **solo-first**: your character — a Philippine eagle — levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line. (A pooled Battle sat beside the race until deviation #66 retired it on 2026-09-06.)
 
 iOS first via Expo; Supabase backend.
 
@@ -39,7 +39,7 @@ the development asset lab (`/kairo-lab`) rather than by a player.
 - [`CONTEXT.md`](./CONTEXT.md) — the domain glossary: the words Kairo means and the words it refuses. Vocabulary only, no implementation.
 - [`docs/adr/`](./docs/adr/) — architecture decision records, for choices that are hard to reverse and surprising without their context.
 - [`docs/roadmap.md`](./docs/roadmap.md) — build sequencing, phase status, and the approved-deviations table (deliberate, recorded departures from the spec).
-- [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → the Today tab → the race → the Sky → the Flock → the Battle.
+- [`docs/user-journey.md`](./docs/user-journey.md) — the end-to-end user flow: onboarding → the daily loop → the four tabs → Train. Its section 5 keeps the retired Battle as history.
 - [`docs/mvp-scope.md`](./docs/mvp-scope.md) — **what is in the MVP and what is not.** Cite it in any QA brief, test plan or store-facing copy; a brief describing something not listed there is stale.
 - [`docs/qa/kairo-end-to-end-qa-report.md`](./docs/qa/kairo-end-to-end-qa-report.md) — the August 2026 QA pass, with an addendum tracing its central finding to a stale Edge Function deployment.
 - [`docs/sign-in-with-apple.md`](./docs/sign-in-with-apple.md) — the runbook for rotating and installing the Apple client secret.

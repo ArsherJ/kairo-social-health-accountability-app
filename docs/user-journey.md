@@ -4,11 +4,11 @@ What a player actually walks through, end to end. Grounded in the current implem
 
 ---
 
-## Ground truth (2026-09-02)
+## Ground truth (2026-09-07)
 
 **Read this block first, and read every dated claim below it against this one.** The sections that follow are a mix of what is live and what has been superseded; several describe eras that no longer exist, and each such block now states its date range and what replaced it. Nothing is deleted, because a decision already tried and rejected is one somebody proposes again.
 
-- **Onboarding is six beats and the last one is the name.** `/welcome → /one-sky → /connect → /difficulty → /privacy → /name`, and the profile row commits exactly once, on `/name`. Add steps *before* the name, never after.
+- **Onboarding is seven beats and the last one is the name.** `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` — `/mirror` sits between the sky card and the Health ask (deviation #62, 2026-09-04) — and the profile row commits exactly once, on `/name`. Add steps *before* the name, never after. The hatch is an eighth *beat* but not a route: it is a phase `/connect` swaps to in place, which is why `beats.ts` gives it `route: null`.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one; every live row was closed by the migration. What survives is history — the three tables, `event_progress()` read-only, and `@kairo/core`'s `event.ts` marked deprecated — so banked XP is neither lost nor unexplainable. Section 5 below carries the reasoning.
 - **Four tabs — Today · Sky · Flock · You**, flat, no raised disc, no character tab.
 - **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30) — built, with the artwork outstanding, so stages 1–3 draw the adult art. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
