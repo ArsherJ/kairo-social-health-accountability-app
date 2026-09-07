@@ -5,7 +5,7 @@ import { HEALTH_DISCLOSURE } from '../health/disclosure.ts';
 import { INVITE_HOST } from '../squad/invite-link.ts';
 import { inviteMessage } from '../squad/invite-message.ts';
 import { SUPPORT_EMAIL } from '../support/links.ts';
-import { PRIVACY_CLAIM } from './claim-copy.ts';
+import { NO_TRAIL_CLAUSE, PRIVACY_CLAIM } from './claim-copy.ts';
 
 /**
  * One test owns the question *"what does Kairo claim about your data?"*, and
@@ -32,24 +32,50 @@ import { PRIVACY_CLAIM } from './claim-copy.ts';
  * TestFlight's test information, which carry the same claim outside the repo.
  */
 
+/**
+ * Phrases only a privacy claim carries, used to find a surface making one
+ * without being registered here.
+ *
+ * "daily totals" earns its place the hard way: without it the sweep missed
+ * `HealthPermissionSheet.tsx`, which had been making the claim in its own
+ * words the whole time — a sixth surface, in the file that renders the
+ * disclosure, invisible to a marker list written from the sentences somebody
+ * already knew about.
+ */
+const CLAIM_MARKERS = /hour-by-hour|never your route|both agreed|raw numbers|daily totals/i;
+
 /* ------------------------------------------------------------------ rules */
 
 interface Rule {
-  /** Read as "the surface …". Named in the failure. */
-  the: string;
+  /** Reads as "the surface …", and is the failure's name. */
+  named: string;
   holds: (text: string) => void;
+}
+
+/**
+ * The sentences of a text containing a word, so a denial can be required
+ * *beside* what it denies rather than anywhere in the same document.
+ *
+ * Two unanchored `toMatch`es are the trap: a page saying "we collect your
+ * heart rate" and, four paragraphs later, "your route is never shared" passes
+ * a rule named "says heart rate is not shared". This is the same shape the
+ * disclosure sheet's entry already refuses — a rule passing for the wrong
+ * reason is how a scan ends up quietly narrower than the one beside it.
+ */
+function sentencesWith(text: string, word: RegExp): string[] {
+  return text.split(/(?<=\.)\s+/).filter((sentence) => word.test(sentence));
 }
 
 const RULES = {
   contact: {
-    the: 'names the address the app tells people to write to',
+    named: 'names the address the app tells people to write to',
     holds: (text) => {
       expect(text).toContain(SUPPORT_EMAIL);
     },
   },
 
   fourTotals: {
-    the: 'names the four daily totals a consenting squadmate sees',
+    named: 'names the four daily totals a consenting squadmate sees',
     holds: (text) => {
       // Deviation #47: steps, distance, active calories and sleep. Matched on
       // the substance rather than the sentence — the wording is copy, the four
@@ -61,48 +87,75 @@ const RULES = {
   },
 
   totalsOnly: {
-    the: 'says the sharing is daily totals and denies the trail behind them',
+    named: 'says the sharing is daily totals and denies the trail behind them',
     holds: (text) => {
-      // The corrected in-app wording. Both halves, because "daily totals" on
-      // its own is the compression that made the retired claim readable as
-      // "nothing leaves the phone".
+      // Both halves, because "daily totals" on its own is the compression that
+      // made the retired claim readable as "nothing leaves the phone" — and
+      // the denial is the half `links.test.ts` pinned on the policy page as a
+      // bare `/hour/i` and this file dropped for a commit, which is the
+      // "quietly narrower" failure consolidation is supposed to prevent.
+      //
+      // Three wordings because three already ship and all three are true:
+      // the beats say "hour-by-hour trail", the landing page "when in the day
+      // you moved", the permission sheet "when you moved". A rule that
+      // accepted only the in-app phrasing would fail honest copy, and a guard
+      // that fails on real input gets loosened until it guards nothing.
       expect(text).toMatch(/daily totals/i);
-      expect(text).toMatch(/hour-by-hour/i);
+      expect(text).toMatch(/hour-by-hour|when (in the day )?you moved/i);
+    },
+  },
+
+  namesNoRetiredStat: {
+    named: 'names no stat the app stopped scoring',
+    holds: (text) => {
+      // "Active minutes" is why this rule exists: `/connect` listed it among
+      // what Kairo reads and scores, two weeks after deviation #41 folded END
+      // into Body. It is **not** a universal ban, because it is also the name
+      // of a HealthKit type — `AppleExerciseTime` — and the permission sheet
+      // legitimately discloses reading it under exactly that label. So the
+      // rule is declared by the surfaces whose sentence is about what is
+      // *scored or shared*, where naming it is a claim rather than a label.
+      expect(text).not.toMatch(/active minutes/i);
+      expect(text).not.toMatch(/\b(Endurance|Vitality|Recovery)\b/);
     },
   },
 
   mutual: {
-    the: 'says the sharing is reciprocal, so nobody reads it as one-way',
+    named: 'says the sharing is reciprocal, so nobody reads it as one-way',
     holds: (text) => {
       // Somebody deciding whether to hand anything over needs to know they are
       // not signing anything away: the gate is reciprocal and refusable.
-      expect(text).toMatch(/both agreed|each other|both ways|both of you/i);
+      expect(text).toMatch(/both agreed?|each other|both ways|both of you/i);
     },
   },
 
   neverHeartRate: {
-    the: 'says heart rate is not shared',
+    named: 'says heart rate is not shared, in the sentence that names it',
     holds: (text) => {
       // §5 protects hourly movement and heart rate is at least as revealing.
       // A reader who assumes it reaches a squadmate has been misled by
       // omission — it is owner-readable only and in no projection.
-      expect(text).toMatch(/heart rate/i);
-      expect(text).toMatch(/never (see|shown|shared|scored)|never sees/i);
+      const sentences = sentencesWith(text, /heart rate/i);
+      expect(sentences.length).toBeGreaterThan(0);
+      expect(sentences.some((s) => /never|nobody/i.test(s))).toBe(true);
     },
   },
 
   neverWorkouts: {
-    the: 'names workouts among the things a squadmate never sees',
+    named: 'names workouts among the things a squadmate never sees',
     holds: (text) => {
       // `workout_sessions` is owner-readable only and appears in no `public`
       // function's body. A pace carries fitness; with distance it carries
-      // routine.
-      expect(text).toMatch(/workouts/i);
+      // routine. Scoped to the sentence for `neverHeartRate`'s reason: the
+      // bare word passes on a page that merely mentions reading them.
+      const sentences = sentencesWith(text, /workouts/i);
+      expect(sentences.length).toBeGreaterThan(0);
+      expect(sentences.some((s) => /never|nobody/i.test(s))).toBe(true);
     },
   },
 
   pooledBattleRetired: {
-    the: 'says the pooled Battle total is no longer shared',
+    named: 'says the pooled Battle total is no longer shared',
     holds: (text) => {
       // It was the one figure shared without the agreement, and in a squad of
       // two the arithmetic made it a partner's own figure. Deviation #66
@@ -110,34 +163,34 @@ const RULES = {
       // page still claiming a live disclosure that cannot happen is as wrong
       // as one hiding a disclosure that can.
       expect(text).toMatch(/pooled/i);
-      expect(text).toMatch(/two/i);
+      expect(text).toMatch(/squad of two/i);
       expect(text).toMatch(/no longer is|retired/i);
     },
   },
 
   deletion: {
-    the: 'says how to delete everything, from inside the app',
+    named: 'says how to delete everything, from inside the app',
     holds: (text) => {
       expect(text).toMatch(/delete (your|my) account/i);
     },
   },
 
   neverWrites: {
-    the: 'says Kairo never writes to Apple Health',
+    named: 'says Kairo never writes to Apple Health',
     holds: (text) => {
       expect(text).toMatch(/never writes|writes nothing|does not write/i);
     },
   },
 
   pointsAtTheClaim: {
-    the: 'sends the reader to the surface that makes the claim',
+    named: 'sends the reader to the surface that makes the claim',
     holds: (text) => {
       expect(text).toContain(`https://${INVITE_HOST}/`);
     },
   },
 
   noClaim: {
-    the: 'attempts no claim of its own, having no room to make one honestly',
+    named: 'attempts no claim of its own, having no room to make one honestly',
     holds: (text) => {
       // The retired clause was "Steps, never Health data" — false in two ways
       // at once, since steps *are* Health data and a consenting squadmate sees
@@ -166,7 +219,7 @@ type RuleName = keyof typeof RULES;
  * True of every surface, whatever it claims, because a retired promise is
  * wrong wherever it appears.
  */
-const BANS: { the: string; pattern: RegExp }[] = [
+const BANS: { named: string; pattern: RegExp }[] = [
   {
     // Deviation #51 renamed the stats to Body, Motion and Mind on every
     // surface, and the permission sheet kept saying "Score your AGI" for a
@@ -175,32 +228,32 @@ const BANS: { the: string; pattern: RegExp }[] = [
     // like every engine-key guard in the repo — a loose /str/i matches
     // "strain", and a loose /agi/i matches "Dagit", a perfectly good name for
     // a Philippine eagle.
-    the: 'speaks no engine key',
+    named: 'speaks no engine key',
     pattern: /\b(AGI|STR|MND)\b/,
   },
   {
     // The gap that let "Score your END" ship for a day. END, VIT and REC were
     // retired on 2026-08-20 (deviation #41) and the sheet kept naming two of
     // them, on the one screen where a person decides what to hand over.
-    the: 'names no stat that no longer exists',
+    named: 'names no stat that no longer exists',
     pattern: /\b(END|VIT|REC)\b/,
   },
   {
     // Bronze/Silver/Gold went internal to scoring at deviation #23. The
     // 2026-08-08 policy draft named all three, which is why it is not the page
     // that shipped.
-    the: 'names no retired tier',
+    named: 'names no retired tier',
     pattern: /\b(Bronze|Silver|Gold)\b/,
   },
   {
     // The exact sentences that went stale. "Never the raw numbers" and "never
     // see your steps" were both true before deviation #47 and false after it,
     // in the same move.
-    the: 'makes no retired promise',
+    named: 'makes no retired promise',
     pattern: /never (the |your )?raw|never see your steps|nobody sees your steps|scores only/i,
   },
   {
-    the: 'carries no placeholder',
+    named: 'carries no placeholder',
     pattern: /\[\[TODO/,
   },
 ];
@@ -227,21 +280,33 @@ interface ClaimSurface {
    */
   alsoScan?: () => string;
   makes: RuleName[];
+  /**
+   * The screen that renders it, for surfaces whose copy lives in
+   * `claim-copy.ts`.
+   *
+   * Without this the in-app rules are self-referential: `claim()` reads the
+   * module, so deleting the `<Text>` from `/connect` leaves every rule passing
+   * on a sentence nobody can see. The web surfaces are read off disk and have
+   * the link by construction; these three need it stated.
+   */
+  rendersFrom?: { path: string; keys: (keyof typeof PRIVACY_CLAIM)[] };
 }
 
-/** Visible text: tags, styles and scripts gone, entities left alone. */
+/** Markup as a reader sees it: tags gone, whitespace collapsed. */
+function visibleText(markup: string): string {
+  return markup.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+}
+
+/** A whole page's visible text, styles and scripts dropped first. */
 function pageText(path: string): string {
-  return readFileSync(path, 'utf8')
-    .replace(/<(style|script)[\s\S]*?<\/\1>/g, ' ')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ');
+  return visibleText(readFileSync(path, 'utf8').replace(/<(style|script)[\s\S]*?<\/\1>/g, ' '));
 }
 
 /** One `<section class="…">` of a page, as visible text. */
 function sectionText(path: string, name: string): string {
   const source = readFileSync(path, 'utf8');
   const section = new RegExp(`<section class="${name}">([\\s\\S]*?)</section>`).exec(source);
-  return (section?.[1] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  return visibleText(section?.[1] ?? '');
 }
 
 const SURFACES: ClaimSurface[] = [
@@ -252,6 +317,7 @@ const SURFACES: ClaimSurface[] = [
     makes: [
       'contact',
       'fourTotals',
+      'totalsOnly',
       'mutual',
       'neverHeartRate',
       'neverWorkouts',
@@ -269,26 +335,39 @@ const SURFACES: ClaimSurface[] = [
     // subject is not a guard.
     claim: () => sectionText('web/index.html', 'privacy'),
     alsoScan: () => pageText('web/index.html'),
-    makes: ['fourTotals', 'mutual', 'neverHeartRate', 'neverWorkouts'],
+    makes: ['fourTotals', 'totalsOnly', 'mutual', 'neverHeartRate', 'neverWorkouts', 'namesNoRetiredStat'],
   },
   {
     name: 'the HealthKit permission sheet',
-    where: 'src/features/health/disclosure.ts',
-    // Derived from the request list, so it cannot understate the ask; what it
-    // cannot derive is the prose beside each identifier, which is what this
-    // reads.
-    claim: () => HEALTH_DISCLOSURE.map((g) => `${g.label}: ${g.purpose}`).join('\n'),
-    // Not `neverWorkouts`: this sheet names workouts as something it *reads*,
-    // and the rule is about what a squadmate never sees. It would pass on the
-    // word alone, which is a rule passing for the wrong reason — the way a
-    // scan ends up quietly narrower than the one beside it.
-    makes: ['fourTotals', 'neverHeartRate'],
+    where: 'src/features/health/HealthPermissionSheet.tsx',
+    // Two halves of one screen. The list of types is *derived* from
+    // `KAIRO_READ_TYPES`, so it cannot understate the ask; the fine print
+    // under it is prose, and was hand-written in the component and registered
+    // nowhere until the sweep found it.
+    //
+    // Deliberately **not** `namesNoRetiredStat`: "Active minutes" is the name
+    // of a HealthKit type here, on the screen whose job is disclosing which
+    // types are read, and banning the label would fail honest copy.
+    claim: () =>
+      [
+        ...HEALTH_DISCLOSURE.map((g) => `${g.label}: ${g.purpose}.`),
+        PRIVACY_CLAIM.permissionSheetFine,
+      ].join('\n'),
+    makes: ['fourTotals', 'totalsOnly', 'mutual', 'neverHeartRate', 'neverWorkouts', 'neverWrites'],
+    rendersFrom: {
+      path: 'src/features/health/HealthPermissionSheet.tsx',
+      keys: ['permissionSheetFine'],
+    },
   },
   {
     name: 'the privacy beat',
     where: 'app/(onboard)/privacy.tsx',
     claim: () => `${PRIVACY_CLAIM.healthRequired}\n${PRIVACY_CLAIM.sharingTotals}`,
-    makes: ['totalsOnly', 'mutual'],
+    makes: ['totalsOnly', 'mutual', 'namesNoRetiredStat'],
+    rendersFrom: {
+      path: 'app/(onboard)/privacy.tsx',
+      keys: ['healthRequired', 'sharingTotals'],
+    },
   },
   {
     name: 'the Health ask on /connect',
@@ -300,7 +379,8 @@ const SURFACES: ClaimSurface[] = [
     // the same defect one element over. Comments stripped, so the reasoning
     // beside the copy is not mistaken for the copy.
     alsoScan: () => code(readFileSync('app/(onboard)/connect.tsx', 'utf8')),
-    makes: ['fourTotals', 'totalsOnly', 'mutual'],
+    makes: ['fourTotals', 'totalsOnly', 'mutual', 'namesNoRetiredStat'],
+    rendersFrom: { path: 'app/(onboard)/connect.tsx', keys: ['connectHealth'] },
   },
   {
     name: 'the invite message',
@@ -309,12 +389,6 @@ const SURFACES: ClaimSurface[] = [
     makes: ['noClaim', 'pointsAtTheClaim'],
   },
 ];
-
-/**
- * Phrases only a privacy claim carries, used to find a surface making one
- * without being registered here.
- */
-const CLAIM_MARKERS = /hour-by-hour|never your route|both agreed|raw numbers/i;
 
 /** Where in-app claim copy lives, and the only file allowed to write one. */
 const CLAIM_COPY = 'src/features/privacy/claim-copy.ts';
@@ -353,11 +427,19 @@ describe('the privacy claim, across every surface that makes it', () => {
 
       for (const name of surface.makes) {
         const rule = RULES[name] as Rule;
-        it(rule.the, () => rule.holds(surface.claim()));
+        it(rule.named, () => rule.holds(surface.claim()));
+      }
+
+      if (surface.rendersFrom) {
+        const { path, keys } = surface.rendersFrom;
+        it(`is actually rendered by ${path}`, () => {
+          const source = code(readFileSync(path, 'utf8'));
+          for (const key of keys) expect(source).toContain(`PRIVACY_CLAIM.${key}`);
+        });
       }
 
       for (const ban of BANS) {
-        it(ban.the, () => {
+        it(ban.named, () => {
           expect(`${surface.claim()}\n${surface.alsoScan?.() ?? ''}`).not.toMatch(ban.pattern);
         });
       }
@@ -427,7 +509,8 @@ describe('the list is the whole list', () => {
   });
 
   it('registers every line of the HealthKit disclosure', () => {
-    const claimed = SURFACES.find((s) => s.where.endsWith('disclosure.ts'))?.claim() ?? '';
+    const claimed =
+      SURFACES.find((s) => s.name === 'the HealthKit permission sheet')?.claim() ?? '';
     for (const group of HEALTH_DISCLOSURE) {
       expect(claimed).toContain(group.label);
       expect(claimed).toContain(group.purpose);

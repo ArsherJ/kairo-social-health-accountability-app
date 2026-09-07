@@ -147,13 +147,6 @@ describe('the link round-trips', () => {
 describe('the landing page the link opens', () => {
   const page = readFileSync('web/index.html', 'utf8');
 
-  it('is where the message sends the reader', () => {
-    // The message carries no claim of its own, so the link is the only thing
-    // connecting a recipient to one. If this ever stops being true, the claim
-    // reaches nobody before install.
-    expect(inviteMessage(base)).toContain(`https://${INVITE_HOST}/`);
-  });
-
   it('no longer promises the code will be waiting in the app', () => {
     // It never was: the code is only captured by a route inside the app, and
     // nothing carried it across an install. The page shows the code instead.

@@ -58,12 +58,4 @@ describe('health disclosure', () => {
     expect(sleep?.purpose).toMatch(/Mind/);
   });
 
-  it('says out loud that heart rate is not scored', () => {
-    // §5 protects hourly movement, and heart rate is at least as revealing.
-    // A reader who assumes it feeds their score has been misled by omission.
-    const heart = HEALTH_DISCLOSURE.find((g) =>
-      g.types.includes('HKQuantityTypeIdentifierHeartRate'),
-    );
-    expect(heart?.purpose).toMatch(/never scored/i);
-  });
 });

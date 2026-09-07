@@ -4,6 +4,7 @@ import { Button, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 import { connectHealth } from './connect-health.ts';
 import { HEALTH_DISCLOSURE } from './disclosure.ts';
+import { PRIVACY_CLAIM } from '@/features/privacy/claim-copy.ts';
 
 /**
  * The in-context ask (§5), as sheet *content* rather than a sheet.
@@ -100,11 +101,11 @@ export function HealthAsk({
         ))}
       </View>
 
-      <Text style={styles.fine}>
-        Your squad sees your mastery and scores. Your daily totals are shared
-        only if you and they both agree to it. Nobody ever sees when you moved,
-        your heart rate, or your workouts. Kairo writes nothing back to Health.
-      </Text>
+      {/* Hand-written here until 2026-09-07, and registered nowhere — a sixth
+          surface making the claim, which is precisely the state that let it go
+          stale in four places at once. The words are unchanged; what moved is
+          where they live. */}
+      <Text style={styles.fine}>{PRIVACY_CLAIM.permissionSheetFine}</Text>
 
       <Button
         label="Connect Apple Health"

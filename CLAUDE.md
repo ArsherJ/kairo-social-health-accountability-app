@@ -951,15 +951,46 @@ easily:
 is that test and there is no second one; `src/features/privacy/claim-copy.ts` is
 where every in-app sentence making the claim lives, zero-runtime-import so root
 Vitest can hold it — the `ask-copy.ts` split, for the same reason. The list is
-`web/privacy.html`, `web/index.html`, `disclosure.ts` (the HealthKit sheet),
-`app/(onboard)/privacy.tsx`, `app/(onboard)/connect.tsx`, and the invite
-message, which is registered as a surface that makes **no** claim and points at
-one that does. Each declares the rules it makes — the contact address, the four
+`web/privacy.html`, `web/index.html`, `HealthPermissionSheet.tsx` (the sheet's
+derived type list *and* its fine print), `app/(onboard)/privacy.tsx`,
+`app/(onboard)/connect.tsx`, and the invite message, which is registered as a
+surface that makes **no** claim and points at one that does. Each declares the rules it makes — the contact address, the four
 totals, reciprocity, what a squadmate never sees, the pooled-Battle and deletion
 clauses — and the **bans apply to all of them**, because a retired promise is
 wrong wherever it appears: engine keys, retired stats, tier names, the retired
 promises themselves, `[[TODO`. Seven things break easily:
 
+- **There were six surfaces, not five, and the sweep is what found the sixth.**
+  `HealthPermissionSheet.tsx` had been making the claim in its own words the
+  whole time — in the component that renders the disclosure, guarded by
+  nothing. Its wording was already true, which is the luck this arrangement
+  removes the need for. It moved to `claim-copy.ts` unchanged. Nothing but a
+  sweep finds a surface nobody remembered, which is why `CLAIM_MARKERS`
+  includes "daily totals": a marker list written only from the sentences
+  somebody already knew about finds only those.
+- **The screens are asserted to *render* the sentence, not just to have one.**
+  `claim()` reads the module, so without `rendersFrom` deleting the `<Text>`
+  from `/connect` leaves every rule passing on copy nobody can see. The web
+  surfaces are read off disk and have the link by construction; the three
+  screens state it.
+- **`NO_TRAIL_CLAUSE` is one string used by both beats**, not two strings a
+  regex holds close together. `/connect` and `/privacy` are two beats apart and
+  worded the same claim themselves for months, one of them falsely; a rule
+  loose enough to accept both honest wordings is loose enough to let them drift
+  again inside it.
+- **A denial is required in the sentence that names what it denies.** Two
+  unanchored matches let a page say "we collect your heart rate" and, four
+  paragraphs later, "your route is never shared" — and pass a rule named "says
+  heart rate is not shared". `sentencesWith` is the fix, and the shape was
+  already named in this file for the disclosure sheet before it was fixed for
+  the pages.
+- **`namesNoRetiredStat` is declared per surface and is not a universal ban.**
+  "Active minutes" is what `/connect` wrongly listed among what Kairo scores —
+  and also the name of a HealthKit type the permission sheet legitimately
+  discloses reading. The rule belongs to the surfaces whose sentence is about
+  what is *scored or shared*; banning the label everywhere would fail honest
+  copy, and a guard that fails on real input gets loosened until it guards
+  nothing.
 - **This replaced three scans and they were removed, not left alongside.** One
   was named after the invite message, one after the support links, one after the
   HealthKit disclosure — so a fourth surface making the claim had nowhere

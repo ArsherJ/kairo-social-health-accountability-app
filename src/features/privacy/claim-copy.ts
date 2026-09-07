@@ -26,6 +26,18 @@
  * compression fails the same way. Say the whole claim, and let the scan hold
  * it.
  */
+
+/**
+ * The denial both onboarding beats carry **verbatim**, so the two cannot word
+ * it differently.
+ *
+ * `/connect` and `/privacy` are two beats apart and made the same claim in
+ * their own words for months; one of them was false the whole time. A scan
+ * holding both to a regex would have let them drift again inside what the
+ * regex allows — one string, used twice, cannot.
+ */
+export const NO_TRAIL_CLAUSE = 'never your route, never an hour-by-hour trail';
+
 export const PRIVACY_CLAIM = {
   /**
    * The privacy beat's locked row. Health data is named first because it is
@@ -40,9 +52,7 @@ export const PRIVACY_CLAIM = {
    * projects. "Both ways" is the reciprocal half of deviation #47, and saying
    * it here is the difference between a setting and a surprise.
    */
-  sharingTotals:
-    'Daily totals only — never your route, never an hour-by-hour trail. ' +
-    'Off means the sky is empty both ways.',
+  sharingTotals: `Daily totals only — ${NO_TRAIL_CLAUSE}. Off means the sky is empty both ways.`,
 
   /**
    * The help line under the Health ask on `/connect`, which is the screen an
@@ -68,7 +78,21 @@ export const PRIVACY_CLAIM = {
    */
   connectHealth:
     "Kairo reads your activity from Apple Health — Apple's own sheet lists " +
-    'exactly what. Your flock sees daily totals only: steps, distance, active ' +
-    'calories and sleep. Never your route, never an hour-by-hour trail, and ' +
-    'only where you have both agreed.',
+    'exactly what. Your flock sees daily totals only — steps, distance, active ' +
+    `calories and sleep, ${NO_TRAIL_CLAUSE} — and only where you have both ` +
+    'agreed.',
+
+  /**
+   * The fine print under the HealthKit primer sheet, which is the in-app
+   * screen shown before iOS's own dialog.
+   *
+   * It was hand-written in `HealthPermissionSheet.tsx` and registered nowhere
+   * — a sixth surface making the claim, found by the sweep that exists to find
+   * exactly that. Its wording is unchanged: it was already true, which is the
+   * luck this arrangement removes the need for.
+   */
+  permissionSheetFine:
+    'Your squad sees your mastery and scores. Your daily totals are shared ' +
+    'only if you and they both agree to it. Nobody ever sees when you moved, ' +
+    'your heart rate, or your workouts. Kairo writes nothing back to Health.',
 } as const;
