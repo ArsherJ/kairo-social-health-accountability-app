@@ -27,6 +27,12 @@ The player picks no species: every character is the eagle as of 2026-08-27
 (deviation #55), and `profiles.species` still holds every earlier choice so
 the decision is one line to reverse.
 
+**The eagle's body follows its growth stage** as of 2026-09-07 (issue #30) —
+four bands of Level, applied to the three poses a day actually draws (idle,
+walk, run). The render path is built; the nine growth-stage images are issue
+#31, so every stage draws the adult art for now and the change is verifiable in
+the development asset lab (`/kairo-lab`) rather than by a player.
+
 ## Docs
 
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.

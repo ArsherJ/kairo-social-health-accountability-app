@@ -1,3 +1,5 @@
+import type { EvolutionStage } from '@kairo/core';
+
 export const SLEEP_STATES = ['sleepy', 'normal', 'well_rested'] as const;
 export const STRENGTH_TIERS = ['slim', 'fit', 'strong'] as const;
 export const KAIRO_POSES = [
@@ -23,9 +25,52 @@ export const KAIRO_POSES = [
 export const KAIRO_REACTIONS = ['happy', 'excited', 'tired', 'victory', 'level_up'] as const;
 export const COSMETIC_SLOTS = ['body', 'feet', 'back', 'neck', 'face', 'head', 'effect'] as const;
 
+/**
+ * The three poses the **growth stage** has art for.
+ *
+ * They are not an arbitrary subset: they are the poses that actually draw.
+ * `staticFigureSelection` returns the Motion pose on every ordinary day, and
+ * `motionPose()` only ever answers with one of these three — so the base render
+ * is effectively unreachable on the day screen, and applying the stage to it
+ * would be a change nobody could see. `sleep`, `workout` and `race_victory`
+ * exist as adult art only; see `staticFigureSelection` for what a pre-adult
+ * reaction draws instead.
+ */
+export const STAGE_POSES = ['idle', 'walk', 'run'] as const;
+
+/**
+ * The growth stages, by name, in `EvolutionStage` order.
+ *
+ * **A development vocabulary.** These words name the checked-in artwork and
+ * label the asset lab; no player surface speaks them, and the figure's
+ * accessible name says the level rather than the stage. They live here rather
+ * than beside the art because the file paths are built from them by hand — a
+ * template string in a `require` is a Metro miss, not a bundling error.
+ */
+export const GROWTH_STAGE_NAMES: Record<EvolutionStage, string> = {
+  1: 'hatchling',
+  2: 'fledgling',
+  3: 'juvenile',
+  4: 'adult',
+};
+
+/**
+ * The stages in order, **derived from the one table that lists them**.
+ *
+ * `Object.keys` returns integer-like keys in ascending numeric order by
+ * specification, so this is `[1, 2, 3, 4]` and a fifth stage is declared in one
+ * place rather than two. The cast is what `Object.keys` costs — it widens to
+ * `string[]` and TypeScript offers no key-preserving alternative — and it is
+ * safe precisely because the table above is typed by `EvolutionStage`.
+ */
+export const GROWTH_STAGES = Object.keys(GROWTH_STAGE_NAMES).map(
+  Number,
+) as readonly EvolutionStage[];
+
 export type SleepState = (typeof SLEEP_STATES)[number];
 export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 export type KairoPose = (typeof KAIRO_POSES)[number];
+export type StagePose = (typeof STAGE_POSES)[number];
 export type KairoReactionId = (typeof KAIRO_REACTIONS)[number];
 export type CosmeticSlot = (typeof COSMETIC_SLOTS)[number];
 export type CosmeticId =

@@ -11,7 +11,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 - **Onboarding is six beats and the last one is the name.** `/welcome → /one-sky → /connect → /difficulty → /privacy → /name`, and the profile row commits exactly once, on `/name`. Add steps *before* the name, never after.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one; every live row was closed by the migration. What survives is history — the three tables, `event_progress()` read-only, and `@kairo/core`'s `event.ts` marked deprecated — so banked XP is neither lost nor unexplainable. Section 5 below carries the reasoning.
 - **Four tabs — Today · Sky · Flock · You**, flat, no raised disc, no character tab.
-- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
+- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30) — built, with the artwork outstanding, so stages 1–3 draw the adult art. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
 - **The race is one shared corridor and it lives on the Sky** (deviation #56). Crossing the line *is* clearing the Daily Walk: `RACE_FINISH_LINE` is `DAILY_STEP_BASELINE`. A player alone on it gets the corridor drawn, the ridge named as the opponent, and an invitation where the rivals would be — never a rank and never a fabricated rival (2026-09-02).
 - **The disclosure gate is unchanged and its list on Today is one item**: the Challenge link inside the details sheet. `/train`'s own `resolved && stage` redirect is the real door.
 - **The scoring engine is untouched** by everything above, and by everything on this page. Scores are replayed from stored buckets, and a retroactive Apple revision still flows through every derived reading.
@@ -308,6 +308,21 @@ The character tab and the old Today tab merged here on 2026-08-27 (deviation #50
   so the `Avatar` fallback for accounts predating the choice is gone from all
   six render boundaries, along with `CharacterFigure`'s View primitives.
 
+- **The body itself follows the growth stage as of 2026-09-07** (issue #30) — a
+  fourth response, and the first that changes the picture rather than the
+  presence around it. `staticFigureSelection` takes the stage and returns
+  stage-specific art for **idle, walk and run**, the three poses a day actually
+  produces; the base render is unreachable on this screen, so a stage applied to
+  it would have been a change nobody could see. A **pre-adult reaction draws its
+  own stage's art**, never the adult's wings-out `race_victory` — a young bird
+  that turned into an adult for three seconds to celebrate would undo the change
+  on the exact moment it exists for. Mind-state art stays adult-only for now: it
+  is wearable-gated, so a sleepy adult is a smaller lie than a celebrating one.
+  **The artwork is outstanding** (issue #31 commissions nine images), so stages
+  1–3 alias the adult art and the app is unchanged today apart from one stated
+  consequence: a pre-adult celebration shows the walk rather than the wings-out
+  pose, and is carried by the reaction's sentence until the art and the
+  animation land. Verifiable in `/kairo-lab`, not by a player.
 - **Three things move the figure, and they are independent.** `stage` (level bands) widens and deepens the ground shadow, so levelling shows whatever you grind; `dominance` changes the build's proportions and the shadow's tint per §6; and the **presence ring** carries the ability rating (`src/features/character/aura.ts`) — present from rating 5, stronger at 10, and still always on for the balanced All-Rounder, whose ring means *shape* rather than magnitude. The August QA pass reported the character as static: the first two already existed and were invisible because nothing had scored since the 9th, so level sat at 1 and dominance was null. The ring is the only genuinely new one, and it reuses an element already on screen rather than inventing a third visual language.
 - **It answers at every level now, not only at three boundaries (2026-08-25).** The QA finding survived the ring, and only half of it was the missing data: the arithmetic was also almost invisible — 146 points of shadow at level 1 against 200 at level 21, a 37% span across the entire game — and `stage` moves at levels 6, 11 and 21 and nowhere else, so levelling 12 → 13 genuinely changed nothing. `figureResponse()` in `src/features/character/level-response.ts` widens the span past 1.7× and adds a within-band term, with the band boundary still much the bigger jump so the four artworks stay the milestone. It is a tested pure module rather than three expressions inline, precisely so the bands could be widened against assertions rather than by eye — and it grows to a ceiling at level 40, because unbounded growth eventually pushes the figure out of the diorama. **With no cosmetics and no coins in Phase 1, the figure is the reward**, which is what makes this worth doing before any of them.
 - A rest day scores 0 and still costs the streak, and the streak shield is what makes the app worth opening on a bad day (§6). The Battle card used to carry a days-remaining count for the same purpose; it went with deviation #66.

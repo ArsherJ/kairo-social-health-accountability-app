@@ -299,6 +299,7 @@ export default function Today() {
   });
 
   const mirror = resolveLivingMirror({
+    stage,
     steps,
     hasSleepSource: profile.data?.has_sleep_source ?? false,
     sleepMinutes: vitals.data?.sleepMinutes ?? null,

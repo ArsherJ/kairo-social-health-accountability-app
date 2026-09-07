@@ -32,8 +32,13 @@ measures *accumulated practice*, not current form.
 
 **Growth stage** — the character's body at a band of **Level**: four of them,
 and the only thing about the character that changes shape. It is what a level-up
-*looks like*; **Mastery** and **Level** are what it counts.
-*(Decided 2026-09-06, not yet built.)*
+*looks like*; **Mastery** and **Level** are what it counts. It rides on the
+three poses that actually draw — idle, walk and run — because the base render is
+unreachable on the day screen and a stage applied to it would be a change nobody
+could see. The four are named `hatchling`, `fledgling`, `juvenile` and `adult`;
+those words label the artwork and the asset lab, and no player surface speaks
+them. *(Decided 2026-09-06; the render path built 2026-09-07, the artwork
+outstanding — stages 1–3 draw the adult art until it lands.)*
 
 **Living Mirror** — the character as the interface: the day read back as where
 the character is standing, how heavily it stands there, and how it slept, rather

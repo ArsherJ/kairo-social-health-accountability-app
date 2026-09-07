@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { GROWTH_STAGES, STAGE_POSES } from './character-contract.ts';
 import { KAIRO_THUMBNAIL_POSE } from './character-surface-policy.ts';
 
 type DecodedPng = { width: number; height: number; data: Buffer };
@@ -30,6 +31,7 @@ const COMPACT_SURFACE_PATHS = [
 const REQUIRED_REGISTRY_EXPORTS = [
   'KAIRO_BASE_ASSET',
   'KAIRO_POSE_ASSETS',
+  'KAIRO_STAGE_ASSETS',
   'KAIRO_STATE_ASSETS',
   'KAIRO_COSMETIC_ASSETS',
 ] as const;
@@ -177,6 +179,66 @@ function collectExportedNames(source: string): string[] {
   return names;
 }
 
+/**
+ * Every `require('…')` path in a nested object literal, keyed `outer.inner`.
+ *
+ * Parsed rather than matched with a regex because the property this guards is
+ * *shape*: a cell that is missing, duplicated, or built from a template string
+ * has to be distinguishable from one that is a literal path, and a regex over
+ * the file cannot tell which cell it is looking at. `require(`…${stage}…`)` is
+ * the failure that matters — Metro resolves `require` statically, so a computed
+ * path is a blank image on a device and nothing at build time.
+ */
+function collectNestedRequirePaths(source: string, exportName: string): Map<string, string> {
+  const sourceFile = ts.createSourceFile(
+    'character-assets.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const paths = new Map<string, string>();
+
+  const requirePath = (node: ts.Expression): string | null => {
+    if (!ts.isCallExpression(node)) return null;
+    if (!ts.isIdentifier(node.expression) || node.expression.text !== 'require') return null;
+    const [argument] = node.arguments;
+    if (argument === undefined || !ts.isStringLiteral(argument)) return null;
+    return argument.text;
+  };
+
+  const propertyName = (property: ts.ObjectLiteralElementLike): string | null => {
+    if (!ts.isPropertyAssignment(property)) return null;
+    const name = property.name;
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+      return name.text;
+    }
+    return null;
+  };
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== exportName) continue;
+      const initializer = declaration.initializer;
+      if (initializer === undefined || !ts.isObjectLiteralExpression(initializer)) continue;
+      for (const outer of initializer.properties) {
+        const outerName = propertyName(outer);
+        if (outerName === null || !ts.isPropertyAssignment(outer)) continue;
+        if (!ts.isObjectLiteralExpression(outer.initializer)) continue;
+        for (const inner of outer.initializer.properties) {
+          const innerName = propertyName(inner);
+          if (innerName === null || !ts.isPropertyAssignment(inner)) continue;
+          const path = requirePath(inner.initializer);
+          if (path !== null) paths.set(`${outerName}.${innerName}`, path);
+        }
+      }
+    }
+  }
+
+  return paths;
+}
+
 describe('KAIRO character assets', () => {
   it('assigns the approved static pose to every compact surface', () => {
     expect(KAIRO_THUMBNAIL_POSE).toEqual({
@@ -203,11 +265,49 @@ describe('KAIRO character assets', () => {
   it('draws Today from all three approved registries and stays Rive-free', () => {
     const todayFigureSource = readFileSync(TODAY_FIGURE_PATH, 'utf8');
     // `staticFigureSelection` resolves reaction pose -> non-neutral Mind state
-    // -> Motion pose -> base, so all three registries have to be in reach here.
+    // -> Motion pose (at its growth stage) -> base, so all four registries have
+    // to be in reach here.
     expect(todayFigureSource).toContain('KAIRO_BASE_ASSET');
     expect(todayFigureSource).toContain('KAIRO_POSE_ASSETS');
+    expect(todayFigureSource).toContain('KAIRO_STAGE_ASSETS');
     expect(todayFigureSource).toContain('KAIRO_STATE_ASSETS');
     expect(todayFigureSource).not.toMatch(/KairoRenderer|@rive-app\/react-native|\.riv/);
+  });
+
+  // The ticket's fourth criterion: a missing stage x pose cell has to fail at
+  // build rather than render blank. The `Record<EvolutionStage, Record<StagePose,
+  // ...>>` type is the first half and `tsc` enforces it; this is the second,
+  // because a cell can be present, be typed, and still name a file that is not
+  // there or a path Metro cannot follow.
+  it('resolves every growth stage x pose to a checked-in file by a literal path', () => {
+    const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
+    const cells = collectNestedRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
+
+    const expectedCells = GROWTH_STAGES.flatMap((stage) =>
+      STAGE_POSES.map((pose) => `${stage}.${pose}`),
+    );
+    expect([...cells.keys()].sort()).toEqual([...expectedCells].sort());
+
+    for (const [cell, path] of cells) {
+      const absolutePath = resolve(REPO_ROOT, path.replace('../../../', ''));
+      expect(existsSync(absolutePath), `${cell} -> ${path}`).toBe(true);
+      expect(readFileSync(absolutePath).subarray(0, 8), cell).toEqual(PNG_SIGNATURE);
+    }
+  });
+
+  // Interim (2026-09-07): the nine growth-stage images are issue #31's, so
+  // stages 1-3 alias the adult art and the app is visually unchanged. This
+  // fails the day real art lands, which is the point — it is where the note
+  // above gets deleted rather than quietly going stale.
+  it('still aliases every pre-adult stage to the adult art', () => {
+    const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
+    const cells = collectNestedRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
+
+    for (const pose of STAGE_POSES) {
+      const adult = cells.get(`4.${pose}`);
+      expect(adult).toBe(`../../../assets/character/poses/kairo_pose_${pose}_v1.png`);
+      for (const stage of [1, 2, 3]) expect(cells.get(`${stage}.${pose}`), `${stage}.${pose}`).toBe(adult);
+    }
   });
 
   it('registers every checked-in PNG with literal React Native requires', () => {
@@ -237,8 +337,9 @@ describe('KAIRO character assets', () => {
       const text = "export const STRING_FAKE = true";
       export const KAIRO_BASE_ASSET = 1;
       export const KAIRO_POSE_ASSETS = 2;
-      export const KAIRO_STATE_ASSETS = 3;
-      export const KAIRO_COSMETIC_ASSETS = 4;
+      export const KAIRO_STAGE_ASSETS = 3;
+      export const KAIRO_STATE_ASSETS = 4;
+      export const KAIRO_COSMETIC_ASSETS = 5;
       export const helper = 5, secondHelper = 6;
       export async function helperFunction() {}
       export type Helper = string;

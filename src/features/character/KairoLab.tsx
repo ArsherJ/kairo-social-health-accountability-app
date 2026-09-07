@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
+import { evolutionStageForLevel } from '@kairo/core';
+
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
 import cosmetics from '../../../data/cosmetics.json';
@@ -22,9 +24,15 @@ import {
   KAIRO_BASE_ASSET,
   KAIRO_COSMETIC_ASSETS,
   KAIRO_POSE_ASSETS,
+  KAIRO_STAGE_ASSETS,
   KAIRO_STATE_ASSETS,
 } from './character-assets.ts';
-import { cosmeticAnchorMetadata, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
+import { GROWTH_STAGE_NAMES } from './character-contract.ts';
+import {
+  cosmeticAnchorMetadata,
+  firstLevelOfStage,
+  KAIRO_STATIC_CATALOG,
+} from './kairo-lab-contract.ts';
 
 const PREVIEW_SIZES = [
   { label: '190 × 212', dimensions: { width: 190, height: 212 } },
@@ -176,6 +184,7 @@ function CopySurfaces() {
  */
 function MirrorSky({
   location,
+  level = 7,
   hasSleepSource = true,
   sleepMinutes = 420,
   lifetimeBodyPoints = 3_000,
@@ -183,6 +192,9 @@ function MirrorSky({
   crest = false,
 }: {
   location: MotionLocation;
+  /** The stage is derived from it, exactly as Today derives it — never passed
+   *  beside it, or the preview could show a body the level does not have. */
+  level?: number;
   hasSleepSource?: boolean;
   sleepMinutes?: number | null;
   lifetimeBodyPoints?: number;
@@ -192,7 +204,9 @@ function MirrorSky({
   // The band's own floor, so the resolver picks the location rather than being
   // told it — that is the property the preview is checking.
   const steps = { branch: 0, treeline: 2_500, valley: 5_000, climb: 7_500, ridge: 10_000 }[location];
+  const stage = evolutionStageForLevel(level);
   const mirror = resolveLivingMirror({
+    stage,
     steps,
     hasSleepSource,
     sleepMinutes,
@@ -204,17 +218,73 @@ function MirrorSky({
   return (
     <Diorama
       height={200}
-      level={7}
-      stage={2}
+      level={level}
+      stage={stage}
       location={mirror.motion.location}
       figure={mirror.figure}
       body={mirror.body}
       dominance="AGI"
       figureLabel={livingCharacterLabel({
-        characterName: 'Dagit', level: 7, location: mirror.motion.location, mind: mirror.mind,
+        characterName: 'Dagit', level, location: mirror.motion.location, mind: mirror.mind,
       })}
       crest={crest}
     />
+  );
+}
+
+/**
+ * The body at each growth stage — the ticket's own verification surface.
+ *
+ * Two readings, because they fail differently. The **registry** row draws
+ * `KAIRO_STAGE_ASSETS` directly, so a cell pointing at the wrong art is
+ * visible; the **resolver** row drives `resolveLivingMirror` from a level, so a
+ * selection that drops the stage on the way to the figure is visible too. A
+ * registry check alone would pass with the stage never reaching the screen.
+ */
+function GrowthStages() {
+  return (
+    <Section title="Growth stages">
+      <Text style={labStyles.sentence}>
+        Interim: stages 1–3 point at the adult art, so this reads as four copies of one bird until
+        the nine growth-stage images land. What it checks today is that every stage × pose cell
+        resolves to a real asset, and that the stage survives the trip from the level to the figure.
+        One consequence is visible to a player already: a pre-adult celebration draws the stage's
+        walk rather than the adult's wings-out pose, because that pose exists at one stage only.
+      </Text>
+
+      {KAIRO_STATIC_CATALOG.stages.map((stage) => (
+        <View key={`registry-${stage}`} style={styles.entry}>
+          <Text style={styles.entryTitle}>
+            {`Registry: stage ${stage} · ${GROWTH_STAGE_NAMES[stage]}`}
+          </Text>
+          <View style={styles.previews}>
+            {KAIRO_STATIC_CATALOG.stagePoses.map((pose) => (
+              <PreviewFrame
+                key={pose}
+                source={KAIRO_STAGE_ASSETS[stage][pose]}
+                name={`${GROWTH_STAGE_NAMES[stage]} ${pose}`}
+                label="120 × 134"
+                dimensions={{ width: 120, height: 134 }}
+              />
+            ))}
+          </View>
+          <View style={styles.metadata}>
+            <Metadata>
+              {`Poses: ${KAIRO_STATIC_CATALOG.stagePoses.join(', ')} · Levels ${firstLevelOfStage(stage)}+`}
+            </Metadata>
+          </View>
+        </View>
+      ))}
+
+      {KAIRO_STATIC_CATALOG.stages.map((stage) => (
+        <View key={`resolver-${stage}`} style={styles.entry}>
+          <Text style={styles.entryTitle}>
+            {`Resolver: level ${firstLevelOfStage(stage)} at the Ridge — ${GROWTH_STAGE_NAMES[stage]}, running`}
+          </Text>
+          <MirrorSky location="ridge" level={firstLevelOfStage(stage)} />
+        </View>
+      ))}
+    </Section>
   );
 }
 
@@ -228,21 +298,32 @@ const LEVEL_UP: LivingReaction = {
  *
  * Five locations × three Mind states × three Body tiers × six reaction states is
  * 270 cells nobody reads. What a simulator pass actually has to check is that
- * `staticFigureSelection` resolves in the right order, and that is four rows —
- * plus the five scenery bands and the no-capability state.
+ * `staticFigureSelection` resolves in the right order, and that is five rows —
+ * the fifth added with the growth stage, since a pre-adult reaction resolves
+ * differently from an adult one — plus the five scenery bands and the
+ * no-capability state.
  *
  * It stays correct when Rive replaces the selection, because every row is
  * produced by the resolver rather than by hand.
  */
 function LivingMirrorMatrix() {
   const ladder = [
-    { title: '1 · Reaction present — the reaction pose wins over everything',
-      props: { location: 'valley' as const, sleepMinutes: 300, reaction: LEVEL_UP } },
-    { title: '2 · No reaction, sleepy Mind — the Mind image wins over the Motion pose',
+    { title: '1 · Reaction present, adult — the reaction pose wins over everything',
+      props: { location: 'valley' as const, level: 25, sleepMinutes: 300, reaction: LEVEL_UP } },
+    // The rule the growth stage adds: `race_victory` is adult art, so a young
+    // bird celebrating keeps the body it was standing in rather than turning
+    // into an adult for the length of the animation.
+    { title: '2 · The same reaction, pre-adult — the stage keeps its own body',
+      props: { location: 'valley' as const, level: 7, sleepMinutes: 300, reaction: LEVEL_UP } },
+    { title: '3 · No reaction, sleepy Mind — the Mind image wins over the Motion pose',
       props: { location: 'valley' as const, sleepMinutes: 300 } },
-    { title: '3 · No reaction, neutral Mind — the Motion pose wins',
+    { title: '4 · No reaction, neutral Mind — the Motion pose wins',
       props: { location: 'valley' as const, sleepMinutes: 400 } },
-    { title: '4 · No reaction, no capability, Branch — the base fallback',
+    // Not the base fallback, and it never was: `motionPose()` always answers,
+    // so `{ kind: 'base' }` is unreachable from the resolver. That is exactly
+    // why the growth stage rides on idle, walk and run rather than on the base
+    // render — a stage applied there would be a change nobody could see.
+    { title: '5 · No reaction, no capability, Branch — idle at its stage, never the base render',
       props: { location: 'branch' as const, hasSleepSource: false, sleepMinutes: null } },
   ];
 
@@ -301,6 +382,8 @@ export function KairoLab() {
       </Text>
 
       <CopySurfaces />
+
+      <GrowthStages />
 
       <LivingMirrorMatrix />
 

@@ -1,5 +1,5 @@
 import { Animated, Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
-import type { CoreStat, Dominance } from '@kairo/core';
+import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
 import { colors, earnedColor } from '@/theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
@@ -7,10 +7,28 @@ import { auraStrength } from './aura.ts';
 import {
   KAIRO_BASE_ASSET,
   KAIRO_POSE_ASSETS,
+  KAIRO_STAGE_ASSETS,
   KAIRO_STATE_ASSETS,
 } from './character-assets.ts';
 import { figureResponse } from './level-response.ts';
 import type { BodyPresence, StaticFigureSelection } from './living-mirror.ts';
+
+/**
+ * One image, from the selection alone.
+ *
+ * **The growth stage comes off the selection, not off the `stage` prop**, even
+ * though the two hold the same value: `staticFigureSelection` has already
+ * decided what a pre-adult reaction draws, and re-reading the prop here would
+ * let a later edit answer that question a second time in a place with none of
+ * the reasoning. The prop stays for the ground shadow and the ring, which read
+ * the stage as *presence* rather than as a body.
+ */
+function sourceFor(selection: StaticFigureSelection): ImageSourcePropType {
+  if (selection.kind === 'stage') return KAIRO_STAGE_ASSETS[selection.stage][selection.pose];
+  if (selection.kind === 'pose') return KAIRO_POSE_ASSETS[selection.pose];
+  if (selection.kind === 'state') return KAIRO_STATE_ASSETS[selection.state];
+  return KAIRO_BASE_ASSET;
+}
 
 /**
  * KAIRO, drawn.
@@ -26,7 +44,9 @@ import type { BodyPresence, StaticFigureSelection } from './living-mirror.ts';
  * - **`figure`** picks one of the checked-in PNGs — reaction pose, non-neutral
  *   Mind state, Motion pose, or the base render, in that order. Priority, not
  *   composition: the art is flattened full-character renders, so there is no
- *   pose × state × Body export and manufacturing one is out of scope.
+ *   pose × state × Body export and manufacturing one is out of scope. The three
+ *   poses that draw carry the **growth stage**, so the body itself changes at
+ *   levels 6, 11 and 21.
  * - **`body`** tints and weights the ground shadow, and nothing else. It must
  *   never distort the canonical figure.
  * - **`level`/`stage`** widen and deepen that shadow — *presence*, from §6's
@@ -43,12 +63,6 @@ import type { BodyPresence, StaticFigureSelection } from './living-mirror.ts';
  * reaction timer at V1; nothing here decides when a reaction fires.
  */
 
-function sourceFor(selection: StaticFigureSelection): ImageSourcePropType {
-  if (selection.kind === 'pose') return KAIRO_POSE_ASSETS[selection.pose];
-  if (selection.kind === 'state') return KAIRO_STATE_ASSETS[selection.state];
-  return KAIRO_BASE_ASSET;
-}
-
 export function CharacterFigure({
   level,
   stage,
@@ -64,7 +78,7 @@ export function CharacterFigure({
    * level to read at all. `stage` moves at 6, 11 and 21 only.
    */
   level: number;
-  stage: 1 | 2 | 3 | 4;
+  stage: EvolutionStage;
   /** The figure's box. The diorama stands them taller than a card does. */
   height?: number;
   /** Which single PNG to draw, already resolved. */

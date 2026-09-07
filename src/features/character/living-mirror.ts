@@ -1,5 +1,12 @@
-import { DAILY_STEP_BASELINE } from '@kairo/core';
-import type { KairoPose, KairoReactionId, SleepState, StrengthTier } from './character-contract.ts';
+import { DAILY_STEP_BASELINE, type EvolutionStage } from '@kairo/core';
+import {
+  STAGE_POSES,
+  type KairoPose,
+  type KairoReactionId,
+  type SleepState,
+  type StagePose,
+  type StrengthTier,
+} from './character-contract.ts';
 import { sleepStateFor, strengthTierFor } from './character-resolver.ts';
 // Relative, not `@/` — root Vitest defines no alias, so a value import through
 // it is a load failure for `living-mirror.test.ts`. `theme.ts` itself is
@@ -22,7 +29,9 @@ export type MotionLocation = (typeof MOTION_LOCATIONS)[number];
 export type StaticFigureSelection =
   | { kind: 'base' }
   | { kind: 'pose'; pose: KairoPose }
-  | { kind: 'state'; state: SleepState };
+  | { kind: 'state'; state: SleepState }
+  | { kind: 'stage'; stage: EvolutionStage; pose: StagePose };
+
 export type ReactionKind = 'level' | 'record' | 'daily_walk' | 'workout' | 'motion_location';
 
 /**
@@ -68,7 +77,23 @@ export function locationName(location: MotionLocation): string {
   return location[0]!.toUpperCase() + location.slice(1);
 }
 
-function motionPose(location: MotionLocation): KairoPose {
+/**
+ * The stage every pose has art for, and the one the adult-only images belong to.
+ *
+ * Named rather than written as `4` at each use, so a fifth stage is one edit
+ * here instead of one per branch. It cannot be derived from `GROWTH_STAGES`
+ * without an `undefined` to answer for, and the answer would be no clearer.
+ */
+const ADULT_STAGE: EvolutionStage = 4;
+
+/** Whether the growth stage has art for this pose. A predicate, not a cast:
+ *  `character-resolver.ts`'s `isKairoPose` is the same shape for the same
+ *  reason — the narrowing is the answer, so nothing downstream re-asserts it. */
+function isStagePose(pose: KairoPose): pose is StagePose {
+  return (STAGE_POSES as readonly KairoPose[]).includes(pose);
+}
+
+function motionPose(location: MotionLocation): StagePose {
   if (location === 'branch') return 'idle';
   if (location === 'treeline' || location === 'valley') return 'walk';
   return 'run';
@@ -89,22 +114,57 @@ function bodyPresence(points: number): BodyPresence {
  * manufacturing one is explicitly out of scope. Reaction wins, then a
  * non-neutral Mind reading, then the Motion pose, then the base render.
  *
+ * **The growth stage rides on the poses that draw, not on the base render.**
+ * Applying it to `base` would be almost invisible: `motionPose()` always
+ * answers, so the base fallback is unreachable from `resolveLivingMirror` and a
+ * player would never see the level-up land. Idle, walk and run are the three
+ * pictures a day actually produces, so they are the three the body follows.
+ *
  * This function and `REACTION_HOLD_MS` are the only two things Rive replaces:
  * the trigger vocabulary above stays put, which is why the swap touches no
  * rule about *when* something fires.
  */
 export function staticFigureSelection(input: {
+  stage: EvolutionStage;
   reaction: LivingReaction | null;
   mind: { visible: boolean; state: SleepState };
-  motionPose: KairoPose | null;
+  motionPose: StagePose | null;
 }): StaticFigureSelection {
-  if (input.reaction) return { kind: 'pose', pose: input.reaction.pose };
+  if (input.reaction) {
+    const { pose } = input.reaction;
+    if (isStagePose(pose)) return { kind: 'stage', stage: input.stage, pose };
+    // `race_victory` and `workout` exist as adult art only, and issue #31
+    // commissions no more: a pre-adult reaction therefore keeps the body it was
+    // already standing in. A young bird does not turn into an adult for three
+    // seconds to deliver a celebration, least of all on the level-up this whole
+    // reading exists to serve.
+    //
+    // **The interim cost is real and was taken knowingly.** Until the nine
+    // growth-stage images land, every stage draws the adult art, so a pre-adult
+    // celebration loses the wings-out pose and shows the walk instead — the
+    // reaction is still *spoken* (Today renders `reaction.sentence` over its
+    // next step), but it is not pictured. The alternative was to let the
+    // adult pose through while the art happens to be shared, which would flip
+    // this rule silently on the day the artwork arrived.
+    if (input.stage === ADULT_STAGE) return { kind: 'pose', pose };
+    return { kind: 'stage', stage: input.stage, pose: input.motionPose ?? 'idle' };
+  }
+  // Mind-state art is adult-only for now, at every stage, and that is the
+  // smaller lie: the state images are wearable-gated, so most accounts never
+  // reach them, where every account celebrates. Revisit at the animation
+  // handoff, when a state stops being a second picture.
   if (input.mind.visible && input.mind.state !== 'normal') return { kind: 'state', state: input.mind.state };
-  if (input.motionPose) return { kind: 'pose', pose: input.motionPose };
+  if (input.motionPose) return { kind: 'stage', stage: input.stage, pose: input.motionPose };
   return { kind: 'base' };
 }
 
 export function resolveLivingMirror(input: {
+  /**
+   * The growth stage, derived once by the screen from `profiles.level` and
+   * handed here. Not re-derived: the ground shadow reads the same value, and a
+   * second reading is a second thing that can disagree with the first.
+   */
+  stage: EvolutionStage;
   steps: number;
   hasSleepSource: boolean;
   sleepMinutes: number | null;
@@ -130,7 +190,9 @@ export function resolveLivingMirror(input: {
     mind,
     nextStep: input.nextStep,
     reaction: input.reaction,
-    figure: staticFigureSelection({ reaction: input.reaction, mind, motionPose: pose }),
+    figure: staticFigureSelection({
+      stage: input.stage, reaction: input.reaction, mind, motionPose: pose,
+    }),
   };
 }
 

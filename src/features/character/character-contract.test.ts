@@ -13,7 +13,11 @@ import {
   STRENGTH_TIERS,
   validateCharacterManifests,
 } from './character-contract.ts';
-import { cosmeticAnchorMetadata, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
+import {
+  cosmeticAnchorMetadata,
+  firstLevelOfStage,
+  KAIRO_STATIC_CATALOG,
+} from './kairo-lab-contract.ts';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const KAIRO_LAB_PATH = resolve(REPO_ROOT, 'src/features/character/KairoLab.tsx');
@@ -253,6 +257,8 @@ describe('KAIRO character contract', () => {
     expect(KAIRO_STATIC_CATALOG).toEqual({
       base: ['base'],
       poses: ['idle', 'sleep', 'walk', 'run', 'workout', 'race_victory'],
+      stages: [1, 2, 3, 4],
+      stagePoses: ['idle', 'walk', 'run'],
       states: ['sleepy', 'normal', 'well_rested'],
       cosmetics: [
         'runner_cap',
@@ -269,6 +275,14 @@ describe('KAIRO character contract', () => {
         'firefly_aura',
       ],
     });
+  });
+
+  // Both halves, for the reason `DAILY_STEP_BASELINE` keeps both: the
+  // derivation stops the lab describing bands the engine stopped using, and the
+  // literals stop a moved threshold sliding through unnoticed. Move a band and
+  // a human decides.
+  it('derives each growth stage\'s first level from the band function', () => {
+    expect(KAIRO_STATIC_CATALOG.stages.map(firstLevelOfStage)).toEqual([1, 6, 11, 21]);
   });
 
   it('labels the complete available cosmetic anchor semantics without inventing component identity', () => {
@@ -294,6 +308,7 @@ describe('KAIRO character contract', () => {
     for (const registry of [
       'KAIRO_BASE_ASSET',
       'KAIRO_POSE_ASSETS',
+      'KAIRO_STAGE_ASSETS',
       'KAIRO_STATE_ASSETS',
       'KAIRO_COSMETIC_ASSETS',
     ]) {

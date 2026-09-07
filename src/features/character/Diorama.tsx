@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { CoreStat, Dominance } from '@kairo/core';
+import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
 import { colors, ramp, radius } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import type { Stop } from '@/ui/gradient.ts';
@@ -99,7 +99,7 @@ export function Diorama({
    * four bands is not what someone means by "how far have I got".
    */
   level: number;
-  stage: 1 | 2 | 3 | 4;
+  stage: EvolutionStage;
   /** Which Motion band the scenery draws. Resolved by `living-mirror.ts`. */
   location: MotionLocation;
   /** Which single PNG the figure draws. Resolved by `staticFigureSelection`. */

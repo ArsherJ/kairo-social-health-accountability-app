@@ -1493,6 +1493,52 @@ place.
   build lands. Shake, the three-finger long press and ⌘D still open the menu;
   only the gear is gone.
 
+**The character's body follows its growth stage as of 2026-09-07** (issue #30).
+`staticFigureSelection` takes an `EvolutionStage` and returns a fourth variant,
+`{ kind: 'stage', stage, pose }`, which `KAIRO_STAGE_ASSETS` resolves. **The app
+is visually unchanged today with one stated exception** — stages 1–3 alias the
+adult art until issue #31 lands the nine images, so this is verifiable in
+`/kairo-lab` rather than by a player. Six things break easily:
+
+- **The stage rides on idle, walk and run, never on the base render.** That is
+  the whole reason the ticket exists: `motionPose()` always answers, so
+  `{ kind: 'base' }` is unreachable from `resolveLivingMirror` and a stage
+  applied there would almost never draw. `STAGE_POSES` is the three; `sleep`,
+  `workout` and `race_victory` stay adult-only, and issue #31 commissions no
+  more.
+- **A pre-adult reaction draws that stage's own art, and the interim cost was
+  taken knowingly.** `race_victory` is one stage's picture, so a young bird
+  celebrating keeps the body it was standing in — otherwise it turns into an
+  adult for three seconds on the level-up this whole change exists to serve.
+  Until the art lands that means a pre-adult celebration shows the walk rather
+  than the wings-out pose; the reaction is still *spoken*, since Today renders
+  `reaction.sentence` over its next step. Letting the adult pose through "while
+  the art happens to be shared" was the alternative, and it flips the rule
+  silently on the day the artwork arrives.
+- **Mind-state art stays adult-only at every stage, deliberately.** A sleepy
+  adult is a smaller lie than a celebrating one: the state images are
+  wearable-gated, so most accounts never reach them, where every account
+  celebrates. Revisit at the animation handoff.
+- **Twelve literal `require`s, and a computed path is the silent failure.**
+  Metro resolves `require` statically, so `require(`…${stage}…`)` is a blank
+  image on a device and nothing at build time — `species-art.ts` already
+  records the trap. `Record<EvolutionStage, Record<StagePose, …>>` fails `tsc`
+  on a missing cell; `character-assets.test.ts` parses the initializer and
+  fails a cell that is missing, computed, or naming a file that is not there.
+  A regex over the file cannot tell which cell it is looking at.
+- **One derivation of the stage reaches both readings.** The screen derives it
+  once from the level and hands it to `resolveLivingMirror` *and* to
+  `CharacterFigure`, which reads the figure's stage off the **selection** and
+  its own `stage` prop only for the ground shadow and the ring — presence, from
+  §6's level bands, which is a different reading of the same number. The stage
+  vocabulary is declared once too: `GROWTH_STAGES` is derived from
+  `GROWTH_STAGE_NAMES`, and `firstLevelOfStage` — in `kairo-lab-contract.ts`,
+  because a decision in a `.tsx` is untestable — derives 1/6/11/21 from
+  `evolutionStageForLevel` rather than restating the thresholds.
+- **The stage names are a development vocabulary.** `GROWTH_STAGE_NAMES` labels
+  the artwork and the asset lab; the figure's accessible name says the level,
+  and no player surface speaks a stage.
+
 **The You tab's header band carries no bird of its own.** It drew a 104pt one,
 centred, and the avatar ring then overlapped the band by 42pt and landed on it —
 the same art at two sizes, the larger sliced across the chest by the smaller.
