@@ -250,11 +250,12 @@ function GrowthStages() {
   return (
     <Section title="Growth stages">
       <Text style={labStyles.sentence}>
-        Interim: stages 1–3 point at the adult art, so this reads as four copies of one bird until
-        the nine growth-stage images land. What it checks today is that every stage × pose cell
-        resolves to a real asset, and that the stage survives the trip from the level to the figure.
-        One consequence is visible to a player already: a pre-adult celebration draws the stage's
-        walk rather than the adult's wings-out pose, because that pose exists at one stage only.
+        Four ages of one eagle, each in the three poses that draw. Read the registry rows across
+        first — down, then first feathers, then near-grown, then adult — and the resolver rows after,
+        which is the same art arriving through a level rather than through a table. A stage that
+        drew another stage's body would be a growth boundary a player crosses and cannot see. One
+        consequence is visible to a player already: a pre-adult celebration draws the stage's walk
+        rather than the adult's wings-out pose, because that pose exists at one stage only.
       </Text>
 
       {KAIRO_STATIC_CATALOG.stages.map((stage) => (

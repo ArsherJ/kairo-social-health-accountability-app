@@ -98,6 +98,7 @@
     "base": "kairo_base_{view}_{version}.png",
     "pose": "kairo_pose_{pose}_{version}.png",
     "state": "kairo_state_{state}_{version}.png",
+    "stage": "kairo_stage_{stage}_{pose}_{version}.png",
     "cosmetic": "cosmetic_{slot}_{id}_{version}.png"
   }
 }

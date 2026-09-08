@@ -52,8 +52,11 @@ describe('figureResponse', () => {
 
   it('draws a smaller body at every stage below the adult', () => {
     // The ticket's third criterion. Four artworks that are one bird at four
-    // ages should not all be the same size — least of all today, when stages
-    // 1-3 alias the adult art and scale is the only thing separating them.
+    // ages should not all be drawn the same size, and the scale is where that
+    // lives: issue #31's renders are each laid out against the *adult's* frame
+    // — same canvas, same figure height, same ground line — precisely so no
+    // screen has to move for them, which leaves nothing but this to make a
+    // hatchling small.
     expect(atStage(1).bodyScale).toBeLessThan(atStage(2).bodyScale);
     expect(atStage(2).bodyScale).toBeLessThan(atStage(3).bodyScale);
     expect(atStage(3).bodyScale).toBeLessThan(atStage(4).bodyScale);

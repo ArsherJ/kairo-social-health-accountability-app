@@ -68,6 +68,15 @@ SOURCES = [
     "states/kairo_state_sleepy_v1.png",
     "states/kairo_state_normal_v1.png",
     "states/kairo_state_well_rested_v1.png",
+    "stages/kairo_stage_hatchling_idle_v1.png",
+    "stages/kairo_stage_hatchling_walk_v1.png",
+    "stages/kairo_stage_hatchling_run_v1.png",
+    "stages/kairo_stage_fledgling_idle_v1.png",
+    "stages/kairo_stage_fledgling_walk_v1.png",
+    "stages/kairo_stage_fledgling_run_v1.png",
+    "stages/kairo_stage_juvenile_idle_v1.png",
+    "stages/kairo_stage_juvenile_walk_v1.png",
+    "stages/kairo_stage_juvenile_run_v1.png",
 ]
 
 # The horizontal slice the head is searched in. Wide enough for `run`'s lean,

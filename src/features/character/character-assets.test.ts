@@ -4,7 +4,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { GROWTH_STAGES, STAGE_POSES } from './character-contract.ts';
+import {
+  ADULT_STAGE,
+  GROWTH_STAGE_NAMES,
+  GROWTH_STAGES,
+  STAGE_POSES,
+} from './character-contract.ts';
 import { KAIRO_THUMBNAIL_POSE } from './character-surface-policy.ts';
 
 type DecodedPng = { width: number; height: number; data: Buffer };
@@ -39,6 +44,15 @@ const REQUIRED_REGISTRY_EXPORTS = [
   'KAIRO_STATE_CRESTS',
   'KAIRO_COSMETIC_ASSETS',
 ] as const;
+/**
+ * The three stages that have art of their own, paired with the word their files
+ * are named for. `GROWTH_STAGE_NAMES` is the source of those words and stage 4
+ * is deliberately absent — by `ADULT_STAGE` rather than by a 4 — because the
+ * adult keeps the pose set and so has no file under `stages/` to name.
+ */
+const PRE_ADULT_STAGE_NAMES = GROWTH_STAGES.filter((stage) => stage !== ADULT_STAGE).map(
+  (stage) => [stage, GROWTH_STAGE_NAMES[stage]] as const,
+);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const REQUIRED_PNG = [
   'assets/character/base/kairo_base_front_v1.png',
@@ -51,6 +65,15 @@ const REQUIRED_PNG = [
   'assets/character/states/kairo_state_sleepy_v1.png',
   'assets/character/states/kairo_state_normal_v1.png',
   'assets/character/states/kairo_state_well_rested_v1.png',
+  'assets/character/stages/kairo_stage_hatchling_idle_v1.png',
+  'assets/character/stages/kairo_stage_hatchling_walk_v1.png',
+  'assets/character/stages/kairo_stage_hatchling_run_v1.png',
+  'assets/character/stages/kairo_stage_fledgling_idle_v1.png',
+  'assets/character/stages/kairo_stage_fledgling_walk_v1.png',
+  'assets/character/stages/kairo_stage_fledgling_run_v1.png',
+  'assets/character/stages/kairo_stage_juvenile_idle_v1.png',
+  'assets/character/stages/kairo_stage_juvenile_walk_v1.png',
+  'assets/character/stages/kairo_stage_juvenile_run_v1.png',
   'assets/character/cosmetics/cosmetic_head_runner_cap_v1.png',
   'assets/character/cosmetics/cosmetic_head_woven_salakot_v1.png',
   'assets/character/cosmetics/cosmetic_head_leaf_crown_v1.png',
@@ -110,6 +133,30 @@ function channel(data: Buffer, offset: number) {
   const value = data[offset];
   if (value === undefined) throw new Error(`PNG data is truncated at byte ${offset}`);
   return value;
+}
+
+/**
+ * Where a render's own alpha actually sits: its first and last opaque rows, and
+ * the centre of the columns it spans. Every figure here is registered against
+ * the adult's answer to the same three, so they are measured rather than
+ * assumed.
+ */
+function alphaBounds(png: ReturnType<typeof decodePng>) {
+  let top = png.height;
+  let bottom = -1;
+  let left = png.width;
+  let right = -1;
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      if (channel(png.data, pixelOffset(png.width, x, y) + 3) === 0) continue;
+      if (y < top) top = y;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      bottom = y;
+    }
+  }
+  if (bottom === -1) throw new Error('render is entirely transparent');
+  return { top, bottom, centre: (left + right) / 2 };
 }
 
 function firstDifferenceOutsideRect(
@@ -324,18 +371,60 @@ describe('KAIRO character assets', () => {
     }
   });
 
-  // Interim (2026-09-07): the nine growth-stage images are issue #31's, so
-  // stages 1-3 alias the adult art and the app is visually unchanged. This
-  // fails the day real art lands, which is the point — it is where the note
-  // above gets deleted rather than quietly going stale.
-  it('still aliases every pre-adult stage to the adult art', () => {
+  // Issue #31, and the criterion the nine images exist for: a level-up has to be
+  // the largest visible change in the app. Twelve cells all naming one drawing
+  // is exactly what that looked like before the art landed, and it is what an
+  // aliased cell would silently restore — a stage whose art is another stage's
+  // is a growth boundary a player crosses and cannot see.
+  it('draws every pre-adult stage from its own art and leaves the adult on the pose set', () => {
     const registrySource = readFileSync(REGISTRY_PATH, 'utf8');
     const cells = collectRequirePaths(registrySource, 'KAIRO_STAGE_ASSETS');
 
     for (const pose of STAGE_POSES) {
-      const adult = cells.get(`4.${pose}`);
-      expect(adult).toBe(`../../../assets/character/poses/kairo_pose_${pose}_v1.png`);
-      for (const stage of [1, 2, 3]) expect(cells.get(`${stage}.${pose}`), `${stage}.${pose}`).toBe(adult);
+      expect(cells.get(`${ADULT_STAGE}.${pose}`)).toBe(
+        `../../../assets/character/poses/kairo_pose_${pose}_v1.png`,
+      );
+      for (const [stage, name] of PRE_ADULT_STAGE_NAMES) {
+        expect(cells.get(`${stage}.${pose}`), `${stage}.${pose}`).toBe(
+          `../../../assets/character/stages/kairo_stage_${name}_${pose}_v1.png`,
+        );
+      }
+    }
+
+    expect(new Set(cells.values()).size, 'two stages share a drawing').toBe(cells.size);
+  });
+
+  // The ticket's third criterion, which is the one no screen change can absorb:
+  // every stage render is laid out against the adult render for its own pose —
+  // same canvas, same figure height, same centre, same feet-on-the-bottom-edge
+  // ground line — so `bodyScale` is what makes a hatchling look small and the
+  // artwork never is. A render that arrives framed to itself puts a bird's feet
+  // in mid-air on one level and on the floor on the next, and `figureResponse`
+  // has no way to know.
+  it('registers every stage render against the adult frame for its own pose', () => {
+    for (const pose of STAGE_POSES) {
+      const adult = decodePng(`assets/character/poses/kairo_pose_${pose}_v1.png`);
+      const adultBounds = alphaBounds(adult);
+      expect(adultBounds.bottom, pose).toBe(adult.height - 1);
+
+      for (const [, name] of PRE_ADULT_STAGE_NAMES) {
+        const label = `${name} ${pose}`;
+        const stage = decodePng(`assets/character/stages/kairo_stage_${name}_${pose}_v1.png`);
+        expect([stage.width, stage.height], label).toEqual([adult.width, adult.height]);
+
+        const bounds = alphaBounds(stage);
+        // One pixel of slack on the top edge only: the height comes out of a
+        // resample, and the ground line is the half that has to be exact.
+        expect(Math.abs(bounds.top - adultBounds.top), `${label} stands at a different height`)
+          .toBeLessThanOrEqual(1);
+        expect(bounds.bottom, `${label} floats off the ground line`).toBe(stage.height - 1);
+        // Half a pixel, because a centre is a mean of two integer edges and an
+        // odd span has no whole-pixel middle.
+        expect(
+          Math.abs(bounds.centre - adultBounds.centre),
+          `${label} stands off the centre line`,
+        ).toBeLessThanOrEqual(0.5);
+      }
     }
   });
 
@@ -406,6 +495,25 @@ describe('KAIRO character assets', () => {
   // TypeScript sees. A render added there and forgotten here — or here and
   // forgotten there — is a bird whose crest cannot be tinted, and issue #31
   // touches every one of the four.
+  // The **fifth** copy of the vocabulary, and the second one no compiler sees.
+  // `generate_stage_art.py` builds every output filename out of its own
+  // `STAGES` and `POSES` tuples, so a stage renamed in `GROWTH_STAGE_NAMES` and
+  // not there writes nine files the registry does not name — and the previous
+  // nine stay on disk, so every other guard here passes and the art silently
+  // stops being regenerable. Same arrangement, same reason, as the `SOURCES`
+  // scan below.
+  it('generates stage art for exactly the stages and poses the contract declares', () => {
+    const script = readFileSync(resolve(REPO_ROOT, 'scripts/generate_stage_art.py'), 'utf8');
+    const tuple = (name: string) =>
+      script
+        .slice(script.indexOf(`${name} = (`), script.indexOf(')', script.indexOf(`${name} = (`)))
+        .match(/"([^"]+)"/g)
+        ?.map((quoted) => quoted.slice(1, -1));
+
+    expect(tuple('POSES')?.sort()).toEqual([...STAGE_POSES].sort());
+    expect(tuple('STAGES')?.sort()).toEqual(PRE_ADULT_STAGE_NAMES.map(([, name]) => name).sort());
+  });
+
   it('generates a mask for exactly the renders that need one', () => {
     const script = readFileSync(resolve(REPO_ROOT, 'scripts/generate_crest_masks.py'), 'utf8');
     const sources = script
@@ -486,7 +594,7 @@ describe('KAIRO character assets', () => {
   });
 
   it('contains every structurally valid full-frame PNG fallback and QA preview', () => {
-    expect(REQUIRED_PNG).toHaveLength(22);
+    expect(REQUIRED_PNG).toHaveLength(31);
 
     for (const relativePath of REQUIRED_PNG) {
       const absolutePath = resolve(REPO_ROOT, relativePath);

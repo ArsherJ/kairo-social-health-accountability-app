@@ -14,8 +14,9 @@ If the Bible and spec conflict, stop and resolve the canonical decision before p
 ## Folder roles
 
 - Rive work is parked. No `.riv` asset or Rive runtime is part of the current character delivery.
-- `base/`, `poses/`, `states/`, and `cosmetics/` hold a **provisional v1 static PNG pack** generated from `assets/reference/KAIRO_GOLDEN_REFERENCE.png`. These files are fallbacks and QA previews, not Rive exports and not a compositional runtime.
-- `crests/` holds one **generated** mask per render in `base/`, `poses/` and `states/` — the fan of head feathers in the alpha channel, white everywhere it is opaque. The app draws it over the figure with `tintColor` set to the dominant stat's hue (issue #33). These are derivatives, not exports: `scripts/generate_crest_masks.py` writes them, the filename is the mapping (`crest_<the render's own filename>`), and the script is rerun whenever the art it reads changes. `character-assets.test.ts` fails if a render has no mask beside it, or if a mask paints a pixel the bird does not occupy.
+- `base/`, `poses/`, `states/`, `stages/` and `cosmetics/` hold a **provisional v1 static PNG pack** generated from `assets/reference/KAIRO_GOLDEN_REFERENCE.png`. These files are fallbacks and QA previews, not Rive exports and not a compositional runtime.
+- `stages/` holds the **nine growth-stage renders** (issue #31): the three pre-adult stages named by `GROWTH_STAGE_NAMES` — hatchling, fledgling, juvenile — each in the three poses that actually draw (`STAGE_POSES`: idle, walk, run). The adult keeps `poses/`, which is why there are nine and not twelve; nine and not three because `staticFigureSelection` applies the stage to a *pose* selection only, so one image per stage would be the one that hardly ever draws. These are derivatives too: `scripts/generate_stage_art.py` produces each as an identity-preserving edit of the adult render for the same pose, then re-lays it out against that adult's own bounding box, so the canvas, the figure height, the centre line and the feet-on-the-bottom-edge ground line are the adult's and no screen moves for them. Size on screen is the runtime's job — `figureResponse`'s `bodyScale` stands a hatchling smaller in the same box, so the artwork must never be pre-shrunk.
+- `crests/` holds one **generated** mask per render in `base/`, `poses/`, `states/` and `stages/` — the fan of head feathers in the alpha channel, white everywhere it is opaque. The app draws it over the figure with `tintColor` set to the dominant stat's hue (issue #33). These are derivatives, not exports: `scripts/generate_crest_masks.py` writes them, the filename is the mapping (`crest_<the render's own filename>`), and the script is rerun whenever the art it reads changes. `character-assets.test.ts` fails if a render has no mask beside it, or if a mask paints a pixel the bird does not occupy.
 - `assets/reference/` holds the approved golden reference.
 - `data/character.json`, `data/cosmetics.json`, and `data/animations.json` are the versioned semantic source for IDs, defaults, compatibility, property paths, and behavior.
 - `src/features/character/character-assets.ts` will own every Metro registration using literal `require()` calls. JSON never contains computed module paths.
@@ -27,6 +28,7 @@ Use the exact templates in `assets/CHARACTER_SPEC.json`:
 - `kairo_base_{view}_{version}.png`
 - `kairo_pose_{pose}_{version}.png`
 - `kairo_state_{state}_{version}.png`
+- `kairo_stage_{stage}_{pose}_{version}.png`
 - `cosmetic_{slot}_{id}_{version}.png`
 
 The spec reserves `character/rive/kairo_v1.riv` as a future runtime filename, but that asset is parked and absent from this delivery. The current static asset version is `v1`. IDs are stable lowercase snake case and must remain separate from player-facing copy.

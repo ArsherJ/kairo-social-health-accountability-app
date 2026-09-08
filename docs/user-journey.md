@@ -11,7 +11,7 @@ What a player actually walks through, end to end. Grounded in the current implem
 - **Onboarding is seven beats and the last one is the name.** `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` — `/mirror` sits between the sky card and the Health ask (deviation #62, 2026-09-04) — and the profile row commits exactly once, on `/name`. Add steps *before* the name, never after. The hatch is an eighth *beat* but not a route: it is a phase `/connect` swaps to in place, which is why `beats.ts` gives it `route: null`.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one; every live row was closed by the migration. What survives is history — the three tables, `event_progress()` read-only, and `@kairo/core`'s `event.ts` marked deprecated — so banked XP is neither lost nor unexplainable. Section 5 below carries the reasoning.
 - **Four tabs — Today · Sky · Flock · You**, flat, no raised disc, no character tab.
-- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30) — built, with the artwork outstanding, so stages 1–3 draw the adult art, at a **scale that falls with the stage** (issue #33). Its **crest takes the dominant stat's hue** from the same date, on this screen and on a flock row alike. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
+- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level and personal Streak, one Motion figure, one quest-backed next step, and **See today's details**. The figure's **body follows its growth stage** as of 2026-09-07 (issue #30), with its own artwork per stage since 2026-09-08 (issue #31), at a **scale that falls with the stage** (issue #33). Its **crest takes the dominant stat's hue** from the same date, on this screen and on a flock row alike. It carries no race copy, no Mastery coins, no quest rings, no sleep or lane tiles, no Daily Walk card and no Challenge card.
 - **The race is one shared corridor and it lives on the Sky** (deviation #56). Crossing the line *is* clearing the Daily Walk: `RACE_FINISH_LINE` is `DAILY_STEP_BASELINE`. A player alone on it gets the corridor drawn, the ridge named as the opponent, and an invitation where the rivals would be — never a rank and never a fabricated rival (2026-09-02).
 - **The disclosure gate is unchanged and its list on Today is one item**: the Challenge link inside the details sheet. `/train`'s own `resolved && stage` redirect is the real door.
 - **The scoring engine is untouched** by everything above, and by everything on this page. Scores are replayed from stored buckets, and a retroactive Apple revision still flows through every derived reading.
@@ -318,11 +318,13 @@ The character tab and the old Today tab merged here on 2026-08-27 (deviation #50
   that turned into an adult for three seconds to celebrate would undo the change
   on the exact moment it exists for. Mind-state art stays adult-only for now: it
   is wearable-gated, so a sleepy adult is a smaller lie than a celebrating one.
-  **The artwork is outstanding** (issue #31 commissions nine images), so stages
-  1–3 alias the adult art and the app is unchanged today apart from one stated
-  consequence: a pre-adult celebration shows the walk rather than the wings-out
-  pose, and is carried by the reaction's sentence until the art and the
-  animation land. Verifiable in `/kairo-lab`, not by a player.
+  **The nine images landed on 2026-09-08** (issue #31) — down, first feathers,
+  near-grown, adult — so every stage draws its own body, and level 6 in
+  particular turns a pale down chick into a brown-winged bird. Each is framed
+  against the adult render for its own pose, so nothing around the figure moved.
+  The pass on a real device at each boundary is still owed. One consequence
+  stays: a pre-adult celebration shows that stage's walk rather than the
+  wings-out pose, carried by the reaction's sentence until the animation lands.
 - **The crest carries the dominant stat as of 2026-09-07 (issue #33), and the
   body's scale carries the stage.** Two eagles in a flock were the same picture
   at different sizes of nothing; they are now different at a glance, and by two

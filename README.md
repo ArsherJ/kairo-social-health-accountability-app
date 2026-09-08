@@ -29,18 +29,21 @@ the decision is one line to reverse.
 
 **The eagle's body follows its growth stage** as of 2026-09-07 (issue #30) —
 four bands of Level, applied to the three poses a day actually draws (idle,
-walk, run). The render path is built; the nine growth-stage images are issue
-#31, so every stage draws the adult art for now and the change is verifiable in
-the development asset lab (`/kairo-lab`) rather than by a player.
+walk, run). **The nine growth-stage images landed on 2026-09-08** (issue #31):
+a hatchling in down, a fledgling with its first feathers, a near-grown juvenile
+and the adult, each in those three poses, so crossing level 6 turns a pale down
+chick into a brown-winged bird. Every one is framed against the adult render for
+its own pose — same canvas, same figure height, same centre, same ground line —
+so no screen moved for them, and `scripts/generate_stage_art.py` is what
+reproduces them. The look at each boundary on a real device is still owed.
 
 **Two eagles in a flock do not look identical** as of 2026-09-07 (issue #33).
 The crest takes the hue of whichever stat has earned the most over the account's
 lifetime — Motion, Body or Mind, from the one table the design allows per-stat
 colour in — and a player whose stats are level takes no hue at all. The body's
 scale falls with the growth stage, inside the frame the caller sized, so nothing
-around the figure moves. Both are visible today — on the day screen, on a
-flock row, on the band above it and on the You tab — whatever happens to the
-nine images.
+around the figure moves. Both are visible on the day screen, on a flock row, on
+the band above it and on the You tab.
 
 ## Docs
 

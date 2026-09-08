@@ -26,29 +26,32 @@ export const KAIRO_POSE_ASSETS: Record<KairoPose, ImageSourcePropType> = {
  * missing cell fails `tsc`, and a cell naming a file that is not there fails
  * the bundle. Neither can render blank.
  *
- * **Interim state (2026-09-07):** stages 1–3 point at the adult art, so this
- * pass is invisible to a player and verifiable only in the asset lab. Issue #31
- * commissions the nine images; dropping them in is repointing nine of these
- * lines at
- * `assets/character/stages/kairo_stage_<hatchling|fledgling|juvenile>_<idle|walk|run>_v1.png`
- * — the names are `GROWTH_STAGE_NAMES` — and nothing else. Stage 4 keeps the
- * pose art it already had, which is why nothing moves today.
+ * **Stage 4 keeps the pose art it already had**, and the other three are issue
+ * #31's nine renders under `assets/character/stages/`. Nine and not three
+ * because `staticFigureSelection` applies the stage to `{ kind: 'pose' }` only
+ * and `motionPose()` always answers, so one image per stage would be the one
+ * that hardly ever draws. The file names are `GROWTH_STAGE_NAMES` crossed with
+ * `STAGE_POSES`, and `scripts/generate_stage_art.py` is what produced them:
+ * each is an identity-preserving edit of the adult render for that same pose,
+ * re-laid out against the adult's own bounding box, so the canvas, the centre
+ * line, the ground line and the figure height are the adult's and no screen
+ * moved for them.
  */
 export const KAIRO_STAGE_ASSETS: Record<EvolutionStage, Record<StagePose, ImageSourcePropType>> = {
   1: {
-    idle: require('../../../assets/character/poses/kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/poses/kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/poses/kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/stages/kairo_stage_hatchling_idle_v1.png'),
+    walk: require('../../../assets/character/stages/kairo_stage_hatchling_walk_v1.png'),
+    run: require('../../../assets/character/stages/kairo_stage_hatchling_run_v1.png'),
   },
   2: {
-    idle: require('../../../assets/character/poses/kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/poses/kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/poses/kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/stages/kairo_stage_fledgling_idle_v1.png'),
+    walk: require('../../../assets/character/stages/kairo_stage_fledgling_walk_v1.png'),
+    run: require('../../../assets/character/stages/kairo_stage_fledgling_run_v1.png'),
   },
   3: {
-    idle: require('../../../assets/character/poses/kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/poses/kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/poses/kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/stages/kairo_stage_juvenile_idle_v1.png'),
+    walk: require('../../../assets/character/stages/kairo_stage_juvenile_walk_v1.png'),
+    run: require('../../../assets/character/stages/kairo_stage_juvenile_run_v1.png'),
   },
   4: {
     idle: require('../../../assets/character/poses/kairo_pose_idle_v1.png'),
@@ -97,25 +100,26 @@ export const KAIRO_POSE_CRESTS: Record<KairoPose, ImageSourcePropType> = {
 
 /**
  * Stage × pose, mirroring `KAIRO_STAGE_ASSETS` cell for cell — a crest belongs
- * to one drawing, so the two tables have to move together. They alias the same
- * three poses today because the art does; when issue #31's images land, both
- * tables are repointed in the same edit and the script is rerun.
+ * to one drawing, so the two tables move together, and the test rebuilds every
+ * path here from the *art* table rather than reading this one, so they cannot
+ * drift apart. Stage 4 shares the adult pose masks because it shares the adult
+ * pose art.
  */
 export const KAIRO_STAGE_CRESTS: Record<EvolutionStage, Record<StagePose, ImageSourcePropType>> = {
   1: {
-    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/crests/crest_kairo_stage_hatchling_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_stage_hatchling_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_stage_hatchling_run_v1.png'),
   },
   2: {
-    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/crests/crest_kairo_stage_fledgling_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_stage_fledgling_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_stage_fledgling_run_v1.png'),
   },
   3: {
-    idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),
-    walk: require('../../../assets/character/crests/crest_kairo_pose_walk_v1.png'),
-    run: require('../../../assets/character/crests/crest_kairo_pose_run_v1.png'),
+    idle: require('../../../assets/character/crests/crest_kairo_stage_juvenile_idle_v1.png'),
+    walk: require('../../../assets/character/crests/crest_kairo_stage_juvenile_walk_v1.png'),
+    run: require('../../../assets/character/crests/crest_kairo_stage_juvenile_run_v1.png'),
   },
   4: {
     idle: require('../../../assets/character/crests/crest_kairo_pose_idle_v1.png'),

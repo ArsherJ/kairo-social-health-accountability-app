@@ -1495,26 +1495,28 @@ place.
 
 **The character's body follows its growth stage as of 2026-09-07** (issue #30).
 `staticFigureSelection` takes an `EvolutionStage` and returns a fourth variant,
-`{ kind: 'stage', stage, pose }`, which `KAIRO_STAGE_ASSETS` resolves. **The app
-is visually unchanged today with one stated exception** — stages 1–3 alias the
-adult art until issue #31 lands the nine images, so this is verifiable in
-`/kairo-lab` rather than by a player. Six things break easily:
+`{ kind: 'stage', stage, pose }`, which `KAIRO_STAGE_ASSETS` resolves. **The
+nine images landed on 2026-09-08** (issue #31), so every stage draws its own
+body and the level-6 boundary is the pale down chick becoming a brown-winged
+bird. **The device pass is still owed**: the framing is measured by test and the
+art was reviewed off-device, and neither is the look at a real screen at each
+boundary that #31's fourth criterion asks for. Six things break easily:
 
 - **The stage rides on idle, walk and run, never on the base render.** That is
   the whole reason the ticket exists: `motionPose()` always answers, so
   `{ kind: 'base' }` is unreachable from `resolveLivingMirror` and a stage
   applied there would almost never draw. `STAGE_POSES` is the three; `sleep`,
-  `workout` and `race_victory` stay adult-only, and issue #31 commissions no
-  more.
-- **A pre-adult reaction draws that stage's own art, and the interim cost was
-  taken knowingly.** `race_victory` is one stage's picture, so a young bird
+  `workout` and `race_victory` stay adult-only, and issue #31 commissioned nine
+  rather than twelve for exactly that reason.
+- **A pre-adult reaction draws that stage's own art, and the cost is permanent
+  rather than interim.** `race_victory` is one stage's picture, so a young bird
   celebrating keeps the body it was standing in — otherwise it turns into an
-  adult for three seconds on the level-up this whole change exists to serve.
-  Until the art lands that means a pre-adult celebration shows the walk rather
-  than the wings-out pose; the reaction is still *spoken*, since Today renders
+  adult for three seconds on the level-up this whole change exists to serve. So
+  a pre-adult celebration shows that stage's walk rather than the wings-out
+  pose, and the reaction is still *spoken*, since Today renders
   `reaction.sentence` over its next step. Letting the adult pose through "while
-  the art happens to be shared" was the alternative, and it flips the rule
-  silently on the day the artwork arrives.
+  the art happens to be shared" was the alternative, and it would have flipped
+  the rule silently on the day the artwork arrived.
 - **Mind-state art stays adult-only at every stage, deliberately.** A sleepy
   adult is a smaller lie than a celebrating one: the state images are
   wearable-gated, so most accounts never reach them, where every account
@@ -1525,7 +1527,10 @@ adult art until issue #31 lands the nine images, so this is verifiable in
   records the trap. `Record<EvolutionStage, Record<StagePose, …>>` fails `tsc`
   on a missing cell; `character-assets.test.ts` parses the initializer and
   fails a cell that is missing, computed, or naming a file that is not there.
-  A regex over the file cannot tell which cell it is looking at.
+  A regex over the file cannot tell which cell it is looking at. **It also
+  fails two cells that name the same file**, which is what the aliased interim
+  looked like and what an accidental copy-paste would restore: a stage drawing
+  another stage's body is a growth boundary a player crosses and cannot see.
 - **One derivation of the stage reaches both readings.** The screen derives it
   once from the level and hands it to `resolveLivingMirror` *and* to
   `CharacterFigure`, which reads the figure's stage off the **selection** and
@@ -1539,10 +1544,55 @@ adult art until issue #31 lands the nine images, so this is verifiable in
   the artwork and the asset lab; the figure's accessible name says the level,
   and no player surface speaks a stage.
 
+**The nine growth-stage images landed on 2026-09-08** (issue #31), and
+`scripts/generate_stage_art.py` is what produced them and what will reproduce
+them. Each is an **identity-preserving edit of the adult render for that same
+pose** rather than a fresh generation, so the camera, the palette and the line
+weight come along rather than being described; the prompt moves only what age
+moves — the down-to-feather transition, the crest fan's growth, the wing length
+and the head's share of the figure. Five things break easily:
+
+- **The pose does not come along for free, and saying so in the constraints is
+  not enough.** `IDENTITY` has asked for "the same pose … as the input image"
+  since the first run, and the first nine came back with every foot flat and
+  level — hatchling walk indistinguishable from hatchling idle, on artwork whose
+  whole reason for being nine rather than three is that the three *poses* draw.
+  Age is the loudest thing in the prompt and the model resolves the conflict by
+  drawing a well-posed bird of the right age standing still. `POSE_PROMPTS`
+  restates each pose's own stagger and wing set as a positive instruction, which
+  is what fixes it, and it also has to say the lifted foot is drawn **open with
+  its toes** — otherwise it comes back as a closed fist.
+- **`--input-fidelity high`, and `low` is the API's default.** Without it a
+  stage's three renders drift into three different birds — a black-eyed walk
+  beside a brown-eyed idle — which fails the ticket's second criterion
+  sideways: the stages read as ages, and the poses inside one stage do not read
+  as one bird.
+- **`normalise()` owns the framing, and the model never does.** Each render is
+  trimmed to its own alpha and re-laid out against the **adult's** bounding box
+  for that pose — same 570×636 canvas, same centre line, same figure height,
+  same feet-on-the-bottom-edge ground line. That is what makes "no screen needs
+  a layout change" true rather than hoped, and it is why the artwork must never
+  be pre-shrunk: `figureResponse`'s `bodyScale` stands a hatchling smaller in
+  the same box, so a hatchling drawn small would shrink twice.
+- **The paste is unmasked and the alpha floor runs twice, both for the ground
+  line.** `paste(im, box, im)` blends the source through its own alpha, so a
+  bottom row at alpha 1 lands at 1/255 of itself and rounds away — the figure
+  lifts a pixel off the shared ground line, invisibly. And LANCZOS rings a few
+  single pixels out past the silhouette at alpha 9 to 13, which is why
+  `ALPHA_FLOOR` is 16 rather than the 8 that cleared the API's ghost: one
+  invisible speck above the head moves `generate_crest_masks.py`'s tip and
+  tints the sky. `character-assets.test.ts` pins the frame against the adult's
+  own bounds, ground line exactly and figure height within a pixel of a
+  resample.
+- **Nine, and never a tenth.** `sleep`, `workout` and `race_victory` stay
+  adult-only, so a pre-adult celebration draws that stage's walk — see the #30
+  block above for why that is the right trade and not an interim one.
+
 **Two eagles in a flock stop looking identical as of 2026-09-07** (issue #33).
 The **crest** takes the hue of the dominant stat and the **body's scale**
-follows the growth stage, so the cohort gate's "the bird changes" is met by two
-things that do not depend on the nine images landing. Eight things break easily:
+follows the growth stage, so the cohort gate's "the bird changes" was met by two
+things that did not depend on the nine images landing — and it now carries them
+too (issue #31, 2026-09-08). Eight things break easily:
 
 - **`plumage.ts` reads lifetime points, and the `dominance` prop is the trap.**
   `useDominantStat` is the last fortnight, which is right for the lane and for
@@ -1570,10 +1620,12 @@ things that do not depend on the nine images landing. Eight things break easily:
   topmost opaque row inside the central 44% of the canvas, because
   `race_victory` and `workout` raise the wings above the eyes and a full-width
   scan tints a wingtip. Multiplying by the figure's own alpha is what keeps the
-  hue off the sky. **Rerun it after any change to the art it reads**, issue
-  #31's nine images included; the script's own `SOURCES` is the fourth copy of
-  the render list and the only one no compiler sees, so a test parses it and
-  fails when it drifts from `REQUIRED_PNG`.
+  hue off the sky. **Rerun it after any change to the art it reads** — issue
+  #31's nine growth-stage images are in `SOURCES` for that reason, so a stage
+  render regenerated without a mask rerun is a red test rather than a hatchling
+  whose tint sits over an adult's crest. The script's own `SOURCES` is the
+  fourth copy of the render list and the only one no compiler sees, so a test
+  parses it and fails when it drifts from `REQUIRED_PNG`.
 - **A runtime rectangle was the alternative and it is worse.** React Native has
   no mask or blend primitive without a native module, and a native module costs
   one of the month's fifteen builds and withholds every OTA until that build
