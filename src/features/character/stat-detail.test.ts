@@ -13,7 +13,7 @@ const totals = (over: Partial<DayTotals> = {}): DayTotals => ({
 
 describe('resolveStatDetail', () => {
   it('is unknown until the day’s totals have loaded', () => {
-    expect(resolveStatDetail({ totals: undefined, lane: 'AGI' })).toEqual({
+    expect(resolveStatDetail({ sleepMinutes: null, totals: undefined, lane: 'AGI' })).toEqual({
       kind: 'unknown',
     });
   });
@@ -22,6 +22,7 @@ describe('resolveStatDetail', () => {
   // whichever stat happens to be closest.
   it('prefers the lane even when another stat is closer', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 8_760, activeKcal: 199 }),
       lane: 'AGI',
     });
@@ -39,6 +40,7 @@ describe('resolveStatDetail', () => {
   // A lane already at Gold has nothing left to ask for.
   it('falls through to the closest stat when the lane is maxed', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 12_000, activeKcal: 380 }),
       lane: 'AGI',
     });
@@ -56,6 +58,7 @@ describe('resolveStatDetail', () => {
   it('picks the closest stat when no lane is declared', () => {
     // AGI 500/1,000 is half-way; STR 45/50 is nearly there.
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 500, activeKcal: 45 }),
       lane: null,
     });
@@ -121,12 +124,36 @@ describe('resolveStatDetail', () => {
       expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI' });
     });
 
-    it('is skipped while the sleep query is still in flight', () => {
-      const detail = resolveStatDetail({
-        totals: totals({ steps: 500 }),
-        lane: null,
+    // There is no third state, and that is the point of `sleepMinutes` being
+    // required-but-nullable since 2026-09-08. A caller with a query in flight
+    // writes `?? null` and lands in the case above; a caller that writes
+    // nothing at all does not compile. Before that, an omitted field read as
+    // "in flight" *and* as "no wearable" — which was harmless while only Mind
+    // read it and is not now that Body's bands move with it.
+    it('cannot be handed an absent night at all', () => {
+      // The real assertion is the directive below: `npm run typecheck` fails if
+      // omitting `sleepMinutes` ever becomes legal again.
+      // @ts-expect-error — sleepMinutes is required.
+      resolveStatDetail({ totals: totals({ steps: 500 }), lane: null });
+      expect(
+        resolveStatDetail({ totals: totals({ steps: 500 }), sleepMinutes: null, lane: null }),
+      ).toMatchObject({ kind: 'gap', stat: 'AGI' });
+    });
+
+    // Deviation #68: Body's gap must be measured against the ladder the scorer
+    // used, which is the same bug the `statShifts` call here was added to close
+    // for Motion. 260 kcal is 140 short of the published 400 and only 90 short
+    // of the 350 a rested night lowers it to.
+    it('measures Body against the ladder a rested night actually bought', () => {
+      const day = totals({ steps: 500, activeKcal: 260 });
+      expect(resolveStatDetail({ totals: day, sleepMinutes: null, lane: 'STR' })).toMatchObject({
+        stat: 'STR',
+        gap: 140,
       });
-      expect(detail).toMatchObject({ kind: 'gap', stat: 'AGI' });
+      expect(resolveStatDetail({ totals: day, sleepMinutes: 8 * 60, lane: 'STR' })).toMatchObject({
+        stat: 'STR',
+        gap: 90,
+      });
     });
 
     // The landmine `nextTierFor` had to be fixed for: reading the linear band
@@ -146,6 +173,7 @@ describe('resolveStatDetail', () => {
     // STR: 45 of 50 kcal for bronze — 90% there, 5 short.
     // AGI: 100 of 1,000 steps for bronze — 10% there, 900 short.
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 100, activeKcal: 45 }),
       lane: null,
     });
@@ -166,6 +194,7 @@ describe('resolveStatDetail', () => {
   it('marks a gap into the top band as topping out', () => {
     // AGI silver is 5,000 and gold is 10,000, so 8,000 steps is one band short.
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 8_000 }),
       lane: 'AGI',
     });
@@ -175,6 +204,7 @@ describe('resolveStatDetail', () => {
   it('does not mark a gap into a middle band as topping out', () => {
     // 2,000 steps is inside bronze, so the next band up is silver, not gold.
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 2_000 }),
       lane: 'AGI',
     });
@@ -190,6 +220,7 @@ describe('resolveStatDetail', () => {
       // Eight active hours earns the 25% cap: AGI Gold sits at 7,500, not
       // 10,000. Unshifted the same day would be told 3,000.
       const detail = resolveStatDetail({
+        sleepMinutes: null,
         totals: totals({ steps: 7_000, activeHours: 8 }),
         lane: 'AGI',
       });
@@ -223,6 +254,7 @@ describe('resolveStatDetail', () => {
     // upstream, so by the time totals reach here the gap is simply true.
     it('quotes Body against the ladder the user has learned', () => {
       const detail = resolveStatDetail({
+        sleepMinutes: null,
         totals: totals({ activeKcal: 200 }),
         lane: 'STR',
       });
@@ -231,6 +263,7 @@ describe('resolveStatDetail', () => {
 
     it('leaves a sedentary day on the bands the user has learned', () => {
       const detail = resolveStatDetail({
+        sleepMinutes: null,
         totals: totals({ steps: 8_760, activeHours: 3 }),
         lane: 'AGI',
       });
@@ -248,6 +281,7 @@ describe('resolveStatDetail', () => {
 
   it('breaks a tie in CORE_STATS order', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 500, activeKcal: 25 }),
       lane: null,
     });
@@ -261,6 +295,7 @@ describe('statDetailLine', () => {
 
   it('names the figure and what closing it does', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 8_760, activeHours: 3 }),
       lane: 'AGI',
     });
@@ -274,6 +309,7 @@ describe('statDetailLine', () => {
   // that the sentence does not.
   it('never prints points, a total or an engine key', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 3_000, activeKcal: 100 }),
       lane: null,
     });
@@ -291,6 +327,7 @@ describe('statDetailLine', () => {
 
   it('agrees with the singular unit at exactly one', () => {
     const detail = resolveStatDetail({
+      sleepMinutes: null,
       totals: totals({ steps: 9_999, activeHours: 0 }),
       lane: 'AGI',
     });

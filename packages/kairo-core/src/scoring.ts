@@ -119,6 +119,28 @@ const THRESHOLDS: Record<CoreStat, Record<Exclude<Tier, 'none'>, number>> = {
 export const DAILY_STEP_BASELINE = THRESHOLDS.AGI.gold;
 
 /**
+ * A stat's top band today, in its own raw unit, with a shift applied.
+ *
+ * The one way out of this module for a threshold, and it exists so a surface
+ * explaining a shift does not need a second copy of the ladder to compute the
+ * difference. `spreadLine` reads it as `DAILY_STEP_BASELINE` against
+ * `shiftedThreshold`, which is the same arithmetic written before this existed;
+ * `restedLine` has no such constant for Body, and would otherwise have needed
+ * `400` written down somewhere outside `THRESHOLDS`.
+ *
+ * **The top band only.** Bronze and Silver are reachable through `nextTierFor`,
+ * which reports them as a *distance* from a real reading rather than as a bare
+ * number — and a bare band with nothing to measure it against is the vocabulary
+ * deviation #23 retired.
+ *
+ * MND answers in minutes and answers honestly, but nothing shifts it — see
+ * `statShifts`.
+ */
+export function topBandFor(stat: CoreStat, shift = 0): number {
+  return shiftedThreshold(THRESHOLDS[stat].gold, shift);
+}
+
+/**
  * Indexed by how many core stats contributed. Rewards breadth over
  * specialisation.
  *
@@ -405,12 +427,21 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
 
   const totals = aggregateBuckets(buckets);
 
-  // END and VIT, spent as generosity instead of as points (spec §2). Computed
+  // END and VIT, spent as generosity instead of as points (spec §2), and —
+  // since deviation #68 — last night, spent the same way on Body. Computed
   // once, outside the loop, because a shift is a property of the day rather
   // than of the stat reading it — and through `statShifts` rather than
   // inline, because the character sheet's guidance line has to read the same
   // mapping to name the band the day will be judged against.
-  const shifts = statShifts({ activeHours: totals.activeHours });
+  //
+  // **The same `sleepMinutes` that scores MND, deliberately.** It has already
+  // passed the trust gate, so a hand-typed night neither scores Mind nor
+  // discounts Body, and the two facts cannot come apart. It moves Body's
+  // *bands* and nothing else: Body's raw value is untouched (that is where the
+  // strength credit lives), and Mind's own bands are untouched (a night that
+  // discounted its own ladder is the retired workout shift's double-count in a
+  // new dress).
+  const shifts = statShifts({ activeHours: totals.activeHours, sleepMinutes });
 
   // Clamped rather than trusted: a negative reading is a bug upstream, and it
   // must not be able to *reduce* the calories a day genuinely burned.
@@ -434,6 +465,11 @@ export function computeDailyScore(input: DailyScoreInput): DailyScore {
     // Walk reads: `DAILY_STEP_BASELINE` is a public-health floor and must not
     // move because the user spread their steps out. Identical to `tier`
     // wherever the shift is zero, and for MND, which takes no shift at all.
+    //
+    // STR's unshifted tier can now differ too (deviation #68), and nothing
+    // stores it: only `AGI_base` reaches `daily_scores`, because only the Daily
+    // Walk asks the unshifted question. Body has no public-health floor to
+    // protect.
     const unshiftedTier = stat === 'MND' ? tier : shiftedTierFor(stat, raw, 0);
     const base = statPointsFor(stat, raw, shift);
     const points =

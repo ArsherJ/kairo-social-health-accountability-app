@@ -130,6 +130,15 @@ All four core competitive stats are phone-only, passive, and automatic.
 > program's read-time ×1.5, which is the trap deviation #10 already had to
 > retire the featured-stat rotation over. Making the *band* easier cannot
 > stack.
+>
+> **Two later corrections to the sentence above, both in place.** Verified
+> workout minutes stopped lowering STR's bands on 2026-08-29 and raise STR's
+> *raw value* instead (`STRENGTH_MINUTE_KCAL_CREDIT`) — one signal may not do
+> both. And STR's bands moved again on 2026-09-08 (deviation #68), this time
+> with **last night**: a rested night lowers Body's ladder by up to 12.5%,
+> tapering past nine hours exactly as the Mind curve does. AGI's spread shift is
+> unchanged throughout, so the Daily Walk, the ridge and the race read the same
+> flat figure they always have.
 
 ### Why VIT Became Hourly Movement (Not Sleep)
 

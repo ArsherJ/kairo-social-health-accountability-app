@@ -387,6 +387,87 @@ higher one. Three things break easily:
   list**, never `create or replace` — the `create_goal` / `p_metric` trap, and a
   surviving overload fails nothing until a call site resolves to it.
 
+**A rested night lowers Body's bands, as of 2026-09-08** (deviation #68,
+issue #29). `restedShift` in `packages/kairo-core/src/shifts.ts`, routed to
+`STR` by `statShifts`, which now takes a **required** `sleepMinutes`. Zero below
+`MIND_THRESHOLD_HOURS.gold` (7h), a ramp to `MAX_RESTED_SHIFT` (half
+`MAX_THRESHOLD_SHIFT`, 12.5%) at eight hours, held to `MIND_OVERSLEEP_HOURS`,
+and past that **`mindPoints` itself, scaled** — so the taper's shape, its end
+and its floor are all Mind's own and cannot drift from them. At the peak Body's
+Gold moves 400 kcal to 350. Seven things break easily:
+
+- **Body, and never Motion, and that is the whole decision.** Motion's shift
+  already reaches the 0.25 cap at eight active hours, so an additive rested
+  shift there would be a no-op for exactly the players who sleep well *and* move
+  all day — invisible to its own best case. Body's shift was a hard `0`, so
+  there is no cap collision, no interaction with the spread shift, and no second
+  reason to reason about `AGI` against `AGI_base`. The Daily Walk, the ridge and
+  the race are untouched **by construction rather than by care**.
+- **The proof is through `computeDailyScore`, never through `tierFor`.**
+  `tierFor` *is* `shiftedTierFor(stat, raw, 0)` — the one path where a shift is
+  absent by definition — so a guard written there passes however wrong the
+  scored day becomes, which is exactly how the `AGI`/`AGI_base` divergence got
+  through review once. `scoring.test.ts`'s "a rested night against Body" block
+  sweeps five active-hour counts against five step totals and asserts Motion's
+  tier, unshifted tier and points are all identical with and without a night.
+- **One signal, one place.** Sleep scores Mind from its raw value and shifts
+  Body's bands. It must never shift **Mind's own** bands — that is the retired
+  `workoutShift` double-count in a new dress — and it must never touch **Body's
+  raw value**, where `STRENGTH_MINUTE_KCAL_CREDIT` already lives. Verified
+  minutes and a night are two signals with two mechanisms and no overlap; route
+  either through the other's and the double-count returns exactly as it was.
+- **Wearable-gated by the value, not by a second condition.** `sleepMinutes` has
+  already passed the trust gate (`scoringSleepMinutes` on the server,
+  `scoredSleepMinutes` on the client), so a phone-only account and a hand-typed
+  night both arrive as `null`, take a zero shift and meet no sentence. That is
+  most of the Philippine market, and it is a stated cost rather than a gap:
+  write it down rather than letting the cohort discover a stat that does nothing
+  for them.
+- **`statShifts`' `sleepMinutes` is required and must stay so.** A default would
+  make "this account has no wearable" and "this caller forgot" the same silent
+  answer on the path that decides how a day is scored — `planDay`'s
+  `earnableStats` trap in a new place. Two callers: `computeDailyScore` and
+  `stat-detail.ts`, and the second matters, because quoting Body's *published*
+  ladder to a rested player is the same bug the spread shift already caused on
+  Motion.
+- **Nothing new is stored.** `daily_scores.tiers` keeps `AGI_base` and gains no
+  `STR_base`: only the Daily Walk asks the unshifted question, and Body has no
+  public-health floor to protect. No migration, no constraint change — a shift
+  lowers a band and never raises what a band pays, so `MAX_DAILY_SCORE_*` and
+  `contributing_stats` are unmoved.
+- **`topBandFor(stat, shift)` is the only way a threshold leaves the engine**,
+  and it exists so `restedLine` can compute its discount without `400` being
+  written down outside `THRESHOLDS`. Top band only — Bronze and Silver reach
+  surfaces through `nextTierFor`, as a distance from a real reading rather than
+  a bare number.
+- **The visible half is one sentence and it is not a new state.** `restedLine`
+  in `kairo-voice.ts` — *"Slept 8 hours — Body tops out 50 kcal sooner today."* —
+  rendered as the last row of Today's details **Body** section, beside the
+  Motion section's `spreadLine`. It reports the *discount*, never the moved
+  figure, for `spreadLine`'s reason, and reads the night through `durationWords`
+  so the sentence and the Mind row cannot render one night two ways. It does
+  **not** give the `tired` reaction a producer: `SleepState` already has one and
+  already draws art.
+- **It moved stored history, so all five Edge Functions redeployed together and
+  a `replay-scores` pass ran in the same deploy**, under ADR-0001's 2026-09-06
+  amendment — the project held 4 profiles and 30 scored days, well inside the
+  amended licence. Past roughly fifty accounts or sixty days the original rule
+  returns: a migration that rescores, or it does not ship. **`REPLAY_SECRET` is
+  minted for the pass and unset after it**; the function itself has been
+  deployed the whole time (the roadmap's "deleted at step 11" is corrected in
+  place), so the secret's absence is what actually shuts that door.
+- **That replay moved ten of thirty days and only three of them were this
+  change's**, which is worth knowing before the next one. The other seven were
+  **August days still carrying the pre-2026-08-29 lookup engine** — the
+  interpolation pass changed `statPointsFor` and nothing ever replayed the days
+  scored before it, so 2026-08-22 moved 3,300 → 4,172 and 2026-08-23 moved
+  0 → 255 for reasons that have nothing to do with sleep. `xp_awarded` and
+  `finalized_at` did not move on any row, so no level or settled competition
+  changed. The lesson is the ADR's own, in a place it did not look: a licence to
+  move stored history is not a licence to *leave* it moved, and a replay skipped
+  at the time is a silent divergence that the next replay pays for in one lump,
+  attributed to whatever change happened to trigger it.
+
 **Body reads work, points are a curve, and Mind tapers, as of 2026-08-29.**
 Licensed by `docs/adr/0001-replay-compatibility-expires-at-launch.md`: the live
 project held **3 profiles and 6 scored days**, all development accounts, so
@@ -401,10 +482,13 @@ replay *mechanism* is untouched and is not what the ADR is about. Design:
   strength minutes used to lower Body's *bands*; they raise Body's *raw value*
   now, at `STRENGTH_MINUTE_KCAL_CREDIT` (4) kcal-equivalent per minute. One
   signal must never do both — that is the whole reason the shift was retired
-  rather than kept alongside. `statShifts` therefore takes **only
-  `activeHours`**, and `STR` is a hard 0 in it. AGI's spread shift is untouched
-  and is *not* the same arrangement: different signal, different stat, no
-  double-count.
+  rather than kept alongside. `statShifts` took **only `activeHours`** and
+  `STR` was a hard 0 in it until deviation #68 (2026-09-08) gave Body the
+  *night's* shift — which is not this arrangement returning, because sleep
+  touches Body's raw value nowhere; route verified minutes back through
+  `statShifts` and the double-count is exactly as it was. AGI's spread shift is
+  untouched and is *not* the same arrangement either: different signal,
+  different stat, no double-count.
 - **`verifiedStrengthMinutesFrom` filters on `activity_type`, and
   `activity_type` had to be added to `WORKOUT_SESSION_COLUMNS`.** It was not in
   the select list or in `WorkoutSessionRow`. Without it every row reads
@@ -523,8 +607,11 @@ stale privacy claim is the worst kind, so it is rewritten rather than annotated.
 
 Retiring the shift **deleted** `stat-detail.ts`'s `unquantified` state,
 `strShiftUnknowable` and `workoutDaySignal` — roughly 137 lines that existed only
-because Body had a shift the screen could not measure. Do not reintroduce them;
-Body quotes the published ladder now.
+because Body had a shift the screen could not measure. Do not reintroduce them:
+Body has a shift again since deviation #68, and it is **measurable** — the night
+is a value the screen already holds and passes to `statShifts`, so Body is quoted
+from the ladder the scorer used. What those 137 lines existed for was a shift the
+screen could not see, and no such shift exists.
 
 **Stat surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`) as of
 2026-08-25** (deviation #51). The engine keys above are unchanged and must stay
@@ -1156,6 +1243,27 @@ This dev machine cannot reach Postgres directly. Three independent causes, none 
 So `supabase db push`, `psql`, and `supabase start` all fail. What works, all over HTTPS: `supabase/scripts/remote-sql.sh` (Management API, auth from the CLI's Keychain entry), `supabase functions deploy`, and the PGlite test harness.
 
 **Applying a migration** therefore means: run it via `remote-sql.sh -f`, then insert its row into `supabase_migrations.schema_migrations` yourself, or the CLI will try to re-apply it later. Wrap multi-statement migrations in `begin; ... commit;`.
+
+**The Supabase CLI cannot reach the Management API without being handed the
+machine's own root certificates** (found 2026-09-08). Corporate Zscaler
+intercepts TLS — `openssl s_client` against `api.supabase.com` returns a chain
+issued by *Zscaler Intermediate Root CA* — and the CLI's Node HTTP client trusts
+its bundled roots only, so **every** command fails with the same useless
+`HttpClientError: Transport error`, `--debug` included. `curl` is unaffected
+(macOS hands it the system keychain), which is why `remote-sql.sh` has always
+worked while `supabase functions deploy` and `supabase secrets set` did not, and
+why the failure reads like an outage rather than a trust problem. The fix is one
+environment variable:
+
+```bash
+security find-certificate -a -p /Library/Keychains/System.keychain > /tmp/mac-roots.pem
+NODE_EXTRA_CA_CERTS=/tmp/mac-roots.pem supabase functions deploy <name> --project-ref zniopywbwenrzxezolwv
+```
+
+Do **not** reach for `NODE_TLS_REJECT_UNAUTHORIZED=0`, which disables
+verification for every host the process talks to rather than trusting one more
+root. The same variable is what a `gh`, `npm` or `eas` failure of this shape
+wants; `curl`-based scripts in `supabase/scripts/` need nothing.
 
 **This machine also cannot pair an iPhone over USB, and the cause is not fixable from the phone.** It is corporate-managed — CrowdStrike Falcon runs as an Endpoint Security system extension (alongside Zscaler, Tanium and GlobalProtect), and its Device Control policy denies `usbmuxd` the iPhone's USB interface. The kernel signature is `IOUC AppleUSBHostInterfaceUserClient failed MACF in process pid …, usbmuxd`. Because no lockdown pairing record can be written, the phone re-prompts "Trust This Computer?" on *every* plug-in, `xcrun devicectl list devices` always says `No devices found`, and Developer Mode never appears in iOS Settings (it is gated on a completed pairing). **`npx expo run:ios --device` is therefore unavailable here** — physical-device builds go through **EAS Build → TestFlight**, which installs over the air and never touches USB. Four things were tested and are *not* the cause, so do not re-derive them: Developer Mode, a cached "Don't Trust", macOS accessory authorization, and the cable. Triage table in `README.md` under "Building onto a physical device".
 

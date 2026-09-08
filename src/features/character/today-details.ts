@@ -91,6 +91,22 @@ export function todayDetails(input: {
   dailyWalkRun: number;
   dailyWalkNote: string;
   motionNote: string | null;
+  /**
+   * Why today's Body is easier than the published number, when it is —
+   * `restedLine`'s sentence, or null.
+   *
+   * Null far more often than not: it needs a night, and a night needs a
+   * wearable. That is deviation #68's stated cost rather than a gap, and it is
+   * why nothing else on this sheet depends on it being there.
+   *
+   * **Deliberately not gated on `hasSleepSource` as well**, unlike the Mind
+   * section below. The two answer different questions: that gate is about
+   * *capability* — whether Mind can be earned at all — while this sentence
+   * reports what the scorer actually did with the night, and the scorer reads
+   * `sleepMinutes` and never the flag. Adding the flag here would let a stale
+   * one silence a sentence about a shift that really applied.
+   */
+  bodyNote: string | null;
   quests: readonly TodayQuest[];
   selectedQuestIndex: number | null;
   /**
@@ -138,6 +154,9 @@ export function todayDetails(input: {
         ...(input.verifiedStrengthMinutes > 0
           ? [row('strength', 'Verified strength session', `${Math.round(input.verifiedStrengthMinutes)} min`)]
           : []),
+        // Last, exactly as `motion-note` is: the figures first, then why the
+        // bar they are measured against moved.
+        ...(input.bodyNote ? [row('body-note', "Today's Body", input.bodyNote)] : []),
       ],
     },
   ];

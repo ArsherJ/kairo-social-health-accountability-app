@@ -3,6 +3,11 @@ import type { CoreStat } from '@kairo/core';
 // alias does not resolve under root Vitest. Exactly how `program-copy.ts`
 // reaches this same module.
 import { STAT_NAMES } from '../../ui/stat-names.ts';
+// Also relative, and for the same reason. `quest-copy.ts` imports only types
+// from the keystone, so root Vitest can load it — and one formatter for a
+// night is what stops the details sheet's "8 hours" and this sentence
+// disagreeing about the same reading, one row apart.
+import { countWords, durationWords } from '../quests/quest-copy.ts';
 
 /**
  * The bird's voice.
@@ -42,8 +47,24 @@ import { STAT_NAMES } from '../../ui/stat-names.ts';
  * vocabulary was moved, not discarded.
  *
  * `spreadLine` and `ceilingLine` stay: the first explains a difficulty change
- * inside Today's details, the second explains the crest sky.
+ * inside Today's details, the second explains the crest sky. `restedLine`
+ * joined them on 2026-09-08 (deviation #68) — the same job as `spreadLine`, on
+ * the other stat whose bands now move.
  */
+
+/**
+ * How much a shift took off a band, or null when it took nothing.
+ *
+ * Both shift sentences ask this and both answer it the same way, so it is one
+ * function: a discount of zero or less is not a smaller sentence, it is no
+ * sentence — "spreading your day earned you nothing" and "your sleep earned you
+ * nothing" are both reprimands on a screen somebody opened to see how they are
+ * doing. Rounded because a band is compared against a whole raw count.
+ */
+function discount(base: number, shifted: number): number | null {
+  const saved = Math.round(base - shifted);
+  return Number.isFinite(saved) && saved > 0 ? saved : null;
+}
 
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -113,8 +134,8 @@ export function spreadLine(input: SpreadInput): string | null {
   const hours = Math.floor(input.activeHours);
   if (!Number.isFinite(hours) || hours <= 0) return null;
 
-  const saved = Math.round(input.baseSteps - input.goldSteps);
-  if (!Number.isFinite(saved) || saved <= 0) return null;
+  const saved = discount(input.baseSteps, input.goldSteps);
+  if (saved === null) return null;
 
   const hourWord =
     hours < HOUR_WORDS.length ? HOUR_WORDS[hours]!.toLowerCase() : String(hours);
@@ -142,4 +163,63 @@ export function spreadLine(input: SpreadInput): string | null {
  */
 export function ceilingLine(characterName: string): string {
   return `${characterName} has everything today can give it. Anything more is for you, not the ledger.`;
+}
+
+
+export interface RestedInput {
+  /**
+   * Last night as the trust gate scored it, or null when there is none.
+   *
+   * Null for a phone-only account and for a hand-typed night alike, which is
+   * what makes this sentence wearable-gated without a second condition: the
+   * same value that earns the shift is the one that earns the sentence.
+   */
+  sleepMinutes: number | null;
+  /**
+   * Active calories needed for Body's top band **today**, after the rested
+   * shift.
+   *
+   * Passed in exactly as `SpreadInput.goldSteps` is, and for the same reason:
+   * deriving it here would put a second copy of the ladder in a module that
+   * deliberately imports no engine. The caller reads it through the same
+   * `restedShift` the scorer used, which is the only way this sentence and the
+   * score can agree.
+   */
+  goldKcal: number;
+  /** The same band with no shift applied, for the difference. */
+  baseKcal: number;
+}
+
+/**
+ * What last night bought today — said as a consequence, in calories.
+ *
+ * The other half of `spreadLine`'s job, on the other stat that moves: sleep
+ * lowers Body's whole ladder by up to `MAX_RESTED_SHIFT` (deviation #68), and
+ * an unexplained difficulty change is indistinguishable from a broken one. Same
+ * form, deliberately — **observation, em dash, consequence** — because it lands
+ * one section below the spread line on the same sheet, and two sentences about
+ * the same kind of thing should read as the same kind of thing.
+ *
+ * **It reports the discount, never a target**, exactly as `spreadLine` does: a
+ * band that moved is a discount, and naming the moved figure would put a second
+ * number behind a word the sheet already uses for the published one.
+ *
+ * **Null is the honest answer far more often than not.** A phone-only account
+ * has no night to read, and Kairo's market is mostly phone-only — so this
+ * sentence reaches watch and band owners and nobody else, which is worth
+ * writing down rather than letting the cohort discover a stat that does nothing
+ * for them. A short night returns null too, for `spreadLine`'s reason: "your
+ * sleep earned you nothing" is a reprimand, not an observation.
+ */
+export function restedLine(input: RestedInput): string | null {
+  const minutes = input.sleepMinutes;
+  // The night is checked as well as the discount, and the second is not
+  // redundant with the first: no night means a zero shift and therefore no
+  // discount anyway, but `durationWords` still has to be handed a number.
+  if (minutes === null || !Number.isFinite(minutes) || minutes <= 0) return null;
+
+  const saved = discount(input.baseKcal, input.goldKcal);
+  if (saved === null) return null;
+
+  return `Slept ${durationWords(minutes)} — ${STAT_NAMES.STR} tops out ${countWords(saved)} kcal sooner today.`;
 }

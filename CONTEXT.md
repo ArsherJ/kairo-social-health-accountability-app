@@ -64,6 +64,8 @@ strength session, which is the more efficient route to the same ceiling.
 
 **Mind** (`MND`) — recovery. Sleep duration. The one stat that can be
 **unreachable**, because it needs a sleep source the phone alone does not have.
+It is also the one stat that does something *for another*: a **rested** night
+lowers what Body asks of you today.
 
 **Stat** — one of exactly those three. Not an attribute, not a skill.
 
@@ -145,6 +147,21 @@ keeps its one meaning.
 **Ridge** — the top band, and the day's finish. It is the same figure as the
 **Daily Walk** and the race's **finish line** — one number with three readings,
 never a shifted one. Reaching it is spoken once, by the walk.
+
+**Shift** — a signal making another reading's bands *easier*, never its points
+larger. There are exactly two: the **spread**, where movement across many hours
+lowers Motion's ladder, and the **rested** night, where sleep lowers Body's. A
+shift is always a discount on a bar, so it is always spoken as one — "tops out
+sooner", never a new target. It is never a multiplier: a stored multiplier
+stacks with the **program**'s read-time weight.
+
+**Rested** — a night at or past the hours Mind itself calls a full one, spoken
+of the night and never of the player. It buys a shift on **Body** and nothing
+else — it does not move Mind's own bands, it does not move Body's calories, and
+it moves no Motion figure at all, so the **Daily Walk**, the **ridge** and the
+race are untouched by it. It reaches only players who own something that
+measures their sleep, which is a minority, and the app says so rather than
+letting the rest discover a mechanic that never fires for them.
 
 **Capability** — whether a stat can be earned at all. Only Mind can lack it.
 A stat the player cannot earn is never asked of them — not by a quest, not by a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingLine, spreadLine } from './kairo-voice.ts';
+import { ceilingLine, restedLine, spreadLine } from './kairo-voice.ts';
 
 const AEON = 'Aeon';
 
@@ -16,6 +16,7 @@ describe('the voice never says a number the surface does not show', () => {
     // — steps, hours — and in nothing else.
     const all = [
       spreadLine({ activeHours: 8, goldSteps: 7_500, baseSteps: 10_000 }) ?? '',
+      restedLine({ sleepMinutes: 480, goldKcal: 350, baseKcal: 400 }) ?? '',
       ceilingLine(AEON),
     ].join(' ');
 
@@ -80,5 +81,55 @@ describe('ceilingLine', () => {
     const line = ceilingLine('Dagit');
     expect(line).not.toMatch(/\b(AGI|STR|MND)\b/);
     expect(line).not.toMatch(/points?|score|4,?400/i);
+  });
+});
+
+
+describe('restedLine', () => {
+  // Eight hours is the peak of the ramp, so Body's 400 kcal band sits at 350.
+  const base = { sleepMinutes: 480, goldKcal: 350, baseKcal: 400 };
+
+  it('names the night it saw and what that did to the bar', () => {
+    expect(restedLine(base)).toBe('Slept 8 hours — Body tops out 50 kcal sooner today.');
+  });
+
+  // Wearable-gated, and the gate is the value itself: a phone-only account has
+  // no night, so it has no shift and meets no sentence. One condition, not two.
+  it('says nothing when there is no night to read', () => {
+    expect(restedLine({ ...base, sleepMinutes: null })).toBeNull();
+    expect(restedLine({ ...base, sleepMinutes: 0 })).toBeNull();
+  });
+
+  // "Your sleep earned you nothing" is a reprimand, exactly as it is on the
+  // spread line. A short night gets silence, not a verdict.
+  it('says nothing when the night earned no shift', () => {
+    expect(restedLine({ ...base, sleepMinutes: 360, goldKcal: 400 })).toBeNull();
+  });
+
+  it('reads a partial night in the same words the details sheet does', () => {
+    expect(restedLine({ ...base, sleepMinutes: 450 })).toContain('Slept 7h 30m');
+  });
+
+  // The rule the whole voice module is tested against, and the ticket's own
+  // acceptance criterion: real units only, never a score total, never an
+  // engine key. Matched case-sensitively and on word boundaries — a loose
+  // /str/i finds "Slept" and a guard that fails on real input gets loosened
+  // until it guards nothing.
+  it('speaks calories, never a score or an engine key', () => {
+    const line = restedLine(base)!;
+    expect(line).not.toMatch(/\b(AGI|STR|MND)\b/);
+    expect(line).not.toMatch(/points?|score|total|XP/i);
+    expect(line).toContain('kcal');
+  });
+
+  // Same reason `spreadLine` refuses these words: they already name flat,
+  // published figures elsewhere in the app, and a shifted number wearing one
+  // of them puts two values behind one noun.
+  it('never calls the shifted band a ridge or a target', () => {
+    expect(restedLine(base)).not.toMatch(/ridge|target|goal/i);
+  });
+
+  it('says it in the observation, em dash, consequence form', () => {
+    expect(restedLine(base)).toMatch(/^Slept .+ — .+ sooner today\.$/);
   });
 });

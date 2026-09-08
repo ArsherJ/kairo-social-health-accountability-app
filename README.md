@@ -65,7 +65,7 @@ plus verified strength-session minutes) and **Mind** (sleep). Each earns points
 against Bronze / Silver / Gold anchors that no screen ever names, and the day's
 total ranks the squad board and pays XP.
 
-Three properties are easy to assume wrongly, and each is pinned by tests in
+Four properties are easy to assume wrongly, and each is pinned by tests in
 `packages/kairo-core`:
 
 - **Points are continuous between the anchors**, since 2026-08-29. The anchors
@@ -81,6 +81,12 @@ Three properties are easy to assume wrongly, and each is pinned by tests in
   anchor past nine hours and floors there, so eleven hours can never score below
   five. HealthKit sleep is noisy enough that a hard cliff punished measurement
   error as though it were behaviour.
+- **A rested night makes Body easier today**, since 2026-09-08. Sleep lowers
+  Body's thresholds by up to 12.5%, tapering past nine hours on the same curve
+  Mind's own points follow. It is a *threshold shift* and never a multiplier — a
+  stored multiplier would stack with the squad program's read-time weight — and
+  it needs a sleep source, so it reaches wearable owners and nobody else. Motion
+  is untouched by it, so the Daily Walk and the race finish line do not move.
 
 Scores are always **replayed** from stored hourly buckets, never adjusted in
 place — which is what makes retries, Apple's retroactive step revisions and cron
@@ -117,6 +123,17 @@ npm run apple-secret     # mint the Sign in with Apple client secret (see below)
 ./supabase/scripts/remote-sql.sh "select ..."      # SQL against the live project
 supabase functions deploy <name> --project-ref zniopywbwenrzxezolwv
 node supabase/scripts/smoke-sync.mjs               # post-deploy: does a sync still score?
+```
+
+On a machine behind corporate TLS interception (Zscaler here), **every**
+`supabase` CLI command fails with `HttpClientError: Transport error` — the CLI
+trusts its bundled roots and not the machine's. `curl`-based scripts such as
+`remote-sql.sh` are unaffected, which makes it look like an outage. Hand the CLI
+the system roots:
+
+```bash
+security find-certificate -a -p /Library/Keychains/System.keychain > /tmp/mac-roots.pem
+export NODE_EXTRA_CA_CERTS=/tmp/mac-roots.pem
 ```
 
 ### Deploying Edge Functions

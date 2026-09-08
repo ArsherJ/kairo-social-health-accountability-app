@@ -9,8 +9,9 @@ import {
   evolutionStageForLevel,
   levelForXp,
   questTier,
-  shiftedThreshold,
+  restedShift,
   spreadShift,
+  topBandFor,
   type CoreStat,
   type DayTotals,
 } from '@kairo/core';
@@ -18,7 +19,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { TodayDetailsSheet } from '@/features/character/TodayDetailsSheet.tsx';
 import { TodayNextStep } from '@/features/character/TodayNextStep.tsx';
-import { ceilingLine, spreadLine } from '@/features/character/kairo-voice.ts';
+import { ceilingLine, restedLine, spreadLine } from '@/features/character/kairo-voice.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import {
   livingCharacterLabel,
@@ -184,6 +185,12 @@ export default function Today() {
   const score = useTodayScore(userId, timeZone);
   const buckets = useTodayBuckets(userId, timeZone);
   const vitals = useTodayVitals(userId, timeZone);
+  // Last night as the trust gate scored it, or null. Null, never 0, and never
+  // the raw column: an unknown night must read "No reading yet" rather than
+  // accuse somebody of not sleeping — and the same value scores Mind, gates
+  // the sleep quest and buys Body's rested shift, so all four readings of one
+  // night come from one expression.
+  const sleepMinutesToday = vitals.data?.sleepMinutes ?? null;
   // Kept for the presence ring, which is `auraStrength()`'s and not Body's: the
   // All-Rounder earns a ring at any rating, and dropping this query would
   // delete that from the only screen in the app that draws one.
@@ -252,9 +259,7 @@ export default function Today() {
       activeKcal: totals.activeKcal,
       activeHours: totals.activeHours,
       distanceM: totals.distanceM,
-      // Null, never 0, and never the raw column: an unknown night must read
-      // "No reading yet" rather than accuse somebody of not sleeping.
-      sleepMinutes: vitals.data?.sleepMinutes ?? null,
+      sleepMinutes: sleepMinutesToday,
     },
     completedIds: completions.data ?? [],
   });
@@ -305,7 +310,7 @@ export default function Today() {
     stage,
     steps,
     hasSleepSource: profile.data?.has_sleep_source ?? false,
-    sleepMinutes: vitals.data?.sleepMinutes ?? null,
+    sleepMinutes: sleepMinutesToday,
     lifetimeBodyPoints: profile.data?.str_total ?? 0,
     nextStep,
     reaction,
@@ -324,21 +329,33 @@ export default function Today() {
     totals: totals ?? EMPTY_DAY_TOTALS,
     verifiedStrengthMinutes: strength.data?.verifiedMinutes ?? 0,
     hasSleepSource: profile.data?.has_sleep_source ?? false,
-    sleepMinutes: vitals.data?.sleepMinutes ?? null,
+    sleepMinutes: sleepMinutesToday,
     dailyWalkRun: walk?.streak ?? 0,
     dailyWalkNote: walkNote(walk ?? EMPTY_WALK_STATE),
     // Why today's Motion is easier than the published number, when it is. Read
     // through the same `spreadShift` the scorer used rather than restated —
     // a sentence quoting a ladder the engine stopped using is worse than no
-    // sentence. `DAILY_STEP_BASELINE` *is* Motion's gold band by derivation,
-    // which is why no literal appears here.
+    // sentence. Both bands come from `topBandFor`, which is the one way to
+    // reach a threshold out of the engine, so the two notes below cannot arrive
+    // at a band by two different routes. `topBandFor('AGI')` *is*
+    // `DAILY_STEP_BASELINE` by derivation, which is why no literal appears.
     motionNote: totals
       ? spreadLine({
           activeHours: totals.activeHours,
-          goldSteps: shiftedThreshold(DAILY_STEP_BASELINE, spreadShift(totals.activeHours)),
-          baseSteps: DAILY_STEP_BASELINE,
+          goldSteps: topBandFor('AGI', spreadShift(totals.activeHours)),
+          baseSteps: topBandFor('AGI'),
         })
       : null,
+    // And why today's Body is, when last night bought it. The same shape as the
+    // line above and read through the same `restedShift` the scorer used, from
+    // the same `sleepMinutes` — which has already passed the trust gate, so a
+    // hand-typed night neither scores Mind nor earns this sentence. Null for
+    // every phone-only account, which is most of them (deviation #68).
+    bodyNote: restedLine({
+      sleepMinutes: sleepMinutesToday,
+      goldKcal: topBandFor('STR', restedShift(sleepMinutesToday)),
+      baseKcal: topBandFor('STR'),
+    }),
     quests,
     selectedQuestIndex: nextStep.kind === 'quest' ? nextStep.index : null,
     // From the sync store rather than a query: nothing about which apps were

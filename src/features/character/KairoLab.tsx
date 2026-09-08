@@ -11,7 +11,7 @@ import { Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { Diorama } from './Diorama.tsx';
 import { KairoThumbnail } from './KairoThumbnail.tsx';
-import { ceilingLine, spreadLine } from './kairo-voice.ts';
+import { ceilingLine, restedLine, spreadLine } from './kairo-voice.ts';
 import {
   MOTION_LOCATIONS,
   livingCharacterLabel,
@@ -114,6 +114,10 @@ function Metadata({ children }: { children: ReactNode }) {
  */
 function CopySurfaces() {
   const spread = spreadLine({ activeHours: 8, goldSteps: 7_500, baseSteps: 10_000 });
+  // The peak of the rested ramp: Body's 400 kcal band at 350. Unreachable in
+  // the app without a wearable and a synced night, which is exactly the sort of
+  // surface this lab exists for.
+  const rested = restedLine({ sleepMinutes: 480, goldKcal: 350, baseKcal: 400 });
   const nextUp = statDetailLine(
     resolveStatDetail({
       totals: {
@@ -134,6 +138,11 @@ function CopySurfaces() {
       <View style={styles.entry}>
         <Text style={styles.entryTitle}>Spread aside — Today</Text>
         <Text style={labStyles.aside}>{spread}</Text>
+      </View>
+
+      <View style={styles.entry}>
+        <Text style={styles.entryTitle}>Rested aside — Today</Text>
+        <Text style={labStyles.aside}>{rested}</Text>
       </View>
 
       <View style={styles.entry}>

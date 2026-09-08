@@ -14,8 +14,15 @@ import {
   shiftedTierFor,
   statPointsFor,
   tierFor,
+  topBandFor,
 } from './scoring.ts';
-import { MAX_THRESHOLD_SHIFT, spreadShift, statShifts } from './shifts.ts';
+import {
+  MAX_RESTED_SHIFT,
+  MAX_THRESHOLD_SHIFT,
+  restedShift,
+  spreadShift,
+  statShifts,
+} from './shifts.ts';
 import { CORE_STATS, type CoreStat, type HourBucket } from './types.ts';
 
 /** Build a day of buckets. `perHour` is applied to each hour listed. */
@@ -828,9 +835,9 @@ describe('nextTierFor — the band the day is actually judged against', () => {
       gap: 200,
       bandLow: 200,
     });
-    // A shift argument is still accepted and still clamps, but nothing on the
-    // write path supplies one for Body.
-    expect(statShifts({ activeHours: 24 }).STR).toBe(0);
+    // Movement buys Body nothing, however much of it there was. The night is
+    // the only thing that moves Body's ladder (deviation #68).
+    expect(statShifts({ activeHours: 24, sleepMinutes: null }).STR).toBe(0);
   });
 
   it('is the unshifted ladder when the day earned no shift', () => {
@@ -838,6 +845,122 @@ describe('nextTierFor — the band the day is actually judged against', () => {
     // bands a user has learned.
     expect(nextTierFor('AGI', 8_760, 0)).toEqual(nextTierFor('AGI', 8_760));
     expect(nextTierFor('AGI', 8_760, spreadShift(2))).toEqual(nextTierFor('AGI', 8_760));
+  });
+});
+
+// **Deviation #68, asserted through `computeDailyScore` and never through
+// `tierFor`.** `tierFor` is `shiftedTierFor(stat, raw, 0)` — the one path where
+// a shift is absent by construction — so a guard written there passes however
+// wrong the scored day becomes. That is exactly how the AGI/AGI_base divergence
+// got through review once, and this block is arranged to not repeat it.
+describe('a rested night against Body', () => {
+  // Eight hours is the peak of the ramp: Body's Gold moves 400 kcal -> 350.
+  const RESTED = 8 * 60;
+  const restedDay = (activeKcal: number, sleepMinutes: number | null = RESTED) =>
+    computeDailyScore({ buckets: dayWith({ activeKcal }), sleepMinutes });
+
+  it('scores Body Gold at 350 kcal after a rested night', () => {
+    expect(restedDay(350).stats.STR.tier).toBe('gold');
+    // And the same day without the night does not — the discount is the whole
+    // of the difference.
+    expect(restedDay(350, null).stats.STR.tier).toBe('silver');
+  });
+
+  it('changes nothing under seven hours', () => {
+    const short = restedDay(350, 6.9 * 60);
+    expect(short.stats.STR.tier).toBe('silver');
+    expect(short.stats.STR.points).toBe(restedDay(350, null).stats.STR.points);
+  });
+
+  it('tapers a very long night rather than cliffing it', () => {
+    const long = restedDay(350, 12 * 60).stats.STR;
+    const peak = restedDay(350).stats.STR;
+    // Less than the peak, more than nothing — and still a real discount.
+    expect(long.points).toBeLessThan(peak.points);
+    expect(long.points).toBeGreaterThan(restedDay(350, null).stats.STR.points);
+  });
+
+  it('leaves Body’s raw value alone — only the bands move', () => {
+    // The strength credit is the only thing that may touch Body's raw value.
+    // If a night ever appears in this number, the signal is being spent twice.
+    expect(restedDay(350).stats.STR.raw).toBe(350);
+    expect(restedDay(350, null).stats.STR.raw).toBe(350);
+  });
+
+  it('leaves Mind’s own bands alone', () => {
+    // Mind is scored from the same night. If the night discounted Mind's ladder
+    // as well, this is where it would show: a night one minute under Gold
+    // arriving at Gold anyway.
+    const underGold = 7 * 60 - 1;
+    expect(computeDailyScore({ buckets: dayWith({}), sleepMinutes: underGold })
+      .stats.MND.tier).toBe('silver');
+    expect(computeDailyScore({ buckets: dayWith({}), sleepMinutes: 7 * 60 })
+      .stats.MND.tier).toBe('gold');
+    // And the points are the curve's, unshifted, whatever else the day held.
+    const a = computeDailyScore({ buckets: dayWith({}), sleepMinutes: RESTED });
+    const b = computeDailyScore({
+      buckets: dayWith({ steps: 12_000, activeKcal: 900, activeHours: 10 }),
+      sleepMinutes: RESTED,
+    });
+    expect(a.stats.MND.points).toBe(b.stats.MND.points);
+  });
+
+  it('leaves Motion untouched — the ladder, the walk and the ridge alike', () => {
+    // The acceptance criterion, said through the scored day. A perfectly rested
+    // night must not move one Motion figure, on any of the three readings the
+    // race and the Daily Walk hang off.
+    for (const activeHours of [0, 3, 5, 8, 12]) {
+      for (const steps of [0, 4_999, 7_500, DAILY_STEP_BASELINE, 14_000]) {
+        // `dayWith` cannot place more active hours than the steps pay for.
+        if (steps < activeHours * VIT_ACTIVE_HOUR_STEPS) continue;
+        const buckets = dayWith({ steps, activeHours });
+        const rested = computeDailyScore({ buckets, sleepMinutes: RESTED });
+        const not = computeDailyScore({ buckets, sleepMinutes: null });
+        expect(rested.stats.AGI.tier).toBe(not.stats.AGI.tier);
+        expect(rested.stats.AGI.unshiftedTier).toBe(not.stats.AGI.unshiftedTier);
+        expect(rested.stats.AGI.points).toBe(not.stats.AGI.points);
+      }
+    }
+  });
+
+  it('still clears the walk only at the full baseline', () => {
+    const rested = (steps: number) =>
+      computeDailyScore({
+        buckets: dayWith({ steps, activeHours: 8 }),
+        sleepMinutes: RESTED,
+      }).stats.AGI.unshiftedTier;
+    expect(rested(DAILY_STEP_BASELINE)).toBe('gold');
+    expect(rested(DAILY_STEP_BASELINE - 1)).not.toBe('gold');
+  });
+
+  it('cannot push a day past the ceiling', () => {
+    // A shift lowers a band; it never raises what a band pays. The ceiling is
+    // the constraint `daily_scores` is checked against, so this is the one that
+    // would fail loudly in the database rather than quietly on a screen.
+    const best = computeDailyScore({
+      buckets: dayWith({ steps: 30_000, activeKcal: 2_000, activeHours: 16 }),
+      sleepMinutes: RESTED,
+    });
+    expect(best.healthTotal).toBeLessThanOrEqual(MAX_DAILY_SCORE_WITH_WEARABLE);
+    expect(best.stats.STR.points).toBe(1_200);
+  });
+
+  it('publishes the band the sentence quotes, and only the top one', () => {
+    // `restedLine` computes its discount from these two, so a difference here
+    // is the difference the sheet prints. 400 -> 350 at the peak.
+    expect(topBandFor('STR')).toBe(400);
+    expect(topBandFor('STR', restedShift(RESTED))).toBe(350);
+    // And Motion's is the baseline itself, which is what stops the two
+    // sentences quoting two ladders.
+    expect(topBandFor('AGI')).toBe(DAILY_STEP_BASELINE);
+  });
+
+  it('is a hand-typed night’s zero, because the gate runs before this', () => {
+    // The trust gate hands `null` for a hand-typed night, so it neither scores
+    // Mind nor discounts Body. One value, one decision, two consequences.
+    expect(restedShift(null)).toBe(0);
+    expect(restedDay(350, null).stats.STR.tier).toBe('silver');
+    expect(MAX_RESTED_SHIFT).toBeCloseTo(MAX_THRESHOLD_SHIFT / 2);
   });
 });
 

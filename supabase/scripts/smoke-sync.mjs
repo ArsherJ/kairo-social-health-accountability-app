@@ -108,6 +108,33 @@ const buckets = Array.from({ length: 24 }, (_, hour) => {
   };
 });
 
+// Eight hours, which is the peak of deviation #68's rested ramp — and the whole
+// reason this is not the 420 it was until 2026-09-08. `wasUserEntered: false`
+// is load-bearing either way (see the payload below), but at 480 the night also
+// buys Body a 12.5% threshold shift, which is what `EXPECTED_STR_POINTS` below
+// is here to observe on the deployed artifact.
+const SLEEP_MINUTES = 480;
+
+// Body's points for this exact day, and the two numbers are the assertion.
+//
+// The buckets carry 260 active kcal (26 x 10 active hours) and the only workout
+// is a *run*, which earns no strength credit — so Body's raw value is exactly
+// 260 whatever else changes here. Against the published ladder (200/400) that
+// interpolates to **815**; against the rested night's shifted ladder (175/350)
+// it interpolates to **917**. A deployed function that predates deviation #68,
+// or one that stopped passing `sleepMinutes` into `statShifts`, writes 815 and
+// fails here — which is the whole point, because nothing else about such a
+// deploy looks wrong: the sync succeeds, the day scores, and Body is quietly
+// judged against a ladder the app is explaining to the player as a different
+// one. Same posture as `normalization_factor`, and the same failure shape as
+// the 2026-08-09 outage: source and artifact disagreeing in silence.
+//
+// It is arithmetic over `THRESHOLDS.STR` and `TIER_POINTS`, so moving either
+// moves this. That is intended: a band change is a decision, and a human should
+// have to retype this number rather than have it follow along.
+const EXPECTED_STR_POINTS = 917;
+const UNSHIFTED_STR_POINTS = 815;
+
 // One workout session, so the deployed function's newest write path is
 // exercised too. This is the same class of drift the outage was: a migration
 // adds a table, the deployed function does not know about it (or knows about a
@@ -159,7 +186,7 @@ const { error: syncError } = await supabase.functions.invoke('sync-health', {
     // `wasUserEntered: false` is load-bearing rather than decoration: a
     // hand-typed night scores no MND and does not open §3's capability window,
     // so the normalization assertion below would read 1.500 instead of 1.000.
-    sleep: [{ localDate, minutes: 420, wasUserEntered: false }],
+    sleep: [{ localDate, minutes: SLEEP_MINUTES, wasUserEntered: false }],
     buckets,
     sessions,
   },
@@ -215,8 +242,29 @@ if (Number(score.normalization_factor) !== 1) {
 if (score.mind_points <= 0) {
   fail(
     'daily_scores',
-    `420 minutes of sleep were sent and mind_points=${score.mind_points} — the ` +
-      'deployed sync-health predates the three-stat switch',
+    `${SLEEP_MINUTES} minutes of sleep were sent and mind_points=${score.mind_points} — ` +
+      'the deployed sync-health predates the three-stat switch',
+  );
+}
+// Deviation #68: the same night that scored Mind above must also have lowered
+// Body's bands. Named separately from the general case because the 815 is a
+// diagnosis rather than a number — it is precisely what an unshifted deploy
+// writes, so seeing it means the engine is live and the *night* is not reaching
+// it, which is a different bug from the function being stale.
+if (Number(score.str_points) === UNSHIFTED_STR_POINTS) {
+  fail(
+    'daily_scores',
+    `str_points=${score.str_points} — Body was judged against the UNSHIFTED ladder ` +
+      `after a ${SLEEP_MINUTES}-minute night. The deployed function predates ` +
+      'deviation #68, or it is not passing sleepMinutes into statShifts',
+  );
+}
+if (Number(score.str_points) !== EXPECTED_STR_POINTS) {
+  fail(
+    'daily_scores',
+    `str_points=${score.str_points}, expected ${EXPECTED_STR_POINTS} — 260 active ` +
+      "kcal against a rested night's shifted Body ladder. Either a band moved and " +
+      'this constant was not retyped, or the deployed engine is not this one',
   );
 }
 

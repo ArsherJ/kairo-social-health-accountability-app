@@ -16,6 +16,7 @@ const base = {
   dailyWalkRun: 4,
   dailyWalkNote: WALK_BODY,
   motionNote: null,
+  bodyNote: null,
   quests: [],
   selectedQuestIndex: null,
   droppedStepSources: [] as string[],
@@ -134,6 +135,17 @@ describe('todayDetails', () => {
     expect(JSON.stringify(todayDetails({ ...base, motionNote: 'Motion eased after three active hours.' })))
       .toContain('Motion eased after three active hours.');
     expect(JSON.stringify(todayDetails(base))).not.toContain("Today's Motion");
+  });
+
+  it('shows a Body explanation only when the night bought one', () => {
+    const rows = (bodyNote: string | null) =>
+      todayDetails({ ...base, bodyNote }).find((section) => section.id === 'body')!.rows;
+    expect(rows('Slept 8 hours — Body tops out 50 kcal sooner today.').at(-1)?.value).toBe(
+      'Slept 8 hours — Body tops out 50 kcal sooner today.',
+    );
+    // Null is the ordinary case — a phone-only account has no night to read —
+    // so the section is the figures alone, not a row saying nothing happened.
+    expect(rows(null).some((row) => row.id === 'body-note')).toBe(false);
   });
 
   it('never emits score totals, tiers, XP, or engine keys', () => {

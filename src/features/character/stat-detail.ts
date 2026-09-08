@@ -31,8 +31,8 @@ export const STAT_UNITS: Record<CoreStat, string> = {
  */
 export const STAT_WHY: Record<CoreStat, string> = {
   AGI: 'Daily step count is one of the strongest single predictors of long-term health — more than almost anything else you can measure this easily. Spreading those steps across the day counts for more than one long walk: sitting still the rest of the day carries its own risk.',
-  STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked — and a tracked workout makes this one easier to top out.',
-  MND: 'Sleep is when training becomes strength. Seven hours tops it out, and a very long night still counts — recovery is never punished.',
+  STR: 'Active calories stand in for hard effort. Kairo cannot see what you lifted, but it can see that you worked — and a tracked strength session counts for more than the calories alone. A rested night makes this one easier to top out.',
+  MND: 'Sleep is when training becomes strength. Seven hours tops it out, and a very long night still counts — recovery is never punished. A rested night also lowers what Body asks of you today, if you have something that measures your sleep.',
 };
 
 /**
@@ -138,10 +138,12 @@ function rawFor(
  * could not see — so on a day carrying a workout it was dropped from the
  * ranking rather than quoted from a ladder that might be a quarter wrong, and
  * a `kind: 'unquantified'` variant existed to say the lever without a figure.
- * Retiring that shift on 2026-08-29 deleted the whole problem: Body is judged
- * against the published ladder now, every stat here is quotable, and the
- * variant went with the state it described rather than being left behind as an
- * unreachable branch.
+ * Retiring that shift on 2026-08-29 deleted the whole problem: every stat here
+ * became quotable, and the variant went with the state it described rather than
+ * being left behind as an unreachable branch. **Body took a shift again on
+ * 2026-09-08** and the problem did not come back with it, which is the point of
+ * the note above: the night is a value this screen *has*, so Body is quoted from
+ * the ladder the scorer used rather than from one this screen cannot measure.
  */
 export function resolveStatDetail({
   totals,
@@ -150,12 +152,21 @@ export function resolveStatDetail({
 }: {
   totals: DayTotals | undefined;
   /**
-   * Today's attributed sleep, or null when no row exists. `undefined` while
-   * the query is in flight — treated exactly like null, because both mean
-   * "nothing to say about Mind yet" and neither is a reason to hold the whole
-   * line back.
+   * Today's attributed sleep, or null when no row exists.
+   *
+   * **Required since 2026-09-08, and nullable rather than optional.** A caller
+   * with a query in flight writes `?? null` and gets the old behaviour — null
+   * and in-flight mean the same thing here, because both are "nothing to say
+   * about Mind yet" and neither is a reason to hold the whole line back. What
+   * the required-ness buys is the other stat: Body's bands move with this value
+   * now (deviation #68), so a caller that simply omits it quietly quotes Body's
+   * *published* ladder to a rested player — which is the exact bug this
+   * function's `statShifts` call was added to close, arriving through the
+   * argument list instead. `statShifts` made the same field required for the
+   * same reason; a default is where "no wearable" and "you forgot" become one
+   * silent answer.
    */
-  sleepMinutes?: number | null;
+  sleepMinutes: number | null;
   lane: CoreStat | null;
 }): StatDetail {
   if (!totals) return { kind: 'unknown' };
@@ -164,7 +175,11 @@ export function resolveStatDetail({
   // of it. Reading the unshifted ladder here is the bug this closes: a
   // well-spread day was told "1,240 more steps" and reached Gold at 7,500,
   // and arriving early reads as a broken score rather than a gift.
-  const shifts = statShifts({ activeHours: totals.activeHours });
+  //
+  // The night goes in for exactly that reason (deviation #68): since Body's
+  // bands move with it, quoting Body's published ladder to a rested player
+  // would be the same bug on the second stat.
+  const shifts = statShifts({ activeHours: totals.activeHours, sleepMinutes });
 
   interface Open {
     stat: CoreStat;
@@ -177,7 +192,7 @@ export function resolveStatDetail({
 
   const open: Open[] = [];
   for (const stat of CORE_STATS) {
-    const raw = rawFor(stat, totals, sleepMinutes ?? null);
+    const raw = rawFor(stat, totals, sleepMinutes);
     // Unknown, not zero — see rawFor. A stat with no measurement has no gap
     // worth naming, and a fabricated 0 would make it win the "closest gap"
     // pick over stats with real progress.
