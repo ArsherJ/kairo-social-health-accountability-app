@@ -19,6 +19,13 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 
 Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
 
+**Three passes are deep enough that their reasoning was extracted, on 2026-09-08, to keep this file inside its size limit. The rules stayed here; the *why* moved.** Each block below carries the rules and points at its doc, and the docs are verbatim — nothing was rewritten or dropped:
+
+- `docs/engineering/scoring.md` — the three-stat switch, the Body/Motion/Mind pass, the surface names, the rested-night shift. Read before changing a threshold, a shift, a point curve or a stat's copy.
+- `docs/engineering/health-ingest.md` — typed-in samples, untrusted step sources, the hourly ceilings. Read before touching a read filter, the ceilings or `stat_records()`.
+- `docs/engineering/surfaces.md` — the accessibility pass, the Playful redesign, onboarding, the Sky corridor, the art passes, three rounds of device-seen layout faults. Read before adding or reshaping a screen.
+- `docs/archive/battle-and-goals.md` — two retired mechanics, kept because their schema survives them.
+
 **Kairo is a race as of 2026-08-25** (roadmap deviation #44) — the pivot, now
 complete across all five sub-projects. Your real life powers your character;
 your character races your friends. **The scoring engine is untouched** and still
@@ -106,214 +113,72 @@ the app as a leaderboard with goals, it is stale — fix it.
   milestone store nor the per-session `app_open` marker; confusing the three is
   how a count becomes a launch counter or a scroll counter.
 
-**Typed-in Health samples are excluded at the query as of 2026-09-06**
-(deviation #67, first of its three parts). `EXCLUDE_TYPED_IN` in
-`src/features/health/read.ts` is spread into the filter of **every**
-`queryStatisticsCollectionForQuantity` call — steps, distance, active energy,
-exercise minutes, hourly heart rate and resting heart rate — so a number typed
-into the Health app stops being Kairo activity at the source rather than only
-being bounded downstream. Four things break easily:
+**Health reads are filtered at the source, and an implausible hour flags the
+day, as of 2026-09-06** (deviation #67, all three parts). The reasoning, the
+silent failures each half invites, and the simulator verification run are
+`docs/engineering/health-ingest.md` — **read it before touching any read
+filter, the ceilings, or `stat_records()`.** The rules:
 
-- **`operatorType: notEqualTo` is the trap, and the compound `NOT` is the
-  answer.** An automatically-recorded sample carries **no `HKWasUserEntered`
-  key at all**, and a `!=` against a missing key is not reliably true: the
-  plausible failure is every quantity read returning zero, forever, with no
-  error anywhere — the `activity_type` omission's silent shape in a new place.
-  `NOT [{ metadata: { withMetadataKey, equalTo, true } }]` asks the opposite
-  question, and `createNotPredicateForSamples` ANDs it with the date range
-  rather than replacing it. A test bans the word `notEqualTo` in that file.
-- **This is not what sleep and workouts do, and the doc comment says so.** Those
-  read the flag off *returned samples* and let a pure module decide downstream;
-  a statistics collection returns sums, so there is nothing left to filter.
-  `queryWorkoutSamples` therefore keeps a **date-only** filter (`dateFilter`,
-  beside `quantityFilter`) on purpose: excluding typed-in workouts at the query
-  would make `WorkoutSessionReading.wasUserEntered` dead and move a §3 rule the
-  server owns onto the client, by omission.
-- **The guard is a source scan, and it has no exceptions.**
-  `typed-in-samples.test.ts` resolves each call's filter through one level of
-  `const` and fails any collection that does not reach `EXCLUDE_TYPED_IN` —
-  `calibration-read.test.ts`'s arrangement, for its reason: `read.ts` imports
-  the HealthKit library, whose Flow syntax root Vitest cannot parse, and the
-  behaviour is native anyway. It strips comments first, because the module
-  explains the trap it is avoiding and a guard that fails on that sentence gets
-  deleted.
-- **It costs the simulator dev loop, and `dev-seed.ts` is not the part that
-  breaks.** Typing a day into a simulator's Health app now produces nothing
-  Kairo can see, which is the usual way a simulator gets data. `dev-seed.ts`
-  survives, **verified on the simulator 2026-09-06**: it saves samples
-  programmatically and attaches no `HKWasUserEntered` metadata, and HealthKit
-  does not add the key on an app's behalf — so do not "fix" it by adding one.
-  What neither covers is a *squadmate's* day, which only `seed-health` can
-  fabricate; it earns its keep for that, fail-closed on `CRON_SECRET` (shared
-  rather than a second credential; the `seed_test_users` allowlist, not secret
-  uniqueness, is what bounds the damage) and reachable by no client path.
-- **A simulator proves more than "it cannot see this failure" suggests, and the
-  test is two readings that must disagree.** The catastrophic failure is the
-  predicate excluding *everything*, and `dev-seed.ts` is exactly the control
-  that rules it out, because it writes unflagged samples through the same read
-  path. The run on 2026-09-06: HealthKit held **71,736** steps for the day — two
-  dev-seed runs plus one 50,000-step sample typed into the Health app — and both
-  Kairo and `health_buckets` held **22,000**, the seeded total alone. The figure
-  moved 11,000 → 22,000 when the second seed landed, so the read was live rather
-  than a cached server value. (The 264 between 50,000 typed and the 49,736
-  HealthKit attributes to it is its own overlap de-duplication of an
-  instantaneous 12:36 sample against a seeded hour-12 interval — same-source
-  merging, nothing the predicate did.) **Re-run this before touching
-  `EXCLUDE_TYPED_IN` or any collection's filter**; it is cheaper than a build and
-  it is the only check that distinguishes the two silent failures from each
-  other. What is still device-only is narrower than the whole change: whether
-  Apple's own *sensor-recorded* samples behave like unflagged programmatic ones.
-  No simulator produces those.
-
-**Untrusted step sources stop counting as of 2026-09-06** (deviation #67, second
-of its three parts). `partitionStepSources` in
-`src/features/health/step-sources.ts` splits the day's contributing sources; the
-trusted ones go back to HealthKit as `filter.sources` on the **same** combined
-statistics collection. Seven things break easily:
-
-- **A source predicate, never per-source sums.** Apple deduplicates *inside* one
-  query, which is what stops an iPhone and its paired Watch counting the same
-  steps (deviation #8). `queryStatisticsCollectionForQuantitySeparateBySource`
-  exists and summing its output looks equivalent — it rebuilds that double count
-  for exactly the most competitive users.
-- **An empty trusted list means skip the query, not pass an empty array.**
-  Natively an empty source set yields *no* predicate
-  (`createSourcePredicate` returns nil), so `sources: []` counts **every**
-  source including the ones just rejected — the exact failure the read exists to
-  prevent, arrived at by tidiness. `read.ts` skips the steps collection instead,
-  which **does** zero the day's steps server-side — `toBuckets` seeds every hour
-  of every requested date, so producing no readings uploads `steps: 0` across
-  the window. That is correct when nothing contributing is counted, and it is
-  why the disclosure line is not optional.
-- **`null` and empty are different answers and fail in opposite directions.**
-  `null` means the *enumeration* threw and there is no verdict about anybody's
-  steps, so the read counts every source exactly as it did before the predicate
-  existed. Failing closed there would make a transient native error silently
-  delete the player's own iPhone steps with no line to explain it — the "number
-  too low, no reason" failure this pass exists to remove, reintroduced by its own
-  fix. An empty partition means the enumeration answered and trusted nothing,
-  which must count nothing. Collapsing the two into one `[]` is the easy mistake,
-  and it was made once here before being caught.
-- **The prefix is `com.apple.health.` — case-sensitive, trailing dot,
-  something after it.** All three are load-bearing. `com.apple.Health` is the
-  *Health app*, i.e. hand entry, and differs only by case, so a
-  case-insensitive match would trust typed-in numbers with `EXCLUDE_TYPED_IN` as
-  the only thing left between them and the score; without the dot
-  `com.apple.healthkitreporter` matches; and the bare prefix is not a device.
-  It is a prefix rule rather than `WORKOUT_SOURCE_ALLOWLIST`'s exact list
-  because device data carries `com.apple.health.<device-uuid>` — one list per
-  shape of identifier, and they are not interchangeable.
-- **`STEP_SOURCE_BRIDGE_ALLOWLIST` is empty on purpose, and it ships in the
-  app.** Empty because no cohort exists and a wrong guess here is the only kind
-  that inflates a score; the disclosure line is how it gets filled, from what
-  players actually carry. **In the app, not server-side** — the filter is applied
-  at read time on the phone, so the list moves by OTA. The design doc said
-  server-side and was corrected.
-- **Exclusion is inert and must never flag the day.** §5's rule is that a false
-  positive costs more than a miss, and the Philippine market runs cheap bands
-  that write under their own identifiers — "count Apple only and flag the rest"
-  accuses the target market of cheating for owning its own hardware.
-  `today-details.ts`'s line states a fact and a test bans seven accusing words.
-- **`dev-seed.ts` writes as Kairo and would be dropped by this.** `read.ts`
-  passes the app's own bundle id through `partitionStepSources`' `alsoTrust`
-  under `__DEV__` only — otherwise the source predicate takes the simulator loop
-  out a second time, straight after `EXCLUDE_TYPED_IN` took it out the first.
-  Empty in a release build, where the app writes no steps at all.
-- **`filter.sources` must hold the objects `querySources` returned.** The native
-  side recovers each with `source as? SourceProxy`, so a mapped or spread copy
-  downcasts to nil, contributes no predicate, and the query counts every source
-  **silently**. `partitionStepSources` is generic over its element type for
-  exactly this reason: it returns the same instances and never rebuilds one.
-- **The names describe the sync window, not today**, and the line is worded for
-  it — "aren't counted yet" is a standing fact about a source, not a claim about
-  today's steps. A first sync spans up to 31 days, so it can name an app that
-  wrote nothing today, and that is still true rather than misleading.
-- **The dropped names never leave the phone.** Not in the sync body, no
-  projection, no telemetry payload, and `status-store.ts` holds them in memory
-  rather than persisting them — a stale list outliving an uninstalled app is a
-  sentence about nothing. `step-sources.test.ts` scans `sync.ts`,
-  `useHealthSync.ts` and Today for both leaks, because "log which bands the
-  cohort carries" is one line away and would turn a disclosure into a
-  collection.
-
-**Two limits of that pass, deliberate and worth knowing.** The predicate is on
-**steps only** — distance, active energy and exercise minutes are unfiltered,
-because the ticket scoped the day's step total and widening it silently would
-change the anti-cheat stride check's inputs without a decision. And it applies
-to `readHealthWindow` only: `readStepsToday` (the onboarding reveal) and
-`readDailySteps` (calibration) still read every source, so an account whose only
-source is an unrecognised band sees a real number on `/connect` and is
-calibrated on steps that will not later count. Both are follow-ups, not
-oversights, and the calibration half is **issue #43** — it writes a durable
-`quest_tier_override` from steps the day totals will never contain, which is a
-wrong stored value rather than a cosmetic gap.
-
-**An implausible hour flags the day, and a flagged day sets no best day, as of
-2026-09-06** (deviation #67, third and last of its three parts). Per hour:
-`HOURLY_CEILINGS` in `packages/kairo-core/src/anticheat.ts` — 12,000 steps,
-15,000 m, 1,200 active kcal, beside the `<= 60` exercise-minute clamp
-`parseBucket` has always had. `isDayFlagged` checks `exceedsHourlyCeiling`
-alongside `evaluateStepBurst`, and `stat_records()` skips a flagged day
-(migration `20260906120000`). Six things break easily:
-
-- **It flags. It does not clamp and it does not reject**, and both were the
-  first instinct. Hourly buckets are the source of truth every score replays
-  from, so a clamp writes a number Apple never reported into the one store that
-  has to stay true and a later threshold change cannot recover the original —
-  and the ceilings are near real human maxima, so a clamp would *reduce a real
-  day*, which the progress-is-still-progress rule forbids. Rejecting is worse:
-  a refused sync is indistinguishable from the 9–11 August outage. A test sends
-  90,000 steps through `validateSyncRequest` and asserts the payload is
-  accepted with every figure intact.
-- **The ceilings are unsuppressible, and the burst rule stays suppressible.**
-  A workout and a heart rate clear a burst, because a burst is about missing
-  corroboration; they do not clear a ceiling, because a payload that fabricates
-  an hour can claim both. The two rules sit side by side in `isDayFlagged`.
-- **The substantive half is `stat_records()`, not the ceilings.** Almost
-  nothing consumes these numbers uncapped — the race caps at the ridge, points
-  cap per stat, XP is banded, Mastery derives from capped points, quests are
-  boolean — so the personal best is the outcome a forged sync could buy. **One
-  consumer was still uncapped and the flag did not stop it**: a Battle pooled
-  raw active calories against a stored target and paid XP, and a flagged day
-  still contributed. **That closed on 2026-09-06** with deviation #66; there is
-  no uncapped consumer left, and adding one reopens the hole rather than merely
-  widening a feature. The
-  ceilings buy the *claim*; skipping flagged days closes the outcome. A flag
-  removes the whole **local date**, Mind's night included, and the exclusion is
-  `not exists` rather than a join: an inner join would drop a date with no
-  `daily_scores` row at all, narrowing the read silently, and only an actual
-  `flagged = true` may remove a day.
-- **The accused hears it first, and the sentence names a consequence that is
-  real.** `FLAGGED_DAY_NOTE` in `today-details.ts` — *"Some of today's hours
-  don't look like walking, so today can't set a personal best — and your flock
-  sees a flag on your row."* — lands on the flagged player's own details before
-  the chip a squadmate sees on their leaderboard row. **The design's draft ended
-  "so they won't count towards the flock" and that is the one thing that is not
-  true**: `squad_leaderboard()` ranks on the weighted total and only projects
-  the flag, the corridor re-ranks capped steps without reading it, and XP,
-  Mastery and the streak are untouched — a flag is a social signal, never a
-  score reduction (`trust.ts`). Two tests pin the wording and ban the
-  "won't count" claim from coming back. It names no rule, no threshold and
-  no figure, and a test pins that: one sentence for two rules is also why
-  `daily_scores.flagged` stays a **boolean**, and naming the bar would publish
-  it to the one reader with a motive to sit just under it. `useTodayScore`
-  selects `flagged` for this and nothing else decides anything from it.
-- **The distance comment was corrected and the rule was not touched.**
-  `DistanceWalkingRunning` is pedometer-estimated by the motion coprocessor on
-  iPhone, not GPS-derived. Requiring a workout or heart rate *beside* the
-  distance would make `MIN_PLAUSIBLE_STRIDE_M` dead code — a workout returns
-  early and heart rate alone already clears — and would flag the honest
-  phone-only runner, whose hour at running cadence clears the 9,000-step bar
-  with only the distance to vouch for them; `EXCLUDE_TYPED_IN` kills the attack
-  it aimed at anyway. `SuppressionSignal`'s `'gps_distance'` value is
-  deliberately **not** renamed: it is reporting only, nothing stores it, and it
-  is what the suppression tests already say.
-- **All five Edge Functions redeploy together**, because the planner is shared,
-  and the deployed behaviour was verified rather than assumed on 2026-09-06:
-  `smoke-sync.mjs` passed, and a one-off through the real door sent a
-  30,000-step hour with a workout and a heart rate vouching for it — the
-  payload was accepted, the bucket stored as `30000 / 22500 / 700`, the day
-  flagged, and `stat_records()` returned no rows.
+- **`EXCLUDE_TYPED_IN` is spread into the filter of every
+  `queryStatisticsCollectionForQuantity` call** in `src/features/health/read.ts`,
+  so a number typed into the Health app stops being Kairo activity at the
+  source. It is a compound `NOT` over `withMetadataKey`, **never
+  `operatorType: notEqualTo`** — an automatically-recorded sample carries no
+  `HKWasUserEntered` key at all, and `!=` against a missing key silently zeroes
+  every quantity read forever. A source scan bans the word `notEqualTo` in that
+  file and has no exceptions. `queryWorkoutSamples` keeps a **date-only** filter
+  on purpose: sleep and workouts read the flag off returned samples instead, and
+  filtering them at the query would make `WorkoutSessionReading.wasUserEntered`
+  dead and move a §3 rule the server owns onto the client.
+- **Untrusted step sources stop counting**, via `partitionStepSources`
+  (`src/features/health/step-sources.ts`) feeding `filter.sources` on the
+  **same** combined statistics collection — never per-source sums, which rebuild
+  the iPhone/Watch double count Apple's in-query de-duplication prevents
+  (deviation #8). `null` (the enumeration threw) counts every source; an empty
+  trusted list **skips the steps collection**, which zeroes the day — passing
+  `sources: []` yields no predicate natively and counts everything, the exact
+  failure the read exists to prevent. The trusted prefix is
+  `com.apple.health.`: case-sensitive, trailing dot, something after it, all
+  three load-bearing. `STEP_SOURCE_BRIDGE_ALLOWLIST` is empty on purpose and
+  ships **in the app**, so it moves by OTA. Exclusion is inert and must never
+  flag the day; `today-details.ts` discloses the dropped names as a standing
+  fact about a source and a test bans seven accusing words. `filter.sources`
+  must hold the objects `querySources` returned — a mapped or spread copy
+  downcasts to nil natively and counts every source silently. The dropped names
+  never leave the phone, and a scan of `sync.ts`, `useHealthSync.ts` and Today
+  holds both halves of that.
+- **`dev-seed.ts` is the simulator control and must keep working.** It writes
+  unflagged samples through the same read path, which is the only check that
+  distinguishes "the predicate excludes everything" from "the predicate works";
+  `read.ts` passes the app's own bundle id through `alsoTrust` under `__DEV__`
+  only. Re-run the two-reading check in the doc before changing
+  `EXCLUDE_TYPED_IN` or any collection's filter.
+- **Two deliberate limits.** The source predicate is on **steps only**, and it
+  applies to `readHealthWindow` only — `readStepsToday` (the onboarding reveal)
+  and `readDailySteps` (calibration) still read every source. The calibration
+  half is **issue #43**: it writes a durable `quest_tier_override` from steps
+  the day totals will never contain.
+- **`HOURLY_CEILINGS` flag; they do not clamp and do not reject.** 12,000 steps,
+  15,000 m, 1,200 active kcal per hour in `packages/kairo-core/src/anticheat.ts`,
+  checked by `isDayFlagged` beside `evaluateStepBurst`. A clamp writes a number
+  Apple never reported into the store every score replays from and would reduce
+  a real day; a rejection is indistinguishable from the August outage. A test
+  sends 90,000 steps through `validateSyncRequest` and asserts the payload is
+  accepted intact. The ceilings are **unsuppressible**; the burst rule stays
+  suppressible, because a burst is about missing corroboration and a fabricated
+  hour can claim both.
+- **The substantive half is `stat_records()` skipping a flagged day** (migration
+  `20260906120000`) — `not exists` rather than a join, removing the whole local
+  date. Nothing else consumes raw units uncapped; the Battle was the last and
+  went with deviation #66, so adding an uncapped consumer reopens the hole
+  rather than merely widening a feature.
+- **`FLAGGED_DAY_NOTE` in `today-details.ts` reaches the accused first**, names
+  a consequence that is real (no personal best, a flag on the flock row) and
+  never "won't count towards the flock" — a flag is a social signal, never a
+  score reduction (`trust.ts`). It names no rule, threshold or figure, which is
+  also why `daily_scores.flagged` stays a boolean. Tests pin the wording and ban
+  the "won't count" claim.
+- **All five Edge Functions redeploy together**, because the planner is shared.
 
 **Body metrics are inert, and the app says so as of 2026-09-04** (deviation
 #60). `profiles.height_cm` and `profiles.weight_kg` reach **no scoring path** —
@@ -346,306 +211,109 @@ went with Goals on 2026-08-25: an Event's target is a number of **calories**,
 which the squad produces rather than accrues. If you find any surface rendering
 a score total, it is stale — fix it.
 
-**Kairo scores three stats as of 2026-08-20** (deviation #41). `CoreStat` is
-`'AGI' | 'STR' | 'MND'`: steps, active calories, sleep. END folded into STR and
-VIT into AGI as **threshold shifts** — never point multipliers, because a
-stored multiplier stacks with the squad program's read-time weight and that is
-deviation #10's trap — and sleep was promoted from the REC bonus to a full
-stat. **END's half of that is retired as of 2026-08-29**; see the block below
-for what replaced it. VIT's spread shift on AGI is unchanged. A day's stat points scale by `3 / earnable stats`, so both ceilings are
-4,400 and a wearable buys a third route to the same ceiling rather than a
-higher one. Three things break easily:
+**Kairo scores three stats, and the ladder is not a lookup.** Deviations #41
+(three stats, 2026-08-20), the 2026-08-29 Body/Motion/Mind pass, #51 (surface
+names, 2026-08-25) and #68 (a rested night, 2026-09-08). The full accounts —
+what each pass moved, what it retired, the double-counts it would reintroduce,
+and the ADR-0001 replay licence it spent — are `docs/engineering/scoring.md`,
+with the design at
+`docs/superpowers/specs/2026-08-29-body-motion-mind-design.md` and the
+vocabulary in `CONTEXT.md`. **Read that doc before changing a threshold, a
+shift, a point curve or a stat's surface copy.** The rules:
 
-- **The Daily Walk reads `tiers->>'AGI_base'`, never `tiers->>'AGI'`.** The
-  spread shift lowers AGI's whole ladder, Gold included, and `tiers` stores the
-  **shifted** tier — so Gold arrives at 7,500 steps on an eight-active-hour day
-  and the baseline scales with the user, which is exactly what it must never
-  do. `sync-plan.ts` writes both keys; the 90-day streak in `train/queries.ts`
-  reads `AGI_base` and falls back to `AGI` for rows written before the switch,
-  for which the two agree. **A guard written through
-  `tierFor` cannot catch this**, and one was: `tierFor` *is*
-  `shiftedTierFor(stat, raw, 0)`, the single path where the shift is absent by
-  definition, so `scoring.test.ts`'s 10,000 literal passed throughout. Assert
-  through `computeDailyScore` — that is the only place the two ladders can
-  disagree.
+- **`CoreStat` is `'AGI' | 'STR' | 'MND'`** — steps, active calories, sleep.
+  END folded into STR and VIT into AGI as **threshold shifts**, never point
+  multipliers (a stored multiplier stacks with the squad program's read-time
+  weight — deviation #10's trap). A day's stat points scale by
+  `3 / earnable stats`, so both ceilings are 4,400 and a wearable buys a third
+  route to the same ceiling rather than a higher one.
+- **The surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`)**, and
+  the engine keys never change — deviation #23's move in a second place.
+  `src/ui/stat-names.ts` is the single source, zero-runtime-import so root
+  Vitest can hold it, re-exported by `StatIcon.tsx`; `dominanceName()` replaced
+  `DOMINANCE_LABELS` and a parallel table of stat words anywhere is stale by
+  construction. A test scans `src` and `app` for the word **Agility**.
+  "Strength" is deliberately not guarded: `squads.program` and `ChallengeArea`
+  name a game, not a stat — a Strength squad's blurb still reads "Body counts
+  for more", which is correct and briefly confusing, and that trade was taken
+  knowingly. **Do not import `@/ui/index.ts` from a module root Vitest tests.**
+- **The Daily Walk reads `tiers->>'AGI_base'`, never `tiers->>'AGI'`.** AGI's
+  spread shift lowers its whole ladder, so the stored shifted tier would make a
+  public-health baseline scale with the user. `sync-plan.ts` writes both keys;
+  `train/queries.ts` falls back to `AGI` for rows written before the switch.
+- **Prove any shift through `computeDailyScore`, never through `tierFor`.**
+  `tierFor` *is* `shiftedTierFor(stat, raw, 0)`, the one path where a shift is
+  absent by definition — a guard written there passes however wrong the scored
+  day becomes, which is how the `AGI`/`AGI_base` divergence got through review
+  once.
 - **`planDay` requires `earnableStats` and `verifiedStrengthMinutes`, and
-  neither is defaulted.** `DailyScoreInput` defaults both, which is right for a
-  pure function whose callers include tests. `planDay` has exactly two callers
-  and **both are write paths**, so a default there is the silent failure the
-  fields exist to prevent: every stored row scoring at factor 1.0 with nothing
-  anywhere to notice. `scoring-inputs.ts` derives them, against **the date being
-  scored** and never wall-clock today — identical on a live sync, wrong on a
-  replay, and the difference is a 6,200-point day against a 4,400 ceiling that
-  `contributing_stats` still passes.
+  neither is defaulted.** Both its callers are write paths, so a default is
+  every stored row scoring at factor 1.0 with nothing to notice.
+  `scoring-inputs.ts` derives them against **the date being scored**, never
+  wall-clock today.
 - **The board re-sums the per-stat columns; it does not read `total`.** That is
-  the only way `squad_leaderboard()` can apply the program weights at read time
-  (deviation #11), and it means a stat is competitively invisible until it is
-  added to `program_weighted_total` **and** `squad_leaderboard` **and**
-  `weightedBoardTotal` in `@kairo/core`. MND shipped missing from all three for
-  a day: 1,200 stored points the ranking number could not see, on every
-  program. Changing that function's signature is a **drop by exact argument
-  list**, never `create or replace` — the `create_goal` / `p_metric` trap, and a
-  surviving overload fails nothing until a call site resolves to it.
-
-**A rested night lowers Body's bands, as of 2026-09-08** (deviation #68,
-issue #29). `restedShift` in `packages/kairo-core/src/shifts.ts`, routed to
-`STR` by `statShifts`, which now takes a **required** `sleepMinutes`. Zero below
-`MIND_THRESHOLD_HOURS.gold` (7h), a ramp to `MAX_RESTED_SHIFT` (half
-`MAX_THRESHOLD_SHIFT`, 12.5%) at eight hours, held to `MIND_OVERSLEEP_HOURS`,
-and past that **`mindPoints` itself, scaled** — so the taper's shape, its end
-and its floor are all Mind's own and cannot drift from them. At the peak Body's
-Gold moves 400 kcal to 350. Seven things break easily:
-
-- **Body, and never Motion, and that is the whole decision.** Motion's shift
-  already reaches the 0.25 cap at eight active hours, so an additive rested
-  shift there would be a no-op for exactly the players who sleep well *and* move
-  all day — invisible to its own best case. Body's shift was a hard `0`, so
-  there is no cap collision, no interaction with the spread shift, and no second
-  reason to reason about `AGI` against `AGI_base`. The Daily Walk, the ridge and
-  the race are untouched **by construction rather than by care**.
-- **The proof is through `computeDailyScore`, never through `tierFor`.**
-  `tierFor` *is* `shiftedTierFor(stat, raw, 0)` — the one path where a shift is
-  absent by definition — so a guard written there passes however wrong the
-  scored day becomes, which is exactly how the `AGI`/`AGI_base` divergence got
-  through review once. `scoring.test.ts`'s "a rested night against Body" block
-  sweeps five active-hour counts against five step totals and asserts Motion's
-  tier, unshifted tier and points are all identical with and without a night.
-- **One signal, one place.** Sleep scores Mind from its raw value and shifts
-  Body's bands. It must never shift **Mind's own** bands — that is the retired
-  `workoutShift` double-count in a new dress — and it must never touch **Body's
-  raw value**, where `STRENGTH_MINUTE_KCAL_CREDIT` already lives. Verified
-  minutes and a night are two signals with two mechanisms and no overlap; route
-  either through the other's and the double-count returns exactly as it was.
-- **Wearable-gated by the value, not by a second condition.** `sleepMinutes` has
-  already passed the trust gate (`scoringSleepMinutes` on the server,
-  `scoredSleepMinutes` on the client), so a phone-only account and a hand-typed
-  night both arrive as `null`, take a zero shift and meet no sentence. That is
-  most of the Philippine market, and it is a stated cost rather than a gap:
-  write it down rather than letting the cohort discover a stat that does nothing
-  for them.
-- **`statShifts`' `sleepMinutes` is required and must stay so.** A default would
-  make "this account has no wearable" and "this caller forgot" the same silent
-  answer on the path that decides how a day is scored — `planDay`'s
-  `earnableStats` trap in a new place. Two callers: `computeDailyScore` and
-  `stat-detail.ts`, and the second matters, because quoting Body's *published*
-  ladder to a rested player is the same bug the spread shift already caused on
-  Motion.
-- **Nothing new is stored.** `daily_scores.tiers` keeps `AGI_base` and gains no
-  `STR_base`: only the Daily Walk asks the unshifted question, and Body has no
-  public-health floor to protect. No migration, no constraint change — a shift
-  lowers a band and never raises what a band pays, so `MAX_DAILY_SCORE_*` and
-  `contributing_stats` are unmoved.
-- **`topBandFor(stat, shift)` is the only way a threshold leaves the engine**,
-  and it exists so `restedLine` can compute its discount without `400` being
-  written down outside `THRESHOLDS`. Top band only — Bronze and Silver reach
-  surfaces through `nextTierFor`, as a distance from a real reading rather than
-  a bare number.
-- **The visible half is one sentence and it is not a new state.** `restedLine`
-  in `kairo-voice.ts` — *"Slept 8 hours — Body tops out 50 kcal sooner today."* —
-  rendered as the last row of Today's details **Body** section, beside the
-  Motion section's `spreadLine`. It reports the *discount*, never the moved
-  figure, for `spreadLine`'s reason, and reads the night through `durationWords`
-  so the sentence and the Mind row cannot render one night two ways. It does
-  **not** give the `tired` reaction a producer: `SleepState` already has one and
-  already draws art.
-- **It moved stored history, so all five Edge Functions redeployed together and
-  a `replay-scores` pass ran in the same deploy**, under ADR-0001's 2026-09-06
-  amendment — the project held 4 profiles and 30 scored days, well inside the
-  amended licence. Past roughly fifty accounts or sixty days the original rule
-  returns: a migration that rescores, or it does not ship. **`REPLAY_SECRET` is
-  minted for the pass and unset after it**; the function itself has been
-  deployed the whole time (the roadmap's "deleted at step 11" is corrected in
-  place), so the secret's absence is what actually shuts that door.
-- **That replay moved ten of thirty days and only three of them were this
-  change's**, which is worth knowing before the next one. The other seven were
-  **August days still carrying the pre-2026-08-29 lookup engine** — the
-  interpolation pass changed `statPointsFor` and nothing ever replayed the days
-  scored before it, so 2026-08-22 moved 3,300 → 4,172 and 2026-08-23 moved
-  0 → 255 for reasons that have nothing to do with sleep. `xp_awarded` and
-  `finalized_at` did not move on any row, so no level or settled competition
-  changed. The lesson is the ADR's own, in a place it did not look: a licence to
-  move stored history is not a licence to *leave* it moved, and a replay skipped
-  at the time is a silent divergence that the next replay pays for in one lump,
-  attributed to whatever change happened to trigger it.
-
-**Body reads work, points are a curve, and Mind tapers, as of 2026-08-29.**
-Licensed by `docs/adr/0001-replay-compatibility-expires-at-launch.md`: the live
-project held **3 profiles and 6 scored days**, all development accounts, so
-replay-comparability was protecting nobody and was pure design cost. **That
-licence expires at the first real cohort** — from that day a scoring change that
-moves stored history needs a migration that rescores, or it does not ship. The
-replay *mechanism* is untouched and is not what the ADR is about. Design:
-`docs/superpowers/specs/2026-08-29-body-motion-mind-design.md`. Vocabulary:
-`CONTEXT.md`. Six things break easily:
-
-- **`workoutShift` is gone, and reinstating it is a double-count.** Verified
-  strength minutes used to lower Body's *bands*; they raise Body's *raw value*
-  now, at `STRENGTH_MINUTE_KCAL_CREDIT` (4) kcal-equivalent per minute. One
-  signal must never do both — that is the whole reason the shift was retired
-  rather than kept alongside. `statShifts` took **only `activeHours`** and
-  `STR` was a hard 0 in it until deviation #68 (2026-09-08) gave Body the
-  *night's* shift — which is not this arrangement returning, because sleep
-  touches Body's raw value nowhere; route verified minutes back through
-  `statShifts` and the double-count is exactly as it was. AGI's spread shift is
-  untouched and is *not* the same arrangement either: different signal,
-  different stat, no double-count.
-- **`verifiedStrengthMinutesFrom` filters on `activity_type`, and
-  `activity_type` had to be added to `WORKOUT_SESSION_COLUMNS`.** It was not in
-  the select list or in `WorkoutSessionRow`. Without it every row reads
-  `undefined`, `Number(undefined)` is `NaN`, `NaN` is in no list, and Body
-  credits **nothing, forever, with no error anywhere**. The completeness guard
-  (`UnselectedWorkoutColumn extends never`) is what stops that, and it only
-  works because the field is declared on the row type. A run is deliberately not
-  credited: it already reports its calories honestly through `active_kcal`.
-- **Points interpolate between the tier anchors; they are no longer a lookup.**
-  `statPointsFor` is the single path. 250 / 650 / 1,200 still land **exactly** on
-  the bands, so the 4,400 ceiling, `tierFor`, the Daily Walk streak and
-  `AGI_base` are all unmoved — and 5,000 steps no longer scores the same as
-  9,999. **Below Bronze is still zero and that is load-bearing**: interpolating
-  from the origin is the obvious next step and would let fifty steps score
-  points, count as a scored day, and keep a streak alive.
-- **Mind tapers to Silver instead of falling to Bronze.** Gold holds to
+  what lets `squad_leaderboard()` apply the program weights at read time
+  (deviation #11), and it means a stat is competitively invisible until it is in
+  `program_weighted_total` **and** `squad_leaderboard` **and**
+  `weightedBoardTotal`. Changing that function's signature is a **drop by exact
+  argument list**, never `create or replace`.
+- **One signal, one mechanism, and the retired `workoutShift` is why.**
+  Verified strength minutes raise Body's **raw value**
+  (`STRENGTH_MINUTE_KCAL_CREDIT`, 4 kcal/minute) and must never touch its bands;
+  a rested night (`restedShift` in `packages/kairo-core/src/shifts.ts`, routed
+  to `STR` by `statShifts`) lowers Body's **bands** and must never touch its raw
+  value, nor Mind's own bands. Route either through the other's mechanism and
+  the double-count returns exactly as it was. `statShifts`' `sleepMinutes` is
+  **required** — a default makes "no wearable" and "caller forgot" the same
+  silent answer — and the value is already trust-gated, so a phone-only account
+  takes a zero shift and meets no sentence. Sleep shifts Body and **never
+  Motion**, whose shift already caps at eight active hours.
+  `verifiedStrengthMinutesFrom` filters on `activity_type`, which had to be
+  added to `WORKOUT_SESSION_COLUMNS` — without it every row reads `undefined`
+  and Body credits nothing, forever, with no error.
+- **`statPointsFor` interpolates between the tier anchors.** 250 / 650 / 1,200
+  still land exactly on the bands, so the 4,400 ceiling, `tierFor`, the Daily
+  Walk streak and `AGI_base` are unmoved. **Below Bronze is still zero** and
+  that is load-bearing: interpolating from the origin would let fifty steps
+  score points, count as a scored day and keep a streak alive.
+- **Mind tapers to Silver rather than falling to Bronze** — Gold holds to
   `MIND_OVERSLEEP_HOURS` (9), declines to the Silver anchor by
-  `MIND_TAPER_END_HOURS` (10.5), and floors there — so an eleven-hour night can
-  no longer score below a five-hour one. The reason is the data, not just
-  fairness: HealthKit sleep is noisy (a watch on the nightstand, `inBed` against
-  `asleep`, a merged nap), and a cliff punishes *measurement error* as though it
-  were behaviour. **`mindTierFor` derives its tier from `mindPoints`**, never
-  from a second threshold table, so the two cannot disagree about one night.
-  XP still steps once at nine hours, because `TIER_XP` is banded and this pass
-  did not change that.
-- **`TIER_POINTS` lives in `tier-points.ts` now, and passing it as an argument is
-  the mistake that was already made.** `mind.ts` needs the anchors and
-  `scoring.ts` imports `mind.ts`, so the reverse import is a cycle. Threading the
-  table through as a parameter was the first attempt and broke an
-  out-of-package caller (`character-resolver.ts`) at *runtime* rather than
-  compile time. One module, imported by both.
-- **All deployed Edge Functions redeploy together.** `sync-health`,
-  `finalize-days`, `replay-scores` and `dispatch-notifications` all bundle
-  either `core.ts` or `rescore.deno.ts` — and so does `seed-health`, which
-  **has been deployed the whole time this file said it was not.** The
-  2026-09-02 undeployment was written down and never run; `functions list` shows
-  it ACTIVE since the 2026-08-29 batch, and deviation #67 makes deployment the
-  right state anyway. It is one of **five** that redeploy together, not four.
-  Deploying only `sync-health` leaves
-  `finalize-days` rescoring days with the *old* model — the split-brain that
-  took scoring down for two days in August 2026, in a new place. Verified after
-  deploy with `supabase/scripts/smoke-sync.mjs`; a `str_points` that is not
-  250/650/1,200 is the proof the interpolation is live.
-
-**Two more from the same pass (Phase 2).**
-
+  `MIND_TAPER_END_HOURS` (10.5), floors there. HealthKit sleep is noisy, and a
+  cliff punishes measurement error as behaviour. `mindTierFor` derives its tier
+  from `mindPoints`, never a second threshold table. `TIER_POINTS` lives in
+  `tier-points.ts` and is **imported by both** `mind.ts` and `scoring.ts` —
+  threading it through as an argument broke an out-of-package caller at runtime.
+  `topBandFor(stat, shift)` is the only way a threshold leaves the engine.
 - **`profiles.has_sleep_source` is the single stored answer to "can this account
-  earn Mind?", and both quest paths read it.** `pickQuests` now takes `hasSleep`
-  and filters `sleep_minutes` quests out — until 2026-08-29 it filtered on tier
-  alone, so a phone-only account could be dealt `starter-sleep-360` on day one
-  with **no route to clearing it, ever**. The client draws and `finalize-days`
-  grades, so the two must agree: they read one column rather than deriving
-  capability twice, exactly as they already share `quest_tier_override`. The
-  column is **deliberately absent from `profiles`' column-level UPDATE grant**
-  (a client that could set it could change what the grader pays), and — unlike
-  `has_wearable`, which is sticky — it **flips both ways**, because a source
-  that goes away must take the sleep quests with it. `sync-health` writes it for
-  the **latest** date in the payload, never the last one the loop happens to
-  visit. `smoke-sync.mjs` asserts it, so a deploy that silently stops writing it
-  fails at deploy time rather than by quietly withholding every sleep quest.
+  earn Mind?"**, read by both quest paths (`pickQuests` takes `hasSleep`), absent
+  from `profiles`' column-level UPDATE grant, and **flips both ways** — unlike
+  sticky `has_wearable`. `sync-health` writes it for the **latest** date in the
+  payload; `smoke-sync.mjs` asserts it.
 - **`stat_records()` is derived on every read and takes no argument.** Best day
-  per stat in raw units, with its date. Derived for the same reason Event
-  progress is — a retroactive Apple revision has to move a record the way it
-  moves a score, and a stored best would go stale with nothing to notice. No
-  argument for the same reason `delete_account()` has none: a `p_user_id` would
-  put it one bug from reading any account's history, and a personal best must
-  never reach a leaderboard. **Body's record is active calories only, without
-  the strength credit** — a record is a thing a calorimeter actually saw, not a
-  scoring input, and that line is also what keeps the function clear of
-  `workout_sessions`, which no `public` function body may name. Mind reads
-  `was_user_entered is not true`; without it somebody types one fourteen-hour
-  night and holds a record they did not sleep. A stat with no qualifying day
-  returns **no row**, never a zero.
-
-**The surfaces (Phase 3), all OTA.** The through-line is one sentence form —
-**observation, em dash, consequence** — used by `spreadLine`, `statDetailLine`
-and `ceilingLine`. The app computed an elaborate model and showed almost none of
-it; the fix was legibility, not more numbers. Five things break easily:
-
-- **`spreadLine` says "tops out sooner", never "ridge" and never a target.**
-  Both would collide with numbers already on the same screen: **ridge** is the
-  race's finish line (`RACE_FINISH_LINE`, flat for everyone), and the Daily Walk
-  is that same flat figure and **deliberately unshifted** — it reads `AGI_base`
-  precisely so a spread day cannot move a public-health number. Naming a
-  *shifted* figure with either word puts two values behind one noun. The line
-  reports the discount instead, which is what the shift actually is. A test pins
-  it.
-- **The engine-key guards are case-sensitive and word-bounded**
-  (`/\b(AGI|STR|MND)\b/`). A loose `/agi/i` matches "D**agi**t", a perfectly good
-  name for a Philippine eagle — and it did, on first run. A guard that fails on
-  real input gets loosened until it guards nothing.
-- **`statDetailLine` never prints `StatDetail.points`, though the field is right
-  there.** That field predates deviation #34 and its own doc comment still
-  describes copy that named the reward as a number. `topsOut` is what the
-  sentence needs; the number stays for ranking stats internally.
-- **The crest changes the sky, never the bird.** The figure already says four
-  things by shape (species, level band, build, presence ring) and a fifth would
-  make the centrepiece a readout. It is **always paired with `ceilingLine`** —
-  an unexplained change to the screen someone opens first is indistinguishable
-  from a bug, which is the failure this whole pass exists to remove. The trigger
-  reads `daily_scores.total` against `MAX_DAILY_SCORE_PHONE_ONLY`: **read, never
-  rendered**, and one comparison covers both cohorts because normalization makes
-  the two ceilings equal.
-- **`/progress` had gone false and is the only screen that explains the model.**
-  It said active minutes and active hours "earn points" — they became shifts at
-  deviation #41 — and never mentioned Mind at all. A stale entry there is worse
-  than none: the reader has no second source to correct it against.
-
-Also renamed in this pass: **"ability rating" is "mastery" everywhere**, comments
-included, and `CONTEXT.md` records why — a monotone lifetime figure cannot
-measure current ability, and it stays monotone because a falling number punishes
-the quiet week, which is the same argument `useScoredDayCount` already makes.
-And the **HealthKit permission sheet's privacy claim was false**: it promised
-squadmates "never your raw numbers", which deviation #47 stopped being true. A
-stale privacy claim is the worst kind, so it is rewritten rather than annotated.
-
-Retiring the shift **deleted** `stat-detail.ts`'s `unquantified` state,
-`strShiftUnknowable` and `workoutDaySignal` — roughly 137 lines that existed only
-because Body had a shift the screen could not measure. Do not reintroduce them:
-Body has a shift again since deviation #68, and it is **measurable** — the night
-is a value the screen already holds and passes to `statShifts`, so Body is quoted
-from the ladder the scorer used. What those 137 lines existed for was a shift the
-screen could not see, and no such shift exists.
-
-**Stat surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`) as of
-2026-08-25** (deviation #51). The engine keys above are unchanged and must stay
-so — this is deviation #23's move in a second place, the engine keeping its
-vocabulary while the surface gets the player's. **Mind did not move**; two words
-changed, not three. Three things break easily:
-
-- **`src/ui/stat-names.ts` is the single source, and it is zero-runtime-import
-  on purpose.** `STAT_NAMES` lived in `StatIcon.tsx`, which reaches
-  `@expo/vector-icons` and therefore React Native's Flow syntax that root Vitest
-  cannot parse — so the stat words were untestable while seven call sites read
-  them. `StatIcon.tsx` re-exports the table so no call site changed. **Do not
-  import `@/ui/index.ts` from a module root Vitest tests**: the barrel
-  re-exports every component *and* the `@/` alias does not resolve there, which
-  is why `program-copy.ts` reaches `stat-names.ts` by relative path exactly as
-  `event-copy.ts` reaches `kairo-core`.
-- **`dominanceName()` replaced `DOMINANCE_LABELS`, and a parallel table of stat
-  words anywhere is stale by construction.** Two copies existed before this and
-  neither contained a stat word to grep for in the obvious way — the home
-  screen's own `Record<CoreStat | 'balanced', string>`, and `boostChipLabel`,
-  which printed the raw `CoreStat` key (`AGI ×1.5`) and was the last surface in
-  the app showing an engine name to a player. The guard is a test in
-  `stat-names.test.ts` that scans every non-test file under `src` and `app` for
-  the word **Agility**; it immediately caught two stale doc comments quoting
-  rendered copy back at the reader.
-- **"Strength" is deliberately not guarded, and squad programs and Challenge
-  areas keep their names.** `squads.program`'s `strength` and `ChallengeArea`'s
-  `strength` name a *game*, not a stat, and members consented to a squad under
-  that name; "Strength" also survives in `STRENGTH_ACCURACY_NOTE` and in the two
-  `HKWorkoutActivityType` identifiers, so a guard on it would be noise, and a
-  noisy guard gets deleted. What each program's **blurb** must do is name the
-  stat it weights in the current vocabulary — hence "Body counts for more". A
-  member of a Strength squad therefore reads "Body counts for more", which is
-  correct and briefly confusing; that trade was taken knowingly.
+  per stat in raw units. Body's record is active calories **without** the
+  strength credit, which is also what keeps the function clear of
+  `workout_sessions`; Mind reads `was_user_entered is not true`; a stat with no
+  qualifying day returns **no row**, never a zero. A flagged day is skipped
+  (see the anti-cheat rules above).
+- **The surfaces use one sentence form — observation, em dash, consequence** —
+  in `spreadLine`, `statDetailLine`, `ceilingLine` and `restedLine`. `spreadLine`
+  and `restedLine` report the **discount**, never the moved figure, and
+  `spreadLine` may say neither "ridge" nor a target, because both name flat
+  figures already on screen. `statDetailLine` never prints `StatDetail.points`.
+  The crest changes **the sky, never the bird**, and is always paired with
+  `ceilingLine`. Engine-key guards are case-sensitive and word-bounded
+  (`/\b(AGI|STR|MND)\b/`) — a loose `/agi/i` matches "Dagit". `/progress` is the
+  only screen that explains the model, so a stale entry there is worse than
+  none. **"Ability rating" is "mastery" everywhere**, comments included.
+  `stat-detail.ts`'s deleted `unquantified` state must not come back: Body's
+  shift is measurable now, and those 137 lines existed for one that was not.
+- **A scoring change that moves stored history redeploys all five Edge
+  Functions and runs `replay-scores` in the same deploy**, under ADR-0001's
+  2026-09-06 amendment (`REPLAY_SECRET` minted for the pass and unset after).
+  Past roughly fifty accounts or sixty days the original rule returns: a
+  migration that rescores, or it does not ship. **A replay skipped at the time
+  is a silent divergence the next replay pays for in one lump** — #68's pass
+  moved ten days and only three were its own.
 
 **Solo mode gained a floor and a curve on 2026-08-15** (deviations #31–#33).
 Three things that are easy to break by accident:
@@ -686,104 +354,38 @@ Three things that are easy to break by accident:
   becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
   run stored as 5,000 metres would quietly corrupt every pace after it.
 
-**The Battle is retired as of 2026-09-06** (deviation #66), and this block is
-now history rather than a live mechanic. Read it that way: everything below
-describes how a Battle worked and why its remains are shaped as they are.
-
-`src/features/events/`, both `/event` routes, `SquadEventPanel`, `BattleCard`,
-`event-plan.ts`, `finalize-days`' grading block, `dispatch-notifications`' digest
-branch and the `event_completed` push are **gone**. `create_event(text, text,
-text, text, integer, date, date, uuid)`, `abandon_event(uuid)` and
-`can_see_event(uuid, uuid)` are dropped **by exact argument list** — the
-`create_goal` / `p_metric` trap. Migration `20260906130000_retire_the_battle.sql`
-closes every live row, so no read can render one. Four things break easily:
+**The Battle is retired as of 2026-09-06** (deviation #66), and Goals became
+Events before it (deviations #45/#48/#49, 2026-08-25). Both accounts — how a
+Battle worked, what the rename moved, and why the remains are shaped as they
+are — are `docs/archive/battle-and-goals.md`. What is still live:
 
 - **The three tables stay and must not be dropped.** `recalculate_user_xp` sums
-  `event_completions.xp_awarded`; dropping them silently drops every account's
-  banked Battle XP on the next write to any other XP source, and every level
-  falls with nothing to notice. `packages/kairo-core/src/event.ts` stays whole
-  and tested under `@deprecated` for the same reason — a banked completion needs
-  the arithmetic that produced it. `EVENT_KINDS` and `EVENT_METRICS` are
-  additionally load-bearing: the column CHECKs reference exactly those values.
-- **`event_progress()` stays and now holds the visibility rule itself.**
-  Dropping `can_see_event()` was not free: three RLS policies read it, a policy
-  expression registers a dependency, and the drop is refused unless the policies
-  go first. They are recreated **narrower** — participation for
-  `challenge_events`, owner-only for the two child tables — so the mutual
-  recursion the definer function existed to break cannot form. The function and
-  the policy deliberately disagree: `event_progress()` keeps the **whole** old
-  rule (participant OR member of the event's squad), because narrowing the
-  surviving read would be a behaviour change smuggled in under a deletion; the
-  policy keeps only the participant half, so a squad member who was never a
-  participant loses read on the historical *rows*. `events_update_own` and the
-  `update (title, description)` grant are deliberately untouched.
-- **Testing a migration's effect on existing rows needs a staged harness.**
-  `setupHarness({ stopBefore })` + `applyMigration()` exist for exactly this: the
-  suite otherwise applies every file before the first test, so a live row this
-  migration was written to close can never exist in front of it. Both acceptance
-  criteria — every live row closed, and `recalculate_user_xp` returning the same
-  total either side — are only expressible that way.
-- **`event_completed` survives as a `NotificationTrigger` and routes to
-  `/flock`.** A push sent before the deploy can be tapped after it, and
-  `notification_log.kind` is free text. `event_created` likewise stays in
-  `AppEventType` as a historical value, exactly as `goal_created` did. The
-  `eventId` such a payload carries addresses nothing and must never be
-  interpolated into a path again.
-
----
-
-**Goals became Events on 2026-08-25** (deviations #45, #48, #49) — *superseded by
-deviation #66 above; kept because the schema it created is what survives.*
-`goals` is `challenge_events`, `goal_participants` is `event_participants`,
-`goal_completions` is `event_completions`. `create_goal()`, `abandon_goal()`,
-`goal_window_scores()` and `can_see_goal()` were dropped; `create_event()`,
-`abandon_event()`, `event_progress()` and `can_see_event()` replaced them, and
-all but `event_progress()` are themselves now dropped.
-`src/features/goals/` and both `/goal` routes are gone. Seven things break
-easily:
-
-- **`closed_at is null` is not optional on any read.** The table still holds
-  every pre-pivot Goal row so banked XP does not vanish, so the `kind`,
-  `metric`, `events_need_end` and `events_need_squad` checks are all written
-  `check (closed_at is not null or …)` — validated constraints, never
-  `NOT VALID`. Omitting the filter renders a points goal as a Battle.
-  `challenge_events_one_live_per_kind` keys off the same column, which is why
-  `abandon_event()` **closes** rather than deletes.
-- **An Event's target is snapshotted at creation; a Challenge's is derived on
-  every read.** `bossHp()` computes it once on the client and `create_event()`
-  stores `p_target` verbatim — the one place a client decides a number the
-  server keeps, accepted because reimplementing the median in plpgsql is
-  deviation #18's differential-test tax again, and because the exposure is a
-  squad setting an easy boss for itself. Progress stays a read-time projection,
-  so revisions still replay: **the target is fixed, the progress is replayed.**
-  Both modules carry a comment saying so.
-- **Pooled means every roster member is paid**, contributor or not. Paying only
-  contributors rebuilds the per-member N-of-M rule the pivot removed.
-- **`pooledDays()` in `@kairo/core` holds three rules and all three fail
-  silently.** Take each date **once** — `event_progress()` repeats the pooled
-  figure on every participant's row. Read `pooled_value`, **never** `value`:
-  that column is behind deviation #47's consent gate, which keys off the
-  *viewer's profile* and not their role, so `finalize-days` grading from it
-  pools a whole fight to zero for any candidate who never consented, completes
-  nothing, and logs nothing. And a date is final **only when every
-  participant's is**, since a squad spans timezones and a mixed date would let
-  a still-revisable contribution pay XP. It lives in the keystone precisely so
-  the client's bar and the server's grading cannot disagree.
-- **`recalculate_user_xp` is a full recompute written out whole**, and the
-  deployed body names `challenge_completions` as a third XP source *and* writes
-  `agi_total`/`str_total`/`mnd_total`. Read it before editing — a source
-  omitted is a source dropped, and every account's ratings fall on the next
-  sync. The quests plan rewrites the same function.
-- **An erasure function had to be recreated, not renamed.** A plpgsql body is
-  text resolved at execution, so `alter table … rename` does not rewrite the
-  table names inside it — `collect_orphaned_goals()` would have raised
-  `relation "public.goals" does not exist` on the first account deletion and
-  nowhere else. It is `collect_orphaned_events()` now and still **AFTER
-  DELETE**.
-- **`goal_completed` survives as a notification trigger and routes to `/`.**
-  `notification_log.kind` is free text, historical rows say it, and a push sent
-  before the deploy can be tapped after it. A tap that goes nowhere is
-  indistinguishable from push being broken.
+  `event_completions.xp_awarded`, so dropping them silently drops every
+  account's banked Battle XP on the next write to any other XP source, and every
+  level falls with nothing to notice. `packages/kairo-core/src/event.ts` stays
+  whole and tested under `@deprecated` for the same reason, and `EVENT_KINDS` /
+  `EVENT_METRICS` are the values the column CHECKs reference.
+- **`closed_at is null` is not optional on any read** of `challenge_events`; the
+  table still holds pre-pivot rows, which is why the `kind`, `metric`,
+  `events_need_end` and `events_need_squad` checks are all written
+  `check (closed_at is not null or …)`.
+- **`event_progress()` survives and holds the whole old visibility rule**
+  (participant OR member of the event's squad), while the three RLS policies
+  recreated in `20260906130000_retire_the_battle.sql` are narrower —
+  participation for `challenge_events`, owner-only for the children — so the
+  mutual recursion `can_see_event()` existed to break cannot form. They
+  deliberately disagree.
+- **`event_completed` and `event_created` stay as historical values** in
+  `NotificationTrigger` and `AppEventType` (`notification_log.kind` is free
+  text, and a push sent before a deploy can be tapped after it). The `eventId`
+  such a payload carries addresses nothing and must never be interpolated into a
+  path again.
+- **Testing a migration's effect on existing rows needs a staged harness** —
+  `setupHarness({ stopBefore })` + `applyMigration()`, because the suite
+  otherwise applies every file before the first test.
+- **`recalculate_user_xp` is a full recompute written out whole.** Read the
+  deployed body before editing: a source omitted is a source dropped, and every
+  account's ratings fall on the next sync.
 
 **The invite link is unchanged by the above.** The universal-links chain has
 three sources and every failure is silent: `ios.associatedDomains` in
@@ -962,54 +564,6 @@ inside* rather than by how important it is — `prose` (1.8) for copy in
 containers that grow, `chrome` (1.4) for buttons and meta lines, `fixed` (1.2)
 for type locked to drawn geometry. `prose` is the default so tightening is
 deliberate, and it belongs in the component that owns the geometry.
-
-**Kairo says things without words, and each one needs an accessible name.** A
-stat is a glyph with no letters beside it; the character's level band, dominant
-stat and ability rating are shape, shadow and ring. The pattern, set by
-`StatIcon`, is: **a decorative or duplicative element is hidden**
-(`accessibilityElementsHidden`), and **the group that means something is one
-element with a composed label**. `src/ui/stat-names.ts` is the single source for
-stat words — it also exports `dominanceName()`, since `Dominance` is
-`CoreStat | 'balanced' | null` and so the figure needs naming too, and a
-parallel table would drift. Where composition has real edges it gets a
-tested pure module: `src/features/squad/row-label.ts` exists because a
-leaderboard row was twelve separate stops (a six-person board took seventy-odd
-swipes), and because "1-day streak" is right on screen and wrong out loud.
-Before adding a label, check the text already beside it — the retired
-`BattleCard`'s pace marker needed nothing, since its status line already said
-"behind pace".
-
-**Three rules the 2026-08-14 device pass added.** First: **grouping is
-explicit.** `accessible` + `accessibilityLabel` on a parent is documented to
-collapse its descendants on iOS and *did not* on that build — a leaderboard row
-still read as separate stops. The mechanism is unconfirmed and the fix
-deliberately does not depend on it: the parent keeps both props **and** every
-direct child is hidden with `accessibilityElementsHidden` +
-`importantForAccessibility="no-hide-descendants"`. Neither half is redundant;
-removing one is how this comes back. Second: **the character HUD's layout stays
-flow-based.** It was the app's only absolutely-positioned chrome, pinned at
-`+8`/`+48`/`+48`/`+132`, and those constants assumed pill heights nothing
-enforced — at large Dynamic Type the pills grew past each other and overlapped.
-It is one flowing column now; do not reintroduce a `top` on any child. Third:
-**before adding an accessible name, read what is already spoken around it.** A
-label that repeats an adjacent line is noise; a label inside a control that
-already names itself is a bug — `StatCoin` got one inside `StatRail`, which is a
-single `Pressable` already speaking every rating on the rail, and it was reverted.
-
-**Accessibility structure is verified in Xcode's Accessibility Inspector on the
-simulator before a TestFlight build is cut.** This qualifies the "UI is verified
-by hand on device" posture below rather than replacing it: the grouping failure
-above cost a full build to find and another to confirm, and the inspector
-answers *"is this row one element or twelve"* directly, with no VoiceOver
-gestures and no build. Dynamic Type needs no GUI at all —
-`xcrun simctl ui booted content_size accessibility-extra-extra-extra-large`
-sets it and `xcrun simctl io booted screenshot` captures the result.
-
-**Stat identity is a glyph, not three letters, as of 2026-08-11.** `src/ui/StatIcon.tsx`
-owns the only mapping; `StatCoin`, `StatBar` and `LeaderboardRow` all read it. It is
-MaterialCommunityIcons on purpose while all chrome stays Feather — the split is
-hairline = *things you operate*, solid = *things you are*. Don't blur it in either
-direction.
 
 **The character is an animal as of 2026-08-18** (roadmap deviation #40, which
 supersedes #27). **Deviation #55 supersedes the *choosing* half of it on
@@ -1214,7 +768,7 @@ promises themselves, `[[TODO`. Seven things break easily:
   `shareInvite`, so the message and the code cannot fork, and sends a squadless
   account to the Flock tab instead of offering an invite it has no code for.
 
-**Two documents hold the decisions. Read them before proposing changes.**
+**Two documents hold the decisions. Read them before proposing changes.** (`docs/engineering/` holds the extracted reasoning behind three of the blocks above; `docs/archive/` holds retired eras.)
 
 - `docs/Kairo_Master_Summary.md` — the product spec (v1.4). Sections are cited throughout the code as `§5`, `§12`, etc. Comments referencing a `§` are pointing here. §5's and §6's stat tables are superseded by deviation #41 and marked as such in place; the section numbering does not move.
 - `docs/roadmap.md` — build sequencing, phase status, and an **approved-deviations table**. Deviations from the spec are deliberate and recorded; propose changes against that table rather than "fixing" them.
@@ -1342,651 +896,213 @@ wants; `curl`-based scripts in `supabase/scripts/` need nothing.
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
 **Kairo is Playful as of 2026-08-30** (deviation #58), which supersedes Sunlit's
-palette and type. Sunlit's stale values (amber accent, the `#c9721c` display
-ink, Caprasimo/Figtree) are in `docs/archive/design-history.md`; the reasoning
-they followed is what this pass followed too. Same move a third time:
-**every token in `src/theme.ts` kept its name and changed its value**, so around
-ninety call sites re-skinned without being edited. A token names a *role*, never
-a hue — `ramp.sage[500]` is a violet now and still means "your lane". Two
-families are new: **gold** (earned) and **sky** (the flight). Fredoka and Nunito
-replace Caprasimo and Figtree. Six things break easily:
+palette and type; Sunlit's stale values are in `docs/archive/design-history.md`.
+Every token in `src/theme.ts` kept its name and changed its value, so around
+ninety call sites re-skinned without being edited — **a token names a role,
+never a hue** (`ramp.sage[500]` is a violet now and still means "your lane").
+Fredoka and Nunito replace Caprasimo and Figtree, **copied into
+`assets/fonts/` and loaded through `useFonts`, not added as npm dependencies**,
+because `package.json` is a fingerprint input.
 
-- **A bright fill takes ink, never cream.** Sunlit's accent was amber and
-  cream-on-amber was already impossible, so nobody had written it; Playful's is
-  orange, which *looks* dark enough to take a cream label and measures
-  **2.65:1**. Coral is 2.93 and gold is **1.52**. Four call sites shipped that
-  pairing in this redesign's own first pass — the active tab pill, the board's
-  day toggle, the streak chip and `CtaPill` — and every one of them rendered
-  perfectly. `contrast.test.ts` now asserts the rule for every fill in the
-  system *including the failures*, so a palette that later made one dark enough
-  for cream fails loudly rather than silently becoming allowed. **`coralEdge`
-  carries neither** ink nor cream and is pinned as such: it is a 3px lip, and
-  the only wrong thing to do with it is set a word on it.
-- **`Glass` is not a blur and must not become one.** `backdrop-filter` has no
-  RN equivalent and `expo-blur` is a native module: it would move the
-  fingerprint, spend one of the month's fifteen builds and withhold every OTA
-  until that build landed. Same trade the Sky corridor already refused for
-  `react-native-svg` (#56), and the reason this whole redesign shipped over the
-  air. `Gradient` gained a `direction` and is now used ~20 times rather than
-  twice; `experimental_backgroundImage` is deliberately unused, because its
-  failure mode is a *transparent* view and an invisible active tab is worse
-  than a banded one.
-- **The corridor climbs now.** `sky-path.ts` went 402×520 → 393×1560 and two
-  cubics became three. **`x` is no longer monotonic** — the flight weaves, and
-  that assertion was replaced rather than left to rot; `dy < 0` is the
-  invariant. `SkyCorridor`'s `BAND` was `0.11` of the *height*, which was the
-  narrow axis when the race ran left-to-right and is the long one now: left
-  alone it drew a 158pt band down a 361pt screen. Segment length is measured off
-  the path now instead of approximated from the box, which is what stopped being
-  right when the aspect inverted. **Nothing about the race's mechanics moved** —
-  same payload, same client-side re-rank by capped steps, same derived finish
-  line, same reciprocal consent gate.
-- **The "Did you know?" beat is a phase of `/connect`, not a route, and its
-  floor is deliberate.** It covers the real `readStepsToday` between the grant
-  and the step reveal. Two things are easy to get wrong: the window opens when
-  **`connectHealth` resolves, not at tap** — iOS has the permission sheet up
-  during `connectHealth`, so a beat started at tap spends its whole minimum
-  behind that sheet and vanishes in the frame it is dismissed — and the card
-  comes down at the **later** of "minimum served" and "read finished", never the
-  earlier, or a slow read hands over to a reveal with no number in it.
-  `hatching-window.ts` is pure and tested on both. `trivia.ts` picks by a hash
-  of the account (a `Math.random()` in a render body would swap the card's text
-  mid-read, the same reason `pickQuests` is a hash) and states **no effect
-  size** — every number in it is the app's own constant or the size of an
-  action, and a test bans a bare `%`.
-- **Onboarding is seven beats and the last one is still the name** (deviation
-  #62, 2026-09-04). `/welcome` → `/one-sky` → `/mirror` → `/connect` →
-  `/difficulty` → `/privacy` → `/name`. The design
-  puts difficulty and privacy *after* the name, which is deviation #22's trap
-  exactly. They ask before it — but `quest_tier_override` and
-  `squad_data_consent_at` are in `profiles`' column-level **UPDATE** grant and
-  not its INSERT grant, so there is nothing to write to until the row exists.
-  `useOnboardingAnswers` holds both and the name screen writes them *after* the
-  insert. Nothing is **asked** after the INSERT, the row still commits exactly
-  once, and both grants are respected. Read that store before touching the flow.
-  The entry moved from `/connect`, so `redirectTarget` returns `/welcome` now.
-- **The run is declared once, in `src/features/onboarding/beats.ts`, and four
-  numbers are derived from it.** A beat declares its **phase**; the registry
-  gives it `filled`/`partial` for the rail and `index`/`count` for the paged
-  dots. All four were hand-written across the screens, and both pairs had
-  already gone wrong the way that invites — the dots promised three cards while
-  two existed. `beat-registry.test.ts` scans `app/(onboard)/` and
-  `src/features/onboarding/` and fails any screen that puts a literal back, or
-  that hand-writes its button words, its skip destination, or its impression.
-  **The rail measures four phases, not screens** — what this is, letting it in,
-  your choices, the name — so adding a beat moves fills and partials inside one
-  phase and never the segment count.
+**`docs/engineering/surfaces.md` holds the reasoning for every screen rule
+below** — the Playful redesign in full, the onboarding run and its calibration
+and welcome beats, the Sky corridor, the growth-stage and plumage art passes,
+and the three device-fault rounds that produced most of the layout rules.
+**Read it before adding or reshaping a screen**; the rules themselves:
+
+- **A bright fill takes ink, never cream.** `colors.accent` measures 2.65:1
+  against cream, coral 2.93 and gold 1.52, and all three render perfectly —
+  four call sites shipped that pairing in this redesign's own first pass.
+  `contrast.test.ts` asserts the rule for every fill *including the failures*,
+  so a palette that later made one dark enough for cream fails loudly.
+  `coralEdge` carries neither ink nor cream and is pinned as such. Body-size
+  accent text is `colors.accentDeep`; large display type is `colors.accentInk`.
+  The ramps' step contract is ink strength — 200 a wash, 500 a fill, 700/800
+  inks — and ~37 call sites depend on it.
+- **No native module may be added for a visual effect.** `Glass` is not a blur
+  and must not become one; the Sky corridor is twenty-four rotated plain-RN
+  segments rather than `react-native-svg`; the crest tint is a generated mask
+  rather than a runtime blend. Each would move the fingerprint, spend one of the
+  month's fifteen builds and withhold every OTA until that build landed.
+  `Gradient` gained a `direction`; `experimental_backgroundImage` is
+  deliberately unused, because its failure mode is a transparent view.
+- **One icon family.** The Feather/MDI split is retired; reintroducing a second
+  family is a design decision, not a convenience. `STAT_COLORS` (in
+  `src/ui/stat-colors.ts`, re-exported from `StatIcon.tsx`) reverses Sunlit's
+  no-per-stat-hue rule, because a Flock row carries four stat figures at 11pt
+  with no words beside them.
+- **`src/theme.ts` is the only file that may name a typeface.** RN falls back to
+  the system face silently for an unknown family — invisible on a simulator that
+  has the old font. `type-faces.test.ts` scans for literals and checks every
+  named face is loaded and on disk.
+- **Onboarding is seven beats and the last one is still the name**: `/welcome →
+  /one-sky → /mirror → /connect → /difficulty → /privacy → /name`. Add steps
+  **before** the name, never after — anything asked after the INSERT flips
+  `resolveRoute` to `'ready'` under an unfinished screen and needs deviation
+  #22's deleted `finishingOnboarding` flag back. `/difficulty` and `/privacy`
+  ask before the row exists and `useOnboardingAnswers` holds their answers until
+  `/name` writes them, because `quest_tier_override` and `squad_data_consent_at`
+  are in the UPDATE grant and not the INSERT grant. **The run is declared once,
+  in `src/features/onboarding/beats.ts`** — a beat declares its phase and the
+  registry derives the rail's fills, the paged dots and the button words;
+  `beat-registry.test.ts` fails any screen that hand-writes one, its skip
+  destination or its impression. The rail measures **four phases, not screens**.
+  `onboardingSkipTarget()` derives the skip landing as the last beat of phase 0
+  (the mirror), rather than naming a route twice.
 - **The difficulty beat opens with a measurement, and the tier it proposes is a
-  seed rather than a rule** (deviation #63, 2026-09-04). `/connect` reads
-  **fourteen complete local days** of step totals off the phone after the grant;
-  `calibrateQuestTier()` in `quest.ts` medians them and proposes the highest
-  tier whose entry bar the median clears; `/difficulty` states the reading above
-  the choices it already renders, with the proposal pre-selected. **A new
-  account is therefore no longer on Automatic by default.** Seven things break
-  easily:
-  - **Deviation #50 rejected the trailing median and this adopts it, and the
-    two are not in conflict — a rule re-reads and a seed does not.** #50's
-    argument is about a *standing* rule, whose bar rises as the player improves;
-    read once into `quest_tier_override`, the same median cannot rise, because
-    nothing re-reads it. `questTier()` is untouched and is still the fallback
-    for accounts that predate calibration, hit `no-history`, skip the beat, or
-    clear their override, and **its comment records both halves** — without that
-    the code says the median was refused while the app ships it.
-  - **The whole rule set is one pure function in `quest.ts`**, not a module of
-    its own: it needs the tier rule *and* the catalogue, and a sibling importing
-    both is an import cycle the moment either wants the result back. Threading
-    `QUEST_CATALOGUE` through as an argument is the `TIER_POINTS` mistake, which
-    broke an out-of-package caller at runtime rather than compile time.
-  - **Today is excluded, zeroes are dropped, four qualifying days are the
-    floor.** The grant is usually taken mid-morning, so a partial day drags the
-    median down by roughly half a band. A zero-sum day is indistinguishable from
-    a phone in a drawer or a phone bought last week, so counting them would
-    median a new-phone player to the floor while the screen claims to have
-    measured them — and a fortnight of zeroes is `no-history`, **never**
-    Starter. `no-history` and a low proposal are different sentences and must
-    stay so: one means we could not measure, the other means we did.
-  - **Bands are each tier's *minimum* steps target, derived from the catalogue
-    and pinned as literals by the same test.** The minimum because a tier's bars
-    should be met on a good day, not already beaten on a median one; both halves
-    of the guard because the derivation stops a second number describing the old
-    bars and the literal stops a catalogue edit silently re-sorting every new
-    account. Same arrangement `DAILY_STEP_BASELINE` has.
-  - **`readDailySteps` is one daily-interval step collection and must stay
-    narrow.** `readHealthWindow` over fourteen days is the obvious reuse and
-    runs six hourly collections plus every workout sample plus sleep —
-    including **heart rate**, owner-readable only and absent from every
-    projection. Reading that much to propose a quest size would leave the beat's
-    privacy claim technically accurate and morally misleading;
-    `calibration-read.test.ts` scans the function body and fails if it widens.
-  - **Nothing about those fourteen days leaves the phone**, and the screen says
-    so. The median crosses beats in `useOnboardingAnswers` (already cleared on
-    commit), is never written to `profiles`, and never enters a telemetry
-    payload — a scan holds both. `calibration_completed` carries `{ outcome }`
-    and **not the tier proposed**, once ever on an MMKV marker, because
-    re-entering `/connect` and granting again re-runs the reading.
-  - **The player's answer wins outright, and `questTierChosen` is what makes
-    that true.** Pre-selection writes `questTier`, so without a flag a seeded
-    value is indistinguishable from a chosen one and a second reading would
-    reach two screens forward and undo a choice. No calibration *screen* is
-    built: with the proposal pre-selected, "we'd start you on Steady" followed
-    by "how big?" with Steady already chosen is two screens for one decision.
-- **The mirror beat is third and both skip affordances land on it.**
-  `onboardingSkipTarget()` derives that as the last beat of the opening phase
-  rather than naming a route twice: skip's purpose is getting past the pitch,
-  and the pitch *is* phase 0. Both cards used to name `/connect`, which was
-  right while the pitch ended there — landing past the mirror beat would route
-  the people most likely to decline around the argument written for them, on
-  the beat that exists to move blame off them before the one dialog whose
-  refusal cannot be undone from inside the app. The beat itself carries no
-  skip. Kairo appears on it as a **pose with a heavy ground shadow** and the
-  `tired` reaction still has **no producer** — sleepiness is a daily Mind state
-  rather than an event, and an onboarding screen has no account state to key an
-  occurrence against.
-- **The welcome run is four cards, the fourth is the flock ask, and it is a
-  card rather than a sheet** (deviation #64, 2026-09-04). The run is already a
-  once-ever first-run `<Modal>` on Today leasing the same root view controller
-  as the permission asks and the details sheet, so a *separately leased* flock
-  sheet — which the design proposed — would put two first-run surfaces on one
-  first focus, one losing the lease and reappearing later out of context. As a
-  fourth card it needs **no new modal owner, no second once-ever marker and no
-  ordering rule**. Five things break easily:
-  - **Only one card carries an actions slot, and a test asserts exactly one
-    does.** Cards one to three are linear reads with a next button; card three
-    is the *reason* a flock exists (`FREE_SQUAD_MAX_MEMBERS` birds, one flag)
-    and lost its invite CTA to card four, which is the ask. A second decision
-    point in a run of linear reads is what this trades against.
-  - **The interrupted run's loss is known and must not be repaired.**
-    `welcome_seen` is claimed when the run *opens*, so a force-quit before card
-    four means the ask is never seen. Moving it to the front is the ask
-    arriving before its why; a second marker reintroduces the two-surface
-    ordering problem. It is bounded by the Sky tab's permanent trailing invite
-    slot. The reasoning is written into `WelcomePopups.tsx` for that reason.
-  - **The join door is withheld from somebody who already has a squad.** A
-    non-null `inviteCode` *is* the proof of one and the free tier holds one, so
-    the join door for them is a path that can only fail; they get the share.
-  - **`flock_prompt_answered` carries `{ answer }` and records which door was
-    taken, not what came of it.** `squad_joined` and `squad_created` already
-    say whether a squad resulted. It rides `welcome_seen` and needs no marker.
-  - **Every word lives in `welcome-cards.ts`**, zero-runtime-import apart from
-    the keystone and `theme.ts` reached by relative path, so root Vitest holds
-    the copy honest — including that `RACE_FINISH_LINE` and
-    `FREE_SQUAD_MAX_MEMBERS` are read from the constants. `WELCOME_NEXT_LABEL`
-    is there too, because `beat-registry.test.ts` scans these directories and
-    bans a `label="…"` literal on an `OnboardingCta`. The request crosses to
-    the Flock tab as `?pane=join`; `flock-pane.ts` owns **both** the href and
-    the parser, so a typo cannot make one side silently disagree, and the tab
-    **consumes and clears** it — Expo Router keeps tab screens mounted, so a
-    parameter left in place would reopen the form on every later visit.
-  - **The sheet is bounded, scrolls, and lays its content out against a point
-    width** — all three halves of the permission sheet's 2026-08-17 lesson,
-    load-bearing here only since the fourth card. It was unbounded by design
-    ("as tall as its copy"), which is survivable with one CTA and not with two
-    pills and a decline under a 240pt art panel: at the largest content sizes
-    the child clipped off the bottom is **"Not now"**, and `overflow: 'hidden'`
-    means it is clipped silently rather than spilling visibly. The art scrolls
-    with the rest; pinning it eats the bound. Three assertions pin it.
-  - **`OnboardingCta` takes `lines?: 1 | 2`, default 1, and this sheet passes
-    2.** The same pill has the whole screen on a beat and loses four lots of
-    `space.lg` inside a scrim, so at the `chrome` scale's 1.4× cap a three-word
-    label no longer fits on a 320pt screen and `numberOfLines={1}` ellipsises
-    it — a control whose words are cut is one somebody cannot act on. It is
-    also why the design's "Paste an invite code" ships as **"I have a code"**.
-  - **One answer per run, on a ref.** `setOpen(false)` lands on the next render
-    and RN can deliver taps to two `Pressable`s in one frame, so without the
-    guard a fast double-tap files two events *and* pushes both destinations.
-    `welcome_seen` bounds the card, not the frame.
-- **Each beat records one impression**, `onboarding_beat_seen` with `{ route }`
-  and nothing else, emitted by `useBeatImpression` — one hook taking a beat
-  name, which is what makes "the route name only" true by construction rather
-  than by review, since `/connect` is holding today's step count while it
-  reports. **Unguarded, on mount**: the run happens once per account, so the
-  funnel is honest with no marker store and a back-and-forward duplicate is
-  absorbed by counting distinct beats. `userId` is deliberately **not** an
-  effect dependency — it resolves a frame late and a dep fires the beat twice,
-  once buffered and once live, which is the one duplicate that is not a person
-  navigating. The hatch reports nothing; it is a phase of `/connect`, whose own
-  impression covers the moment.
-- **The disclosure gate did not move, and Today's hero is where it nearly
-  did.** The three glass stat coins on the sky are the same
-  `ratingForStatPoints` over the same lifetime rollups the You tab's rail reads,
-  so they carry the same `full` gate — an ungated copy on the screen a brand-new
-  account opens first would have undone deviation #37 by the back door. The
-  sleep and lane tiles are the Strain/Sleep rows in a fourth dress and keep
-  theirs. Quests, the hero, the race line and the Daily Walk stay ungated.
-- **One icon family.** The Feather/MDI split (hairline = things you operate,
-  solid = things you are) is **retired**. Its stated reason was that a hairline
-  glyph beside a fat display numeral reads as a clerical annotation; Playful
-  sets the whole surface in that register, so the reason points the same way and
-  the surface it points at changed. All six Feather call sites moved.
-  Reintroducing a second family is a design decision, not a convenience.
-  Relatedly, `STAT_COLORS` **reverses** Sunlit's "no per-stat hue" rule: a Flock
-  row carries four stat figures at 11pt with no words beside them, and shape
-  alone does not separate three things at a glance. The hues are not new ones.
-
-**`Screen bleed` hands the top inset back, and forgetting it is invisible until
-somebody looks at a device.** Three of the four bleeding surfaces re-applied it;
-`ProfileHeader` did not, so the You tab drew its handle under the clock and its
-gear inside the Dynamic Island's cutout — where the only route to Settings could
-not be tapped. Nothing errored and the screen was recognisably itself apart from
-one row. `src/ui/bleed-inset.test.ts` now scans every `<Screen bleed>` for an
-`insets.top`, following one level of imports because the header component is
-usually what pads rather than the route file. It was verified against the real
-bug: reintroduce it and the test names `app/(tabs)/profile.tsx`.
-
-**The Sky flock rail is one row with exactly one trailing slot.** It used to
-draw a dashed seat per unfilled place — five circles for a squad of one, which
-wrapped to a second row and read as five separate things to do rather than as
-one invitation. Four roster slots then one trailing slot, which is the invite or
-an overflow `+N`, never both and never none. `MAX_SLOTS`/`SEAT` are a real width
-budget (320pt screen − rail inset − padding = 260pt; 5×46 + 4×6 = 254), and
-`flexWrap` is deliberately **absent**: this has to fail by clipping, which is
-visible, rather than by wrapping, which is what it did and what looked like a
-design. Withheld members sort last, so the row never drops a bird that has a
-position in favour of one that does not.
-
-**Four device-build UI faults, fixed 2026-09-05, all OTA.** They shipped
-together because each is the same shape: a rule that was already written down
-somewhere, applied in one place and not the next.
-
-- **`LockedSlot` is one row for every free seat**, and `Leaderboard` renders it
-  once. It drew a numbered dashed row *per* unfilled place — five identical
-  full-width rows under a squad of one, most of a screen of them — which is the
-  Sky rail's failure above, in the second surface, four days after the first was
-  fixed. The row carries the count (`3 seats open`) and no rank, because one row
-  standing for seats 2 through 6 cannot honestly wear one number; `SoloBoard`
-  passes `remaining={1}` and reads the same. `resolveSlots` is untouched — the
-  count was never wrong, only how many times it was drawn.
-- **`StatRail` declares `flexDirection: 'row'`.** It was built as a column down
-  the edge of the character screen's diorama, so the default direction *was* the
-  layout and was never written down; deviation #59 re-mounted it in the You
-  tab's flowing page, where it stacked three 54pt coins vertically down the left
-  margin. Nothing errored and no test could see it. A layout that depends on a
-  default is a layout that moves when its container does — declare the axis.
-- **Counted figures go through `countWords` in `quest-copy.ts`.** HealthKit
-  reports active energy as a float, so `toLocaleString()` on the raw value put
-  "395.66 active kcal" in Today's one visible sentence and "4.34 of 400" in the
-  details sheet — one section below a Body row that already said "4 kcal",
-  because `todayDetails` had rounded it and the quest copy had not. One helper,
-  used by every surface that prints a counted figure, with a test on each.
-- **`TodayDetailsSheet` takes the bottom safe-area inset.** A `<Modal>` presents
-  on the root view controller and gets no inset of its own, so "Close" — its
-  only dismissal — sat over the home indicator's swipe region. The 2026-08-17
-  sheet lessons are about the *top* and the width; this is the third edge, and
-  `Screen` already applies the rule for every tab.
-
-**Three more device-seen layout faults, fixed 2026-09-07** (issue #28). Same
-shape as the four above: a rule the app already knew, not applied in the next
-place.
-
-- **The flight is inset below the flock rail**, and `flight-frame.ts` owns the
-  arithmetic. The Sky's drawing box began at content offset zero while the rail
-  is pinned over the top of the screen, so the *top* of the path — the ridge,
-  where everyone who cleared the Daily Walk sits, because `cappedSteps` stops at
-  the line — was drawn under the rail with its head cut off, on the tab meant to
-  be the second screenshot. An inset rather than a nudge to where the screen
-  opens: a scroller cannot go above offset zero, so the **top of the path**
-  becomes unreachable by the rail at any offset the reader can produce, instead
-  of being clear only at the one offset the screen chose. It claims nothing
-  more — birds below the top scroll under the rail as the reader climbs, which
-  is what pinned chrome means and is not what was broken.
-  Three things break easily. **The rail's height is measured, not assumed** — it
-  carries a line of type, so it grows with Dynamic Type and a constant would be
-  right at one text size only. The measurement lands a frame late, and that is
-  harmless by construction rather than by luck: the inset and the opening
-  offset move together, so the flight does not visibly shift when the rail
-  reports, and a test pins it. **`flightFrame` is handed `chromeBottom`, so
-  every assertion about it holds for whatever the screen composes** — drop the
-  rail out of that sum and the flight goes back under it with the whole suite
-  green. A source scan on `sky.tsx` is what closes that, the same move
-  `bleed-inset.test.ts` makes. **The gradient spans
-  the whole scroller**, inset included, or the inset is a band of `colors.night`
-  above the sky rather than clear air. And **the inset moves the drawing box,
-  not the path**: clouds, band, birds and both labels are positioned inside that
-  one box, so nothing can be left behind at an old coordinate. `flightFrame`
-  also took over the open-offset arithmetic the screen had inline, which is what
-  makes "opens on your own bird, a third down" testable at all.
-- **The invite code shrinks rather than reflows.** It took the default `prose`
-  scale — 1.8x on a 38pt face with 10pt of letter-spacing — and broke to a
-  second line at the largest sizes with one character orphaned under the tab
-  bar. A code is drawn geometry, so it takes `fixed` and then
-  `numberOfLines={1}` + `adjustsFontSizeToFit` + a `minimumFontScale` floor. The
-  three are only correct together: the line limit alone truncates a character,
-  `adjustsFontSizeToFit` alone is free to wrap, and no floor lets iOS shrink six
-  characters that have to be read aloud past legibility. Guarded by a source
-  scan in `invite-code.test.ts` that reads the `<Text style={styles.code}>` tag
-  itself, not the file — a `numberOfLines` elsewhere on the board must not
-  satisfy it.
-- **The dev client's floating gear is off, and it was never in TestFlight.**
-  `expo-dev-client`'s podspec declares
-  `s.dependency 'expo-dev-menu', :configurations => :debug`, so the pod that
-  draws it is not linked into a Release configuration at all and `ios-production`
-  builds Release — the confirmation the ticket asked for is in the podspec, not
-  in a build. For the development build `hideDevMenuFloatingButton()` writes
-  `showFloatingActionButton: false` through the optional `DevMenuPreferences`
-  native module, `__DEV__`-guarded, from the root layout. **Deliberately a
-  runtime write rather than `ios.infoPlist.EXDevMenuShowFloatingActionButton`**,
-  which sets the same default declaratively and is a fingerprint input: measured
-  on 2026-09-07, that one line took the tree's runtimeVersion from `9d76c5d3…`
-  to `89a1b399…`, so it costs a native build and withholds every OTA until that
-  build lands. Shake, the three-finger long press and ⌘D still open the menu;
-  only the gear is gone.
-
-**The character's body follows its growth stage as of 2026-09-07** (issue #30).
-`staticFigureSelection` takes an `EvolutionStage` and returns a fourth variant,
-`{ kind: 'stage', stage, pose }`, which `KAIRO_STAGE_ASSETS` resolves. **The
-nine images landed on 2026-09-08** (issue #31), so every stage draws its own
-body and the level-6 boundary is the pale down chick becoming a brown-winged
-bird. **The device pass is still owed**: the framing is measured by test and the
-art was reviewed off-device, and neither is the look at a real screen at each
-boundary that #31's fourth criterion asks for. Six things break easily:
-
-- **The stage rides on idle, walk and run, never on the base render.** That is
-  the whole reason the ticket exists: `motionPose()` always answers, so
-  `{ kind: 'base' }` is unreachable from `resolveLivingMirror` and a stage
-  applied there would almost never draw. `STAGE_POSES` is the three; `sleep`,
-  `workout` and `race_victory` stay adult-only, and issue #31 commissioned nine
-  rather than twelve for exactly that reason.
-- **A pre-adult reaction draws that stage's own art, and the cost is permanent
-  rather than interim.** `race_victory` is one stage's picture, so a young bird
-  celebrating keeps the body it was standing in — otherwise it turns into an
-  adult for three seconds on the level-up this whole change exists to serve. So
-  a pre-adult celebration shows that stage's walk rather than the wings-out
-  pose, and the reaction is still *spoken*, since Today renders
-  `reaction.sentence` over its next step. Letting the adult pose through "while
-  the art happens to be shared" was the alternative, and it would have flipped
-  the rule silently on the day the artwork arrived.
-- **Mind-state art stays adult-only at every stage, deliberately.** A sleepy
-  adult is a smaller lie than a celebrating one: the state images are
-  wearable-gated, so most accounts never reach them, where every account
-  celebrates. Revisit at the animation handoff.
-- **Twelve literal `require`s, and a computed path is the silent failure.**
-  Metro resolves `require` statically, so `require(`…${stage}…`)` is a blank
-  image on a device and nothing at build time — `species-art.ts` already
-  records the trap. `Record<EvolutionStage, Record<StagePose, …>>` fails `tsc`
-  on a missing cell; `character-assets.test.ts` parses the initializer and
-  fails a cell that is missing, computed, or naming a file that is not there.
-  A regex over the file cannot tell which cell it is looking at. **It also
-  fails two cells that name the same file**, which is what the aliased interim
-  looked like and what an accidental copy-paste would restore: a stage drawing
-  another stage's body is a growth boundary a player crosses and cannot see.
-- **One derivation of the stage reaches both readings.** The screen derives it
-  once from the level and hands it to `resolveLivingMirror` *and* to
-  `CharacterFigure`, which reads the figure's stage off the **selection** and
-  its own `stage` prop only for the ground shadow and the ring — presence, from
-  §6's level bands, which is a different reading of the same number. The stage
-  vocabulary is declared once too: `GROWTH_STAGES` is derived from
-  `GROWTH_STAGE_NAMES`, and `firstLevelOfStage` — in `kairo-lab-contract.ts`,
-  because a decision in a `.tsx` is untestable — derives 1/6/11/21 from
-  `evolutionStageForLevel` rather than restating the thresholds.
-- **The stage names are a development vocabulary.** `GROWTH_STAGE_NAMES` labels
-  the artwork and the asset lab; the figure's accessible name says the level,
-  and no player surface speaks a stage.
-
-**The nine growth-stage images landed on 2026-09-08** (issue #31), and
-`scripts/generate_stage_art.py` is what produced them and what will reproduce
-them. Each is an **identity-preserving edit of the adult render for that same
-pose** rather than a fresh generation, so the camera, the palette and the line
-weight come along rather than being described; the prompt moves only what age
-moves — the down-to-feather transition, the crest fan's growth, the wing length
-and the head's share of the figure. Five things break easily:
-
-- **The pose does not come along for free, and saying so in the constraints is
-  not enough.** `IDENTITY` has asked for "the same pose … as the input image"
-  since the first run, and the first nine came back with every foot flat and
-  level — hatchling walk indistinguishable from hatchling idle, on artwork whose
-  whole reason for being nine rather than three is that the three *poses* draw.
-  Age is the loudest thing in the prompt and the model resolves the conflict by
-  drawing a well-posed bird of the right age standing still. `POSE_PROMPTS`
-  restates each pose's own stagger and wing set as a positive instruction, which
-  is what fixes it, and it also has to say the lifted foot is drawn **open with
-  its toes** — otherwise it comes back as a closed fist.
-- **`--input-fidelity high`, and `low` is the API's default.** Without it a
-  stage's three renders drift into three different birds — a black-eyed walk
-  beside a brown-eyed idle — which fails the ticket's second criterion
-  sideways: the stages read as ages, and the poses inside one stage do not read
-  as one bird.
-- **`normalise()` owns the framing, and the model never does.** Each render is
-  trimmed to its own alpha and re-laid out against the **adult's** bounding box
-  for that pose — same 570×636 canvas, same centre line, same figure height,
-  same feet-on-the-bottom-edge ground line. That is what makes "no screen needs
-  a layout change" true rather than hoped, and it is why the artwork must never
-  be pre-shrunk: `figureResponse`'s `bodyScale` stands a hatchling smaller in
-  the same box, so a hatchling drawn small would shrink twice.
-- **The paste is unmasked and the alpha floor runs twice, both for the ground
-  line.** `paste(im, box, im)` blends the source through its own alpha, so a
-  bottom row at alpha 1 lands at 1/255 of itself and rounds away — the figure
-  lifts a pixel off the shared ground line, invisibly. And LANCZOS rings a few
-  single pixels out past the silhouette at alpha 9 to 13, which is why
-  `ALPHA_FLOOR` is 16 rather than the 8 that cleared the API's ghost: one
-  invisible speck above the head moves `generate_crest_masks.py`'s tip and
-  tints the sky. `character-assets.test.ts` pins the frame against the adult's
-  own bounds, ground line exactly and figure height within a pixel of a
-  resample.
-- **Nine, and never a tenth.** `sleep`, `workout` and `race_victory` stay
-  adult-only, so a pre-adult celebration draws that stage's walk — see the #30
-  block above for why that is the right trade and not an interim one.
-
-**Two eagles in a flock stop looking identical as of 2026-09-07** (issue #33).
-The **crest** takes the hue of the dominant stat and the **body's scale**
-follows the growth stage, so the cohort gate's "the bird changes" was met by two
-things that did not depend on the nine images landing — and it now carries them
-too (issue #31, 2026-09-08). Eight things break easily:
-
-- **`plumage.ts` reads lifetime points, and the `dominance` prop is the trap.**
-  `useDominantStat` is the last fortnight, which is right for the lane and for
-  the All-Rounder's ring and wrong here for a structural reason:
-  `squad_leaderboard()` projects the **lifetime** rollups and nothing narrower,
-  so a flock row could not compute the fortnight's answer without widening a
-  projection §5 keeps narrow. Both surfaces feed `crestTint` the same three
-  numbers — Today the `profiles` rollups it already passes as `lifetimePoints`,
-  the row its own `ratings` — so one player cannot wear a violet crest on their
-  own screen and a coral one in a friend's list. `CharacterFigure` therefore
-  gained no prop; it reads the one it already had.
-- **The crest, never the bird, and a balanced player takes no hue.** The figure
-  already says four things by shape (stage, the shadow's spread by level, its
-  weight and tint by Body, the presence ring by mastery) and a fifth drawn on
-  the body makes the centrepiece a readout. `crestTint` goes through
-  `laneStat`, so the balanced rule and the two absences — `null` for an
-  unstarted character, `undefined` for a query in flight — have **one** home
-  rather than a second copy that disagrees; `lane.ts` already carries the
-  argument that picking a stat for somebody whose stats are level invents a
-  preference they have not shown.
-- **The art is flattened, so the crest is a generated mask and not a layer.**
-  `scripts/generate_crest_masks.py` writes one per render into
-  `assets/character/crests/`, named `crest_<the render's own filename>` — the
-  name is the mapping. It finds the crest by **geometry, not colour**: the
-  topmost opaque row inside the central 44% of the canvas, because
-  `race_victory` and `workout` raise the wings above the eyes and a full-width
-  scan tints a wingtip. Multiplying by the figure's own alpha is what keeps the
-  hue off the sky. **Rerun it after any change to the art it reads** — issue
-  #31's nine growth-stage images are in `SOURCES` for that reason, so a stage
-  render regenerated without a mask rerun is a red test rather than a hatchling
-  whose tint sits over an adult's crest. The script's own `SOURCES` is the
-  fourth copy of the render list and the only one no compiler sees, so a test
-  parses it and fails when it drifts from `REQUIRED_PNG`.
-- **A runtime rectangle was the alternative and it is worse.** React Native has
-  no mask or blend primitive without a native module, and a native module costs
-  one of the month's fifteen builds and withholds every OTA until that build
-  lands — the same trade `Glass` and the Sky corridor already refused. A clipped
-  rectangle can say *where* but not *how softly*, and a hard horizontal cut
-  across a head reads as a bug. Verified OTA-safe: the tree's fingerprint is
-  still `9d76c5d3`, build 23's.
-- **`CREST_TINT_OPACITY` is 0.62 and full strength is the mistake.**
-  `tintColor` keeps an image's alpha and replaces everything else, so a mask
-  filled at full strength erases the outlines and shading underneath and the
-  crest reads as a coloured blob glued to a bird.
-- **`STAT_COLORS` moved to `src/ui/stat-colors.ts`**, re-exported from
-  `StatIcon.tsx` so no call site changed. It was unreachable from a test —
-  `@expo/vector-icons` reaches React Native's Flow syntax — which is
-  `stat-names.ts`'s move out of the same file, and `avatar-tint.ts`'s out of
-  `Avatar.tsx`, where a fill table with no reachable ink turned out to have no
-  ink rule at all.
-- **The crest is never spoken, and the guard is scoped to the labels.** The
-  dominant stat is already in a flock row's reading order as three ratings, so
-  a hue announced beside it says the same fact twice. `plumage.test.ts` scans
-  from `livingCharacterLabel`'s and `leaderboardRowLabel`'s own declarations
-  rather than over their files, because `living-mirror.ts` legitimately names
-  `colors` for the ground shadow's shade — a guard that fails on honest code
-  gets loosened until it guards nothing.
-- **The scale is a multiple of the art, never of the frame.** `bodyScale` in
-  `figureResponse` returns 1 at the adult stage and less below it; the caller's
-  box does not move, so a hatchling stands smaller and lower in the same space
-  and no screen relays. It lives there rather than inline in
-  `CharacterFigure.tsx` for the reason the whole module exists. **The
-  thumbnail deliberately does not scale** — its `size` *is* a caller's layout
-  geometry, and a flock row differentiates by crest.
-- **"Crest" now names two things and `CONTEXT.md` separates them.** Capital-C
-  is the ceiling day's **sky** (`Diorama`'s `crest` prop, `ceilingLine`);
-  lowercase is the bird's head feathers, which the Rive artboard has named that
-  way since the asset contract. The feature word is **plumage**, which is what
-  the module and the lab section are called.
-
-**The You tab's header band carries no bird of its own.** It drew a 104pt one,
-centred, and the avatar ring then overlapped the band by 42pt and landed on it —
-the same art at two sizes, the larger sliced across the chest by the smaller.
-The two ground shadows were pinned at fixed left/right offsets against that
-bird, so with it gone behind the disc they read as two stray grey pills at the
-horizon. One shadow, centred under the ring that actually casts it. The ring is
-the bird on this screen; the band is the daylight behind it.
-
-**The Flock band names the day's leader** from `rows[0]` — no extra request, and
-**ordered by the board rather than by the race**: `squad_leaderboard()` sorts by
-the program-weighted total (deviation #11), so the name on the band is the top
-of the rows beneath it. The Sky corridor re-ranks the same payload by capped
-steps and can legitimately name somebody else; two races, each screen naming its
-own. It follows `mode`, so a finished day reads "won the day" rather than the
-live "is ahead" — the same class of care the completed board takes with the
-streak figure. Guarded on two or more rows, because "you are ahead" in a squad
-of one is the app congratulating somebody for being alone.
-
-Also in this pass: **Settings is its own screen** (`/settings`, behind the gear
-on You) — a move, not a feature; quest difficulty, timezone, notifications, sign
-out and delete account were loose at the foot of a two-and-a-half-screen tab.
-**`src/theme.ts` is the only file that may name a typeface**, which was not being
-kept — seven call sites still said `'Figtree-Bold'` as a string literal, and RN's
-answer to an unknown family is a silent fallback to the system face, invisible on
-a simulator that has the old font and visible only on a clean device.
-`type-faces.test.ts` scans for it and also checks every named face is actually
-loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
-`character-assets.ts` says the cosmetic PNGs are flattened full-character
-previews, not composable layers, so a four-slot tray has no assets behind it.
-
-**Avatar's tint table lives in `avatar-tint.ts`, and that is why its inks are
-tested.** The table sat in `Avatar.tsx`, which reaches React Native, so
-`contrast.test.ts` — the file whose whole job is *every painted fill and what
-may be set on it* — could not read it, and the self tint set **cream on
-`colors.accent` at 2.65:1** for as long as the component existed: the one
-pairing the `brightFills` block asserts must fail, one file away from it. This
-is `stat-names.ts`'s move in a fourth place, and the rule it makes concrete is
-that a fill table with no reachable ink is a fill table with no ink rule.
-`colors.text` is the ink (5.53); `ramp.accent[900]` is the tempting wrong answer
-at **4.39**, because it is what the other four rows use, and a test asserts that
-failure so nobody reaches for it. **Nothing mounts `Avatar` today** — deviation
-#55 resolved its six fallbacks through `displaySpecies()` — so this was latent
-rather than shipped, and the table is what a remount now inherits.
-
-**The Flock strip is the flock, not your week, as of 2026-09-06** (issue #25,
-the surviving half of deviation #66). One disc per member, filled for everybody
-who cleared the Daily Walk, their initial above it — **above, not on**: the
-filled disc is `colors.accent`, and a letter laid over it would be cream on a
-bright fill, which is the one pairing the palette forbids. `flock-walk.ts` decides every
-mark and the spoken count; `FlockStrip.tsx` only paints them. It costs no
-request — the members come out of the payload the list already fetched. Five
-things break easily:
-
-- **It draws a count, and the week strip's comment said it never could.** That
-  refusal was right about a *moment*: "three of four are in" is a claim that
-  does not exist for everybody at once (§2). The count is not about a moment.
-  `squad_leaderboard(p_mode => 'current')` returns **each member's own** local
-  date, so the sentence is "three of four have cleared their own today" — true
-  continuously, and emptying for each member at their own midnight with nobody
-  else's mark moving. Anything that later ranks or counts this strip off one
-  shared calendar date reintroduces exactly the claim the old comment refused.
-- **A withheld member gets a mark and no verdict.** The consent gate is
-  reciprocal and per row (deviation #47), so `steps: null` means *unknown*, not
-  zero — countable neither as cleared nor as missed. They keep a disc, so the
-  row still has one per member, and it is a **ring rather than a grey fill**:
-  a grey fill is what "did not walk" looks like, and the Philippine market is
-  not to be told it missed a day for keeping its numbers private. They are
-  absent from **both** halves of the count — putting them in the denominator
-  lets a private decision deflate everybody else's number, which is the leak
-  whole-squad gating had.
-- **It withholds itself twice, and the second guard is not the first.**
-  `flockWalk` returns null for a squad of one *and* for fewer than two
-  **visible** members. The second is the normal state for a viewer who never
-  consented — the gate is reciprocal, so their own row reads null alongside
-  everybody else's — and "1 of 1 walked today" is the leader line's
-  congratulating-somebody-for-being-alone wearing a circle.
-- **It follows `mode`.** The board toggles Today/Yesterday and the strip reads
-  the same rows, so the label says "today" or "yesterday" rather than drawing a
-  today claim over a yesterday board. `FlockMarkState`'s `unmet` deliberately
-  carries no tense for the same reason: whether it reads as *not yet* or as
-  *missed* is the label's job, never the disc's.
-- **The clearance bar is `DAILY_STEP_BASELINE`, imported, never 10,000.** Same
-  rule the race keeps — `RACE_FINISH_LINE` *is* that constant — so the third
-  reading of the bar on this tab cannot drift from the other two. The strip is
-  clear of the `AGI`/`AGI_base` trap only because it reads raw steps off the
-  projection and never a stored tier.
-- **The marks keep board order, and that is not the Sky rail's rule.** The rail
-  sorts withheld members last because it has four seats and has to decide who
-  gets dropped; the strip has one mark per member and drops nobody, so there is
-  nothing to protect. Sorting rings to the end would additionally *group* the
-  people who declined into a visible cohort, which is a louder statement about
-  a private decision than leaving them where the board already puts them.
-
-**Two sentences stopped being false on 2026-09-07** (issue #26). Both are copy
-the app states as fact, and both now live in pure modules root Vitest can hold.
-
-- **A squad of one reads the Sky's sentence, not a standing.** The Flock band
-  answered `1st · of 1 · leading` on the tab immediately next to the one saying
-  *"You have the sky to yourself. The ridge is the opponent"* — the app refusing
-  to flatter you on one screen and doing exactly that on the next. The leader
-  line beside it was already guarded on two or more rows; this was a **second,
-  separate sentence** that never got the same guard. `resolveSquadStanding`
-  answers `{ kind: 'alone' }` first and the band renders `SOLO_SKY_OBSERVATION`
-  — the Sky's own string, **imported**, because two copies of one true sentence
-  is two things to keep true. Three things break easily. **The squad's size
-  decides it, never the board**: `squad_leaderboard()` left-joins
-  `daily_scores`, so an unmoved member is still a row and an empty board is
-  still a squad of one — `rows.length` would call a two-person squad alone for
-  the frame before its second row lands. **`alone` carries no rank and no
-  denominator**, and a test asserts the key list, so no later edit can reach for
-  one. And **the copy moved out of `Leaderboard.tsx` into `standing.ts`** —
-  `ordinal`, `standingHero` and `standingSubline` — because a rule about what a
-  screen may say has no guard on it while it lives in a `.tsx` that root Vitest
-  cannot load. `SkyStanding` had already made this fix for `1 of 1` on
-  2026-09-02; this is the same fix in the second surface — and in the third,
-  since **the rows beneath the band were saying it too**. `LeaderboardRow` takes
-  `ranked`, false on a board of one, which withholds the rank glyph *and* the
-  `Rank 1` that `leaderboardRowLabel` spoke; `RowLabelInput.rank` is
-  `number | null` rather than a flag beside a number, so there is no second
-  field to disagree with the first. `SoloBoard` passes it too: its own doc
-  argued there was no "1st of 1" to draw there while the row drew the 1 anyway.
-  `ordinal()` is one module now (`ordinal.ts`) rather than a copy each in
-  `standing.ts` and `race-label.ts`.
+  seed rather than a rule** (deviation #63). `/connect` reads fourteen complete
+  local days through `readDailySteps`; `calibrateQuestTier()` in `quest.ts`
+  medians them, drops zeroes, excludes today and needs four qualifying days,
+  and `no-history` is a different sentence from a low proposal. `questTier()` is
+  untouched and stays the fallback; the whole rule set is one pure function in
+  `quest.ts` rather than a sibling module, and `QUEST_CATALOGUE` is imported
+  rather than threaded through. `readDailySteps` must stay one daily-interval
+  step collection — `readHealthWindow` would read heart rate to size a quest.
+  Nothing about those days leaves the phone: no `profiles` write, no telemetry,
+  and `calibration_completed` carries `{ outcome }` and not the tier proposed.
+  `questTierChosen` is what makes the player's answer win outright.
+- **The welcome run is four cards and the fourth is the flock ask** (deviation
+  #64) — a card rather than a sheet, because a separately leased sheet would put
+  two first-run surfaces on one first focus. Exactly one card carries an actions
+  slot and a test asserts it. `welcome_seen` is claimed when the run **opens**,
+  so an interrupted run loses the ask; that loss is bounded by the Sky tab's
+  permanent invite slot and must not be repaired with a second marker. The join
+  door is withheld from an account that already has a squad. Every word lives in
+  `welcome-cards.ts`, reading `RACE_FINISH_LINE` and `FREE_SQUAD_MAX_MEMBERS`
+  from the constants; the request crosses to the Flock tab as `?pane=join`
+  through `flock-pane.ts`, which owns both the href and the parser, and the tab
+  **consumes and clears** it. One answer per run, on a ref.
+- **Each beat records one impression** — `onboarding_beat_seen` with `{ route }`,
+  from `useBeatImpression`, unguarded on mount, and `userId` is deliberately not
+  an effect dependency. The hatch (`/connect`'s "Did you know?" phase) reports
+  nothing: it is a phase, not a route. Its window opens when `connectHealth`
+  **resolves, not at tap**, and closes at the **later** of "minimum served" and
+  "read finished" (`hatching-window.ts`); `trivia.ts` picks by a hash of the
+  account and states no effect size.
+- **Native modals lease `src/ui/modal-owner.ts`** — permission asks, welcome
+  cards and Today details must never be visible under different owners in one
+  frame. Claim in an effect, release in the same effect, never from a close
+  callback.
+- **The sheet lessons apply to every bounded surface**: a `maxHeight`, a
+  `ScrollView` that is `flexGrow: 0, flexShrink: 1`, and content wrapped in a
+  `View` with an explicit **point** width (`width: '100%'` resolves against a
+  ScrollView measuring that content). `Panel` sets `overflow: 'hidden'`, so an
+  oversized sheet is clipped **silently** and the child that goes is the decline
+  control. `OnboardingCta` takes `lines?: 1 | 2` for the same reason. Find this
+  class of bug with
+  `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large`,
+  and **relaunch after changing content size** — RN caches text measurements.
+- **`<Screen bleed>` hands the top inset back**, and forgetting it is invisible
+  until somebody looks at a device: the You tab drew its only route to Settings
+  inside the Dynamic Island's cutout. `src/ui/bleed-inset.test.ts` scans every
+  bleeding surface, following one level of imports. A `<Modal>` gets no inset of
+  its own, so `TodayDetailsSheet` takes the **bottom** inset for its only
+  dismissal.
+- **A rail or list draws one trailing slot, never one per free seat.** The Sky
+  flock rail is four roster slots then one trailing slot (the invite or an
+  overflow `+N`, never both and never none), with `flexWrap` deliberately absent
+  so it fails by clipping rather than by wrapping; `LockedSlot` is **one** row
+  carrying the count and no rank. Withheld members sort last on the rail, and
+  keep board order in the strip.
+- **The flight is inset below the flock rail**, and `flight-frame.ts` owns that
+  arithmetic plus the opening offset. The rail's height is **measured**, not
+  assumed; `flightFrame` is handed `chromeBottom` so every assertion holds for
+  whatever the screen composes, and a source scan on `sky.tsx` closes the rest;
+  the gradient spans the whole scroller, inset included; the inset moves the
+  **drawing box**, not the path.
+- **Counted figures go through `countWords` in `quest-copy.ts`** — HealthKit
+  reports active energy as a float, and "395.66 active kcal" shipped in Today's
+  one visible sentence. **`StatRail` declares `flexDirection: 'row'`**: a layout
+  that depends on a default moves when its container does. **The invite code
+  takes the `fixed` scale plus `numberOfLines={1}`, `adjustsFontSizeToFit` and a
+  `minimumFontScale` floor** — correct only together, and guarded by a scan of
+  the tag itself.
+- **The dev client's floating gear is turned off at runtime**
+  (`hideDevMenuFloatingButton()`, `__DEV__`-guarded), deliberately **not** via
+  `ios.infoPlist.EXDevMenuShowFloatingActionButton`, which is a fingerprint
+  input and costs a native build. It was never in TestFlight: `expo-dev-menu` is
+  a debug-only pod.
+- **The character's body follows its growth stage** (issues #30/#31). Twelve
+  literal `require`s in `KAIRO_STAGE_ASSETS` — a computed path is a blank image
+  on a device and nothing at build time — with `character-assets.test.ts`
+  failing a cell that is missing, computed, naming an absent file, **or naming
+  the same file as another cell**. The stage rides on **idle, walk and run
+  only**; `sleep`, `workout` and `race_victory` stay adult-only, so a pre-adult
+  celebration draws that stage's walk and is still *spoken* through
+  `reaction.sentence`. Mind-state art stays adult-only too. The stage is derived
+  **once** and handed to both `resolveLivingMirror` and `CharacterFigure`;
+  `GROWTH_STAGES` derives from `GROWTH_STAGE_NAMES` and `firstLevelOfStage`
+  derives 1/6/11/21 from `evolutionStageForLevel`. The stage names are a
+  development vocabulary — no player surface speaks one.
+- **`scripts/generate_stage_art.py` reproduces the nine images**, as
+  identity-preserving edits of the adult render for the same pose. `POSE_PROMPTS`
+  must restate each pose's stagger and wing set positively (age is the loudest
+  thing in the prompt and the model draws a well-posed bird standing still);
+  `--input-fidelity high` is required, since `low` is the API default and drifts
+  a stage into three different birds; `normalise()` owns the framing against the
+  adult's bounding box, so **artwork must never be pre-shrunk** —
+  `figureResponse`'s `bodyScale` stands a hatchling smaller in the same box.
+  The paste is unmasked and `ALPHA_FLOOR` is 16, both for the shared ground
+  line. Nine, and never a tenth. **The device pass at each stage boundary is
+  still owed.**
+- **The crest takes the dominant stat's hue and the body's scale follows the
+  stage** (issue #33), which is how two eagles in a flock stop looking
+  identical. `crestTint` reads **lifetime** points through `laneStat` — not
+  `useDominantStat`'s fortnight, which `squad_leaderboard()` cannot project — so
+  Today and a flock row cannot disagree; a balanced player takes no hue. The
+  crest, never the bird: the figure already says four things by shape.
+  `scripts/generate_crest_masks.py` finds the crest by **geometry** (topmost
+  opaque row inside the central 44%) and must be **re-run after any change to
+  the art in its `SOURCES`**, which a test holds against `REQUIRED_PNG`.
+  `CREST_TINT_OPACITY` is 0.62 — full strength erases the outlines beneath. The
+  crest is never spoken, and `plumage.test.ts` scans from the two label
+  functions' own declarations. The thumbnail deliberately does not scale.
+  **"Crest" names two things**: capital-C is the ceiling day's sky, lowercase is
+  the bird's head feathers; the feature word is **plumage**.
+- **The You tab's header band carries no bird of its own** — the ring is the
+  bird on that screen — and one ground shadow, centred under it.
+- **The Flock band names the day's leader** from `rows[0]`, ordered by the board
+  rather than by the race, following `mode` ("won the day" vs "is ahead"), and
+  guarded on two or more rows. **A squad of one reads the Sky's own sentence**:
+  `resolveSquadStanding` answers `{ kind: 'alone' }` from the **squad's size,
+  never the board's row count**, carries no rank and no denominator, and renders
+  `SOLO_SKY_OBSERVATION` imported from the Sky. `LeaderboardRow` takes `ranked`,
+  false on a board of one, which withholds the glyph *and* the spoken `Rank 1`;
+  `RowLabelInput.rank` is `number | null` rather than a flag beside a number.
+  The copy lives in `standing.ts` and `ordinal()` is one module.
 - **The shield sentence names the streak minimum below it.**
-  `shield_available_on === null` means only that no shield is *recharging* —
-  it is null from the first scored day — while `advanceStreak` also requires
-  `SHIELD_MINIMUM_STREAK`, so "Shield banked — one missed day is safe" was the
-  first promise a new account read on the You tab and was false for its first
-  four days, on the one mechanic whose whole value is being believed *before*
-  the day it is needed. `shield-note.ts` holds both halves of the eligibility
-  and derives the `5`. **A pending recharge is named first, at any streak
-  length**: it is the binding constraint and was never the false half — a spent
-  shield catches nothing however long the streak grows, and a streak that breaks
-  after one is spent reaches five days again a fortnight before the charge
-  returns, so naming only the streak bar there is the same understatement in a
-  second place. The pill's colour reads `banked` off the same decision as its
-  words, rather than re-deriving it from the raw column.
+  `shield_available_on === null` means only that nothing is recharging, so
+  `shield-note.ts` holds both halves of the eligibility, derives the `5`, and
+  names a pending recharge first at any streak length.
+- **`Avatar`'s tint table lives in `avatar-tint.ts`** so `contrast.test.ts` can
+  read its inks; it had shipped cream on `colors.accent` for as long as the
+  component existed. `colors.text` is the ink; `ramp.accent[900]` is the
+  tempting wrong answer at 4.39 and a test asserts that failure. Nothing mounts
+  `Avatar` today.
+- **Settings is its own screen** (`/settings`, behind the gear on You), and
+  **"Dress your Kairo" is deliberately not built** — the cosmetic PNGs are
+  flattened previews, not composable layers.
+- **Kairo says things without words, so a group that means something is one
+  element with a composed label** and its decorative children are hidden. That
+  grouping is **explicit** — the parent keeps `accessible` +
+  `accessibilityLabel` **and** every direct child is hidden with
+  `accessibilityElementsHidden` + `importantForAccessibility="no-hide-descendants"`;
+  neither half is redundant. Before adding a name, read what is already spoken
+  beside it — a label that repeats an adjacent line is noise, and one inside a
+  control that already names itself is a bug. Where composition has real edges
+  it gets a tested pure module: `src/features/squad/row-label.ts` exists because
+  a leaderboard row was twelve separate stops. The character HUD's layout stays
+  **flow-based** — it was the app's only absolutely-positioned chrome and its
+  pills overlapped at large Dynamic Type; do not reintroduce a `top` on any
+  child. Structure is verified in Xcode's Accessibility Inspector on the
+  simulator before a TestFlight build is cut — it answers "is this row one
+  element or twelve" with no build and no VoiceOver gestures.
 
 **This whole redesign shipped over the air, and that was verified rather than
 assumed**: the tree's fingerprint was `324fba3e`, byte-identical to build 22's.
-(**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in
-`NSHealthShareUsageDescription`, and nothing else; every OTA since targets the
-new runtime.) Fredoka and Nunito are copied into `assets/fonts/` and loaded through
-`useFonts`, *not* added as npm dependencies — `package.json` is a fingerprint
-input and adding two lines to it would have cost one of the month's fifteen
-builds to ship a font.
+**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in
+`NSHealthShareUsageDescription` and nothing else — and every OTA since targets
+that runtime, the plumage pass included.
 
 **Kairo is Sunlit as of 2026-08-27** (deviations #53, #54). *Palette values and
 the icon family are superseded by the Playful block above (#58) and the era
