@@ -12,7 +12,7 @@ import { resolveStatDetail, statDetailLine } from '@/features/character/stat-det
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import { useDominantStat, useTodayScore } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
-import { SPECIES, displaySpecies } from '@/features/character/species.ts';
+import { displaySpecies, speciesLine } from '@/features/character/species.ts';
 import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { useStatRecords } from '@/features/profile/records.ts';
@@ -180,7 +180,7 @@ export default function ProfileTab() {
             name={profile.data.character_name}
             handle={handleFor(profile.data.character_name)}
             totalXp={profile.data.total_xp}
-            species={SPECIES[displaySpecies(profile.data.species)].name}
+            speciesLine={speciesLine(displaySpecies(profile.data.species))}
             joined={joinedLabel(profile.data.created_at)}
             // The same three rollups the rail below reads. The bird in the ring
             // is this account's own, so it wears the crest Today and the flock

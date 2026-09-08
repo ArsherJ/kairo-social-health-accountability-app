@@ -136,6 +136,11 @@ const { data: joined, error: joinError } = await supabase.rpc('join_squad', {
   p_invite_code: inviteCode,
 });
 if (joinError) fail('join_squad', `${joinError.code} ${joinError.message}`);
+// Null is the RPC's answer to *both* "no such code" and "this account has spent
+// its daily invite-code budget" (issue #34) — deliberately the same answer, so
+// there is nothing more specific to print. Each run signs in a fresh anonymous
+// account, so the budget is never the reason here in practice.
+if (!joined) fail('join_squad', `no squad matched ${inviteCode}`);
 
 // `join_squad` is `returns public.squads`, so this is the squad row itself.
 console.log(`joined "${joined.name}" (${joined.program}, ${joined.id})`);

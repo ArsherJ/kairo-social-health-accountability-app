@@ -6,6 +6,18 @@ import { normalizeInviteCode } from './invite-code.ts';
 import { squadKeys, type Squad } from './queries.ts';
 
 /**
+ * The one sentence for a code that did not work.
+ *
+ * Said for two different reasons and deliberately identical for both: the code
+ * matched no squad, or the account has spent its daily budget of invite-code
+ * attempts (issue #34). A guesser must not be able to tell those apart, and the
+ * server does not help them — `join_squad` returns the same null either way,
+ * so there is nothing here to branch on even if a later reader wanted to.
+ */
+const NO_SUCH_SQUAD =
+  'That code does not match any squad. Check the six characters and try again.';
+
+/**
  * Turns a Postgres error into something a person can act on.
  *
  * The RPCs raise with specific SQLSTATEs, and rendering their raw text would
@@ -15,7 +27,7 @@ import { squadKeys, type Squad } from './queries.ts';
 function squadErrorMessage(code: string | undefined, fallback: string): string {
   switch (code) {
     case '22023':
-      return 'That code does not match any squad. Check the six characters and try again.';
+      return NO_SUCH_SQUAD;
     case '42501':
       return 'Finish setting up your character first.';
     case '23514':
@@ -103,6 +115,12 @@ export function useJoinSquad(userId: string | undefined) {
           squadErrorMessage(error.code, 'Could not join that squad. Try again.'),
         );
       }
+      // Null rather than a 22023 since 2026-09-08. The RPC charges the attempt
+      // against a daily counter, and a raise would abort the transaction and
+      // roll that charge back — so the miss path had to stop raising for the
+      // limit to be able to count anything at all. `onSuccess` reads
+      // `squad.program`, so this throw is also what keeps a null off that path.
+      if (!data) throw new Error(NO_SUCH_SQUAD);
       return data as Squad;
     },
     onSuccess: (squad) => {

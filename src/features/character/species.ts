@@ -34,6 +34,18 @@ export interface Species {
   id: SpeciesId;
   /** The in-app noun. "Your Philippine Eagle." */
   name: string;
+  /**
+   * The same words as a common noun, for a sentence: "a Philippine eagle".
+   *
+   * A second string rather than a derivation, and deliberately so. `name` is a
+   * label and takes a label's capitals; a sentence takes English's own rule for
+   * a species' common name, where only a proper adjective keeps its capital.
+   * No mechanical transform gets from one to the other for all four — the test
+   * asserts instead that the two say the same words and differ only in case,
+   * which is `SPECIES_NAMES`' anti-drift rule applied where a derivation cannot
+   * reach.
+   */
+  noun: string;
   /** The stat this species is *about*. Flavour only — never read by scoring. */
   affinity: CoreStat;
   /**
@@ -60,6 +72,7 @@ export const SPECIES: Record<SpeciesId, Species> = {
   pilandok: {
     id: 'pilandok',
     name: 'Pilandok',
+    noun: 'pilandok',
     affinity: 'AGI',
     hue: '#b98a4e',
     blurb: 'The Palawan mouse-deer — quick, small, and hard to catch. Vulnerable in the wild.',
@@ -67,6 +80,7 @@ export const SPECIES: Record<SpeciesId, Species> = {
   tamaraw: {
     id: 'tamaraw',
     name: 'Tamaraw',
+    noun: 'tamaraw',
     affinity: 'STR',
     hue: '#5b6b78',
     blurb: 'Found only on Mindoro, and nowhere else on earth. Critically endangered.',
@@ -74,6 +88,7 @@ export const SPECIES: Record<SpeciesId, Species> = {
   carabao: {
     id: 'carabao',
     name: 'Carabao',
+    noun: 'carabao',
     affinity: 'STR',
     hue: '#8a8f7a',
     blurb: 'The national animal. Works all day and keeps going.',
@@ -81,6 +96,7 @@ export const SPECIES: Record<SpeciesId, Species> = {
   eagle: {
     id: 'eagle',
     name: 'Philippine Eagle',
+    noun: 'Philippine eagle',
     affinity: 'MND',
     hue: '#8c5a3c',
     blurb: 'The national bird, and one of the largest eagles alive. Critically endangered.',
@@ -138,4 +154,36 @@ export const DEFAULT_SPECIES: SpeciesId = 'eagle';
  */
 export function displaySpecies(_stored: SpeciesId | null): SpeciesId {
   return DEFAULT_SPECIES;
+}
+
+/**
+ * "A Philippine eagle" — what the bird is, as a sentence (issue #32).
+ *
+ * The one place in the app that says what the animal is. Every character is a
+ * Philippine eagle (deviation #55) and until now no screen said so, which left
+ * the product's clearest cultural claim invisible: swap the eagle for a generic
+ * owl and nothing a player could see would change. The 2026-09-06 evaluation
+ * panel scored cultural specificity 2/5 and named this.
+ *
+ * **One line, on the You tab, under the name.** It is not a species readout, a
+ * fact card or a second noun — the registry's `blurb` is the endemic-fact copy
+ * and it belonged to a picker that no longer exists. A test sweeps `app/` and
+ * `src/` for the phrase and fails any file but this one, so a second surface
+ * has to read this function rather than write the words again.
+ *
+ * **The only place it is *printed*, which is not the only place it is said.**
+ * A flock row has spoken `SPECIES_NAMES[displaySpecies(...)]` through
+ * `leaderboardRowLabel` since deviation #40 — a VoiceOver reading, not a
+ * visible one, and it stays. Worth knowing because the sweep cannot see it:
+ * that path is a registry lookup, and a scan for the phrase only ever finds
+ * copy somebody typed.
+ *
+ * The article is written out rather than derived. No noun in the registry
+ * begins with a vowel, and `SPECIES_IDS` mirrors a CHECK constraint, so a
+ * fifth species is a migration — at which point the test's exact four-line
+ * assertion fails and a human writes the fifth sentence, which is the right
+ * moment to decide between "A" and "An".
+ */
+export function speciesLine(id: SpeciesId): string {
+  return `A ${SPECIES[id].noun}`;
 }

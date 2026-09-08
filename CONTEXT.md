@@ -37,8 +37,15 @@ three poses that actually draw — idle, walk and run — because the base rende
 unreachable on the day screen and a stage applied to it would be a change nobody
 could see. The four are named `hatchling`, `fledgling`, `juvenile` and `adult`;
 those words label the artwork and the asset lab, and no player surface speaks
-them. *(Decided 2026-09-06; the render path built 2026-09-07, the artwork
-outstanding — stages 1–3 draw the adult art until it lands.)*
+them. *(Decided 2026-09-06; the render path built 2026-09-07, and the nine
+images landed 2026-09-08, so every stage now draws its own body.)*
+
+**Philippine eagle** — what the character *is*. Every character is one
+(deviation #55), and the app **prints** it in exactly one place: a line under
+the name on the You tab, from `speciesLine()`. It is a fact, not a feature —
+never a species readout, never a fact card, and never a second noun for the
+character, which still has none. (A flock row has *spoken* the species through
+`leaderboardRowLabel` since deviation #40. Said, not shown, and it stays.)
 
 **Living Mirror** — the character as the interface: the day read back as where
 the character is standing, how heavily it stands there, and how it slept, rather
@@ -213,6 +220,13 @@ earned one, which is the entire loop: the only way to answer is to move.
 
 **Consent** — permission to show a squadmate your daily totals. Reciprocal and
 per person: you see theirs when they have agreed *and* you have.
+
+**Invite code** — the six characters that are the whole authorisation to join a
+squad. An account gets a bounded number of tries a day (issue #34), and
+**a refusal is never named**: a spent budget and a wrong code produce the same
+sentence, because the only reader who benefits from telling them apart is the
+one guessing. _Avoid_, on every surface: "too many attempts", "rate limit",
+"try again tomorrow".
 
 ---
 

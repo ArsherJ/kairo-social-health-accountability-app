@@ -61,7 +61,7 @@ export function ProfileHeader({
   name,
   handle,
   totalXp,
-  species,
+  speciesLine,
   joined,
   lifetimePoints,
 }: {
@@ -69,8 +69,16 @@ export function ProfileHeader({
   /** `@bagwis`, derived by the caller from the name. */
   handle: string;
   totalXp: number;
-  /** Already resolved through `displaySpecies` by the caller. */
-  species: string;
+  /**
+   * "A Philippine eagle" — what the bird is, from `speciesLine()` (issue #32).
+   *
+   * The one screen that says it, and it says it once. It sits under the name as
+   * a caption rather than in the meta line below, because it is part of who the
+   * bird is and not another figure about the account — which is also why it
+   * takes the quiet body register, the only unbolded type on this screen, and
+   * no accent colour: a fact stated, not a claim made.
+   */
+  speciesLine: string;
   /** "Joined August 2026", or null while the profile is loading. */
   joined: string | null;
   /**
@@ -138,7 +146,7 @@ export function ProfileHeader({
         <View
           accessible
           accessibilityLabel={
-            `${name}, a ${species}. Level ${xp.level}, ${toNext.toLocaleString()} XP to the next.`
+            `${name}. ${speciesLine}. Level ${xp.level}, ${toNext.toLocaleString()} XP to the next.`
           }
         >
           <View {...hidden}>
@@ -158,6 +166,9 @@ export function ProfileHeader({
 
         <Text {...hidden} scale="chrome" numberOfLines={1} style={styles.name}>
           {name}
+        </Text>
+        <Text {...hidden} scale="chrome" style={styles.species}>
+          {speciesLine}
         </Text>
         {joined != null && (
           <Text {...hidden} scale="chrome" style={styles.meta}>
@@ -220,6 +231,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   name: { ...font.display.major, fontSize: 26, color: colors.text, marginTop: space.sm },
+  /**
+   * The quiet register, which is the whole point: the species is the one line
+   * here that is not a figure, so it is the one line that is not bold. No dot
+   * separator either — the meta line below already joins with one, and a second
+   * would file the bird under "account details".
+   */
+  species: { ...font.body.quiet, color: colors.muted, marginTop: 4 },
   meta: { ...font.body.strong, color: colors.muted, marginTop: 2 },
   xp: { ...font.body.strong, color: colors.accentDeep, marginTop: 4 },
 });

@@ -225,6 +225,13 @@ export function useSquadLeaderboard(
  *
  * `null` means the code matches no squad. That is a normal answer to a typo,
  * not an error state.
+ *
+ * Since 2026-09-08 it also means the account has spent its daily invite-code
+ * budget (issue #34) — this call is charged against the same counter as
+ * `join_squad`, because it answers the same question and hands back the squad's
+ * name, so limiting only the join would leave the guessing door open. The two
+ * are deliberately the same answer: nothing here may separate them, and a
+ * legitimate join spends two of twenty.
  */
 export type SquadPreview = {
   name: string;

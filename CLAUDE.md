@@ -15,7 +15,7 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
-- **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded — since 2026-09-07 — by `src/features/privacy/claim-surfaces.test.ts` along with every other surface that makes the claim. The App Store answers are `docs/app-store-privacy.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields, the `NSHealthShareUsageDescription` build.
+- **The privacy policy exists** (2026-09-02): `web/privacy.html`, served at `/privacy` on the invite host, linked from Settings beside a "Send feedback" row, and guarded — since 2026-09-07 — by `src/features/privacy/claim-surfaces.test.ts` along with every other surface that makes the claim. The App Store answers are `docs/app-store-privacy.md` and the listing copy — name, subtitle, description, keywords — is `docs/app-store-listing.md`. What remains is by hand: the controller's legal name in the page, App Store Connect's fields (the privacy answers **and** the listing), the `NSHealthShareUsageDescription` build.
 
 Everything below this line is the *why* and the *history* behind those facts. Several blocks describe design eras, tab layouts and flows that have **since been replaced** — each such block states its date range and what superseded it. Read a dated "as of" claim against this list before acting on it.
 
@@ -794,6 +794,76 @@ hand-edit the ignored `ios/` project. Same failure class as `aps-environment`.
 The domain is a one-way door — `INVITE_HOST` is one constant that both
 `app.config.ts` and `invite-message.ts` read, and changing it breaks every link
 already shared. Runbook: `web/README.md`.
+
+**Guessing an invite code costs a daily budget, and `join_squad` returns null
+now, as of 2026-09-08** (deviation #71, issue #34). `rate_limits (user_id,
+action, window_date, attempts)` with no client grant, charged by
+`consume_rate_limit(p_action, p_limit)` inside the RPC; `join_squad` and
+`preview_squad` both spend the `invite_code` action, thirty a day. Nine things
+break easily:
+
+- **A raise and a counter cannot coexist in one transaction, and that is why
+  the contract changed.** `join_squad` raised `22023` for an unknown code; an
+  exception aborts the transaction, so the increment recording the guess is
+  rolled back with it, the counter only ever advances on the calls that
+  *succeeded*, and the limit never trips — silently, with every test about
+  refusing a bad code still green. The miss path returns **null**, and
+  `useJoinSquad` turns that into the sentence 22023 used to produce. Do not
+  "restore" the raise.
+- **Over-budget returns the same null**, so the two answers are identical by
+  construction rather than by two branches that agree today: one return
+  statement, no code, no message. `NO_SUCH_SQUAD` in `mutations.ts` is one
+  constant for the same reason. Nothing may ever say "too many attempts" —
+  `CONTEXT.md` carries that as a vocabulary rule.
+- **`preview_squad` shares the budget**, which is one step past the ticket's
+  "inside the join RPC" and the difference between a control and theatre: it
+  answers the same question for any authenticated caller *and* hands back the
+  squad's name, so limiting only the join leaves the enumeration door open and
+  closes the one you walk through afterwards holding the answer. One action key,
+  because a budget per door is a budget an attacker picks the larger of.
+- **It is `volatile` now and that is load-bearing.** PostgREST runs a STABLE
+  function in a read-only transaction on the GET path, where the charge fails
+  outright.
+- **The window is the UTC date, alone in this codebase.** Everything else is
+  keyed by the player's own local day (§2); `profiles.timezone` is in the
+  client's column-level UPDATE grant, so a local-day window would be a reset
+  button. A rate limit is the one place the account's own claim about when its
+  day ends cannot be the authority.
+- **Charged before the lookup, and the over-budget attempt is charged too.**
+  Charging afterwards lets an exhausted account still join on the guess that
+  finally lands, which is the outcome the budget exists to prevent. A legitimate
+  join spends two of thirty — one preview, one join — which is the best case
+  rather than the bound: a mistyped code previews too, and `useSquadPreview`'s
+  `retry: 2` can charge three for one attempt. Thirty rather than a number
+  closer to two because the failures are not symmetrical — thirty guesses a day
+  against 2.18e9 is the same nothing ten is, while a false refusal tells an
+  honest person their correct code is wrong in the sentence built to give them
+  no way to find out otherwise.
+  The `20` is a commented literal for `users_needing_digest()`'s seven-day
+  reason: SQL cannot import from the keystone, and no client may know the
+  number, since a client counting down to a published bar would undo the whole
+  indistinguishability property.
+- **Built for a second caller.** `send_whack` takes the same shape in Phase 3
+  (deviation #70), so the next one adds a string rather than a mechanism. It
+  resolves the account from `auth.uid()` rather than taking a `p_user_id`, for
+  `delete_account()`'s reason — an identity argument is one accidental grant
+  from letting a caller spend, or clear, somebody else's budget.
+- **What it does not buy, and say so rather than implying otherwise.** The
+  counter is per account and accounts are cheap — anonymous sign-in is enabled
+  on the project, and `preview_squad` needs only a session where `join_squad`
+  also needs a profile. Enumeration now costs one account per thirty tries
+  instead of nothing, and the free unlimited existence oracle is gone; that is
+  the whole claim. A floor on the identity itself (App Attest) is still owed.
+  There is also **no pruning path**: one row per account, action and UTC day,
+  forever, reached only by `delete_account()`'s cascade. It is small, and a
+  sweep belongs with the next job that needs one rather than with this.
+- **The OTA ships before the migration, and the order is not symmetric.** An old
+  client against the new schema reads `data: null` with no error, hands it to
+  `onSuccess` and dereferences `squad.program` — a crash on an ordinary mistyped
+  code. A new client against the old schema is fine, because the old one still
+  raises 22023 and the mapping is still there. **No Edge Function bundles either
+  RPC**, so nothing redeploys; `seed-health` inserts membership directly and
+  names `join_squad` only in a comment.
 
 **A new account does not see the whole app, as of 2026-08-17** (deviations
 #37–#39). `disclosureStage()` in `@kairo/core` returns `core` below
@@ -1982,6 +2052,41 @@ character tab is gone. Three things break easily:
   sentence** — see the Living Mirror block below for what Today is now.
   `TodayPanel`, `character/standing.ts`, `character/stat-detail.ts` and
   `character/species-label.ts` are unmounted and still on disk with their tests.
+- **The app says so out loud as of 2026-09-08** (issue #32), in exactly one
+  place *it is printed*: `speciesLine()` in `species.ts` returns *"A Philippine
+  eagle"* and the You tab renders it under the character's name. Said is not the
+  same as shown — `LeaderboardRow` has passed `SPECIES_NAMES[displaySpecies()]`
+  into `leaderboardRowLabel` since deviation #40, so a flock row has spoken the
+  species all along, and it stays. The sweep below cannot see that path, because
+  it is a registry lookup and a phrase scan only finds copy somebody typed.
+  Four things break easily.
+  **The words live in the registry and nowhere else** — `species-line.test.ts`
+  sweeps every non-test file under `app/` and `src/`, comments stripped, and
+  fails the phrase in any file but `species.ts`, so a second surface reads the
+  function rather than writing the sentence again. **`noun` is a second string
+  beside `name`, not a derivation**: a label takes a label's capitals
+  ("Philippine Eagle") and a sentence takes the species-name rule ("Philippine
+  eagle"), and no transform gets from one to the other for all four — so the
+  test asserts instead that the two say the same words and differ only in case,
+  which is `SPECIES_NAMES`' anti-drift rule where a derivation cannot reach.
+  The article is written out for the same reason a derivation was refused: no
+  noun here begins with a vowel, `SPECIES_IDS` mirrors a CHECK constraint, so a
+  fifth species is a migration — and the test's exact four-line assertion is
+  what fails in front of whoever writes the fifth sentence.
+  **It is one line and must stay one**: not a species readout, not a fact card,
+  not a second noun for the character, which still has none — the registry's
+  `blurb` is endemic-fact copy that belonged to the retired picker.
+  And **the App Store description is held to the same words** by an assertion
+  over `docs/app-store-listing.md`, which is the repo's copy of a field typed
+  into App Store Connect by hand, exactly like `NSHealthShareUsageDescription`
+  and the privacy answers. That file makes **no privacy claim of its own** and
+  points at the policy instead, deliberately: it is not registered with
+  `claim-surfaces.test.ts`, because a guard over a doc would imply a guard over
+  a field nothing in this repo can reach. **The figures in it are pinned to the
+  constants** — the Daily Walk baseline and the free flock size — by the same
+  test, which is the welcome cards' rule applied where Markdown cannot import;
+  a description promising 10,000 steps after the baseline moved would be a
+  false claim in the one place a stranger reads before installing.
 
 **Today is the Living Mirror as of deviation #59** (2026-09-01). Its
 always-visible order is the KAIRO scene, compact Level/personal Streak, Motion

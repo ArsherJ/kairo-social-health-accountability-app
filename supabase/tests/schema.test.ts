@@ -1353,10 +1353,10 @@ describe('migrations', () => {
       `select count(*)::int as count from information_schema.tables
        where table_schema = 'public'`,
     );
-    // 19 as of 20260830090000_race_results.sql. A number that moves without a
-    // migration in the same commit is a table somebody added without deciding
-    // whether it needs RLS — which is what the next case asks about.
-    expect(rows[0]!.count).toBe(19);
+    // 20 as of 20260908090000_invite_code_rate_limit.sql. A number that moves
+    // without a migration in the same commit is a table somebody added without
+    // deciding whether it needs RLS — which is what the next case asks about.
+    expect(rows[0]!.count).toBe(20);
   });
 
   it('enable row level security on every public table', async () => {
@@ -1510,11 +1510,196 @@ describe('squad limits', () => {
     expect(count[0]!.count).toBe(1);
   });
 
-  it('rejects an unknown invite code', async () => {
+  it('answers null for an unknown invite code, rather than raising', async () => {
+    // It raised 22023 until 2026-09-08 (issue #34). A raise aborts the
+    // transaction, which would roll back the attempt the rate limit charges for
+    // this call — so the counter would never advance on the one path that
+    // matters and the limit would never trip, with this test still green. The
+    // null is what the client turns into the sentence 22023 used to produce,
+    // and it is also what an over-budget caller gets, which is the point.
+    const user = await h.createUser();
+    const rows = await h.asUser<{ join_squad: unknown }>(
+      user,
+      'select public.join_squad($1)',
+      ['ZZZZZZ'],
+    );
+    expect(rows[0]!.join_squad).toBeNull();
+  });
+});
+
+describe('the invite-code rate limit (issue #34)', () => {
+  /** The limit written into join_squad and preview_squad. */
+  const LIMIT = 30;
+
+  /** The same window the RPCs charge against: the UTC date, not a local one. */
+  const TODAY = new Date().toISOString().slice(0, 10);
+
+  const spent = (userId: string, attempts: number, windowDate = TODAY) =>
+    h.asService(
+      `insert into public.rate_limits (user_id, action, window_date, attempts)
+       values ($1, 'invite_code', $2, $3)
+       on conflict (user_id, action, window_date) do update set attempts = $3`,
+      [userId, windowDate, attempts],
+    );
+
+  const attemptsOf = async (userId: string): Promise<number> => {
+    const rows = await h.asService<{ attempts: number }>(
+      `select coalesce(sum(attempts), 0)::int as attempts from public.rate_limits
+        where user_id = $1 and action = 'invite_code' and window_date = $2`,
+      [userId, TODAY],
+    );
+    return rows[0]!.attempts;
+  };
+
+  async function squadWithCode(): Promise<string> {
+    const leader = await h.createUser();
+    const rows = await h.asUser<{ invite_code: string }>(
+      leader,
+      `select invite_code from public.create_squad('Guessable')`,
+    );
+    return rows[0]!.invite_code;
+  }
+
+  const join = async (userId: string, code: string): Promise<unknown> => {
+    const rows = await h.asUser<{ join_squad: unknown }>(
+      userId,
+      'select public.join_squad($1)',
+      [code],
+    );
+    return rows[0]!.join_squad;
+  };
+
+  it('lets a member preview and join their flock, spending two of the budget', async () => {
+    // The criterion that matters most: the honest path is untouched. A clean
+    // join is one preview and one join — the best case rather than the bound,
+    // since a mistyped code previews too and the preview query's `retry: 2` can
+    // charge up to three for one attempt. The budget is sized for that (see the
+    // migration header), not for this number.
+    const code = await squadWithCode();
+    const joiner = await h.createUser();
+
+    const preview = await h.asUser<{ name: string }>(
+      joiner,
+      'select name from public.preview_squad($1)',
+      [code],
+    );
+    expect(preview[0]!.name).toBe('Guessable');
+    expect(await join(joiner, code)).not.toBeNull();
+
+    const members = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.squad_members where user_id = $1`,
+      [joiner],
+    );
+    expect(members[0]!.n).toBe(1);
+    expect(await attemptsOf(joiner)).toBe(2);
+  });
+
+  it('charges a miss, so a run of guesses actually reaches the limit', async () => {
+    // The half a raise would have destroyed: an exception rolls the charge back
+    // with it, so a `raise` on the miss path leaves the counter reading only
+    // the successes and the limit never trips.
+    const guesser = await h.createUser();
+    for (let i = 0; i < 3; i++) expect(await join(guesser, 'ZZZZZ' + i)).toBeNull();
+    expect(await attemptsOf(guesser)).toBe(3);
+  });
+
+  it('refuses a join once the day is spent, even with the right code', async () => {
+    // Charged before the lookup, deliberately. Charging after it would let an
+    // exhausted account still join on the guess that finally landed — the one
+    // outcome the budget exists to prevent.
+    const code = await squadWithCode();
+    const guesser = await h.createUser();
+    await spent(guesser, LIMIT);
+
+    expect(await join(guesser, code)).toBeNull();
+
+    const members = await h.asService<{ n: number }>(
+      `select count(*)::int as n from public.squad_members where user_id = $1`,
+      [guesser],
+    );
+    expect(members[0]!.n).toBe(0);
+  });
+
+  it('answers a spent budget and a wrong code identically', async () => {
+    // The acceptance criterion, and it holds by having nothing to tell apart:
+    // one null from one return statement, no error code and no message.
+    const code = await squadWithCode();
+    const exhausted = await h.createUser();
+    await spent(exhausted, LIMIT);
+    const fresh = await h.createUser();
+
+    expect(await join(exhausted, code)).toBeNull();
+    expect(await join(fresh, 'ZZZZZZ')).toBeNull();
+  });
+
+  it('spends the same budget on preview_squad, which asks the same question', async () => {
+    // A limit on the join alone would be theatre: preview_squad answers "does
+    // this code exist?" for any authenticated caller and hands back the squad's
+    // name, so the guessing would simply move one door left.
+    const code = await squadWithCode();
+    const guesser = await h.createUser();
+
+    await h.asUser(guesser, 'select * from public.preview_squad($1)', ['ZZZZZZ']);
+    expect(await attemptsOf(guesser)).toBe(1);
+
+    await spent(guesser, LIMIT);
+    const preview = await h.asUser(
+      guesser,
+      'select * from public.preview_squad($1)',
+      [code],
+    );
+    // No rows — which is exactly what an unknown code returns, so the two are
+    // indistinguishable on this door too.
+    expect(preview).toEqual([]);
+  });
+
+  it('resets on the next daily window', async () => {
+    // Yesterday's exhausted budget is a different row, so today starts clean.
+    // Asserted by seeding the past rather than by moving the clock: the window
+    // is part of the primary key, and that is the whole mechanism.
+    const code = await squadWithCode();
+    const joiner = await h.createUser();
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    await spent(joiner, LIMIT, yesterday);
+
+    expect(await join(joiner, code)).not.toBeNull();
+  });
+
+  it('counts per account, so one guesser cannot lock anybody else out', async () => {
+    const code = await squadWithCode();
+    const guesser = await h.createUser();
+    const bystander = await h.createUser();
+    await spent(guesser, LIMIT);
+
+    expect(await join(guesser, code)).toBeNull();
+    expect(await join(bystander, code)).not.toBeNull();
+  });
+
+  it('grants no client role anything on the counter', async () => {
+    // Reading it would tell a guesser how many tries are left — the number the
+    // refusal is deliberately silent about. Writing it would remove the limit.
+    const rows = await h.asService<{ grantee: string }>(
+      `select grantee from information_schema.role_table_grants
+        where table_schema = 'public' and table_name = 'rate_limits'
+          and grantee in ('anon', 'authenticated')`,
+    );
+    expect(rows).toEqual([]);
+
     const user = await h.createUser();
     await rejects(
-      h.asUser(user, 'select public.join_squad($1)', ['ZZZZZZ']),
-      /invalid invite code/,
+      h.asUser(user, 'select * from public.rate_limits'),
+      /permission denied/i,
+    );
+  });
+
+  it('lets no client charge or clear a budget directly', async () => {
+    // It resolves the account from auth.uid() and takes no user id, so even a
+    // grant handed out by accident could only spend the caller's own budget —
+    // but the grant is absent, which is the actual control.
+    const user = await h.createUser();
+    await rejects(
+      h.asUser(user, `select public.consume_rate_limit('invite_code', 20)`),
+      /permission denied/i,
     );
   });
 });
@@ -3375,6 +3560,7 @@ describe('delete_account', () => {
        union all select 'streaks', count(*)::int from public.streaks where user_id = $1
        union all select 'squad_members', count(*)::int from public.squad_members where user_id = $1
        union all select 'device_tokens', count(*)::int from public.device_tokens where user_id = $1
+       union all select 'rate_limits', count(*)::int from public.rate_limits where user_id = $1
        union all select 'auth_users', count(*)::int from auth.users where id = $1`,
       [userId],
     );
@@ -3394,6 +3580,15 @@ describe('delete_account', () => {
       [user],
     );
 
+    // A spent budget is account-scoped and must go with the account: it
+    // references auth.users, which is the row delete_account() actually
+    // deletes, so the cascade is what reaches it.
+    await h.asService(
+      `insert into public.rate_limits (user_id, action, window_date, attempts)
+       values ($1, 'invite_code', current_date, 3)`,
+      [user],
+    );
+
     await h.asUser(user, 'select public.delete_account()');
 
     expect(await residue(user)).toEqual({
@@ -3403,6 +3598,7 @@ describe('delete_account', () => {
       streaks: 0,
       squad_members: 0,
       device_tokens: 0,
+      rate_limits: 0,
       auth_users: 0,
     });
   });

@@ -26,6 +26,15 @@ in Settings. Those fourteen days are never stored and never sent.
 The player picks no species: every character is the eagle as of 2026-08-27
 (deviation #55), and `profiles.species` still holds every earlier choice so
 the decision is one line to reverse.
+**The You tab says what it is** as of 2026-09-08 (issue #32): one line under
+the character's name, *"A Philippine eagle"*. Every character had been one for
+six weeks without a single screen printing it — a flock row's accessible label
+has spoken the species since deviation #40, but nothing was ever shown. The
+words are `speciesLine()` and a sweep fails the phrase in any other file under
+`app/` or `src/`, so it stays one line on one screen: not a species readout, not
+a fact card, not a second noun for the character, which still has none.
+`docs/app-store-listing.md` holds the store description to the same words, and
+to the Daily Walk figure and the free-tier flock size.
 
 **The eagle's body follows its growth stage** as of 2026-09-07 (issue #30) —
 four bands of Level, applied to the three poses a day actually draws (idle,
@@ -47,6 +56,7 @@ the band above it and on the You tab.
 
 ## Docs
 
+- [`docs/app-store-listing.md`](./docs/app-store-listing.md) — the App Store name, subtitle, description and keywords, typed into App Store Connect by hand. It makes no privacy claim of its own and points at the policy, which is why it is not one of `claim-surfaces.test.ts`' registered surfaces.
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.
 - [`CONTEXT.md`](./CONTEXT.md) — the domain glossary: the words Kairo means and the words it refuses. Vocabulary only, no implementation.
 - [`docs/adr/`](./docs/adr/) — architecture decision records, for choices that are hard to reverse and surprising without their context.
@@ -157,6 +167,14 @@ The smoke check exercises the real function through a throwaway account and
 deletes it afterwards. It fails loudly on exactly that signature: buckets
 accepted, no score written. `docs/qa/kairo-end-to-end-qa-report.md` has the
 full post-mortem.
+
+**A migration that changes what an RPC *returns* ships after the OTA, not
+before.** `20260908090000_invite_code_rate_limit.sql` is the case in point
+(issue #34): `join_squad` returns null for an unknown code instead of raising
+`22023`, so an installed build that predates the update reads `data: null` with
+no error and dereferences it. The reverse order is harmless — the new client
+handles both — so publish the update, confirm it, then apply the migration. No
+Edge Function bundles either squad RPC, so nothing redeploys with it.
 
 ### The invite-link site (`web/`)
 
