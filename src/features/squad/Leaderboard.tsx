@@ -1,49 +1,37 @@
 import { useState } from 'react';
+import { FlockPerch, type PerchMember } from './FlockPerch.tsx';
+import { PerchBirdSheet } from './PerchBirdSheet.tsx';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
-import type { LifetimePoints } from '@/features/character/plumage.ts';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import { leaderboardGaps } from './row-gap.ts';
 import { SlotUnlockReveal, useSlotUnlockReveal } from './SlotUnlockReveal.tsx';
-import { resolveSquadStanding, standingHero, standingSubline } from './standing.ts';
+import { resolveSquadStanding } from './standing.ts';
 import { SOLO_SKY_OBSERVATION } from './sky-reading.ts';
 import { FlockStrip } from './FlockStrip.tsx';
 import { flockWalk } from './flock-walk.ts';
 import {
-  useSquadLeaderboard,
-  useSquadMemberCount,
   type LeaderboardMode,
   type Squad,
+  useSquadLeaderboard,
+  useSquadMemberCount,
 } from './queries.ts';
 import { useLeaveSquad } from './mutations.ts';
 import { boostChipLabel, programLabel } from './program-copy.ts';
 import { shareInvite } from './share-invite.ts';
 import { resolveSlots } from './slots.ts';
 import { useSquadRealtime } from './useSquadRealtime.ts';
-import { useRouter } from 'expo-router';
-import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Gradient, Numeral, Panel, Screen, Text } from '@/ui/index.ts';
-import type { Stop } from '@/ui/gradient.ts';
-
-/**
- * The squad's band: violet into pink.
- *
- * `sage` into `coral` — the squad's warmth and the streak's heat. Deliberately
- * **not** the accent: orange means "you" everywhere else in the app, and a
- * whole field of it at the top of the one tab explicitly about other people
- * would be the palette saying the wrong thing loudest.
- */
-const BAND: Stop[] = [
-  { color: ramp.sage[600], at: 0 },
-  // `damage`, not `coral`. The band carries cream type over its whole height —
-  // the squad's name at the top, the standing at the foot — and cream on
-  // `colors.coral` is 2.93:1. One step deeper is still unmistakably the same
-  // pink and reads at 6.47:1.
-  { color: colors.damage, at: 1 },
-];
+import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { Button, Panel, Screen, Text } from '@/ui/index.ts';
 
 const MODES: ReadonlyArray<{ mode: LeaderboardMode; label: string }> = [
   { mode: 'current', label: 'Today' },
@@ -76,9 +64,10 @@ function formatLocalDate(isoDate: string): string {
  */
 function InviteCode({ code, squadName }: { code: string; squadName: string }) {
   return (
-    <Panel variant="plain" style={styles.codeCard}>
+    <Panel variant='plain' style={styles.codeCard}>
       <Text style={styles.codeLabel}>INVITE CODE</Text>
-      {/* A code is drawn geometry, not prose. At the largest accessibility
+      {
+        /* A code is drawn geometry, not prose. At the largest accessibility
           sizes the default `prose` scale took 38pt to ~68pt, and with the
           letter-spacing below that is wider than a 320pt screen: it broke to a
           second line with a single character orphaned under the tab bar, six
@@ -91,7 +80,8 @@ function InviteCode({ code, squadName }: { code: string; squadName: string }) {
           `adjustsFontSizeToFit` a shrink instead of a wrap, and the two are
           only ever correct together. `minimumFontScale` keeps the floor
           legible: without it iOS is free to shrink as far as it likes, and a
-          code nobody can read is not better than a wrapped one. */}
+          code nobody can read is not better than a wrapped one. */
+      }
       <Text
         scale="fixed"
         numberOfLines={1}
@@ -103,18 +93,22 @@ function InviteCode({ code, squadName }: { code: string; squadName: string }) {
         {code}
       </Text>
 
-      {/* The card used to end here, and that was the whole social loop: six
+      {
+        /* The card used to end here, and that was the whole social loop: six
           characters to read aloud. The code stays `selectable` for anyone who
           wants to long-press it; this is the path for everyone else, and it
-          puts Messenger and Viber one tap away rather than a toast. */}
+          puts Messenger and Viber one tap away rather than a toast. */
+      }
       <Pressable
-        accessibilityRole="button"
+        accessibilityRole='button'
         accessibilityLabel={`Share the invite code for ${squadName}`}
         hitSlop={space.sm}
         onPress={() => void shareInvite({ squadName, inviteCode: code })}
-        style={({ pressed }) => [styles.shareRow, pressed && styles.pressedRow]}
+        style={(
+          { pressed },
+        ) => [styles.shareRow, { minHeight: 48, minWidth: 48 }, pressed && styles.pressedRow]}
       >
-        <MaterialCommunityIcons name="share-variant" size={14} color={ramp.sage[700]} />
+        <MaterialCommunityIcons name='share-variant' size={14} color={ramp.sage[700]} />
         <Text style={styles.shareLabel}>Share invite</Text>
       </Pressable>
     </Panel>
@@ -130,12 +124,13 @@ export function Leaderboard({
   userId: string | undefined;
   /** Fires after the squad is left, so the screen behind can reset its pane. */
   onLeave?: () => void;
-}) {  // The live board is the default: §2's hooks assume a board you check during
+}) {
+  // The live board is the default: §2's hooks assume a board you check during
   // the day ("1 hour left, you're in Nth place"). Completed-day is secondary.
-  const router = useRouter();
   // The band bleeds under the status bar, so its content takes the inset —
   // `Screen bleed` hands that back rather than guessing.
   const insets = useSafeAreaInsets();
+  const [selectedBird, setSelectedBird] = useState<PerchMember | null>(null);
   const [mode, setMode] = useState<LeaderboardMode>('current');
   const board = useSquadLeaderboard(squad.id, mode);
   const leave = useLeaveSquad(userId);
@@ -191,8 +186,6 @@ export function Leaderboard({
   // in `standing.ts` rather than here: the words a squad of one may never read
   // are a rule, and root Vitest cannot load a component file to guard one.
   const standing = resolveSquadStanding({ rows: board.data, memberCount: memberCount.data });
-  const heroValue = standingHero(standing);
-  const subline = standingSubline(standing);
 
   // In completed mode every member is ranked on their OWN yesterday, so a
   // squad spanning timezones legitimately compares two calendar dates. Saying
@@ -245,377 +238,176 @@ export function Leaderboard({
         />
       }
     >
-      {/* The squad's own band: name, week, standing, on one field.
-
-          Violet into pink, which is `sage` into `coral` — the squad's warmth
-          and the streak's heat, and deliberately **not** the accent. Orange
-          means "you" everywhere else in the app, and a whole screen of it at
-          the top of the one tab that is explicitly about other people would be
-          the palette saying the wrong thing loudest. The band bleeds to every
-          edge and under the status bar, so its content takes the inset. */}
-      <View style={styles.band}>
-        <Gradient stops={BAND} steps={24} />
-
-        <View style={[styles.bandBody, { paddingTop: insets.top + space.sm }]}>
-          <View style={styles.header}>
-            <Text style={styles.squadName} numberOfLines={1}>
-              {squad.name}
-            </Text>
-            <View
-              accessible
-              accessibilityLabel={`${memberCount.data ?? 0} members`}
-              style={styles.countChip}
-            >
-              <MaterialCommunityIcons
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                name="account-multiple"
-                size={15}
-                color={colors.bg}
-              />
-              <Text
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                scale="fixed"
-                style={styles.countLabel}
-              >
-                {memberCount.data ?? 0}
-              </Text>
-            </View>
-          </View>
-
-          {/* How many of the flock cleared the Daily Walk, one mark per
-              member, on the band rather than under a `Label`. No eyebrow: the
-              strip sits directly under the squad's name on a field of its own,
-              and the initials over the marks say what it is. It is still
-              spoken — `flockWalk` composes the count once, for the whole
-              strip. */}
-          {walk && <FlockStrip marks={walk.marks} label={walk.label} />}
-
-          {/* Who is ahead, on the band rather than only in the rows below.
-
-              The Sky tab's flock rail already crowns the leader, and this is
-              the same fact on the tab that ranks them — a board you have to
-              read down to find the top of is a board that buried its own
-              headline. It costs no request: `rows` is the payload already
-              fetched for the list, and `rows[0]` is its first row.
-
-              **Ordered by the board, not by the race.** `squad_leaderboard()`
-              sorts by the program-weighted total, which is the only way a
-              squad's program applies at read time (deviation #11) — so the
-              leader named here is the leader of the rows underneath it. The
-              Sky corridor re-ranks the same payload by capped steps and can
-              legitimately name somebody else; they are two different races and
-              each screen names its own.
-
-              It follows `mode`, so the claim always matches the day the board
-              is showing. */}
-          {rows.length > 1 && leader && (
-            <DayLeader
-              name={leader.character_name}
-              isSelf={leader.is_self}
-              mode={mode}
-              lifetimePoints={leader.ratings}
-            />
-          )}
-
-          {/* A squad of one gets the Sky's own sentence instead of a standing.
-              The tab next door already tells this player the ridge is the
-              opponent; this band used to answer "1st · of 1 · leading" — the
-              app refusing to flatter them on one screen and doing exactly that
-              on the next. The same string, read from the same place, so the
-              two readings of a day alone cannot drift. The invite block below
-              is the half that offers to change it. */}
-          {standing.kind === 'alone' && (
-            <Text style={styles.alone}>{SOLO_SKY_OBSERVATION}</Text>
-          )}
-
-          {/* A pending standing query must never render a claim: nothing beats
-              a placeholder or a dash, both of which would state something
-              false. */}
-          {heroValue != null && (
-            // One baseline, not two lines: "2nd" and what it costs you are a
-            // single claim, and stacking them made the subline read as a
-            // caption for the ordinal rather than as the other half of it.
-            <View style={styles.hero}>
-              <Numeral
-                value={heroValue}
-                size="hero"
-                color={colors.bg}
-                style={styles.heroValue}
-              />
-              {subline != null && (
-                <Text style={styles.standing} numberOfLines={1}>
-                  {subline.map((part, index) => (
-                    <Text key={index} style={part.emphasis ? styles.standingGap : undefined}>
-                      {part.text}
-                    </Text>
-                  ))}
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
-      </View>
+      <FlockPerch
+        title={squad.name}
+        members={rows}
+        leaderId={rows.length > 1 ? leader?.user_id : undefined}
+        topInset={insets.top}
+        onBirdPress={setSelectedBird}
+        onInvite={memberCount.isSuccess && memberCount.data < squad.max_members
+          ? () => void shareInvite({ squadName: squad.name, inviteCode: squad.invite_code })
+          : undefined}
+      />
+      {selectedBird && (
+        <PerchBirdSheet
+          member={selectedBird}
+          mode={mode}
+          onClose={() => setSelectedBird(null)}
+        />
+      )}
 
       <View style={styles.page}>
-      {/* The program is the board's rule, so it belongs with the board rather
+        {standing.kind === 'alone' && <Text style={styles.alone}>{SOLO_SKY_OBSERVATION}</Text>}
+        {
+          /* The program is the board's rule, so it belongs with the board rather
           than in a settings screen nobody opens. Below the band and not on it:
           the band is the squad's identity and this is the squad's *setting*,
-          and the two read as one claim when stacked. */}
-      <View style={styles.programLine}>
-        <Text style={styles.program}>{programLabel(squad.program)}</Text>
-        {boost && (
-          <View style={styles.boostChip}>
-            <Text style={styles.boostLabel}>{boost}</Text>
+          and the two read as one claim when stacked. */
+        }
+        {walk && (
+          <Panel style={{ backgroundColor: colors.night }}>
+            <Text style={{ ...font.body.body, color: colors.bg }}>{walk.label}</Text>
+            <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
+              <FlockStrip marks={walk.marks} label={walk.label} />
+            </View>
+          </Panel>
+        )}
+        <View style={styles.programLine}>
+          <Text style={styles.program}>{programLabel(squad.program)}</Text>
+          {boost && (
+            <View style={styles.boostChip}>
+              <Text style={styles.boostLabel}>{boost}</Text>
+            </View>
+          )}
+          {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
+        </View>
+
+        <View style={styles.toggle}>
+          {MODES.map(({ mode: value, label }) => (
+            <Pressable
+              key={value}
+              accessibilityRole='button'
+              accessibilityState={{ selected: mode === value }}
+              onPress={() => setMode(value)}
+              style={[
+                styles.toggleOption,
+                { minWidth: 44, minHeight: 48 },
+                mode === value && styles.toggleActive,
+              ]}
+            >
+              <Text
+                style={[styles.toggleLabel, mode === value && styles.toggleLabelActive]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {mixedDates && (
+          <Text style={styles.note}>
+            Members are on different dates ({dates.join(' and ')}) — each is ranked on their own
+            completed day.
+          </Text>
+        )}
+
+        {board.isPending && (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.accentDeep} />
           </View>
         )}
-        {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
-      </View>
 
-      <View style={styles.toggle}>
-        {MODES.map(({ mode: value, label }) => (
-          <Pressable
-            key={value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: mode === value }}
-            onPress={() => setMode(value)}
-            style={[styles.toggleOption, mode === value && styles.toggleActive]}
-          >
-            <Text
-              style={[styles.toggleLabel, mode === value && styles.toggleLabelActive]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {mixedDates && (
-        <Text style={styles.note}>
-          Members are on different dates ({dates.join(' and ')}) — each is ranked on
-          their own completed day.
-        </Text>
-      )}
-
-      {board.isPending && (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.accentDeep} />
-        </View>
-      )}
-
-      {/* A failed fetch must never render as "nobody here". The last phase
+        {
+          /* A failed fetch must never render as "nobody here". The last phase
           stranded a user by reading an error as absence — this is the same
-          shape of bug, so the error state is explicit and offers a retry. */}
-      {board.isError && (
-        <View style={styles.centered}>
-          <Text style={styles.error}>{board.error.message}</Text>
-          <Button label="Try again" variant="secondary" onPress={() => void board.refetch()} />
-        </View>
-      )}
+          shape of bug, so the error state is explicit and offers a retry. */
+        }
+        {board.isError && (
+          <View style={styles.centered}>
+            <Text style={styles.error}>{board.error.message}</Text>
+            <Button label='Try again' variant='secondary' onPress={() => void board.refetch()} />
+          </View>
+        )}
 
-      {board.isSuccess && rows.length === 0 && (
-        <View style={styles.centered}>
-          <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
-          <InviteCode code={squad.invite_code} squadName={squad.name} />
-        </View>
-      )}
+        {board.isSuccess && rows.length === 0 && (
+          <View style={styles.centered}>
+            <Text style={styles.empty}>Nobody on the board yet. Send the code below.</Text>
+            <InviteCode code={squad.invite_code} squadName={squad.name} />
+          </View>
+        )}
 
-      {/* `ranked` is the band's rule applied to the rows: a board of one draws
+        {
+          /* `ranked` is the band's rule applied to the rows: a board of one draws
           and speaks "1" for a position nobody is being held against, which is
-          the same sentence the standing above it stopped saying. */}
-      {rows.map((row) => (
-        <LeaderboardRow
-          key={row.user_id}
-          row={row}
-          mode={mode}
-          gap={gaps.get(row.user_id) ?? null}
-          ranked={rows.length > 1}
-        />
-      ))}
+          the same sentence the standing above it stopped saying. */
+        }
+        {rows.length > 0 && (
+          <Panel style={{ padding: space.sm }}>
+            {rows.map((row) => (
+              <LeaderboardRow
+                key={row.user_id}
+                row={row}
+                mode={mode}
+                gap={gaps.get(row.user_id) ?? null}
+                ranked={rows.length > 1}
+              />
+            ))}
+          </Panel>
+        )}
 
-      {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
+        {reveal.visible && <SlotUnlockReveal progress={reveal.progress} />}
 
-      {/* §7: locked slots are visible every day, not only when solo — the
+        {
+          /* §7: locked slots are visible every day, not only when solo — the
           constant pull to invite the rest of the squad. Gated on
           `rows.length > 0`: an empty board already showed the code above, and
-          showing it twice was the earlier bug here. */}
-      {rows.length > 0 && locked > 0 && <InviteCode code={squad.invite_code} squadName={squad.name} />}
+          showing it twice was the earlier bug here. */
+        }
+        {rows.length > 0 && locked > 0 && (
+          <InviteCode code={squad.invite_code} squadName={squad.name} />
+        )}
 
-      {/* One row for every free seat, not one row each — `SkyFlockRail`'s
+        {
+          /* One row for every free seat, not one row each — `SkyFlockRail`'s
           trailing-slot rule, which this board needed for the same reason and
-          did not have. A squad of one drew five identical dashed rows here. */}
-      {locked > 0 && (
-        <LockedSlot
-          remaining={locked}
-          onPress={() =>
-            void shareInvite({
-              squadName: squad.name,
-              inviteCode: squad.invite_code,
-            })
-          }
-        />
-      )}
+          did not have. A squad of one drew five identical dashed rows here. */
+        }
+        {locked > 0 && (
+          <LockedSlot
+            remaining={locked}
+            onPress={() =>
+              void shareInvite({
+                squadName: squad.name,
+                inviteCode: squad.invite_code,
+              })}
+          />
+        )}
 
-      {/* Deliberately at the foot of the scroll, not in a header: this is rare,
+        {
+          /* Deliberately at the foot of the scroll, not in a header: this is rare,
           irreversible, and must not sit next to the invite code someone taps
           every day. Outlined rather than filled so it stays quiet down here —
-          the `destructive` variant is exactly this compromise. */}
-      <View style={styles.leaveBlock}>
-        {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
-        <Button
-          label={leave.isPending ? 'Leaving…' : 'Leave squad'}
-          variant="destructive"
-          onPress={confirmLeave}
-          disabled={leave.isPending}
-          busy={leave.isPending}
-        />
+          the `destructive` variant is exactly this compromise. */
+        }
+        <View style={styles.leaveBlock}>
+          {leave.isError && <Text style={styles.error}>{leave.error.message}</Text>}
+          <Button
+            label={leave.isPending ? 'Leaving…' : 'Leave squad'}
+            variant='destructive'
+            onPress={confirmLeave}
+            disabled={leave.isPending}
+            busy={leave.isPending}
+          />
+        </View>
       </View>
-      </View>
-    </Screen>  );
-}
-
-/**
- * Who is ahead, as one line on the band.
- *
- * One accessibility element: a bird, a crown and a sentence are three stops for
- * a single claim. The bird is decorative — the sentence names the person.
- *
- * The wording follows the mode rather than being written once, because "is
- * ahead" is a live claim and "won the day" is a settled one, and saying the
- * live form about a finished day is the same class of error as the streak
- * number the completed board deliberately hides.
- */
-function DayLeader({
-  name,
-  isSelf,
-  mode,
-  lifetimePoints,
-}: {
-  name: string;
-  isSelf: boolean;
-  mode: LeaderboardMode;
-  /** The leader's own `ratings`, so their bird here matches their bird in the
-   *  row directly beneath — same person, same crest (issue #33). */
-  lifetimePoints: LifetimePoints;
-}) {
-  const line =
-    mode === 'current'
-      ? isSelf
-        ? 'You are ahead today'
-        : `${name} is ahead today`
-      : isSelf
-        ? 'You won the day'
-        : `${name} won the day`;
-
-  const hidden = {
-    accessibilityElementsHidden: true,
-    importantForAccessibility: 'no-hide-descendants',
-  } as const;
-
-  return (
-    <View accessible accessibilityLabel={line} style={styles.leader}>
-      <View {...hidden} style={styles.leaderBird}>
-        <KairoThumbnail pose="race_victory" size={26} decorative lifetimePoints={lifetimePoints} />
-      </View>
-      <MaterialCommunityIcons {...hidden} name="crown" size={15} color={ramp.gold[300]} />
-      <Text {...hidden} scale="chrome" numberOfLines={1} style={styles.leaderLabel}>
-        {line}
-      </Text>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  /**
-   * A translucent pill on the band, sized to its content — `alignSelf:
-   * 'flex-start'` so it hugs the sentence instead of ruling across the whole
-   * width, which would read as a section divider rather than as a remark.
-   */
-  leader: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingVertical: 5,
-    paddingRight: 14,
-    paddingLeft: 5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.34)',
-    // So a long name truncates rather than pushing the pill off the band.
-    maxWidth: '100%',
-  },
-  leaderBird: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  leaderLabel: { ...font.body.body, color: colors.bg, flexShrink: 1 },
-  /**
-   * The band has no fixed height: it is as tall as the name, the flock strip
-   * and the standing make it. A fixed one is what would clip the strip at large
-   * Dynamic Type, and the rounded foot is what makes the page below open out of
-   * it rather than start under a rectangle.
-   */
-  band: {
-    borderBottomLeftRadius: 44,
-    borderBottomRightRadius: 44,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-  },
-  bandBody: { paddingHorizontal: space.lg, paddingBottom: space.lg, gap: space.md },
-  /** Everything below the band, which is where the page's own padding lives. */
   page: { paddingHorizontal: space.lg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  squadName: { color: colors.bg, ...font.display.major, fontSize: 26, flexShrink: 1 },
-  countChip: {
-    marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.24)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  countLabel: { ...font.display.label, color: colors.bg },
+  alone: { ...font.body.body, color: colors.subtle, marginVertical: space.md },
   date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0, marginLeft: 'auto' },
-  hero: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm },
-  heroValue: { fontSize: 58 },
-  // A fat display face at 58 carries a deep descender box, so a flex-end row
-  // would hang the subline below the ordinal's visual baseline without this.
-  standing: {
-    color: 'rgba(255,255,255,0.82)',
-    ...font.body.body,
-    paddingBottom: 8,
-    flexShrink: 1,
-  },
-  /* The sentence a squad of one reads where the ordinal would be. The same
-     near-white the standing beside it uses on this band — and deliberately
-     without the `numberOfLines` that standing carries: this is a sentence
-     rather than a figure, so clipping it would leave half a claim on screen. */
-  alone: {
-    ...font.body.body,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: space.sm,
-  },
-  // Family off the token rather than a string literal: weights are chosen by
-  // face here, never by `fontWeight`. Gold for the gap, because on this band
-  // it is the one figure that has to lift off a saturated ground — and gold on
-  // violet is the only pairing in the palette that does at this size.
-  standingGap: {
-    ...font.body.body,
-    fontFamily: font.body.title.fontFamily,
-    color: ramp.gold[300],
-  },
   programLine: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -634,11 +426,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    borderCurve: 'continuous',
     overflow: 'hidden',
   },
   boostChip: {
     backgroundColor: ramp.accent[200],
     borderRadius: radius.pill,
+    borderCurve: 'continuous',
     paddingHorizontal: 11,
     paddingVertical: 4,
   },
@@ -669,6 +463,7 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
     borderRadius: radius.pill,
+    borderCurve: 'continuous',
     backgroundColor: ramp.neutral[200],
   },
   toggleOption: {
@@ -677,6 +472,7 @@ const styles = StyleSheet.create({
     // height, with no reliance on hitSlop.
     paddingVertical: 14,
     borderRadius: radius.pill,
+    borderCurve: 'continuous',
     alignItems: 'center',
   },
   toggleActive: { backgroundColor: colors.accent },
@@ -685,7 +481,13 @@ const styles = StyleSheet.create({
   // 2.65:1. The token's own doc comment says so, and this is the site that
   // most looked fine while being wrong.
   toggleLabelActive: { color: colors.text },
-  note: { ...font.body.body, fontSize: 12, color: colors.muted, marginTop: space.sm, lineHeight: 18 },
+  note: {
+    ...font.body.body,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: space.sm,
+    lineHeight: 18,
+  },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   error: { color: colors.damage, ...font.body.body, textAlign: 'center' },
   empty: { color: colors.muted, ...font.body.body, textAlign: 'center' },

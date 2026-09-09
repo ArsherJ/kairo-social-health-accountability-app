@@ -64,10 +64,12 @@ type WithheldMember = { user_id: string; character_name: string };
 export function SkyFlockRail({
   racers,
   withheld,
+  onInvite,
 }: {
   racers: readonly Racer[];
   /** Squadmates whose totals are not shared, so they have no position. */
   withheld: readonly WithheldMember[];
+  onInvite?: () => void;
 }) {
   const router = useRouter();
 
@@ -124,7 +126,7 @@ export function SkyFlockRail({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Invite someone to your flock"
-            onPress={() => router.push('/flock')}
+          onPress={onInvite ?? (() => router.push('/flock'))}
             style={({ pressed }) => [styles.seat, styles.seatEmpty, pressed && styles.pressed]}
           >
             <MaterialCommunityIcons {...HIDDEN} name="plus" size={22} color={colors.muted} />

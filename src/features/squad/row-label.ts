@@ -1,4 +1,5 @@
 import { CORE_STATS, type CoreStat } from '@kairo/core';
+import { PERCH_COPY } from './perch-copy.ts';
 
 /**
  * A squadmate's row, said out loud.
@@ -60,6 +61,8 @@ export interface RowLabelInput {
   flagged?: boolean;
   /** True when the day has not finalised and the board says so. */
   provisional?: boolean;
+  sharing?: boolean;
+  whackMark?: string;
   /** Full stat names, injected so this module imports no UI. */
   statNames: Record<CoreStat, string>;
 }
@@ -97,6 +100,8 @@ export function leaderboardRowLabel(input: RowLabelInput): string {
   }
 
   if (input.provisional) parts.push('not final yet');
+  if (input.sharing === false) parts.push(PERCH_COPY.notSharing);
+  if (input.whackMark) parts.push(input.whackMark);
 
   // §20's social anti-cheat marker. Said plainly rather than softened: it is a
   // note the squad can already see, and a screen reader that omitted it would

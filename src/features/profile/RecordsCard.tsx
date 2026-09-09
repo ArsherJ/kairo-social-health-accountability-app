@@ -1,147 +1,112 @@
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { CORE_STATS, type CoreStat } from '@kairo/core';
-import { RECORDS_EMPTY, recordDate, recordValue } from './record-copy.ts';
+import { recordDate, RECORDS_EMPTY, recordValue } from './record-copy.ts';
 import type { StatRecord } from './records.ts';
-import { Panel, STAT_NAMES, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Button, Panel, STAT_NAMES, StatIcon, Text } from '../../ui/index.ts';
+import { colors, font, radius, ramp } from '../../theme.ts';
+import { tw } from '../../ui/tailwind.ts';
+import { BestDayShareButton } from './BestDayShareButton.tsx';
+import { BEST_DAY_COPY } from './share-copy.ts';
 
-/**
- * Your best day on each stat — the one place a day past the ceiling lands.
- *
- * **This is what the cap gave back.** The race stops at the finish line and the
- * daily score stops at its ceiling, both deliberately: the cap is the
- * anti-cheat, and raising it would reopen the raw-step arms race. The cost was
- * that an exceptional day had nowhere at all to go, and this is where it goes.
- * It pays the character and never the ranking — records are owner-only in the
- * database, not merely unrendered elsewhere.
- *
- * **On You rather than Today**, because a record is permanent and Today is
- * about the present moment. It sits under the mastery rail for the same reason
- * the help link does: somebody reading their lifetime numbers is already asking
- * this question.
- *
- * **No medals, no rank, no ordinal.** A record is a memory, so the design is a
- * list of days: the figure, then when. Anything more would make a personal best
- * look like a competitive standing, which is precisely the thing it is not.
- * A stat with no record is simply absent — see `stat_records()`, which returns
- * no row rather than a zero.
- */
-export function RecordsCard({
-  records,
-  today,
-}: {
+const hidden = {
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no-hide-descendants',
+} as const;
+
+/** Select one real best day before opening the platform share sheet. */
+export function RecordsCard({ records, today, isError = false, onRetry }: {
   records: readonly StatRecord[] | undefined;
-  /** The player's local date, for deciding whether a year is worth printing. */
   today: string | undefined;
+  isError?: boolean;
+  onRetry?: () => void;
 }) {
-  const byStat = new Map<CoreStat, StatRecord>(
-    (records ?? []).map((r) => [r.stat, r]),
+  const [selectedStat, setSelectedStat] = useState<CoreStat>('AGI');
+  const ordered = CORE_STATS.flatMap((stat) =>
+    records?.filter((record) => record.stat === stat) ?? []
   );
-
-  // The same threshold and the same hook the permission sheets use: reactive,
-  // because iOS can change text size under a running app from Control Centre,
-  // where a one-off `PixelRatio.getFontScale()` would leave the layout in
-  // whichever shape it mounted with.
-  //
-  // **A row here is three columns, not two**, and CLAUDE.md's own note is that
-  // two stop fitting a 390pt screen at about 1.3x. Stat, figure and date at
-  // 1.4x would leave the figure — the only part anybody came to read — with
-  // whatever the other two did not take, wrapping mid-number. Stacked, the
-  // figure gets the full width and the label and date sit above it.
-  const { fontScale } = useWindowDimensions();
-  const stacked = fontScale > 1.3;
+  const selected = ordered.find((record) => record.stat === selectedStat) ?? ordered[0];
 
   return (
     <Panel>
-      <Text scale="chrome" style={styles.title}>
-        YOUR BEST DAYS
+      <Text accessibilityRole='header' style={{ ...font.display.minor, color: colors.text }}>
+        {BEST_DAY_COPY.title}
       </Text>
-
-      {byStat.size === 0 ? (
-        <Text style={styles.empty}>{RECORDS_EMPTY}</Text>
-      ) : (
-        // CORE_STATS order rather than the server's, so the rows do not
-        // reshuffle as records are set — a list that reorders under the reader
-        // reads as a leaderboard, which is the one thing this must not be.
-        CORE_STATS.filter((stat) => byStat.has(stat)).map((stat) => {
-          const record = byStat.get(stat)!;
-          const value = recordValue(stat, record.value);
-          const when = recordDate(record.localDate, today);
-
-          return (
-            // One element per row. Three separate stops would make a six-swipe
-            // card out of three facts, which is the 2026-08-14 grouping lesson.
-            <View
-              key={stat}
-              accessible
-              accessibilityLabel={`${STAT_NAMES[stat]} best, ${value}${when ? `, set ${when}` : ''}`}
-              style={stacked ? styles.rowStacked : styles.row}
-            >
-              {stacked ? (
-                <>
-                  {/* Label and date share the top line — both are short and
-                      neither is the thing being read. The figure gets a line to
-                      itself below, at full width. */}
-                  <View style={styles.metaLine}>
-                    <Text scale="chrome" style={styles.stat}>
-                      {STAT_NAMES[stat]}
-                    </Text>
-                    <Text scale="chrome" style={styles.when}>
-                      {when}
-                    </Text>
-                  </View>
-                  <Text style={styles.valueStacked}>{value}</Text>
-                </>
-              ) : (
-                <>
-                  {/* A **minimum width** on the label, not just `flexShrink`.
-                      Motion, Body and Mind are three different widths, so
-                      without it every row's figure starts at a different x and
-                      the card reads as three unrelated lines rather than as one
-                      table. Scaled by `fontScale` so the column widens with the
-                      type instead of squeezing the figure; capped at the same
-                      1.3 the stacking threshold uses, past which there is no
-                      row to align anyway. */}
-                  <Text
-                    scale="chrome"
-                    style={[styles.stat, { minWidth: 64 * Math.min(fontScale, 1.3) }]}
+      <Text style={{ ...font.body.quiet, color: colors.subtle, marginTop: 4 }}>
+        {BEST_DAY_COPY.note}
+      </Text>
+      {isError
+        ? (
+          <View style={tw`pt-md`}>
+            <Text accessibilityRole='alert' style={{ ...font.body.body, color: colors.damage }}>
+              {BEST_DAY_COPY.error}
+            </Text>
+            {onRetry && <Button label={BEST_DAY_COPY.retry} variant='ghost' onPress={onRetry} />}
+          </View>
+        )
+        : records === undefined
+        ? (
+          <ActivityIndicator
+            accessibilityLabel={BEST_DAY_COPY.loading}
+            color={colors.accentDeep}
+            style={tw`py-lg`}
+          />
+        )
+        : ordered.length === 0
+        ? (
+          <Text style={tw.style('pt-md', font.body.body, { color: colors.subtle })}>
+            {RECORDS_EMPTY}
+          </Text>
+        )
+        : (
+          <>
+            <View style={tw`gap-sm pt-lg`}>
+              {ordered.map((record) => {
+                const active = selected?.stat === record.stat;
+                const value = recordValue(record.stat, record.value);
+                const when = recordDate(record.localDate, today);
+                return (
+                  <Pressable
+                    key={record.stat}
+                    accessible
+                    accessibilityRole='button'
+                    accessibilityLabel={`${
+                      STAT_NAMES[record.stat]
+                    } best day, ${value}, ${when}. Select to share.`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setSelectedStat(record.stat)}
+                    style={({ pressed }) =>
+                      tw.style('p-md', {
+                        minHeight: 80,
+                        borderRadius: radius.lg,
+                        borderCurve: 'continuous',
+                        borderWidth: 2,
+                        borderColor: active ? colors.accent : 'transparent',
+                        backgroundColor: active ? ramp.accent[100] : ramp.neutral[100],
+                        opacity: pressed ? 0.7 : 1,
+                      })}
                   >
-                    {STAT_NAMES[stat]}
-                  </Text>
-                  {/* `flex: 1` on the figure, `flexShrink: 0` on the date, so
-                      the figure absorbs the slack rather than the date wrapping
-                      to a line of its own. */}
-                  <Text style={styles.value}>{value}</Text>
-                  <Text scale="chrome" style={styles.when}>
-                    {when}
-                  </Text>
-                </>
-              )}
+                    <View {...hidden} style={tw`flex-row items-center gap-md`}>
+                      <StatIcon stat={record.stat} size={25} color={colors.accentDeep} />
+                      <View style={tw`flex-1 gap-xs`}>
+                        <View style={tw`flex-row flex-wrap justify-between gap-xs`}>
+                          <Text scale='chrome' style={{ ...font.body.label, color: colors.subtle }}>
+                            {STAT_NAMES[record.stat]}
+                          </Text>
+                          <Text scale='chrome' style={{ ...font.body.quiet, color: colors.subtle }}>
+                            {when}
+                          </Text>
+                        </View>
+                        <Text style={{ ...font.display.minor, color: colors.text }}>{value}</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
-          );
-        })
-      )}
+            {selected && <BestDayShareButton record={selected} />}
+          </>
+        )}
     </Panel>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { ...font.display.small, color: colors.text, marginBottom: space.sm },
-  // `flex-start` for the same reason GrowthCard uses it: past ~1.3x the figure
-  // wraps and a centred label floats beside the middle of it.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space.md,
-    marginTop: space.md,
-  },
-  rowStacked: { marginTop: space.md, gap: 2 },
-  // `space-between` rather than a gap: the date sits at the right edge, which
-  // keeps the stacked row reading as the same table as the unstacked one.
-  metaLine: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
-  stat: { ...font.body.label, color: colors.muted, letterSpacing: 0.5, flexShrink: 0 },
-  valueStacked: { ...font.body.body, fontSize: 15, color: colors.text },
-  value: { flex: 1, ...font.body.body, fontSize: 15, color: colors.text },
-  when: { ...font.body.label, color: colors.muted, flexShrink: 0 },
-  empty: { ...font.body.body, fontSize: 14, lineHeight: 20, color: colors.subtle },
-});

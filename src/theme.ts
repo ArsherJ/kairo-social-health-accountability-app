@@ -267,6 +267,27 @@ export const glass = {
   },
 } as const;
 
+/** Opaque reading surfaces and translucent scenery share one theme vocabulary. */
+export const screenPalette = {
+  light: { background: colors.bg, surface: colors.surface, text: colors.text, muted: colors.subtle },
+  dark: { background: colors.midnight, surface: ramp.neutral[800], text: colors.bg, muted: ramp.sage[300] },
+} as const;
+
+export const nightScene = {
+  sky: [{ color: colors.night, at: 0 }, { color: ramp.neutral[800], at: 0.6 }, { color: colors.midnight, at: 1 }],
+  fade: [{ color: '#14103300', at: 0 }, { color: '#14103359', at: 0.55 }, { color: colors.midnight, at: 1 }],
+} as const;
+
+/** The shared flight, from the cool ridge to the warm midnight ground. */
+export const flightSky = [
+  { color: ramp.sky[500], at: 0 },
+  { color: ramp.sky[400], at: 0.26 },
+  { color: '#8fe0ff', at: 0.52 },
+  { color: '#cff1ff', at: 0.74 },
+  { color: '#ffe9c4', at: 0.92 },
+  { color: '#ffc58a', at: 1 },
+];
+
 /**
  * The "earned" step.
  *

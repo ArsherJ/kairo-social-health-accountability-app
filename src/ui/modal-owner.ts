@@ -21,7 +21,7 @@ import { create } from 'zustand';
  * succeeds, a claim by anyone else fails, and only the current owner can
  * release — so a losing surface cannot free a host it never held.
  */
-export type ModalOwner = 'permissions' | 'welcome' | 'today-details';
+export type ModalOwner = 'permissions' | 'welcome' | 'today-details' | 'perch-bird';
 
 export const useModalOwner = create<{ owner: ModalOwner | null }>(() => ({ owner: null }));
 

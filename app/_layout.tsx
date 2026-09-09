@@ -1,10 +1,10 @@
 import { Fragment, useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
@@ -15,6 +15,7 @@ import { hideDevMenuFloatingButton } from '@/lib/dev-menu-fab.ts';
 import { Panel, Button, Text } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { colors, font, space } from '@/theme.ts';
+import { statusBarTone } from '@/ui/status-bar-tone.ts';
 
 /**
  * What iOS does with a push that lands while Kairo is already open.
@@ -41,6 +42,8 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const dark = useColorScheme() === 'dark';
   // A font error proceeds rather than blocking: RN falls back to the system
   // face for an unknown family, and a degraded screen beats a dead app.
   const [fontsLoaded, fontError] = useFonts({
@@ -92,9 +95,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {/* The ground is cream now, so the clock and the battery have to be
-            ink. `light` here would render them invisible. */}
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarTone(pathname, dark)} />
         <Gate />
       </SafeAreaProvider>
     </QueryClientProvider>

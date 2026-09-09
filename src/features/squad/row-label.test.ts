@@ -22,6 +22,12 @@ const base: RowLabelInput = {
 };
 
 describe('leaderboardRowLabel', () => {
+  it('names withheld readings and a visible whack without inventing a zero', () => {
+    const label = leaderboardRowLabel({ ...base, sharing: false, whackMark: 'Feathers ruffled by Dagit.' });
+    expect(label).toContain('Not sharing');
+    expect(label).toContain('Feathers ruffled by Dagit.');
+    expect(leaderboardRowLabel({ ...base, sharing: true })).not.toContain('Not sharing');
+  });
   it('leads with position, because that is what a leaderboard is', () => {
     // Names first would make every row sound identical for the first second.
     expect(leaderboardRowLabel(base)).toMatch(/^Rank 2, Jay/);

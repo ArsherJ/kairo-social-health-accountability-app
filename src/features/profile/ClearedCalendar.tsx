@@ -39,10 +39,12 @@ const CLEARED: Stop[] = [
 export function ClearedCalendar({
   today,
   clearedDates,
+  dark = false,
 }: {
   /** The player's own local date (§2), never `new Date()`. */
   today: string | undefined;
   clearedDates: readonly string[];
+  dark?: boolean;
 }) {
   if (!today) return null;
 
@@ -57,7 +59,7 @@ export function ClearedCalendar({
   return (
     <>
       <View style={styles.head}>
-        <Text scale="chrome" style={styles.month}>
+        <Text scale="chrome" style={[styles.month, dark && { color: colors.bg }]}>
           {monthName(grid.month)}
         </Text>
         <View
@@ -203,8 +205,9 @@ const styles = StyleSheet.create({
   cell: { width: CELL, alignItems: 'center', paddingVertical: 3 },
   weekLetter: { ...font.body.strong, fontSize: 10.5, color: ramp.neutral[500] },
   box: {
-    width: 38,
-    height: 38,
+    width: '90%',
+    maxWidth: 38,
+    aspectRatio: 1,
     borderRadius: 14,
     borderCurve: 'continuous',
     alignItems: 'center',

@@ -263,7 +263,7 @@ export default function ProfileTab() {
               already asking what their best was. Ungated: a record is one of
               the few things that means something on a young account, and an
               account with none reads an invitation rather than a blank. */}
-          <RecordsCard records={records.data} today={localToday} />
+          <RecordsCard records={records.data} today={localToday} isError={records.isError} onRetry={() => void records.refetch()} />
 
           <GrowthCard />
 

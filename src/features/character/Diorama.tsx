@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
-import { colors, ramp, radius } from '@/theme.ts';
+import { colors, ramp, radius, nightScene } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import type { Stop } from '@/ui/gradient.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
@@ -90,9 +90,11 @@ export function Diorama({
   dominance,
   lifetimePoints,
   crest = false,
+  dark = false,
   children,
 }: {
   height: number;
+  dark?: boolean;
   /**
    * Spoken by the figure's label, never drawn. `stage` is what the art reads —
    * `evolutionStageForLevel` collapses a level into one of four bands — and
@@ -140,7 +142,7 @@ export function Diorama({
 }) {
   return (
     <View style={[styles.sky, { height }]}>
-      <Gradient stops={crest ? CREST_SKY : SKY} />
+      <Gradient stops={dark ? [...nightScene.sky] : crest ? CREST_SKY : SKY} />
 
       {/* The sun, and three clouds drifting behind the figure.
 
@@ -176,7 +178,7 @@ export function Diorama({
           printed as a word in the HUD. */}
       <MotionScenery location={location} />
 
-      <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
+      <Gradient stops={dark ? [...nightScene.fade] : FADE} steps={28} style={{ top: height * 0.46 }} />
 
       <View
         // The figure is the app's centrepiece and it is drawn, not written —

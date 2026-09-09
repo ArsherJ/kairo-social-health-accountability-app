@@ -17,4 +17,14 @@ describe('modal owner', () => {
     releaseModal('welcome');
     expect(useModalOwner.getState().owner).toBeNull();
   });
+
+  it('makes a perch sheet mutually exclusive with the Today sheets', () => {
+    expect(claimModal('today-details')).toBe(true);
+    expect(claimModal('perch-bird')).toBe(false);
+    releaseModal('today-details');
+    expect(claimModal('perch-bird')).toBe(true);
+    expect(claimModal('welcome')).toBe(false);
+    releaseModal('perch-bird');
+    expect(useModalOwner.getState().owner).toBeNull();
+  });
 });

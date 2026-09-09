@@ -70,7 +70,7 @@ export function KairoThumbnail({
     <View style={[styles.frame, { width: size, height: size }]} {...grouping}>
       <Image
         source={KAIRO_BASE_ASSET}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         resizeMode="contain"
         accessibilityIgnoresInvertColors
         accessibilityElementsHidden

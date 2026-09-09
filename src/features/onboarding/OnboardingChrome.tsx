@@ -100,7 +100,7 @@ export function OnboardingRail({
           accessibilityLabel="Skip the introduction"
           hitSlop={space.sm}
           onPress={onSkip}
-          style={({ pressed }) => pressed && styles.pressed}
+          style={({ pressed }) => [{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, pressed && styles.pressed]}
         >
           <Text scale="chrome" style={[styles.skip, { color: on }]}>
             Skip

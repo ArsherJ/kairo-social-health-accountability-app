@@ -1,7 +1,10 @@
 import { forwardRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { tw } from '@/ui/tailwind.ts';
+import { TODAY_SCREEN_COPY } from './today-screen-copy.ts';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 /**
  * The one visible prompt, and the door to everything else.
@@ -22,20 +25,45 @@ export const TodayNextStep = forwardRef<View, {
    * cached or neutral state, so nothing is left behind.
    */
   showDetails: boolean;
-}>(function TodayNextStep({ sentence, onDetails, showDetails }, ref) {
+  dark?: boolean;
+}>(function TodayNextStep({ sentence, onDetails, showDetails, dark = false }, ref) {
   return (
     <View style={styles.nextStep}>
-      <Text accessibilityRole="summary" style={styles.sentence}>{sentence}</Text>
+      <Text
+        scale='chrome'
+        style={{ ...font.body.label, color: dark ? ramp.sage[300] : colors.muted }}
+      >
+        {TODAY_SCREEN_COPY.next}
+      </Text>
+      <Text accessibilityRole='summary' style={[styles.sentence, dark && { color: colors.bg }]}>
+        {sentence}
+      </Text>
       {showDetails && (
         <Pressable
           ref={ref}
-          accessibilityRole="button"
+          accessibilityRole='button'
           accessibilityLabel="See today's details"
           hitSlop={space.sm}
           onPress={onDetails}
-          style={({ pressed }) => pressed && { opacity: 0.6 }}
+          style={({ pressed }) =>
+            tw.style('flex-row items-center justify-between gap-md px-md py-sm', {
+              minHeight: 56,
+              borderRadius: radius.lg,
+              borderCurve: 'continuous',
+              backgroundColor: dark ? ramp.neutral[800] : colors.surface,
+              opacity: pressed ? 0.6 : 1,
+            })}
         >
-          <Text style={styles.detailsLink}>See today&apos;s details</Text>
+          <Text scale='chrome' style={[styles.detailsLink, dark && { color: colors.bg }]}>
+            {TODAY_SCREEN_COPY.details}
+          </Text>
+          <MaterialCommunityIcons
+            name='arrow-right'
+            size={20}
+            color={dark ? colors.bg : colors.accentDeep}
+            accessibilityElementsHidden
+            importantForAccessibility='no-hide-descendants'
+          />
         </Pressable>
       )}
     </View>

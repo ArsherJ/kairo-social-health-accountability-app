@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present && npm run check:functions",
     "doctor": "expo-doctor",
     "start": "expo start --dev-client",
+    "preview:ui": "EXPO_PUBLIC_UI_PREVIEW=1 expo start --web --port 8082",
     "ios": "expo run:ios",
     "android": "expo run:android",
     "prebuild": "expo prebuild --clean",
@@ -73,7 +74,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-web": "^0.21.2",
+    "twrnc": "^4.16.0",
     "zustand": "^5.0.14"
   },
-  "main": "expo-router/entry"
+  "main": "index.ts"
 }

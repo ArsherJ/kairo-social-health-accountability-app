@@ -30,11 +30,13 @@ export function Screen({
   scroll = true,
   bleed = false,
   refreshControl,
+  tone = 'light',
   children,
 }: {
   scroll?: boolean;
   bleed?: boolean;
   refreshControl?: ReactElement<RefreshControlProps>;
+  tone?: 'light' | 'dark';
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -48,12 +50,12 @@ export function Screen({
   };
 
   if (!scroll) {
-    return <View style={[styles.container, padding]}>{children}</View>;
+    return <View style={[styles.container, { backgroundColor: tone === 'dark' ? colors.midnight : colors.bg }, padding]}>{children}</View>;
   }
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: tone === 'dark' ? colors.midnight : colors.bg }]}
       contentContainerStyle={padding}
       refreshControl={refreshControl}
     >

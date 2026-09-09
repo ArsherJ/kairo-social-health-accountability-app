@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, findNodeHandle, StyleSheet, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -55,10 +55,11 @@ import { dailyWalkState, walkNote, type DailyWalkState } from '@/features/train/
 import { useWalkHistory } from '@/features/train/queries.ts';
 import { useTodayStrengthSummary } from '@/features/train/useTodayStrengthSummary.ts';
 import { TodayChips, TodayCount } from '@/features/character/TodayHud.tsx';
+import { TODAY_SCREEN_COPY } from '@/features/character/today-screen-copy.ts';
 import { WelcomePopups } from '@/features/onboarding/WelcomePopups.tsx';
 import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
-import { Screen, Text } from '@/ui/index.ts';
+import { Button, Panel, Screen, Text } from '@/ui/index.ts';
 import { colors, font, space } from '@/theme.ts';
 
 /**
@@ -173,6 +174,7 @@ const EMPTY_WALK_STATE: DailyWalkState = {
  * covers on Today, which is now one: the Challenge link inside details.
  */
 export default function Today() {
+  const dark = useColorScheme() === 'dark';
   const router = useRouter();
   // The sky bleeds under the status bar, so the HUD takes the inset itself —
   // `Screen bleed` deliberately hands that back rather than guessing.
@@ -426,7 +428,7 @@ export default function Today() {
 
   return (
     <>
-      <Screen bleed>
+      <Screen bleed tone={dark ? 'dark' : 'light'}>
         {/* The bird, in its sky, standing where today put it.
 
             `Diorama` owns the scenery, the figure, the ground shadow and the
@@ -436,6 +438,7 @@ export default function Today() {
             fixed offsets against heights nothing enforced, and at large Dynamic
             Type they grew past each other. No child here carries a `top`. */}
         <Diorama
+          dark={dark}
           height={HERO_HEIGHT}
           level={level}
           stage={stage}
@@ -460,17 +463,22 @@ export default function Today() {
             {/* Always rendered, Branch included: a label that appears at 2,500
                 steps and not before reads as a rendering fault, and Branch is
                 where KAIRO lives rather than a failure state. */}
-            <Text scale="fixed" style={styles.location}>
+            <Text scale="fixed" style={[styles.location, dark && { color: colors.bg }]}>
               {locationName(mirror.motion.location)}
             </Text>
 
             {/* The day, in real units. One number per screen — never a score
                 total (deviation #34). */}
-            <TodayCount steps={steps} />
+            {buckets.data ? <TodayCount steps={steps} color={dark ? colors.bg : colors.text} /> : buckets.isError ? null :
+              <ActivityIndicator accessibilityLabel={TODAY_SCREEN_COPY.waiting} color={dark ? colors.bg : colors.accentDeep} />}
           </View>
         </Diorama>
 
         <View style={styles.page}>
+          {!buckets.data && buckets.isError && <Panel>
+            <Text accessibilityRole="alert" style={{ ...font.body.body, color: colors.damage }}>{TODAY_SCREEN_COPY.error}</Text>
+            <Button label={TODAY_SCREEN_COPY.retry} variant="ghost" onPress={() => void buckets.refetch()} />
+          </Panel>}
           {/* One sentence, and the door to everything else.
 
               `ceilingLine` outranks the next step deliberately, and this is the
@@ -484,6 +492,7 @@ export default function Today() {
               `REACTION_HOLD_MS` and then returns, which is bounded and
               self-correcting. */}
           <TodayNextStep
+            dark={dark}
             ref={detailsTriggerRef}
             sentence={
               reaction?.sentence ??

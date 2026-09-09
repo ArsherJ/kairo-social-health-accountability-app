@@ -123,7 +123,7 @@ export function TodayChips({
  * accessible element rather than two — ungrouped, VoiceOver stops on the bare
  * numeral and then on the unit.
  */
-export function TodayCount({ steps }: { steps: number }) {
+export function TodayCount({ steps, color = colors.text }: { steps: number; color?: string }) {
   return (
     <View
       accessible
@@ -144,7 +144,7 @@ export function TodayCount({ steps }: { steps: number }) {
           color={colors.accent}
           style={styles.countGlyph}
         />
-        <Numeral value={steps} size="hero" color={colors.text} animate />
+        <Numeral value={steps} size="hero" color={color} animate />
       </View>
     </View>
   );

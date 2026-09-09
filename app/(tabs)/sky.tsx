@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
   Pressable,
@@ -28,6 +28,8 @@ import { useProfile } from '@/features/profile/queries.ts';
 import { ghostDayLabel } from '@/features/squad/ghost-day-label.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
+import { SkyControls } from '@/features/squad/SkyControls.tsx';
+import { useReduceMotion } from '@/ui/motion.ts';
 import { flightFrame } from '@/features/squad/flight-frame.ts';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
@@ -37,9 +39,8 @@ import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { claimDaily } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { CtaPill, Gradient, Glass, Panel, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
-import type { Stop } from '@/ui/gradient.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { CtaPill, Gradient, Glass, Panel, Screen, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
+import { colors, flightSky, font, radius, ramp, space } from '@/theme.ts';
 
 /**
  * The flight, from the ground at midnight to the ridge at the top.
@@ -47,14 +48,7 @@ import { colors, font, radius, ramp, space } from '@/theme.ts';
  * Read bottom-to-top, which is why the stops run in that order visually: the
  * warm end is at the *foot* of the content, where the day starts.
  */
-const FLIGHT: Stop[] = [
-  { color: ramp.sky[500], at: 0 },
-  { color: ramp.sky[400], at: 0.26 },
-  { color: '#8fe0ff', at: 0.52 },
-  { color: '#cff1ff', at: 0.74 },
-  { color: '#ffe9c4', at: 0.92 },
-  { color: '#ffc58a', at: 1 },
-];
+const FLIGHT = flightSky;
 
 /**
  * The Sky — the daily race, as one shared corridor (roadmap deviation #56).
@@ -83,10 +77,12 @@ const FLIGHT: Stop[] = [
  * to MMKV and `track` writes a row.
  */
 export default function Sky() {
+  const scrollRef = useRef<ScrollView>(null);
+  const reduceMotion = useReduceMotion();
   const { width, height } = useWindowDimensions();
   // The flight bleeds to every edge, so the pinned chrome takes the insets
-  // itself. There is no `Screen` here: this tab is a picture the size of the
-  // glass with things floating on it, not a scrolling column of cards.
+  // itself. The non-scrolling Screen hosts a full-bleed picture; the pinned
+  // foot below retains the shared tab clearance.
   const insets = useSafeAreaInsets();
 
   // How tall the pinned flock rail actually is. Measured because the rail
@@ -199,8 +195,10 @@ export default function Sky() {
   });
 
   return (
-    <View style={styles.screen}>
+    <Screen bleed scroll={false}>
+    <View style={[StyleSheet.absoluteFill, styles.screen]}>
       <ScrollView
+        ref={scrollRef}
         contentOffset={{ x: 0, y: frame.openAt }}
         showsVerticalScrollIndicator={false}
         style={StyleSheet.absoluteFill}
@@ -296,6 +294,7 @@ export default function Sky() {
         style={[styles.pinnedTop, { top: chromeTop }]}
       >
         <View onLayout={measureRail}>
+          <SkyControls onLocate={me ? () => scrollRef.current?.scrollTo({ y: frame.openAt, animated: !reduceMotion }) : undefined} />
           <SkyFlockRail racers={racers} withheld={withheld} />
         </View>
 
@@ -385,6 +384,7 @@ export default function Sky() {
         </Glass>
       </View>
     </View>
+    </Screen>
   );
 }
 

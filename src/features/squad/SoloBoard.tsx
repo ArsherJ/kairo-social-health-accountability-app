@@ -1,5 +1,9 @@
-import { RefreshControl, StyleSheet, View } from 'react-native';
-import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
+import { useState } from 'react';
+import { FlockPerch } from './FlockPerch.tsx';
+import { PerchBirdSheet } from './PerchBirdSheet.tsx';
+import { ActivityIndicator, RefreshControl, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DEFAULT_SQUAD_PROGRAM } from '@kairo/core';
 import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
@@ -8,6 +12,7 @@ import { Button, Screen, Text } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';
+import { PERCH_COPY } from './perch-copy.ts';
 
 /**
  * The squad tab before anyone joins (§7).
@@ -43,6 +48,8 @@ export function SoloBoard({
   onCreate: () => void;
   onJoin: () => void;
 }) {
+  const [selectedBird, setSelectedBird] = useState(false);
+  const insets = useSafeAreaInsets();
   const profile = useProfile(userId);
   const score = useTodayScore(userId, profile.data?.timezone);
   // The day in raw units. `daily_scores` stores points and tiers, never steps,
@@ -101,14 +108,15 @@ export function SoloBoard({
     // Your own day, always visible to you (deviation #47). Sleep is not read
     // here: the solo row does not draw it, and inventing a figure for a column
     // nothing renders is how the two sources start disagreeing.
-    steps: totals?.steps ?? 0,
-    distance_m: totals?.distanceM ?? 0,
-    active_kcal: totals?.activeKcal ?? 0,
+    steps: totals?.steps ?? null,
+    distance_m: totals?.distanceM ?? null,
+    active_kcal: totals?.activeKcal ?? null,
     sleep_minutes: null,
   };
 
   return (
     <Screen
+      bleed
       refreshControl={
         <RefreshControl
           refreshing={score.isRefetching || raw.isRefetching}
@@ -123,42 +131,90 @@ export function SoloBoard({
         />
       }
     >
-      <Text style={styles.title}>Your squad</Text>
+      {profile.data && (
+        <FlockPerch
+          topInset={insets.top}
+          members={[selfRow]}
+          onBirdPress={() => setSelectedBird(true)}
+          onInvite={onCreate}
+        />
+      )}
+      {selectedBird && (
+        <PerchBirdSheet
+          member={selfRow}
+          onClose={() => setSelectedBird(false)}
+          dayLine={totals
+            ? undefined
+            : raw.isError
+            ? PERCH_COPY.readingsError
+            : PERCH_COPY.readingsPending}
+        />
+      )}
 
-      <Text style={styles.help}>
-        A squad is up to {FREE_SQUAD_MAX_MEMBERS} people on the same day — they
-        see your score, you see theirs. That is the entire mechanism.
-      </Text>
-
-      {/* Above the board, not below it. Nothing on this screen rewards
+      <View style={{ paddingHorizontal: space.lg }}>
+        {
+          /* Above the board, not below it. Nothing on this screen rewards
           reading downward — there is one real row and one empty one — so the
-          action belongs where the eye lands first. */}
-      <View style={styles.actions}>
-        <Button label="Create a squad" variant="primary" onPress={onCreate} />
+          action belongs where the eye lands first. */
+        }
+        <View style={styles.actions}>
+          <Button label='Create a squad' variant='primary' onPress={onCreate} />
 
-        {/* Deliberately not a second equal-weight button. Creating is the
+          {
+            /* Deliberately not a second equal-weight button. Creating is the
             funnel — someone who already has a code knows they have one, and
             giving the two actions equal weight makes the empty board read as a
             two-way gate rather than a place you already belong. `ghost` is how
-            that hierarchy is expressed now the button kit owns the styling. */}
-        <Button label="Have an invite code?" variant="ghost" onPress={onJoin} />
-      </View>
+            that hierarchy is expressed now the button kit owns the styling. */
+          }
+          <Button label='Have an invite code?' variant='ghost' onPress={onJoin} />
+        </View>
 
-      {/* Solo is one row and nobody is above it — the same "nothing above"
+        {
+          /* Solo is one row and nobody is above it — the same "nothing above"
           case `leaderboardGaps` returns null for on a real board. This is the
           one place a solo user sees their own day on this tab, and it is real
-          numbers, which is why it survived the rest of this screen. */}
-      {/* `ranked={false}`: this screen's own doc argues there is no "1st of 1"
+          numbers, which is why it survived the rest of this screen. */
+        }
+        {
+          /* `ranked={false}`: this screen's own doc argues there is no "1st of 1"
           to draw here, and the row was drawing the "1" anyway — and speaking
           it. The `rank: 1` above stays, because the row type requires a
-          position; what changes is that nothing renders it. */}
-      <LeaderboardRow row={selfRow} mode="current" gap={null} ranked={false} />
+          position; what changes is that nothing renders it. */
+        }
+        {totals && profile.data
+          ? <LeaderboardRow row={selfRow} mode='current' gap={null} ranked={false} />
+          : raw.isError || profile.isError
+          ? (
+            <View>
+              <Text style={{ ...font.body.body, color: colors.damage }}>
+                {PERCH_COPY.readingsError}
+              </Text>
+              <Button
+                label={PERCH_COPY.retry}
+                variant='ghost'
+                onPress={() => {
+                  void raw.refetch();
+                  void profile.refetch();
+                }}
+              />
+            </View>
+          )
+          : (
+            <ActivityIndicator
+              accessibilityLabel={PERCH_COPY.readingsPending}
+              color={colors.accentDeep}
+            />
+          )}
 
-      {/* One seat. `resolveSlots` is no longer called: it answered "how many
+        {
+          /* One seat. `resolveSlots` is no longer called: it answered "how many
           seats are free under the free cap", and the answer stopped being what
           this screen draws. A count is still the right question on a real
-          board, where that helper is still used. */}
-      <LockedSlot remaining={1} />
+          board, where that helper is still used. */
+        }
+        <LockedSlot remaining={1} />
+      </View>
     </Screen>
   );
 }
