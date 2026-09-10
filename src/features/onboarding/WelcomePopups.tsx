@@ -10,8 +10,8 @@ import {
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { track } from '@/features/telemetry/events.ts';
 import { hasReached, markReached } from '@/features/telemetry/milestone-store.ts';
-import { colors, font, radius, shadow, space } from '@/theme.ts';
-import { Gradient, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Gradient, Text, useStyles } from '@/ui/index.ts';
 import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import { OnboardingCta } from './OnboardingCta.tsx';
 import {
@@ -79,6 +79,7 @@ export function WelcomePopups({
   /** Share an existing code, or start the squad there is not one of yet. */
   onInvite: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   // Read once, on mount, through a lazy initialiser: reading MMKV on every
   // render would be a side effect in a render body, and re-reading after
   // `markReached` would close the sheet the moment the first card was shown.
@@ -291,7 +292,7 @@ export function WelcomePopups({
  */
 const SHEET_MAX_WIDTH = 420;
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, shadow }: Theme) => StyleSheet.create({
   scrim: {
     flex: 1,
     backgroundColor: 'rgba(24,16,52,0.55)',
@@ -337,7 +338,9 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
     backgroundColor: 'rgba(255,255,255,0.45)',
   },
-  dotOn: { backgroundColor: colors.bg },
+  // `onDeep`, not `bg`: the dots sit on the card's gradient fill, which is
+  // deep in both schemes, and `bg` is near-black at night.
+  dotOn: { backgroundColor: colors.onDeep },
   body: { padding: space.lg, gap: space.sm, alignItems: 'stretch' },
   title: {
     ...font.display.major,

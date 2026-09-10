@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@/ui/index.ts';
+import { Text, useStyles, useTheme } from '@/ui/index.ts';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useScoredDayCount } from '@/features/character/queries.ts';
 import { requestSync, useSyncStatusStore } from '@/features/health/status-store.ts';
 import { syncStatus } from '@/features/health/sync-status.ts';
-import { colors, font, space } from '@/theme.ts';
+import { font, space, type Theme } from '@/theme.ts';
 
 /**
  * Where the figures above came from, and when.
@@ -44,6 +44,8 @@ export function SyncStatus({
   attentionOnly?: boolean;
 }) {
   const { syncing, lastSyncedAt, firstSyncedAt, lastError } = useSyncStatusStore();
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   // **Two signals, because one of them answers a different question.**
   //
@@ -141,7 +143,7 @@ const ICONS = {
   'no-data': 'inbox-outline',
 } as const satisfies Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']>;
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

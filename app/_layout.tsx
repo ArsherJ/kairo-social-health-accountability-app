@@ -12,9 +12,9 @@ import { startSessionListener, useSessionStore } from '@/features/auth/session.t
 import { useProfile } from '@/features/profile/queries.ts';
 import { flushTelemetryBuffer } from '@/features/telemetry/events.ts';
 import { hideDevMenuFloatingButton } from '@/lib/dev-menu-fab.ts';
-import { Panel, Button, Text } from '@/ui/index.ts';
+import { Panel, Button, Text, useScheme, useStyles } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
-import { colors, font, space } from '@/theme.ts';
+import { font, space, type Theme } from '@/theme.ts';
 
 /**
  * What iOS does with a push that lands while Kairo is already open.
@@ -81,10 +81,17 @@ export default function RootLayout() {
   // stared at. A spinner needs no typeface, which is exactly why it is the only
   // thing that can be drawn here — a wordmark would render in the system face
   // and then snap to Fredoka, trading a blank screen for a flicker.
+  // The scheme is known before the fonts are: the preference is read off MMKV
+  // at module load and the phone answers synchronously. So even the spinner
+  // sits on the right ground, and the status bar's ink follows the page
+  // rather than being pinned to one scheme.
+  const scheme = useScheme();
+  const styles = useStyles(makeStyles);
+
   if (!fontsLoaded && !fontError) {
     return (
       <View style={[styles.overlay, styles.centered]}>
-        <ActivityIndicator color={colors.accentDeep} />
+        <ActivityIndicator color={styles.spinner.color} />
       </View>
     );
   }
@@ -92,9 +99,9 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {/* The ground is cream now, so the clock and the battery have to be
-            ink. `light` here would render them invisible. */}
-        <StatusBar style="dark" />
+        {/* Ink on a light page, light on a dark one. `style` is the *bar's*
+            colour, so it is the opposite of the scheme. */}
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <Gate />
       </SafeAreaProvider>
     </QueryClientProvider>
@@ -124,6 +131,7 @@ function Gate() {
   const sessionLoading = useSessionStore((s) => s.loading);
   const userId = session?.user.id;
   const profile = useProfile(userId);
+  const styles = useStyles(makeStyles);
 
   const route = resolveRoute({
     sessionLoading,
@@ -158,7 +166,7 @@ function Gate() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
+          contentStyle: { backgroundColor: styles.overlay.backgroundColor },
         }}
       />
 
@@ -172,7 +180,7 @@ function Gate() {
         // of "we know what you are waiting for".
         <View style={[styles.overlay, styles.centered, styles.holdContainer]}>
           <Text style={styles.holdMark}>KAIRO</Text>
-          <ActivityIndicator color={colors.accentDeep} style={styles.holdSpinner} />
+          <ActivityIndicator color={styles.spinner.color} style={styles.holdSpinner} />
         </View>
       )}
 
@@ -200,7 +208,7 @@ function Gate() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   // Opaque, and absolutely positioned over the navigator rather than replacing
   // it. `backgroundColor` is what makes it a cover: without it the half-built
   // screen underneath shows through, which is exactly what these two states
@@ -213,6 +221,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: colors.bg,
   },
+  // A style entry rather than a colour prop, so the sheet is the one place
+  // this file reads a token.
+  spinner: { color: colors.accentDeep },
   centered: { justifyContent: 'center' },
   holdContainer: { alignItems: 'center' },
   holdMark: { color: colors.accentInk, ...font.display.brand },

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast.ts';
 import { AVATAR_TINTS, SELF_AVATAR_TINT } from './avatar-tint.ts';
 import { STAT_COLORS } from './stat-colors.ts';
-import { colors, ramp } from '../theme.ts';
+import { colors, dark, ramp } from '../theme.ts';
 
 /**
  * The palette's accessibility claims, as assertions.
@@ -350,5 +350,102 @@ describe('a deep fill takes cream', () => {
     ['night — the flight', colors.night],
   ])('cream reads on %s', (_name, fill) => {
     expect(contrastRatio(colors.bg, fill as string)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+});
+
+/**
+ * The dark palette, held to the same claims (deviation #72).
+ *
+ * Every rule above reads the static exports, which are the light scheme. The
+ * dark scheme keeps the token names and the ramp's ink-strength contract, and
+ * that contract is what these assert: a wash you set text on, a fill ink sits
+ * on, an ink that reads on the page. Two tokens do not flip — `ink` stays dark
+ * and `onDeep` stays light — because a bright orange takes dark ink whatever
+ * the page behind it is, and those two are what the bright and deep fills
+ * carry in both schemes.
+ */
+describe('the dark scheme keeps every claim the light one makes', () => {
+  const { colors: c, ramp: r } = dark;
+
+  it.each([
+    ['text on the page', c.text, c.bg],
+    ['text on a card', c.text, c.surface],
+    ['text on the lifted card', c.text, c.surfaceLift],
+    ['text on the orange wash', c.text, r.accent[200]],
+    ['text on the sky field', c.text, c.sky],
+    ['subtle on the page', c.subtle, c.bg],
+    ['subtle on a card', c.subtle, c.surface],
+    ['muted on the page', c.muted, c.bg],
+    ['muted on a card', c.muted, c.surface],
+  ])('%s', (_name, fg, bg) => {
+    expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it('accentDeep is body-size orange on the page and on the wash', () => {
+    expect(contrastRatio(c.accentDeep, c.bg)).toBeGreaterThanOrEqual(AA_BODY);
+    expect(contrastRatio(c.accentDeep, r.accent[200])).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it('accentInk is large display type on the page', () => {
+    expect(contrastRatio(c.accentInk, c.bg)).toBeGreaterThanOrEqual(AA_LARGE);
+  });
+
+  it('the 700 step of every family is an ink on the page', () => {
+    for (const family of ['accent', 'sage', 'teal', 'gold', 'neutral'] as const) {
+      expect(contrastRatio(r[family][700], c.bg), family).toBeGreaterThanOrEqual(AA_BODY);
+    }
+  });
+
+  it('the 800 step of every family is an ink on its own 200 wash', () => {
+    for (const family of ['accent', 'sage', 'teal', 'gold', 'neutral'] as const) {
+      expect(contrastRatio(r[family][800], r[family][200]), family).toBeGreaterThanOrEqual(AA_BODY);
+    }
+  });
+
+  it('neutral 600 is the lightest step that may carry body text', () => {
+    expect(contrastRatio(r.neutral[600], c.bg)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it('damage carries body text on the page and on the coral wash', () => {
+    expect(contrastRatio(c.damage, c.bg)).toBeGreaterThanOrEqual(AA_BODY);
+    expect(contrastRatio(c.damage, c.coralTint)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it('tealInk is text on the teal wash', () => {
+    expect(contrastRatio(c.tealInk, c.tealTint)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it.each([
+    ['accent', c.accent],
+    ['coral', c.coral],
+    ['gold 400', r.gold[400]],
+    ['sage 400', r.sage[400]],
+    ['sky 400', r.sky[400]],
+    ['teal 400', r.teal[400]],
+  ])('ink reads on the bright fill %s', (_name, fill) => {
+    expect(contrastRatio(c.ink, fill)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it.each([
+    ['sage 600', r.sage[600]],
+    ['teal', c.teal],
+    ['night', c.night],
+  ])('onDeep reads on the deep fill %s', (_name, fill) => {
+    expect(contrastRatio(c.onDeep, fill)).toBeGreaterThanOrEqual(AA_BODY);
+  });
+
+  it('ink and onDeep are the same in both schemes — they answer to the fill, not the page', () => {
+    expect(c.ink).toBe(colors.ink);
+    expect(c.onDeep).toBe(colors.onDeep);
+    expect(colors.ink).toBe(colors.text);
+    expect(colors.onDeep).toBe(colors.bg);
+  });
+
+  it('keeps the middle of every ramp — the fills — the same hue in both schemes', () => {
+    // A fill is a fill: the primary button is the same orange at night. Only
+    // the ends of a ramp move, and they move because they are inks and washes.
+    for (const family of ['accent', 'sage', 'teal', 'gold', 'sky'] as const) {
+      expect(r[family][500], family).toBe(ramp[family][500]);
+    }
   });
 });

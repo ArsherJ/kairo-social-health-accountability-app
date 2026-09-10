@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { RACE_FINISH_LINE, type Racer } from '@kairo/core';
-import { colors, font, ramp, space } from '@/theme.ts';
-import { Glass, Meter, Panel, Text } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
+import { Glass, Meter, Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * Where you stand, under the corridor (`Canvas.dc.html` 2c).
@@ -57,6 +57,8 @@ export function SkyStanding({
   } as const;
 
   const Surface = floating ? FloatingSurface : Panel;
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   return (
     <Surface variant="lift">
@@ -97,6 +99,7 @@ export function SkyStanding({
  * renderings start disagreeing about the label.
  */
 function FloatingSurface({ children }: { variant?: string; children: React.ReactNode }) {
+  const styles = useStyles(makeStyles);
   return (
     <Glass tone="light" style={styles.floating}>
       {children}
@@ -104,7 +107,7 @@ function FloatingSurface({ children }: { variant?: string; children: React.React
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   // `flex: 1` so the position chip keeps its place when the headline wraps at
   // large type, rather than being pushed off the row.

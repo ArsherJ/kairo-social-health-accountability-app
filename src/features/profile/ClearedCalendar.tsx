@@ -1,15 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Gradient, Panel, Text } from '@/ui/index.ts';
-import type { Stop } from '@/ui/gradient.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 import { monthGrid } from './month-grid.ts';
-
-/** A cleared day: gold into orange, which is `earnedColor` running into "you". */
-const CLEARED: Stop[] = [
-  { color: ramp.gold[400], at: 0 },
-  { color: colors.accent, at: 1 },
-];
 
 /**
  * The month, as a run of cleared days.
@@ -44,6 +37,8 @@ export function ClearedCalendar({
   today: string | undefined;
   clearedDates: readonly string[];
 }) {
+  const styles = useStyles(makeStyles);
+  const { colors, ramp } = useTheme();
   if (!today) return null;
 
   const grid = monthGrid(today, clearedDates);
@@ -124,7 +119,6 @@ export function ClearedCalendar({
                     cell.isToday && styles.boxToday,
                   ]}
                 >
-                  {cell.cleared && <Gradient stops={CLEARED} steps={6} style={styles.fill} />}
                   <Text
                     scale="fixed"
                     style={cell.cleared ? styles.clearedNumber : styles.shortNumber}
@@ -150,6 +144,7 @@ export function ClearedCalendar({
 }
 
 function Legend({ fill, label }: { fill: string; label: string }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.legendItem}>
       <View style={[styles.swatch, { backgroundColor: fill }]} />
@@ -180,7 +175,7 @@ function monthName(month: string): string {
 
 const CELL = `${100 / 7}%`;
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.lg },
   month: { ...font.display.minor, color: colors.text, flexShrink: 1 },
   countChip: {
@@ -195,7 +190,7 @@ const styles = StyleSheet.create({
   },
   countLabel: { ...font.body.strong, color: colors.accentDeep },
 
-  card: { paddingVertical: space.md, paddingHorizontal: 14 },
+  card: { paddingVertical: space.md, paddingHorizontal: 12 },
   week: { flexDirection: 'row' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
   // Seven equal columns by percentage. A fixed cell width is the two-column
@@ -203,15 +198,14 @@ const styles = StyleSheet.create({
   cell: { width: CELL, alignItems: 'center', paddingVertical: 3 },
   weekLetter: { ...font.body.strong, fontSize: 10.5, color: ramp.neutral[500] },
   box: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  fill: { borderRadius: 14 },
   boxCleared: { backgroundColor: ramp.gold[400] },
   boxShort: { backgroundColor: ramp.accent[200] },
   boxFuture: { backgroundColor: ramp.neutral[200] },
@@ -219,7 +213,7 @@ const styles = StyleSheet.create({
   // replace whichever it is.
   boxToday: { borderWidth: 2.5, borderColor: colors.accent },
   // Ink on gold, never cream — gold is a fill and cream on it is 1.52:1.
-  clearedNumber: { ...font.body.body, fontSize: 12, color: colors.text },
+  clearedNumber: { ...font.body.body, fontSize: 12, color: colors.ink },
   shortNumber: { ...font.body.body, fontSize: 12, color: ramp.neutral[600] },
   futureNumber: { ...font.body.body, fontSize: 12, color: ramp.neutral[500] },
 

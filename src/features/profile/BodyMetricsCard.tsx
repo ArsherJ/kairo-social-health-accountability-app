@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Button, Label, Panel, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Button, Label, Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 import {
   BODY_METRICS_NOTE,
   BODY_METRIC_LIMITS,
@@ -87,6 +87,8 @@ export function BodyMetricsCard({
   profile: Profile;
 }) {
   const update = useUpdateProfile(userId);
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   const [editing, setEditing] = useState(false);
   // Seeded on every entry into edit mode rather than once at mount. That is
@@ -220,7 +222,7 @@ export function BodyMetricsCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   // A pill, not a bare word: on cream a coloured word alone does not read as a
   // control. Same treatment the squad and battle cards use for their one action.

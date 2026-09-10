@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
-import { colors, font, ramp, space } from '@/theme.ts';
-import { Meter, Panel, Text } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
+import { Meter, Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 import { questHeadline, questLabel, questProgressLine } from './quest-copy.ts';
 import type { TodayQuest } from './queries.ts';
 
@@ -19,6 +19,8 @@ import type { TodayQuest } from './queries.ts';
  * HUD pinned its pills at fixed offsets.
  */
 export function QuestList({ quests }: { quests: readonly TodayQuest[] }) {
+  const styles = useStyles(makeStyles);
+  const { colors, ramp } = useTheme();
   if (quests.length === 0) return null;
 
   const hidden = {
@@ -64,7 +66,7 @@ export function QuestList({ quests }: { quests: readonly TodayQuest[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   body: { gap: space.sm },
   headline: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   title: { flex: 1, color: colors.text, ...font.body.body },

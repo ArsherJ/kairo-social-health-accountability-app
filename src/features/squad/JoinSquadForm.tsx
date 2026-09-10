@@ -6,8 +6,8 @@ import { boostChipLabel, programLabel, programNote } from './program-copy.ts';
 import { useSquadPreview } from './queries.ts';
 import { useSquadDataConsent } from './consent.ts';
 import { SquadDataConsentSheet } from './SquadDataConsentSheet.tsx';
-import { colors, font, radius, space } from '@/theme.ts';
-import { BackRow, Button, Label, Panel, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { BackRow, Button, Label, Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 export function JoinSquadForm({
   userId,
@@ -33,6 +33,8 @@ export function JoinSquadForm({
 }) {
   const joinSquad = useJoinSquad(userId);
   const { consented, isSuccess } = useSquadDataConsent(userId);
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
 
   // A lazy initialiser, not a `useEffect`: seeding from an effect would run
@@ -203,7 +205,7 @@ export function JoinSquadForm({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   panel: { flex: 1 },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },

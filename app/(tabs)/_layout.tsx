@@ -13,8 +13,8 @@ import {
   useDeviceTokenRegistration,
   useNotificationRouting,
 } from '@/features/notifications/useNotifications.ts';
-import { colors } from '@/theme.ts';
 import { TabPill } from '@/ui/TabPill.tsx';
+import { useTheme } from '@/ui/use-theme.ts';
 
 export default function TabsLayout() {
   const session = useSessionStore((s) => s.session);
@@ -53,6 +53,10 @@ export default function TabsLayout() {
   // the two above are: it shares the Today tab's query key, so it costs no
   // request and the two cannot disagree in one frame.
   const scoredDays = useScoredDayCount(session?.user.id);
+
+  // The scene behind every tab follows the scheme; a cream scene under a dark
+  // screen flashes on every tab switch.
+  const { colors } = useTheme();
 
   return (
     <Fragment>

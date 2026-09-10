@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { ratingForStatPoints, statPointsForRating, type CoreStat } from '@kairo/core';
-import { colors, font, radius, space } from '@/theme.ts';
-import { Meter, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Meter, StatIcon, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 export function StatBar({
   stat,
@@ -31,6 +31,8 @@ export function StatBar({
   /** Shown under an empty lane bar, in that stat's own language. */
   laneEmptyCopy?: string | null;
 }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const points = lifetimePoints ?? 0;
   const rating = ratingForStatPoints(points);
 
@@ -145,7 +147,7 @@ export function StatBar({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   row: { marginTop: space.md },
   // `center`, not the `baseline` this was before the icon arrived. The left
   // side is a wrapper View now, and Yoga resolves a View's baseline from its

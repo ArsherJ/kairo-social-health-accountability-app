@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { font, ramp, space } from '@/theme.ts';
-import { Button, Text } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
+import { Button, Text, useStyles } from '@/ui/index.ts';
 import { useDemoStore, toggleDemo } from './store.ts';
 
 /**
@@ -12,6 +12,7 @@ import { useDemoStore, toggleDemo } from './store.ts';
  */
 export function DemoToggle() {
   const on = useDemoStore((s) => s.on);
+  const styles = useStyles(makeStyles);
 
   return (
     <>
@@ -30,7 +31,7 @@ export function DemoToggle() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ ramp }: Theme) => StyleSheet.create({
   note: {
     ...font.body.body,
     fontSize: 12,

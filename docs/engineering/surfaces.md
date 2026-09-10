@@ -711,3 +711,119 @@ new runtime.) Fredoka and Nunito are copied into `assets/fonts/` and loaded thro
 `useFonts`, *not* added as npm dependencies — `package.json` is a fingerprint
 input and adding two lines to it would have cost one of the month's fifteen
 builds to ship a font.
+
+
+---
+
+## Two schemes and a dashboard (2026-09-10, deviation #72)
+
+The rules are in `CLAUDE.md` under "Kairo follows the phone's appearance and
+Today is a dashboard"; this is the why.
+
+**What the screens had become.** By 2026-09-08 every tab opened on a field of
+colour: Today on a 452pt sky with glass pills floating over it, Flock on a
+violet-into-pink band, You on a sky band under a ring, and the tab bar carried
+four gradient fills that crossfaded as the pill travelled. Each was argued for
+on its own and each argument still reads well; together they were the same
+gesture four times, and the one word a reviewer had for the whole was
+"template". The brief for this pass was minimalist yet playful, a dark scheme,
+a Today that shows progress rather than a picture, and a Sky whose four-screen
+corridor could be navigated rather than only scrolled.
+
+**Why the tokens did not change name, again.** The dark scheme is the third
+time the palette has moved under ninety call sites, and the reason it could is
+the reason Sunlit → Playful could: a token names a role. What is new is that a
+role now has two values at once, and the ramp's *ink-strength* contract is the
+thing that makes that safe. Read as brightness, a dark palette would have to
+reverse the scale and every `ramp.x[200]` wash would become a near-black; read
+as strength, the low steps become dark tints and the high steps light tints,
+and the sentence "200 is a wash you set text on, 700 is an ink" stays true on
+indigo. So a stylesheet written against the light ramp is correct against the
+dark one without being read. The two exceptions — `ink` and `onDeep` — exist
+because a bright fill does not care what the page is: orange takes dark ink at
+noon and at midnight, and `colors.text` (which flips) on a bright fill was the
+one migration mistake that would render perfectly in the light scheme and
+vanish in the dark one. Every bright-fill label was moved to `ink` in the same
+pass and the dark block of `contrast.test.ts` asserts it.
+
+**Why the static exports stay.** Root Vitest reads `colors` and `ramp` in a
+dozen tests, `avatar-tint.ts` and `stat-colors.ts` are fill tables, and the
+onboarding run carries its own night beats and a design that was never meant
+to invert. Making the static exports the light palette, and adding `themes`
+beside them, meant nothing that worked stopped working and the migration could
+proceed screen by screen. The screens left on the static palette are named in
+`CLAUDE.md` and are a decision, not a backlog.
+
+**Why `useStyles` and not a provider.** The preference is on MMKV and the
+phone's answer is synchronous, so the scheme is known before the first render
+and a context has nothing to provide that a store does not. `useStyles`
+caches one sheet per factory per scheme, keyed by the factory's identity —
+which is why a factory must be a module-level constant, and why the doc
+comment on every `makeStyles` says so.
+
+**Why `userInterfaceStyle` had to move, and what it costs.** `dark` in
+`app.config.ts` forces the iOS trait collection, so `useColorScheme()` reports
+dark on a phone set to light; a "System" option built on that would be a lie
+with a label. `automatic` is one string and a native field, so the fingerprint
+moves and the pass ships with one of the month's builds rather than over the
+air. That was weighed against a Light/Dark toggle with no System option — OTA-
+shippable, and wrong: the reader who keeps their phone dark for the battery
+and wants the bird in daylight is real, but so is everybody else, and asking a
+phone a question it has already answered is how an app ends up dark at noon.
+
+**Today: the dashboard keeps the Mirror's rules.** Deviation #59 argued that
+seven surfaces competing to be read was the failure, and put one figure on the
+screen. The request here was the opposite shape — progress at a glance — and
+the honest answer was to change the shape and keep the rules: `today-board.ts`
+composes every sentence a tile says under the same bans #59's `kairo-voice.ts`
+keeps (raw units, no engine key, unknown never zero), the Motion tile reaches
+the ridge through `DailyWalkState.remaining` so the baseline never appears as
+a literal, and the quest rows draw exactly the three entries `todayQuests()`
+resolves with `selectNextStep()`'s pick marked. The scene did not go: it is a
+236pt card in the column, and the reaction, the ceiling line and the crest sky
+are exactly where they were. What went was the glass — three pills floating
+over a picture were the loudest thing on the screen — and the location word,
+which is the Motion tile's eyebrow now.
+
+**Sky: a map, not a picture.** The corridor is four screens tall and the
+reader sees one; the strip on the right draws all four. Two things were
+settled in `minimap.ts` before anything was drawn. The strip is built from the
+*same* `flightFrame` numbers the corridor is drawn with — `contentHeight`,
+`topInset`, `boxHeight` — so a bird's dot and a bird's marker are one
+arithmetic, and a test asserts that ties pulled apart on the corridor are
+pulled apart on the strip. And the window is a clamp: the scroller overscrolls
+past both ends on iOS, and a window drawn off the end of the map reads as the
+map being wrong. The window rides the scroller's native `Animated.Value`
+through an interpolation whose `extrapolate: 'clamp'` is `viewportWindow`'s
+clamp restated, so a fling never leaves it behind. A touch on the strip calls
+`offsetForMapY()`, which centres the screen on the touched point and clamps
+to what the scroller can reach; a drag is the same call on every move. The
+strip is sized between the measured rail and the measured foot, for the
+Dynamic Type reason the rail was always measured. The corridor itself is
+painted by the reader's steps — the segments behind their bird take the
+accent — which is the Motion tile's meter said in the corridor's own
+language, and is what the request meant by the path changing with steps.
+
+**The bar.** Four gradients crossfading under a moving pill was the single
+loudest element in the app and the one that read most as a template. One
+accent wash with the accent's own ink says which tab and nothing else, keeps
+the travel, and holds under both schemes by the ramp's contract. `NAV_HEIGHT`
+is still 96 so no screen's clearance moved.
+
+**Flock and You.** The board's band carried the squad's identity as a field of
+colour; the name carries it. Everything the band held is on the page in the
+same order. The leader's row takes a gold rule down its leading edge rather
+than a sage tint, because gold means earned and a whole tinted row competed
+with the self tint. The day toggle became a `SegmentedControl`, whose selected
+segment is a raised surface in the page's ink — the accent fill it had made a
+filter look like the screen's action. You's sky band went for the reason the
+ProfileHeader's own comment gave for removing the bird from it: the ring is
+the bird on that screen, and a band behind it was a fourth painting of one
+daylight. The ring sits beside its words now rather than above them, because a
+centred stack left half the width empty. Both screens still `bleed` and take
+`insets.top` themselves.
+
+**What was not done.** The onboarding run and sign-in stay light. `Avatar`,
+`TodayPanel` and `KairoLab` are unmounted and untouched. The device pass under
+the dark scheme — every screen at the largest Dynamic Type, on a device — is
+owed, exactly as the growth-stage boundaries are.

@@ -237,6 +237,20 @@ export const colors = {
   damage: '#b0134a',
   /** @deprecated Kept so older call sites still compile. Use `damage`. */
   danger: '#b0134a',
+  /**
+   * The ink that sits on a **bright fill** — the primary button, the streak
+   * pill, a cleared calendar day, the selected segment. Always dark, in both
+   * schemes: `colors.text` flips to cream under the dark scheme and a bright
+   * orange takes ink whatever the ground behind it is. Reaching for `text` on
+   * a fill is the mistake this token exists to make impossible to write.
+   */
+  ink: '#241b4d',
+  /**
+   * The ink that sits on a **deep fill** — teal, sage 600, night. Always light,
+   * in both schemes, for the same reason `ink` is always dark. Under the light
+   * scheme it is `bg`; under the dark one `bg` is near-black and this is not.
+   */
+  onDeep: '#fff6ec',
 } as const;
 
 /**
@@ -404,3 +418,207 @@ export const font = {
     button: { fontFamily: BODY_XBOLD, fontSize: 15 },
   },
 } as const;
+
+/*
+  ───────────────────────────────────────────────────────────────────────────
+  Two schemes, one set of roles (2026-09-10, deviation #72).
+  ───────────────────────────────────────────────────────────────────────────
+
+  Everything above this line is the **light** palette, and it is still what the
+  static exports (`colors`, `ramp`, `glass`, `shadow`, `earnedColor`) mean —
+  root Vitest reads them, and so do the screens that have not been moved onto
+  the runtime theme (the onboarding run and sign-in, which carry their own
+  night beats and stay light by design).
+
+  A screen that follows the viewer's appearance reads `useTheme()` instead,
+  which hands back one of the two `Theme` objects below. **The names and the
+  contract are identical in both.** `ramp.<family>[200]` is a quiet wash you
+  set text on in either scheme; `[500]` is a fill; `[700]` and `[800]` are
+  inks. Under the dark scheme that means the low steps are *dark* tints and
+  the high steps are *light* tints — the ink-strength contract inverted about
+  the ground rather than the hue scale reversed. A call site that was right
+  on cream is right on indigo without being edited, which is the whole reason
+  the ramp is described by strength rather than by brightness.
+
+  Two tokens are the same in both schemes on purpose: `ink` (always dark, for
+  bright fills) and `onDeep` (always light, for deep fills). `text` and `bg`
+  swap places; those two do not, and that is how a primary button keeps its
+  legible label when the page behind it goes dark.
+
+  `contrast.test.ts` holds both palettes to the same claims.
+*/
+
+export type Scheme = 'light' | 'dark';
+
+type ColorRoles = { [K in keyof typeof colors]: string };
+type RampSteps = { [K in keyof typeof ramp.neutral]: string };
+type RampFamilies = { [F in keyof typeof ramp]: RampSteps };
+type GlassTones = {
+  [T in keyof typeof glass]: { [K in keyof (typeof glass)[T]]: string };
+};
+type ShadowStep = {
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowRadius: number;
+  shadowOffset: { width: number; height: number };
+  elevation: number;
+};
+type ShadowSteps = { [S in keyof typeof shadow]: ShadowStep };
+
+export interface Theme {
+  scheme: Scheme;
+  colors: ColorRoles;
+  ramp: RampFamilies;
+  glass: GlassTones;
+  shadow: ShadowSteps;
+  earnedColor: string;
+}
+
+/**
+ * The dark ramps. Same nine steps, same hues in the middle, and the ends
+ * inverted about the ground so the strength contract holds.
+ */
+const darkRamp: RampFamilies = {
+  neutral: {
+    100: '#1a1634',
+    200: '#262147',
+    300: '#332c5a',
+    400: '#4b4373',
+    500: '#8b83ad',
+    600: '#aba3cf',
+    700: '#cbc4e6',
+    800: '#e3ddf5',
+    900: '#f4efff',
+  },
+  accent: {
+    100: '#2a1a16',
+    200: '#3b2317',
+    300: '#4f2d1a',
+    400: '#ff9a5c',
+    500: '#ff6b35',
+    600: '#e0521f',
+    700: '#ffa876',
+    800: '#ffbf99',
+    900: '#ffdcc7',
+  },
+  sage: {
+    100: '#1c1740',
+    200: '#2a2158',
+    300: '#3a2d78',
+    400: '#b69bff',
+    500: '#7c4dff',
+    600: '#6a3bef',
+    700: '#c7b3ff',
+    800: '#ddd1ff',
+    900: '#f1ecff',
+  },
+  teal: {
+    100: '#0a2521',
+    200: '#0c2f2b',
+    300: '#0f423c',
+    400: '#5fdcc8',
+    500: '#00c2a8',
+    600: '#00a492',
+    700: '#7fe6d6',
+    800: '#b3f0e7',
+    900: '#e0faf6',
+  },
+  gold: {
+    100: '#2b2110',
+    200: '#3d2e12',
+    300: '#57411a',
+    400: '#ffc145',
+    500: '#f5a623',
+    600: '#cd7f0c',
+    700: '#ffd27a',
+    800: '#ffe3a8',
+    900: '#fff3d6',
+  },
+  sky: {
+    100: '#0f1f3a',
+    200: '#122a4a',
+    300: '#173a66',
+    400: '#5cc6ff',
+    500: '#2c9cff',
+    600: '#0c7fd6',
+    700: '#8fd3ff',
+    800: '#bfe6ff',
+    900: '#0b1b4d',
+  },
+};
+
+/**
+ * The dark ground is the palette's own indigo — `neutral[900]` deepened — so
+ * the two schemes read as one brand at two times of day rather than as a
+ * warm app and a grey one.
+ */
+const darkColors: ColorRoles = {
+  bg: '#14112a',
+  surface: '#1e1a3a',
+  surfaceLift: '#262148',
+  sky: darkRamp.sky[200],
+  night: darkRamp.sky[900],
+  midnight: '#0c0a1f',
+  border: '#f4efff29',
+  borderStrong: darkRamp.neutral[400],
+  text: '#f4efff',
+  subtle: darkRamp.neutral[700],
+  muted: darkRamp.neutral[600],
+  accent: darkRamp.accent[500],
+  /** Large display type in orange, on indigo. 7.9:1. */
+  accentInk: '#ff9a66',
+  /** Body-size orange, on the page and on the dark orange wash. */
+  accentDeep: darkRamp.accent[800],
+  accentEdge: darkRamp.accent[600],
+  sage: darkRamp.sage[600],
+  teal: '#00786b',
+  tealEdge: '#00584e',
+  tealTint: darkRamp.teal[200],
+  tealInk: darkRamp.teal[700],
+  coral: '#ff4d8d',
+  coralEdge: '#d62e6b',
+  coralTint: '#3d1526',
+  /** The readable pink on indigo; the light scheme's `#b0134a` measures 1.8:1 here. */
+  damage: '#ff7fae',
+  danger: '#ff7fae',
+  ink: colors.ink,
+  onDeep: colors.onDeep,
+};
+
+export const light: Theme = {
+  scheme: 'light',
+  colors,
+  ramp,
+  glass,
+  shadow,
+  earnedColor,
+};
+
+export const dark: Theme = {
+  scheme: 'dark',
+  colors: darkColors,
+  ramp: darkRamp,
+  /**
+   * Glass over a dark page is a *dark* translucent fill: a white one over
+   * indigo reads as a grey box, which is the failure `Glass`'s own comment
+   * warns about. The `dark` tone — chrome over the flight — is unchanged,
+   * because the flight is drawn on `night` in both schemes.
+   */
+  glass: {
+    light: {
+      fill: 'rgba(38,33,72,0.84)',
+      fillSoft: 'rgba(38,33,72,0.56)',
+      edge: 'rgba(255,255,255,0.16)',
+    },
+    dark: glass.dark,
+  },
+  /** Ink-tinted shadows vanish on indigo; these are black and heavier. */
+  shadow: {
+    sm: { ...shadow.sm, shadowColor: '#000000', shadowOpacity: 0.3 },
+    md: { ...shadow.md, shadowColor: '#000000', shadowOpacity: 0.36 },
+    lg: { ...shadow.lg, shadowColor: '#000000', shadowOpacity: 0.48 },
+  },
+  earnedColor: darkRamp.gold[400],
+};
+
+export const themes: Record<Scheme, Theme> = { light, dark };

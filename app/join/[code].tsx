@@ -8,8 +8,8 @@ import { JoinSquadForm } from '@/features/squad/JoinSquadForm.tsx';
 import { inviteCodeFromParam } from '@/features/squad/pending-invite.ts';
 import { stashPendingInvite } from '@/features/squad/pending-invite-store.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
-import { colors, font, space } from '@/theme.ts';
-import { BackRow, Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
+import { BackRow, Button, Label, Panel, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * `https://<domain>/join/AB12CD`, and the `kairo://join/AB12CD` scheme with it.
@@ -35,6 +35,8 @@ import { BackRow, Button, Label, Panel, Screen, Text } from '@/ui/index.ts';
  *   so. Never a blank screen, and never a crash.
  */
 export default function JoinByLink() {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const code = inviteCodeFromParam(params.code);
@@ -133,7 +135,7 @@ export default function JoinByLink() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   panel: { flex: 1 },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },

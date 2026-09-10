@@ -54,12 +54,19 @@ import {
 import { dailyWalkState, walkNote, type DailyWalkState } from '@/features/train/daily-walk.ts';
 import { useWalkHistory } from '@/features/train/queries.ts';
 import { useTodayStrengthSummary } from '@/features/train/useTodayStrengthSummary.ts';
-import { TodayChips, TodayCount } from '@/features/character/TodayHud.tsx';
+import { TodayChips } from '@/features/character/TodayHud.tsx';
+import { QuestRows, TodayTiles } from '@/features/character/TodayBoard.tsx';
+import {
+  bodyReading,
+  dateHeading,
+  mindReading,
+  motionReading,
+} from '@/features/character/today-board.ts';
 import { WelcomePopups } from '@/features/onboarding/WelcomePopups.tsx';
 import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
-import { Screen, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Screen, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 
 /**
  * Distinct from `first_sync_seen` (`markFirstSyncSeen` in `useHealthSync.ts`,
@@ -103,14 +110,15 @@ function markFirstScoreSeen(userId: string): void {
 }
 
 /**
- * How tall the sky is.
+ * How tall the scene card is.
  *
  * Fixed rather than a fraction of the screen, because the figure inside it is
  * sized from this (`Diorama` draws the character at `height * 0.6`) and a bird
  * that changed size between a 320pt and a 440pt phone would read as a different
- * bird.
+ * bird. Half the old hero (deviation #72): the scene is one tile of the
+ * dashboard now, and the day's figures sit beside it rather than over it.
  */
-const HERO_HEIGHT = 452;
+const SCENE_HEIGHT = 236;
 
 /**
  * The neutral day, for the frame before buckets land.
@@ -142,35 +150,31 @@ const EMPTY_WALK_STATE: DailyWalkState = {
 };
 
 /**
- * Today — the Living Mirror (deviation #59).
+ * Today — the dashboard (deviation #72, over #59's Living Mirror).
  *
- * KAIRO **is** the interface. Motion moves the scene's location, lifetime Body
- * weights and tints the ground shadow, and a verified night selects the daily
- * Mind image; a level-up, a personal best, the Daily Walk clear, a strength
- * session or a new location surfaces as one bounded reaction. The always-visible
- * order is the scene, compact Level and personal Streak, the location word and
- * one step figure, one quest-backed next step, then **See today's details**.
+ * The screen reads top to bottom as a day: the date and the character's name
+ * with the level and streak chips beside them; the scene, at card size, with
+ * KAIRO standing where today put it; the sentence the bird says and the door
+ * to the details; then the readings — Motion as the hero tile with the walk's
+ * meter under it, Body and Mind two across — and the three quests as rows.
  *
- * **The dashboard is gone and this screen is thin.** Three quest rings, a race
- * line, Mastery coins, the sleep and lane tiles, the Daily Walk card, the
- * Challenge card and the first-sync callout were seven surfaces competing to be
- * read. The complete raw-unit day, every quest state, the Daily Walk run and
- * the gated Challenge link all live one tap away in `TodayDetailsSheet`.
+ * **What #59 argued is still true and still decides the rules here.** The
+ * quest contract is untouched: `todayQuests()` resolves exactly three entries,
+ * `finalize-days` grades the same three, and `selectNextStep()` only ranks
+ * them — the dashboard shows all three and marks the ranked one. Every figure
+ * is a raw unit and never a score total (deviation #34); the Motion tile
+ * reaches the ridge through `dailyWalkState` and prints no literal; an unknown
+ * night reads "No reading yet" and never zero. The reaction sentence, the
+ * ceiling line and the crest sky are all as they were. The Sky still owns the
+ * race and You still owns Mastery and records — no race copy, no Mastery
+ * coins, no leaderboard read.
  *
- * **Nothing about the engine moved.** `todayQuests()` still resolves exactly
- * three entries and `finalize-days` grades the same three; `selectNextStep()`
- * only ranks them. Scoring, XP, the Daily Walk rules, Challenges and the race
- * are untouched, and real-world activity still counts with the app closed.
- *
- * **The Sky owns the race; You owns Mastery and records.** Today's leaderboard,
- * recent-day and race-rank reads are gone with the copy that used them, so this
- * screen makes two fewer requests than it did — and adds two owner-only ones
- * that nothing else needed: today's verified strength evidence and personal
- * records, neither of which reaches a projection or a telemetry payload.
- *
- * **The disclosure gate did not move** (deviation #37). Same constant, same
- * `total > 0` filter, same rule — what changed is the list of surfaces it
- * covers on Today, which is now one: the Challenge link inside details.
+ * **What changed is the shape.** #59 put one figure on the screen and every
+ * other reading one tap away; a dashboard puts the day's five readings on the
+ * page and keeps the sheet for the sentences that explain them (the spread
+ * and rested notes, the dropped-source note, the sync line). The composition
+ * is pinned by `today-composition.test.ts` and the tile sentences by
+ * `today-board.test.ts`.
  */
 export default function Today() {
   const router = useRouter();
@@ -424,65 +428,79 @@ export default function Today() {
     if (node !== null) AccessibilityInfo.setAccessibilityFocus(node);
   };
 
+  // The tiles' sentences, from a module root Vitest can hold. The Body and
+  // Mind quests are found by metric off the same three entries the rows draw,
+  // so a tile's target and its row's bar cannot disagree.
+  const bodyQuest = quests.find((q) => q.quest.metric === 'active_kcal') ?? null;
+  const mindQuest = quests.find((q) => q.quest.metric === 'sleep_minutes') ?? null;
+  const motion = motionReading({
+    steps,
+    locationName: locationName(mirror.motion.location),
+    walk: walk && { remaining: walk.remaining, fraction: walk.fraction, met: walk.met },
+  });
+  const body = bodyReading({
+    activeKcal: totals?.activeKcal ?? 0,
+    quest: bodyQuest && { def: bodyQuest.quest, state: bodyQuest.state },
+    verifiedStrengthMinutes: strength.data?.verifiedMinutes ?? 0,
+  });
+  const mind = mindReading({
+    hasSleepSource: profile.data?.has_sleep_source ?? false,
+    sleepMinutes: sleepMinutesToday,
+    quest: mindQuest && { def: mindQuest.quest, state: mindQuest.state },
+  });
+
+  const styles = useStyles(makeStyles);
+
   return (
     <>
       <Screen bleed>
-        {/* The bird, in its sky, standing where today put it.
-
-            `Diorama` owns the scenery, the figure, the ground shadow and the
-            sky's fade; this screen supplies the HUD that floats over it. The
-            HUD is a **flowing column** spaced by flex — the 2026-08-14 rule,
-            and this screen is where it was learned: the pills were pinned at
-            fixed offsets against heights nothing enforced, and at large Dynamic
-            Type they grew past each other. No child here carries a `top`. */}
-        <Diorama
-          height={HERO_HEIGHT}
-          level={level}
-          stage={stage}
-          location={mirror.motion.location}
-          figure={mirror.figure}
-          body={mirror.body}
-          dominance={dominance.data}
-          lifetimePoints={lifetimePoints}
-          figureLabel={livingCharacterLabel({
-            characterName,
-            level,
-            location: mirror.motion.location,
-            mind: mirror.mind,
-          })}
-          crest={ceilingReached}
-        >
-          <View style={[styles.hud, { paddingTop: insets.top + space.sm }]}>
+        <View style={[styles.page, { paddingTop: insets.top + space.md }]}>
+          {/* The date in the player's own zone (§2), never the device's, and
+              the character's name under it: the day belongs to somebody. */}
+          <View style={styles.header}>
+            <View style={styles.headerWords}>
+              <Text scale="chrome" numberOfLines={1} style={styles.date}>
+                {localToday ? dateHeading(localToday) : 'Today'}
+              </Text>
+              <Text scale="chrome" numberOfLines={1} style={styles.name}>
+                {characterName}
+              </Text>
+            </View>
             <TodayChips level={level} xp={xp} streak={streak.data?.current_streak ?? 0} />
-
-            <View style={styles.hudGap} />
-
-            {/* Always rendered, Branch included: a label that appears at 2,500
-                steps and not before reads as a rendering fault, and Branch is
-                where KAIRO lives rather than a failure state. */}
-            <Text scale="fixed" style={styles.location}>
-              {locationName(mirror.motion.location)}
-            </Text>
-
-            {/* The day, in real units. One number per screen — never a score
-                total (deviation #34). */}
-            <TodayCount steps={steps} />
           </View>
-        </Diorama>
 
-        <View style={styles.page}>
-          {/* One sentence, and the door to everything else.
+          {/* The bird, in its sky, standing where today put it — one card of
+              the dashboard rather than the page's header. `Diorama` owns the
+              scenery, the figure, the ground shadow and the sky's fade; the
+              location word is the Motion tile's eyebrow now, so nothing floats
+              over the picture. */}
+          <View style={styles.scene}>
+            <Diorama
+              height={SCENE_HEIGHT}
+              level={level}
+              stage={stage}
+              location={mirror.motion.location}
+              figure={mirror.figure}
+              body={mirror.body}
+              dominance={dominance.data}
+              lifetimePoints={lifetimePoints}
+              figureLabel={livingCharacterLabel({
+                characterName,
+                level,
+                location: mirror.motion.location,
+                mind: mirror.mind,
+              })}
+              crest={ceilingReached}
+            />
+          </View>
 
-              `ceilingLine` outranks the next step deliberately, and this is the
-              one place the order matters. The crest changes the sky, and an
-              unexplained change to the screen someone opens first is
-              indistinguishable from a bug — so the crest is always paired with
-              the line that explains it. A quest can still be open at the
-              ceiling (`strong-steps-15000` against Motion's Gold band); it
-              survives under More for today, which is where everything else on
-              demand lives. The reaction sentence preempts both for
-              `REACTION_HOLD_MS` and then returns, which is bounded and
-              self-correcting. */}
+          {/* One sentence, and the door to the sentences that explain the day.
+
+              `ceilingLine` outranks the next step deliberately: the crest
+              changes the sky, and an unexplained change to the screen someone
+              opens first is indistinguishable from a bug, so the crest is
+              always paired with the line that explains it. The reaction
+              sentence preempts both for `REACTION_HOLD_MS` and then returns. */}
           <TodayNextStep
             ref={detailsTriggerRef}
             sentence={
@@ -491,32 +509,33 @@ export default function Today() {
             }
             onDetails={openDetails}
             // Hidden, not disabled: a dead control with nothing explaining it
-            // is the same false accusation `QUIET_GRACE_MS` exists to prevent,
-            // and everything above it already renders from cached or neutral
-            // state, so nothing is left behind.
+            // is the same false accusation `QUIET_GRACE_MS` exists to prevent.
             showDetails={Boolean(buckets.data)}
+          />
+
+          {/* The day, in real units. Motion is the hero because steps have
+              been the one big figure since deviation #30 and the walk's meter
+              under it is the ridge — one number, two readings (#56). */}
+          <TodayTiles motion={motion} body={body} mind={mind} />
+
+          <QuestRows
+            quests={quests}
+            selected={nextStep.kind === 'quest' ? nextStep.index : null}
           />
         </View>
 
         {/* The four cards that land after onboarding, the last of them the
-            flock ask. Mounted here because this is where onboarding drops you
-            and because the dim is over *this* screen in the design. It leases
-            the same modal host details and the permission asks do, so the
-            three can never compete — which is also why the flock ask is a card
-            in this run rather than a first-run sheet of its own.
-
-            Both doors land on the Flock tab rather than acting from here: one
-            screen owns joining, including the already-in-a-squad case, and one
-            owns the share sheet. A player with no squad cannot invite anybody
-            to nothing, so `invited` opens the create form for them. */}
+            flock ask. Mounted here because this is where onboarding drops you.
+            It leases the same modal host details and the permission asks do,
+            so the three can never compete. Both doors land on the Flock tab
+            rather than acting from here. */}
         <WelcomePopups
           userId={userId}
           characterName={characterName}
           inviteCode={inviteCode}
           onJoin={() => router.push(flockPaneHref('join'))}
           // One predicate, read from the same value the card branches on: an
-          // invite code *is* the squad, so `squad.data` here and
-          // `inviteCode !== null` there could only agree by coincidence.
+          // invite code *is* the squad.
           onInvite={() => router.push(inviteCode ? '/flock' : flockPaneHref('create'))}
         />
       </Screen>
@@ -547,32 +566,15 @@ export default function Today() {
   );
 }
 
-const styles = StyleSheet.create({
-  /**
-   * The HUD column over the sky. `flex: 1` so it fills the diorama, and spaced
-   * by a flexible gap rather than by offsets — the 2026-08-14 rule this screen
-   * is the original home of.
-   */
-  hud: { flex: 1, paddingBottom: 22 },
-  hudGap: { flex: 1 },
-
-  /**
-   * Where KAIRO is standing, in a word.
-   *
-   * `scale="fixed"` because it sits in drawn geometry over a picture, and it is
-   * the one place the Motion band is said in text — which is what lets
-   * `MotionScenery` be entirely decorative and hidden from VoiceOver.
-   */
-  location: {
-    ...font.display.label,
-    fontSize: 13,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    color: colors.subtle,
-    paddingHorizontal: space.lg,
-    paddingBottom: space.xs,
-  },
-
-  /** Everything below the sky, which is where the page's own padding lives. */
-  page: { paddingHorizontal: space.lg },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    /** The page pads itself: `Screen bleed` hands the insets back. */
+    page: { paddingHorizontal: space.lg },
+    header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+    // `flex: 1` + `minWidth: 0` so a long name truncates rather than pushing
+    // the chips off the row at large Dynamic Type.
+    headerWords: { flex: 1, minWidth: 0 },
+    date: { ...font.body.label, color: colors.muted, textTransform: 'uppercase' },
+    name: { ...font.display.major, fontSize: 26, color: colors.text, marginTop: 2 },
+    scene: { marginTop: space.md },
+  });

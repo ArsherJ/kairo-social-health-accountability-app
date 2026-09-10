@@ -10,9 +10,9 @@ import { SquadDataConsentSheet } from '@/features/squad/SquadDataConsentSheet.ts
 import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { CONSUMED_PANE_PARAMS, requestedPane } from '@/features/squad/flock-pane.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
-import { colors, font } from '@/theme.ts';
+import { font, type Theme } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { Button, Screen, Text } from '@/ui/index.ts';
+import { Button, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /** Which of the no-squad screens is showing. Local state, not a route. */
 type Pane = 'choose' | 'create' | 'join';
@@ -40,6 +40,8 @@ export default function Flock() {
   const [pane, setPane] = useState<Pane>('choose');
   const { consented, isSuccess } = useSquadDataConsent(userId);
   const [declined, setDeclined] = useState(declinedThisLaunch);
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   // **Consumed, not read.** Expo Router keeps tab screens mounted, so a request
   // left in place would reopen the form on every later visit to this tab —
@@ -161,7 +163,7 @@ export default function Flock() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   error: { color: colors.damage, ...font.body.body, textAlign: 'center' },
 });

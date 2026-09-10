@@ -14,9 +14,9 @@ import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { ChallengeCard } from '@/features/train/ChallengeCard.tsx';
 import { AREA_NAMES } from '@/features/train/challenge-copy.ts';
 import { useChallengeClears, useWorkoutSessions } from '@/features/train/queries.ts';
-import { colors, font, ramp, radius, space } from '@/theme.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, CtaPill, Label, Screen, Text } from '@/ui/index.ts';
+import { BackRow, CtaPill, Label, Screen, Text, useStyles } from '@/ui/index.ts';
 
 /**
  * Train — the Challenges screen.
@@ -37,6 +37,7 @@ import { BackRow, CtaPill, Label, Screen, Text } from '@/ui/index.ts';
  */
 export default function Train() {
   const router = useRouter();
+  const styles = useStyles(makeStyles);
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -213,7 +214,7 @@ export default function Train() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   title: { color: colors.text, ...font.body.title, marginTop: space.md },
   standfirst: {
     color: colors.subtle,

@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Panel, Text } from '@/ui/index.ts';
-import { colors, font, ramp, space } from '@/theme.ts';
+import { Button, Panel, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import { useGrantSquadDataConsent } from './consent.ts';
 
 /**
@@ -71,6 +71,7 @@ export function SquadDataConsentSheet({
   onDecline: () => void;
 }) {
   const grant = useGrantSquadDataConsent(userId);
+  const styles = useStyles(makeStyles);
 
   // `useWindowDimensions` rather than a one-off read: iOS can change the text
   // size under a running app from Control Centre, and a static read would
@@ -166,7 +167,7 @@ export function SquadDataConsentSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   pane: { flex: 1, justifyContent: 'center' },
   // `maxHeight` rather than a height: at normal text sizes the card still hugs
   // its content. The bound only engages when the content would otherwise run

@@ -2,9 +2,9 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { deleteAccount } from '@/features/auth/session.ts';
-import { colors, font, radius, space } from '@/theme.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, Button, Screen, Text } from '@/ui/index.ts';
+import { BackRow, Button, Screen, Text, useStyles } from '@/ui/index.ts';
 
 /**
  * Erase everything.
@@ -25,6 +25,7 @@ const CONFIRM_WORD = 'DELETE';
 
 export default function DeleteAccount() {
   const router = useRouter();
+  const styles = useStyles(makeStyles);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export default function DeleteAccount() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   title: { color: colors.text, ...font.body.title, marginTop: space.md },
   body: {
     color: colors.subtle,

@@ -10,8 +10,10 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 
 - **Tabs** are **Today · Sky · Flock · You** — `app/(tabs)/` is `index` (Today) · `sky` · `flock` · `profile` (You). There is no character tab.
 - **Onboarding** is seven beats: `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` (`/mirror` sits between the sky card and the Health ask, added by deviation #62). The profile row commits exactly once, on `/name` (deviation #58; see its block below).
-- **Today is the Living Mirror** (deviation #59): the KAIRO scene, compact Level/Streak, one Motion figure, one next step, a details sheet. No race copy, no Mastery coins, no quest rings on it.
-- **The palette is Playful** (deviation #58). Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
+- **Today is a dashboard as of 2026-09-10** (deviation #72, over #59's Living Mirror): the date and name with Level/Streak chips, the KAIRO scene at card size, the bird's one sentence and the details link, then the readings — Motion as the hero tile with the walk's meter, Body and Mind two across — and the three quests as rows. Still no race copy, no Mastery coins, no score total; the quest contract and the reaction rules are #59's. The tile sentences are `today-board.ts`, tested.
+- **The app has a dark scheme** (deviation #72). `src/theme.ts` exports `light`, `dark` and `themes`; a screen reads `useTheme()` / `useStyles(makeStyles)` and the static `colors`/`ramp` exports are the light palette for tests and for the onboarding and sign-in screens, which stay light by design. Settings → Appearance is System / Light / Dark on MMKV. **`userInterfaceStyle` is `automatic` in `app.config.ts`, which is a native field — this redesign ships with a build, not an OTA.**
+- **The Sky has a minimap** (deviation #72): a scrubbable strip on the right edge drawing the whole flight, every bird and the ridge, with a window that follows the scroll; the corridor's segments behind the reader's own bird are painted in the accent. `minimap.ts` owns the arithmetic and is tested against `flightFrame`.
+- **The palette is Playful** (deviation #58), quieter since #72: one accent wash on the tab bar rather than four gradients, no gradient bands on Flock or You, cards at `radius.lg`. Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
@@ -894,6 +896,77 @@ wants; `curl`-based scripts in `supabase/scripts/` need nothing.
 **`ios/` and `android/` are generated and ignored as of 2026-08-23** (roadmap deviation #42). `app.config.ts` and the project-owned config plugins are the only native source of truth. EAS uses Continuous Native Generation for remote builds; `npm run prebuild` materialises the same inputs for local simulator/Xcode work, and `postprebuild` restores the machine-local `ios/.xcode.env.local`. Never commit or depend on a hand-edit under a generated native directory — it disappears on the next clean generation. EAS environment variables supply the JS-side `extra` and `EXPO_PUBLIC_*` values during the remote build.
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
+
+**Kairo follows the phone's appearance and Today is a dashboard as of
+2026-09-10** (deviation #72). The reasoning is in `docs/engineering/surfaces.md`
+under the dated heading; the rules:
+
+- **Two schemes, one set of roles.** `src/theme.ts` keeps every token name and
+  adds `light`, `dark`, `themes`, `Theme` and `Scheme`. The static exports
+  (`colors`, `ramp`, `glass`, `shadow`, `earnedColor`) **are the light
+  palette** and stay: root Vitest reads them, `contrast.test.ts` holds both
+  palettes to the same claims, and the onboarding run and sign-in are left on
+  them deliberately — they carry their own night beats. A themed screen writes
+  `const makeStyles = (t: Theme) => StyleSheet.create({...})` at module scope
+  and reads `useStyles(makeStyles)`; a one-off colour reads `useTheme()`. The
+  factory **must be a module-level constant** — the cache is keyed by its
+  identity, so an inline factory rebuilds the sheet every render.
+- **The ramp's ink-strength contract holds in both schemes, and that is what
+  makes the migration correct by construction.** Under the dark scheme the low
+  steps are dark tints and the high steps are light tints: `ramp.x[200]` is
+  still a wash you set text on, `[500]` still a fill, `[700]`/`[800]` still
+  inks. The middle of every ramp is the same hue at night — a fill is a fill.
+- **Two tokens do not flip.** `colors.ink` is always dark and sits on a bright
+  fill (the primary button, the streak pill, a cleared calendar day, the
+  selected segment); `colors.onDeep` is always light and sits on a deep fill
+  (teal, sage 600, night). **`colors.text` on a bright fill is the mistake**:
+  it renders correctly in the light scheme and vanishes at night. Every
+  bright-fill label in the app reads `ink` now, and the dark block of
+  `contrast.test.ts` asserts `ink` on every bright fill and `onDeep` on every
+  deep one.
+- **`userInterfaceStyle` is `automatic`.** It was `dark`, which forced the trait
+  collection and made `useColorScheme()` unable to report the phone's answer;
+  `system` would have been a lie. It is a native field, so the fingerprint
+  moves and this ships with a build. `useScheme()` reads the MMKV preference
+  (`appearance-store.ts`, its own storage id, untouched by sign-out) through
+  `resolveScheme()` (`appearance.ts`, zero-import, tested); a phone that
+  reports nothing reads as light, never a silent flip to dark. The status bar
+  follows the scheme in `app/_layout.tsx`.
+- **Today is a dashboard and the Living Mirror's rules are what keep it
+  honest.** `today-board.ts` composes every tile sentence and is the only place
+  a tile's words come from — raw units only, no engine key, unknown is never
+  zero, and the Motion tile reaches the ridge through `DailyWalkState` so no
+  literal appears (`today-composition.test.ts` scans for one). `TodayTiles`
+  and `QuestRows` draw; `todayQuests()` still resolves exactly three and
+  `selectNextStep()` only marks one of them. The scene is `Diorama` at
+  `SCENE_HEIGHT` (236), a card in the column rather than the page's header,
+  and the location word is the Motion tile's eyebrow. `TodayCount` is gone.
+- **The Sky minimap is a map, not a picture.** `SkyMinimap` is pinned to the
+  right edge between the measured rail and the measured foot — both
+  `onLayout`, for the Dynamic Type reason the rail always was — and sized by
+  `minimapHeight()`. It draws `miniPath`, `miniRacers` and the ridge from the
+  **same** `flightFrame` numbers the corridor is drawn with, so the two cannot
+  disagree about where a bird is; the window's `translateY` is an
+  interpolation of the scroller's native `Animated.Value`, and a touch or drag
+  on the strip calls `offsetForMapY()` and `scrollTo`. **The corridor is
+  painted by steps**: `SkyCorridor` takes `progress` (the reader's own
+  `raceProgress`, capped at the line) and paints the flown segments in the
+  accent. `flight-frame.test.ts`'s scan of `sky.tsx` is unchanged and still
+  binds.
+- **The bar is one wash.** `TabPill`'s four per-tab gradients went; the moving
+  pill is `ramp.accent[200]` with `accentDeep` on it, so the bar says which
+  tab and nothing else. `NAV_HEIGHT` is still 96; `BAR_HEIGHT` is 68.
+- **`SegmentedControl` is the only filter control**, and its selected segment
+  is a raised surface in the page's ink, never an accent fill: the board's
+  Today/Yesterday toggle painted its active half orange, which made a filter
+  look like the screen's primary action. `Tile` is the dashboard's unit — one
+  accessibility element, two sizes and no third.
+- **Flock and You have no bands.** The board's violet-into-pink field and the
+  You tab's sky band are gone; both screens still `bleed` and take
+  `insets.top` themselves (`bleed-inset.test.ts`). The leader's row carries a
+  gold rule down its leading edge rather than a sage tint; the flock strip's
+  marks sit on the page in the page's inks, and its withheld mark is still a
+  ring. The You tab's ring sits beside its words rather than above them.
 
 **Kairo is Playful as of 2026-08-30** (deviation #58), which supersedes Sunlit's
 palette and type; Sunlit's stale values are in `docs/archive/design-history.md`.

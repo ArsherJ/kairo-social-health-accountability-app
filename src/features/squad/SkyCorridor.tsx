@@ -1,50 +1,53 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SKY_PATH_ASPECT, angleAt, pointAt } from '@kairo/core';
-import { colors } from '@/theme.ts';
+import type { Theme } from '@/theme.ts';
+import { useStyles } from '@/ui/use-theme.ts';
 
 /**
  * The shared lane everybody flies (roadmap deviation #56).
  *
- * **Drawn without `react-native-svg`, deliberately.** That library would render
- * this path in one element and was rejected on cost, not on taste: it is a
- * native module, so it moves the EAS fingerprint, spends one of the month's
- * fifteen builds and withholds every OTA update until that build lands. The
- * whole redesign is otherwise shippable over the air and that is worth more
- * than one element.
+ * **Drawn without `react-native-svg`, deliberately.** That library would
+ * render this path in one element and was rejected on cost, not on taste: it
+ * is a native module, so it moves the EAS fingerprint, spends one of the
+ * month's fifteen builds and withholds every OTA update until that build
+ * lands. So the band is `SEGMENTS` short rounded views, each positioned at a
+ * point on the curve and rotated to its tangent, overlapping into a
+ * continuous stroke.
  *
- * So the band is `SEGMENTS` short rounded views, each positioned at a point on
- * the curve and rotated to its tangent. With a radius of half the band's width
- * they overlap into a continuous stroke — the same trick the finish line used
- * when the race was six lanes, where abutting segments read as one rule.
+ * **The path is painted by the reader's own steps** (deviation #72). The
+ * segments behind their bird take the accent — the part of the flight they
+ * have flown — and the segments ahead stay a wash of air. That makes the
+ * corridor answer "how far have I come" at a glance, which six equal segments
+ * of one colour never did, and it is the same fact the Motion tile's meter
+ * states on Today: `progress` is `raceProgress(steps)`, capped at the line.
  *
- * The geometry is `@kairo/core`'s and none of it is computed here. This file
- * owns paint and nothing else.
+ * The geometry is `@kairo/core`'s and none of it is computed here.
  */
 
 /**
- * How many pieces the band is cut into.
- *
- * Forty-eight, up from the horizontal corridor's twenty-four. The path is four
- * times as long in points now — the box is taller than the screen and is
- * scrolled — so the old count put ~58pt between joins and the curve read as a
- * polygon on every bend. This is still views-for-a-line and still far cheaper
- * than the native module that would draw it in one.
+ * How many pieces the band is cut into. Forty-eight, so the curve reads as a
+ * curve on every bend across a box four times the screen's height.
  */
 const SEGMENTS = 48;
 
 /**
- * The corridor's width, as a fraction of the box's **width**.
- *
- * Against width and not height, which is the correction the vertical re-cut
- * forced: the old constant was `0.11` of the *height*, which was the narrow
- * axis while the corridor ran left to right and is the long one now. Left
- * alone it drew a 158pt band down a 361pt-wide screen. The design's own figure
- * is `stroke-width: 34` in a 393-wide viewBox.
+ * The corridor's width, as a fraction of the box's **width** — the design's
+ * `stroke-width: 34` in a 393-wide viewBox.
  */
 const BAND = 34 / 393;
 
-export function SkyCorridor({ width, children }: { width: number; children?: ReactNode }) {
+export function SkyCorridor({
+  width,
+  progress = null,
+  children,
+}: {
+  width: number;
+  /** The reader's own progress along the flight, 0–1, or null with no bird. */
+  progress?: number | null;
+  children?: ReactNode;
+}) {
+  const styles = useStyles(makeStyles);
   const height = width / SKY_PATH_ASPECT;
   const band = width * BAND;
 
@@ -53,13 +56,8 @@ export function SkyCorridor({ width, children }: { width: number; children?: Rea
   const steps = Array.from({ length: SEGMENTS + 1 }, (_, i) => i / SEGMENTS);
 
   // Segment length, plus a little, so consecutive pieces overlap instead of
-  // leaving a gap on the outside of a bend.
-  //
-  // Measured off the path rather than approximated from the box, which is what
-  // the horizontal version did (`height / SKY_PATH_ASPECT / SEGMENTS`) and what
-  // silently stopped being right when the aspect inverted. Summing the sampled
-  // chords costs one pass over `SEGMENTS + 1` points and is correct for any
-  // path this module is ever pointed at.
+  // leaving a gap on the outside of a bend. Measured off the path rather than
+  // approximated from the box.
   const points = steps.map((t) => pointAt(t));
   const pathLength = points.reduce((total, p, i) => {
     if (i === 0) return 0;
@@ -68,10 +66,11 @@ export function SkyCorridor({ width, children }: { width: number; children?: Rea
   }, 0);
   const segmentLength = (pathLength / SEGMENTS) * 1.6;
 
+  const flownTo = progress === null ? -1 : Math.min(1, Math.max(0, progress));
+
   return (
     // The corridor says nothing on its own — the markers inside it carry every
-    // word. Hidden rather than labelled, the same disposition `StatIcon` takes
-    // for a glyph whose meaning is in the text beside it.
+    // word. Hidden rather than labelled.
     <View style={[styles.box, { width, height }]}>
       <View
         accessibilityElementsHidden
@@ -85,6 +84,7 @@ export function SkyCorridor({ width, children }: { width: number; children?: Rea
               key={t}
               style={[
                 styles.segment,
+                t <= flownTo && styles.flown,
                 {
                   left: p.x * width - segmentLength / 2,
                   top: p.y * height - band / 2,
@@ -98,14 +98,9 @@ export function SkyCorridor({ width, children }: { width: number; children?: Rea
           );
         })}
 
-        {/* The ridge, at the top of the climb. A horizontal rule now rather
-            than the vertical post the left-to-right corridor carried — a
-            finish line crosses the direction of travel, and the direction of
-            travel changed.
-
-            It names nothing here. The screen's own ridge marker says what the
-            line is, once, rather than labelling it in the picture where it
-            would compete with the birds. */}
+        {/* The ridge, at the top of the climb: a rule across the direction of
+            travel, in gold because it is earned. It names nothing here; the
+            screen's own ridge marker says what the line is, once. */}
         <View
           style={[
             styles.flag,
@@ -123,19 +118,21 @@ export function SkyCorridor({ width, children }: { width: number; children?: Rea
   );
 }
 
-const styles = StyleSheet.create({
-  box: { alignSelf: 'center' },
-  segment: {
-    position: 'absolute',
-    // A wash rather than a fill: the corridor is air, and the birds have to
-    // read against it. White at low alpha over the sky field is what the
-    // design draws.
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  flag: {
-    position: 'absolute',
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.text,
-  },
-});
+const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
+  StyleSheet.create({
+    box: { alignSelf: 'center' },
+    segment: {
+      position: 'absolute',
+      // A wash rather than a fill: the corridor is air, and the birds have to
+      // read against it.
+      backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.5)',
+    },
+    // Flown: the accent, held just off full so the birds still lead.
+    flown: { backgroundColor: colors.accent, opacity: 0.85 },
+    flag: {
+      position: 'absolute',
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: earnedColor,
+    },
+  });

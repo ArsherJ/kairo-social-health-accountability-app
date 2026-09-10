@@ -7,8 +7,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Panel, Text, useReduceMotion } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Panel, Text, useReduceMotion, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import { SyncStatus } from './SyncStatus.tsx';
 import type { TodayDetailSection } from './today-details.ts';
 
@@ -55,6 +55,7 @@ export function TodayDetailsSheet({
   onChallenges: () => void;
   onProgress: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   const { width: windowWidth } = useWindowDimensions();
   const sheetWidth = windowWidth - space.lg * 2 - space.lg * 2;
   const reduceMotion = useReduceMotion();
@@ -162,7 +163,7 @@ export function TodayDetailsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

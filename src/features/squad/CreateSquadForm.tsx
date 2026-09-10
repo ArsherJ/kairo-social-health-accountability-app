@@ -7,8 +7,8 @@ import { SquadDataConsentSheet } from './SquadDataConsentSheet.tsx';
 import { PROGRAM_OPTIONS, programNote } from './program-copy.ts';
 import { isValidSquadName, SQUAD_NAME_MAX, squadNameHint } from './squad-name.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { colors, font, radius, space } from '@/theme.ts';
-import { BackRow, Button, Label, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { BackRow, Button, Label, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 export function CreateSquadForm({
   userId,
@@ -19,6 +19,8 @@ export function CreateSquadForm({
 }) {
   const createSquad = useCreateSquad(userId);
   const { consented, isSuccess } = useSquadDataConsent(userId);
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
 
   const [name, setName] = useState('');
@@ -182,7 +184,7 @@ export function CreateSquadForm({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   top: { flex: 1 },
   topContent: { paddingBottom: space.lg },

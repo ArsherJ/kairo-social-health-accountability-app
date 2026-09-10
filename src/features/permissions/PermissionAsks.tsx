@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Panel } from '@/ui/index.ts';
+import { Panel, useStyles } from '@/ui/index.ts';
 import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
-import { colors, space } from '@/theme.ts';
+import { space, type Theme } from '@/theme.ts';
 import { HealthAsk } from '@/features/health/HealthPermissionSheet.tsx';
 import { healthSource } from '@/features/health/health-source.ts';
 import { track } from '@/features/telemetry/events.ts';
@@ -43,6 +43,7 @@ export function PermissionAsks({
    * `ask-policy.ts`; this component only carries it to the decision. */
   hasScoredDay: boolean;
 }) {
+  const styles = useStyles(makeStyles);
   const [health, setHealth] = useState<HealthPermissionState | null>(null);
   const [notification, setNotification] = useState<NotificationPermission | null>(null);
   const [healthDismissed, setHealthDismissed] = useState(false);
@@ -201,7 +202,7 @@ export function PermissionAsks({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

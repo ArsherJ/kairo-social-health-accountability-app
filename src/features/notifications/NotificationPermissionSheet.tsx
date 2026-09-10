@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import { Button, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Button, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import { NOTIFICATION_ASK_COPY } from './ask-copy.ts';
 import type { NotificationPermission } from './ask-policy.ts';
 import { registerDeviceToken, requestNotificationPermission } from './permission.ts';
@@ -28,6 +28,7 @@ export function NotificationAsk({
   onAnswered: (result: NotificationPermission) => void;
   onDismiss: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   const [busy, setBusy] = useState(false);
 
   async function ask() {
@@ -66,7 +67,7 @@ export function NotificationAsk({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   label: { color: colors.accentDeep, ...font.body.label },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },

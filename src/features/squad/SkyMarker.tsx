@@ -2,8 +2,8 @@ import { StyleSheet, View } from 'react-native';
 import type { Placement, Racer } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Text, useStyles } from '@/ui/index.ts';
 // The figure's box — how big a bird on the corridor is, ordinary and your own.
 // Imported rather than declared here: the Sky's top inset exists to keep the
 // topmost bird clear of the pinned flock rail, and the only test that can
@@ -62,6 +62,7 @@ export function SkyMarker({
   });
 
   const size = racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE;
+  const styles = useStyles(makeStyles);
 
   return (
     <View
@@ -92,7 +93,7 @@ export function SkyMarker({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   // `alignItems: 'center'` and no width: the marker is as wide as its pill,
   // which is as wide as the name. A fixed width would clip a long one and
   // leave a short one floating off-centre.
@@ -108,8 +109,10 @@ const styles = StyleSheet.create({
   // the whole app runs on. Both are fills with a readable ink on them, never
   // accent-coloured text.
   pillSelf: { backgroundColor: colors.accent },
-  pillOther: { backgroundColor: ramp.neutral[900] },
+  // `night` rather than `neutral[900]`: the flight is drawn on `night` in
+  // both schemes, and under the dark one `neutral[900]` is cream.
+  pillOther: { backgroundColor: colors.night },
   pillLabel: { ...font.body.label, letterSpacing: 0.3 },
-  inkSelf: { color: colors.text },
-  inkOther: { color: colors.bg },
+  inkSelf: { color: colors.ink },
+  inkOther: { color: colors.onDeep },
 });

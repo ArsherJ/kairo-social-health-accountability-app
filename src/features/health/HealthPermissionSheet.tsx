@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Button, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import { connectHealth } from './connect-health.ts';
 import { HEALTH_DISCLOSURE } from './disclosure.ts';
 import { PRIVACY_CLAIM } from '@/features/privacy/claim-copy.ts';
@@ -29,6 +29,7 @@ export function HealthAsk({
   onAnswered: () => void;
   onDismiss: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -128,7 +129,7 @@ export function HealthAsk({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   label: { color: colors.accentDeep, ...font.body.label },
   title: { color: colors.text, ...font.body.title, marginTop: space.sm },
   body: { color: colors.subtle, ...font.body.body, marginTop: space.md },

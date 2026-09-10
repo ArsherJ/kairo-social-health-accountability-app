@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Racer } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Glass, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Glass, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * Who is in the sky today, pinned over the flight.
@@ -70,6 +70,8 @@ export function SkyFlockRail({
   withheld: readonly WithheldMember[];
 }) {
   const router = useRouter();
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   /*
     Four members, then one trailing slot.
@@ -142,6 +144,8 @@ export function SkyFlockRail({
  * for, and repeating it here would make the rail a second leaderboard.
  */
 function RacerSeat({ racer }: { racer: Racer }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View
       accessible
@@ -162,7 +166,7 @@ function RacerSeat({ racer }: { racer: Racer }) {
       </View>
       {racer.rank === 1 && (
         <View {...HIDDEN} style={[styles.badge, styles.badgeLeader]}>
-          <MaterialCommunityIcons name="crown" size={11} color={ramp.gold[900]} />
+          <MaterialCommunityIcons name="crown" size={11} color={colors.ink} />
         </View>
       )}
     </View>
@@ -171,6 +175,8 @@ function RacerSeat({ racer }: { racer: Racer }) {
 
 /** A squadmate whose totals are not shared, so they have no position to draw. */
 function WithheldSeat({ member }: { member: WithheldMember }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View
       accessible
@@ -187,8 +193,8 @@ function WithheldSeat({ member }: { member: WithheldMember }) {
   );
 }
 
-const styles = StyleSheet.create({
-  rail: { paddingTop: 12, paddingHorizontal: 14, paddingBottom: 14, borderRadius: radius.xl },
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
+  rail: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 12, borderRadius: radius.lg },
   title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   titleText: { ...font.body.label, color: colors.accentDeep },
   /**

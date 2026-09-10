@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
-import { colors, ramp, radius } from '@/theme.ts';
+import { radius, themes, type Scheme, type Theme } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
 import type { Stop } from '@/ui/gradient.ts';
+import { useScheme, useStyles } from '@/ui/use-theme.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
 import { MotionScenery } from './MotionScenery.tsx';
 import type { BodyPresence, MotionLocation, StaticFigureSelection } from './living-mirror.ts';
@@ -30,54 +31,57 @@ import type { BodyPresence, MotionLocation, StaticFigureSelection } from './livi
  * below still opens out of it rather than starting under a band.
  */
 
-/** Daylight, paling toward the ground. Ends on `colors.bg` so the page emerges. */
-const SKY: Stop[] = [
-  { color: ramp.sky[400], at: 0 },
-  { color: '#8fe0ff', at: 0.42 },
-  { color: ramp.sky[200], at: 0.74 },
-  { color: colors.bg, at: 1 },
-];
-
 /**
- * The crest sky — a day that reached the ceiling.
+ * The three ramps, per scheme.
  *
- * **The sky changes, never the bird.** The figure already says four things by
- * shape alone (the animal, the level band, Body's weight on the ground, the
- * presence ring), and a fifth would
- * make the app's centrepiece a readout. Weather is the one register a diorama
- * has that the silhouette does not, so the light on the day changes instead of
- * the animal in it.
+ * Built once at module load from `themes` rather than inside the component:
+ * `Gradient` re-ramps when the stop array's identity changes, so a fresh array
+ * per render would recompute every band on every frame. The light sky pales
+ * from blue to the page; the dark one deepens from night to the page, which
+ * is the same bird under a different hour.
  *
- * Held to the same contract every other surface reads: these are 200- and
- * 300-step washes, so the HUD sitting over this stays legible without a single
- * one of its own colours changing. It reads as late afternoon rather than as an
- * alert, which is the intent — this is a good day finishing, not a
- * notification. Under Playful that reading is if anything clearer, because the
- * ordinary sky is now unmistakably *daytime* and the crest is unmistakably
- * *evening*, where sage-into-amber was two washes of similar warmth.
- *
- * **It is always paired with a sentence** (`ceilingLine`). An unexplained
- * change to the one screen somebody opens first is indistinguishable from a
- * bug, which is the failure the whole 2026-08-29 pass exists to remove; adding
- * a new one silently would be an odd way to end it.
+ * **The crest sky changes, never the bird.** A day that reached the ceiling is
+ * late afternoon rather than an alert, in both schemes, and it is always
+ * paired with `ceilingLine`.
  */
-const CREST_SKY: Stop[] = [
-  { color: ramp.gold[300], at: 0 },
-  { color: ramp.accent[300], at: 0.5 },
-  { color: colors.bg, at: 1 },
-];
-
-/**
- * The dissolve into the page. Alpha, not colour: the sky has to stay visible
- * through the top of the ramp, and only the bottom becomes cream. This is what
- * makes the diorama read as a place the page opens onto rather than as a
- * banner sitting on top of it.
- */
-const FADE: Stop[] = [
-  { color: '#fff6ec00', at: 0 },
-  { color: '#fff6ec59', at: 0.55 },
-  { color: colors.bg, at: 1 },
-];
+const STOPS: Record<Scheme, { sky: Stop[]; crest: Stop[]; fade: Stop[] }> = {
+  light: {
+    sky: [
+      { color: themes.light.ramp.sky[400], at: 0 },
+      { color: '#8fe0ff', at: 0.42 },
+      { color: themes.light.ramp.sky[200], at: 0.74 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+    crest: [
+      { color: themes.light.ramp.gold[300], at: 0 },
+      { color: themes.light.ramp.accent[300], at: 0.5 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+    fade: [
+      { color: '#fff6ec00', at: 0 },
+      { color: '#fff6ec59', at: 0.55 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+  },
+  dark: {
+    sky: [
+      { color: themes.dark.ramp.sky[900], at: 0 },
+      { color: themes.dark.ramp.sky[300], at: 0.42 },
+      { color: themes.dark.ramp.sky[200], at: 0.74 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+    crest: [
+      { color: themes.dark.ramp.gold[300], at: 0 },
+      { color: themes.dark.ramp.accent[300], at: 0.5 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+    fade: [
+      { color: '#14112a00', at: 0 },
+      { color: '#14112a59', at: 0.55 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+  },
+};
 
 export function Diorama({
   height,
@@ -138,9 +142,11 @@ export function Diorama({
    */
   children?: ReactNode;
 }) {
+  const styles = useStyles(makeStyles);
+  const stops = STOPS[useScheme()];
   return (
     <View style={[styles.sky, { height }]}>
-      <Gradient stops={crest ? CREST_SKY : SKY} />
+      <Gradient stops={crest ? stops.crest : stops.sky} />
 
       {/* The sun, and three clouds drifting behind the figure.
 
@@ -176,7 +182,7 @@ export function Diorama({
           printed as a word in the HUD. */}
       <MotionScenery location={location} />
 
-      <Gradient stops={FADE} steps={28} style={{ top: height * 0.46 }} />
+      <Gradient stops={stops.fade} steps={28} style={{ top: height * 0.46 }} />
 
       <View
         // The figure is the app's centrepiece and it is drawn, not written —
@@ -223,13 +229,15 @@ export function Diorama({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ ramp, scheme }: Theme) => StyleSheet.create({
+  /**
+   * A card now (deviation #72): the scene is one tile of the dashboard rather
+   * than the page's whole header, so it takes the card radius on every corner
+   * and clips its own sky.
+   */
   sky: {
-    // The rounding is mostly insurance: the fade above reaches cream before
-    // the bottom edge, so on most devices there is no visible corner to round.
-    // It matters on a short screen, where the ramp runs out of room.
-    borderBottomLeftRadius: radius.lg * 1.6,
-    borderBottomRightRadius: radius.lg * 1.6,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
     overflow: 'hidden',
   },
   /**
@@ -243,7 +251,8 @@ const styles = StyleSheet.create({
   cloud: {
     position: 'absolute',
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    // Faint at night: a bright cloud on a night sky reads as a lamp.
+    backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.72)',
   },
   /**
    * The sun, mostly off the top-right corner.
@@ -262,7 +271,7 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: radius.pill,
     backgroundColor: ramp.gold[300],
-    opacity: 0.85,
+    opacity: scheme === 'dark' ? 0.55 : 0.85,
   },
   stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
 });

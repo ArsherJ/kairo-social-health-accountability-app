@@ -10,8 +10,8 @@ import {
 } from '@/features/character/species.ts';
 import { leaderboardRowLabel } from './row-label.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
-import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { StatIcon, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * One squadmate.
@@ -53,6 +53,8 @@ export function LeaderboardRow({
   // Not `row.rank === 1`: on a board of one the highlight would say the same
   // thing the rank glyph is being withheld for.
   const isLeader = ranked && row.rank === 1;
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   return (
     <View
@@ -232,18 +234,22 @@ export function LeaderboardRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp, earnedColor, shadow }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
     marginTop: space.sm,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: space.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
+    borderCurve: 'continuous',
     backgroundColor: colors.surface,
+    ...shadow.sm,
   },
-  leader: { backgroundColor: ramp.sage[200] },
+  // A gold rule down the leading edge rather than a tinted card: gold means
+  // earned, and a whole row of it competed with the self tint below.
+  leader: { borderLeftWidth: 3, borderLeftColor: earnedColor },
   // Your own row wins over the leader tint when you are both — being first is
   // already said by the rank, and losing track of yourself in your own squad
   // is the worse failure.
@@ -253,7 +259,7 @@ const styles = StyleSheet.create({
   // added for, but `Panel` also brings its own margin, padding and radius, and
   // this row has three grounds (plain, leader, self) switching on one style
   // array. Keep the two values in step.
-  self: { backgroundColor: ramp.accent[200], borderWidth: 2, borderColor: ramp.accent[500] },
+  self: { backgroundColor: ramp.accent[200], borderWidth: 1.5, borderColor: ramp.accent[500] },
   // minWidth, not width: the column still aligns at the default text size,
   // but a scaled rank glyph grows the box instead of being clipped by it.
   // `neutral[600]` is legitimate *here* and nowhere else on this row: at
@@ -278,7 +284,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.pill,
   },
-  you: { ...font.body.label, fontSize: 9, color: colors.bg },
+  you: { ...font.body.label, fontSize: 9, color: colors.ink },
   metaLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   meta: { ...font.body.strong, fontSize: 11.5, color: ramp.neutral[700] },
   flaggedChip: {

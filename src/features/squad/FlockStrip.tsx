@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
-import { Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Text, useStyles } from '@/ui/index.ts';
 import type { FlockMark } from './flock-walk.ts';
 
 /**
@@ -31,6 +31,7 @@ import type { FlockMark } from './flock-walk.ts';
  * is the shape of the row.
  */
 export function FlockStrip({ marks, label }: { marks: readonly FlockMark[]; label: string }) {
+  const styles = useStyles(makeStyles);
   return (
     <View
       accessible
@@ -57,20 +58,20 @@ export function FlockStrip({ marks, label }: { marks: readonly FlockMark[]; labe
   );
 }
 
-const styles = StyleSheet.create({
-  strip: { flexDirection: 'row', gap: space.xs, marginTop: space.md },
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
+  strip: { flexDirection: 'row', gap: space.xs },
   mark: { flex: 1, alignItems: 'center', gap: space.xs },
-  // Cream, like every other word on the band. The week strip's accent letters
-  // were chosen against a card, and this sits on a violet-into-pink field.
-  letter: { ...font.body.label, color: 'rgba(255,255,255,0.82)' },
-  disc: { width: 34, height: 34, borderRadius: radius.pill },
+  // On the page since deviation #72, so the letters take the page's muted ink
+  // and the discs the page's washes.
+  letter: { ...font.body.label, color: colors.muted },
+  disc: { width: 30, height: 30, borderRadius: radius.pill },
   cleared: { backgroundColor: colors.accent },
-  unmet: { backgroundColor: 'rgba(255,255,255,0.24)' },
+  unmet: { backgroundColor: ramp.neutral[300] },
   // A ring, not a fill. Nothing is known about this member's day, and an empty
   // outline is the only one of the three that says so rather than guessing.
   withheld: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.45)',
+    borderColor: ramp.neutral[400],
   },
 });

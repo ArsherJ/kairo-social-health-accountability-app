@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
-import { colors, font, ramp, radius, space } from '@/theme.ts';
-import { Label, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Text, useStyles, useTheme } from '@/ui/index.ts';
 import { shieldNote } from './shield-note.ts';
 import type { Streak } from './queries.ts';
 
@@ -9,136 +9,104 @@ import type { Streak } from './queries.ts';
  * Streak and Streak Shield (§19).
  *
  * `streak` is null for anyone who has never scored — the row is created on the
- * first scoring day — so this renders zeros rather than an error. A new user
- * seeing "0 days" is correct; a new user seeing a failure is not.
+ * first scoring day — so this renders zeros rather than an error.
  *
- * What the shield pill says is `shieldNote`'s decision, not this component's.
- * Saying it out loud is the point of the mechanic — the shield only prevents
- * churn if the user knows they have one before the day they need it — which is
- * exactly why it has to be true: this card read `shield_available_on === null`
- * as "banked" and promised a safe missed day to accounts four days short of
- * one. The column only means no shield is *recharging*; the streak minimum is
- * the other half, and both now live in one place.
+ * What the shield pill says is `shieldNote`'s decision, not this component's:
+ * `shield_available_on === null` only means no shield is *recharging*, and the
+ * streak minimum is the other half. The pill's colour reads the same decision
+ * as its words, so the two cannot disagree.
  *
- * The card is sage in both states. It used to flip `Panel` between `plain` and
- * `earned`, which made the whole block change colour on a fact the pill below
- * already states — two signals for one thing, and the louder one attached to
- * "streak" rather than to "shield". Sage is simply what a streak is here.
+ * A surface card with the streak's own flame beside its figure (deviation
+ * #72). It was a sage wash with a bloom off the corner; the bloom was the one
+ * ornament on the tab that meant nothing, and a card in a family's wash sat
+ * beside three cards in white and read as a different kind of thing.
  */
 export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
+  const styles = useStyles(makeStyles);
+  const { colors, ramp } = useTheme();
   const current = streak?.current_streak ?? 0;
   const longest = streak?.longest_streak ?? 0;
   const shield = shieldNote(streak);
 
+  const hidden = {
+    accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+  } as const;
+
   return (
     <View style={styles.card}>
-      {/* Behind the figures, bleeding off the corner — the same device the
-          squad panel uses, so the two sage moments in the app rhyme. */}
-      <View style={styles.bloom} />
-
-      <Label tone="sage">Streak</Label>
-
-      {/* Each figure pairs with its caption as one element. Read separately
-          they arrive as "12", "current", "45", "longest" — every number
-          before the word that says what it counts.
-
-          `accessible` alone should collapse these on iOS and did not, on the
-          2026-08-14 build, so both texts inside each figure are hidden
-          explicitly rather than trusting the implicit behaviour. Same fix,
-          same reason, as `LeaderboardRow`. Do not remove one half thinking it
-          is redundant. */}
+      {/* Each figure pairs with its caption as one element. Both texts inside
+          each figure are hidden explicitly — the documented collapse did not
+          happen on the 2026-08-14 build. */}
       <View style={styles.figures}>
-        <View accessible accessibilityLabel={`Current streak, ${current} days`}>
-          <Text
-            scale="fixed"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.figure}
-          >
-            {current}
-          </Text>
-          <Text
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.caption}
-          >
-            current
+        <View accessible accessibilityLabel={`Current streak, ${current} days`} style={styles.figure}>
+          <View {...hidden} style={styles.figureRow}>
+            <MaterialCommunityIcons name="fire" size={18} color={colors.coral} />
+            <Text scale="fixed" style={styles.number}>
+              {current}
+            </Text>
+          </View>
+          <Text {...hidden} scale="chrome" style={styles.caption}>
+            day streak
           </Text>
         </View>
-        <View accessible accessibilityLabel={`Longest streak, ${longest} days`}>
-          <Text
-            scale="fixed"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={[styles.figure, styles.figureQuiet]}
-          >
+        <View {...hidden} style={styles.rule} />
+        <View accessible accessibilityLabel={`Longest streak, ${longest} days`} style={styles.figure}>
+          <Text {...hidden} scale="fixed" style={[styles.number, styles.numberQuiet]}>
             {longest}
           </Text>
-          <Text
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.caption}
-          >
+          <Text {...hidden} scale="chrome" style={styles.caption}>
             longest
           </Text>
         </View>
       </View>
 
-      {/* The shield is a thing you hold, not a note in the margin. §19 only
-          works if you know you have one *before* the day you need it, and a
-          line of small print under two big numbers is not where anyone looks. */}
+      {/* The shield is a thing you hold, not a note in the margin: §19 only
+          works if you know you have one *before* the day you need it. */}
       <View style={[styles.shield, shield.banked && styles.shieldBanked]}>
-        {/* The sentence beside it already says whether the shield is banked,
-            so an announced glyph would prefix every reading with "shield". */}
         <MaterialCommunityIcons
-          name="shield-check"
-          size={19}
-          color={ramp.sage[700]}
+          name={shield.banked ? 'shield-check' : 'shield-outline'}
+          size={17}
+          color={shield.banked ? ramp.sage[700] : colors.muted}
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
-        <Text style={shield.banked ? styles.shieldReady : styles.shieldSpent}>
-          {shield.text}
-        </Text>
+        <Text style={shield.banked ? styles.shieldReady : styles.shieldSpent}>{shield.text}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    marginTop: space.md,
-    padding: space.lg,
-    borderRadius: radius.xl,
-    backgroundColor: ramp.sage[200],
-    overflow: 'hidden',
-  },
-  bloom: {
-    position: 'absolute',
-    top: -40,
-    right: -30,
-    width: 140,
-    height: 140,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.sage[300],
-  },
-  figures: { flexDirection: 'row', gap: space.xl, marginTop: space.sm },
-  figure: { ...font.display.hero, fontSize: 42, letterSpacing: -0.5, color: ramp.sage[900] },
-  /** Your best is context for your current, not a rival to it. */
-  figureQuiet: { color: ramp.sage[800], opacity: 0.65 },
-  caption: { ...font.body.strong, fontSize: 12, color: ramp.sage[800] },
-  shield: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    alignSelf: 'flex-start',
-    marginTop: space.md,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.sage[100],
-  },
-  shieldBanked: { backgroundColor: ramp.neutral[100] },
-  shieldReady: { ...font.body.strong, fontSize: 13, color: ramp.sage[900] },
-  shieldSpent: { ...font.body.strong, fontSize: 13, color: colors.muted },
-});
+const makeStyles = ({ colors, ramp, shadow }: Theme) =>
+  StyleSheet.create({
+    card: {
+      marginTop: space.md,
+      padding: space.md,
+      borderRadius: radius.lg,
+      borderCurve: 'continuous',
+      backgroundColor: colors.surface,
+      ...shadow.sm,
+    },
+    figures: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+    figure: { flex: 1 },
+    figureRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    rule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
+    number: { ...font.display.major, fontSize: 30, lineHeight: 36, color: colors.text },
+    /** Your best is context for your current, not a rival to it. */
+    numberQuiet: { color: colors.subtle },
+    caption: { ...font.body.strong, fontSize: 12, color: colors.muted, marginTop: 2 },
+    shield: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space.sm,
+      alignSelf: 'flex-start',
+      marginTop: space.md,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderRadius: radius.pill,
+      backgroundColor: ramp.neutral[200],
+    },
+    shieldBanked: { backgroundColor: ramp.sage[200] },
+    shieldReady: { ...font.body.strong, fontSize: 12.5, color: ramp.sage[800], flexShrink: 1 },
+    shieldSpent: { ...font.body.strong, fontSize: 12.5, color: colors.muted, flexShrink: 1 },
+  });

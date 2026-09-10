@@ -75,7 +75,14 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   // Deep-link scheme. §14 routes eight notification types straight to a screen.
   scheme: 'kairo',
-  userInterfaceStyle: 'dark',
+  // `automatic`, so `useColorScheme()` can read the phone's own answer — the
+  // Settings → Appearance control's "System" option is a lie without it. It
+  // was pinned to `dark` until the dark scheme landed (deviation #72,
+  // 2026-09-10), which forced the trait collection dark and made the JS side
+  // unable to tell what the phone wanted. **This is a native field**: flipping
+  // it moves the fingerprint, so the scheme work ships with a build rather
+  // than an OTA.
+  userInterfaceStyle: 'automatic',
 
   // OTA updates (expo-updates). This is the quota valve: a JS or asset change
   // ships to installed builds for free, and only a *native* change costs one of

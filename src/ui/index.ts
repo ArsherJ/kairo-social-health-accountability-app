@@ -20,3 +20,14 @@ export { CtaPill } from './CtaPill.tsx';
 export { ProgressRing } from './ProgressRing.tsx';
 export { ringArcs } from './ring.ts';
 export { useReduceMotion, useCountUp, useFloat, useFillIn, usePressScale } from './motion.ts';
+export { useScheme, useTheme, useStyles } from './use-theme.ts';
+export { useAppearanceStore, setAppearance } from './appearance-store.ts';
+export {
+  APPEARANCE_OPTIONS,
+  appearanceHelp,
+  resolveScheme,
+  type AppearancePreference,
+} from './appearance.ts';
+export { Tile } from './Tile.tsx';
+export { SegmentedControl } from './SegmentedControl.tsx';
+export { useGlassInk } from './Glass.tsx';

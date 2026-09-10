@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { Text } from '@/ui/index.ts';
-import { colors, font, ramp, radius, shadow, space } from '@/theme.ts';
+import { Text, useStyles } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
 import { shouldRevealUnlock } from './slots.ts';
 
 /**
@@ -52,6 +52,7 @@ export function useSlotUnlockReveal(memberCount: number | undefined) {
 }
 
 export function SlotUnlockReveal({ progress }: { progress: Animated.Value }) {
+  const styles = useStyles(makeStyles);
   return (
     <Animated.View
       accessibilityLiveRegion="polite"
@@ -76,7 +77,7 @@ export function SlotUnlockReveal({ progress }: { progress: Animated.Value }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp, shadow }: Theme) => StyleSheet.create({
   // Was a 1px terracotta outline on surface. On the warm system a card is a
   // tint plus elevation — an outline is what the redesign replaced — and this
   // one is a moment worth lifting off the page for the two seconds it lives.

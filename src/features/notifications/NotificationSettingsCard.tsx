@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState, Linking, StyleSheet } from 'react-native';
 import * as Application from 'expo-application';
-import { Button, Label, Panel, Text } from '@/ui/index.ts';
-import { colors, font, ramp, space } from '@/theme.ts';
+import { Button, Label, Panel, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import type { NotificationPermission } from './ask-policy.ts';
 import {
   isDeviceTokenRegistered,
@@ -26,6 +26,7 @@ import { deliveryStatus, notificationStatus, type PushEnvironment } from './stat
  * user had already revoked.
  */
 export function NotificationSettingsCard() {
+  const styles = useStyles(makeStyles);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
 
   /**
@@ -103,7 +104,7 @@ export function NotificationSettingsCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   value: { color: colors.text, ...font.display.minor, fontSize: 19, marginTop: space.xs },
   help: {
     ...font.body.body,

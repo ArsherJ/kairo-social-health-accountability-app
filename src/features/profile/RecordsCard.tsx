@@ -2,8 +2,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { CORE_STATS, type CoreStat } from '@kairo/core';
 import { RECORDS_EMPTY, recordDate, recordValue } from './record-copy.ts';
 import type { StatRecord } from './records.ts';
-import { Panel, STAT_NAMES, Text } from '@/ui/index.ts';
-import { colors, font, space } from '@/theme.ts';
+import { Panel, STAT_NAMES, Text, useStyles } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 
 /**
  * Your best day on each stat — the one place a day past the ceiling lands.
@@ -34,6 +34,7 @@ export function RecordsCard({
   /** The player's local date, for deciding whether a year is worth printing. */
   today: string | undefined;
 }) {
+  const styles = useStyles(makeStyles);
   const byStat = new Map<CoreStat, StatRecord>(
     (records ?? []).map((r) => [r.stat, r]),
   );
@@ -54,7 +55,7 @@ export function RecordsCard({
   return (
     <Panel>
       <Text scale="chrome" style={styles.title}>
-        YOUR BEST DAYS
+        Best days
       </Text>
 
       {byStat.size === 0 ? (
@@ -125,7 +126,7 @@ export function RecordsCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   title: { ...font.display.small, color: colors.text, marginBottom: space.sm },
   // `flex-start` for the same reason GrowthCard uses it: past ~1.3x the figure
   // wraps and a centred label floats beside the middle of it.

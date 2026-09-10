@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CORE_STATS } from '@kairo/core';
 import { STAT_WHY } from '@/features/character/stat-detail.ts';
-import { colors, font, ramp, space } from '@/theme.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import { setNavHidden } from '@/ui/chrome.ts';
-import { BackRow, Screen, StatIcon, STAT_NAMES, Text } from '@/ui/index.ts';
+import { BackRow, Screen, StatIcon, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * How progress works — one place, every idea.
@@ -78,6 +78,8 @@ const ENTRIES: ReadonlyArray<{ term: string; scope: string; body: string }> = [
 
 export default function ProgressHelp() {
   const router = useRouter();
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   // The same shape `/train` uses: this is a card over the tab shell, so the
   // orbit nav is covered rather than absent and `Screen` must not reserve room
@@ -153,7 +155,7 @@ export default function ProgressHelp() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   title: { color: colors.text, ...font.body.title, marginTop: space.md },
   standfirst: {
     color: colors.subtle,

@@ -1,6 +1,6 @@
 import { Animated, Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
-import { colors, earnedColor } from '@/theme.ts';
+import { useTheme } from '@/ui/use-theme.ts';
 import { GroundShadow, PresenceRing } from '@/ui/GroundShadow.tsx';
 import { useFloat } from '@/ui/motion.ts';
 import { auraStrength } from './aura.ts';
@@ -157,6 +157,7 @@ export function CharacterFigure({
     height,
   });
 
+  const { colors, earnedColor } = useTheme();
   const float = useFloat();
   const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 

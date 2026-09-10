@@ -1,12 +1,18 @@
 import { ActivityIndicator, Animated, Pressable, StyleSheet } from 'react-native';
-import { colors, font, radius, space } from '../theme.ts';
+import { font, radius, space, type Theme } from '../theme.ts';
 import { usePressScale } from './motion.ts';
 import { Text } from './Text.tsx';
+import { useStyles, useTheme } from './use-theme.ts';
 
 /**
- * Caprasimo on a pill. The system sets `.btn` in the display face, which is
+ * Fredoka on a pill. The system sets `.btn` in the display face, which is
  * what keeps a primary action reading as part of the game rather than as a
  * form control borrowed from somewhere else.
+ *
+ * Four variants, and the label colour of each answers to its fill rather than
+ * to the page: a bright fill takes `ink`, a deep fill takes `onDeep`, and the
+ * two unfilled variants take the page's own inks. That is what keeps every
+ * button legible in both schemes without a per-scheme branch here.
  */
 export function Button({
   label,
@@ -21,6 +27,8 @@ export function Button({
   disabled?: boolean;
   busy?: boolean;
 }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const { scale, onPressIn, onPressOut } = usePressScale();
   const inert = disabled || busy;
 
@@ -29,9 +37,7 @@ export function Button({
       <Pressable
         accessibilityRole="button"
         // Named on the control rather than left to the child, because the
-        // child goes away: while `busy` the label is replaced by a spinner,
-        // and a button whose name vanishes mid-action is announced as
-        // "button, busy" with no indication of which one.
+        // child goes away while `busy`.
         accessibilityLabel={label}
         accessibilityState={{ disabled: inert, busy }}
         disabled={inert}
@@ -41,11 +47,11 @@ export function Button({
         style={[styles.base, styles[variant], inert && styles.disabled]}
       >
         {busy ? (
-          <ActivityIndicator color={variant === 'primary' ? colors.text : colors.accentDeep} />
+          <ActivityIndicator color={variant === 'primary' ? colors.ink : colors.accentDeep} />
         ) : (
           // `chrome`: `base` sets minHeight rather than height, so the pill
-          // grows with the label — but a Caprasimo action line past ~1.4x
-          // wraps, and a two-line button stops reading as one.
+          // grows with the label — but an action line past ~1.4x wraps, and a
+          // two-line button stops reading as one.
           <Text scale="chrome" style={[styles.label, styles[`${variant}Label`]]}>
             {label}
           </Text>
@@ -55,60 +61,49 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    marginTop: space.sm,
-    minHeight: 56,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.lg,
-    borderCurve: 'continuous',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  /**
-   * The lip.
-   *
-   * `borderBottomWidth`, never `shadow` — the design's `0 4px 0` has no blur,
-   * and RN's `shadowRadius: 0` still composites differently on the two
-   * platforms. A border is the same 3px everywhere and costs nothing.
-   *
-   * It is on the filled variants only. A ghost button has no body for an edge
-   * to be the underside of.
-   */
-  primary: {
-    backgroundColor: colors.accent,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.accentEdge,
-  },
-  secondary: {
-    backgroundColor: colors.teal,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.tealEdge,
-  },
-  ghost: {},
-  /**
-   * Leaving a squad, deleting an account.
-   *
-   * Outlined in the damage colour rather than filled with it: these belong at
-   * the foot of a screen and must not compete with the primary action above
-   * them, but "quiet" was taken too far once — both were 12.5pt grey text,
-   * which hand-testing did not read as a button at all. Chrome without weight
-   * is what this variant is for. It takes no lip, because it has no fill to be
-   * the underside of. The `Alert.alert` confirm behind each one is still the
-   * real guard.
-   */
-  destructive: {
-    borderWidth: 1,
-    borderColor: colors.damage,
-    backgroundColor: 'transparent',
-  },
-  disabled: { opacity: 0.45 },
-  label: { ...font.display.action },
-  /** `colors.text` on amber is 6.4:1. `colors.bg` on it would be 1.9:1. */
-  primaryLabel: { color: colors.text },
-  /** Cream on teal. The one filled variant whose label is light. */
-  secondaryLabel: { color: colors.bg },
-  ghostLabel: { color: colors.accentDeep },
-  destructiveLabel: { color: colors.damage },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    base: {
+      marginTop: space.sm,
+      minHeight: 54,
+      paddingVertical: space.md,
+      paddingHorizontal: space.lg,
+      borderRadius: radius.lg,
+      borderCurve: 'continuous',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    /**
+     * The lip. `borderBottomWidth`, never `shadow` — a border is the same 3px
+     * everywhere and costs nothing. Filled variants only.
+     */
+    primary: {
+      backgroundColor: colors.accent,
+      borderBottomWidth: 3,
+      borderBottomColor: colors.accentEdge,
+    },
+    secondary: {
+      backgroundColor: colors.teal,
+      borderBottomWidth: 3,
+      borderBottomColor: colors.tealEdge,
+    },
+    ghost: {},
+    /**
+     * Leaving a squad, deleting an account. Outlined rather than filled: these
+     * belong at the foot of a screen and must not compete with the primary
+     * action above them. The `Alert.alert` confirm behind each is the guard.
+     */
+    destructive: {
+      borderWidth: 1,
+      borderColor: colors.damage,
+      backgroundColor: 'transparent',
+    },
+    disabled: { opacity: 0.45 },
+    label: { ...font.display.action },
+    /** Ink on the orange. `text` would be cream under the dark scheme. */
+    primaryLabel: { color: colors.ink },
+    /** Light on teal, in both schemes. */
+    secondaryLabel: { color: colors.onDeep },
+    ghostLabel: { color: colors.accentDeep },
+    destructiveLabel: { color: colors.damage },
+  });

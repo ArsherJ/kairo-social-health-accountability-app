@@ -1,17 +1,15 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet } from 'react-native';
 import { Text } from './Text.tsx';
-import { colors, font, space } from '../theme.ts';
+import { font, space } from '../theme.ts';
+import { useTheme } from './use-theme.ts';
 
 /**
  * The way out of a full-screen task.
  *
- * Create and join hide the orbit nav, so without this the only exit is a ghost
+ * Create and join hide the tab bar, so without this the only exit is a ghost
  * button below a scrolling form — reachable, but not *visible* while the
  * keyboard is up. This sits where the eye already starts.
- *
- * It does not replace that ghost button: one is the escape, the other is the
- * end of the form. Both call the same `onPress`.
  */
 export function BackRow({
   onPress,
@@ -20,6 +18,7 @@ export function BackRow({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -35,7 +34,7 @@ export function BackRow({
       ]}
     >
       <MaterialCommunityIcons name="chevron-left" size={20} color={colors.subtle} />
-      <Text style={styles.label}>Back</Text>
+      <Text style={[styles.label, { color: colors.subtle }]}>Back</Text>
     </Pressable>
   );
 }
@@ -51,5 +50,5 @@ const styles = StyleSheet.create({
     // indent against the label stack below it.
     marginLeft: -6,
   },
-  label: { color: colors.subtle, ...font.body.button, fontSize: 15 },
+  label: { ...font.body.button, fontSize: 15 },
 });

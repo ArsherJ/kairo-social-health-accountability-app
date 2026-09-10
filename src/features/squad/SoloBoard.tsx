@@ -3,8 +3,8 @@ import { DEFAULT_SQUAD_PROGRAM, FREE_SQUAD_MAX_MEMBERS } from '@kairo/core';
 import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
-import { colors, font, space } from '@/theme.ts';
-import { Button, Screen, Text } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
+import { Button, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';
@@ -43,6 +43,8 @@ export function SoloBoard({
   onCreate: () => void;
   onJoin: () => void;
 }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const profile = useProfile(userId);
   const score = useTodayScore(userId, profile.data?.timezone);
   // The day in raw units. `daily_scores` stores points and tiers, never steps,
@@ -163,8 +165,8 @@ export function SoloBoard({
   );
 }
 
-const styles = StyleSheet.create({
-  title: { color: colors.text, ...font.body.title },
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
+  title: { color: colors.text, ...font.display.major, fontSize: 26 },
   help: {
     color: colors.subtle,
     ...font.body.body,

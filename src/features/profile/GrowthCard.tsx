@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { CORE_STATS, type CoreStat } from '@kairo/core';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
-import { Panel, STAT_NAMES, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Panel, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * How your Kairo grows (`Canvas.dc.html` 2e).
@@ -26,33 +26,20 @@ const GROWTH: Record<CoreStat, string> = {
 };
 
 /**
- * A dot per stat, and the tint behind its name.
- *
- * Three families, one each, and none of them is the accent: this card is not a
- * call to action. Motion is sage because that is what "your lane" already means
- * in this system; Body is the damage coral, which is the only other hue with an
- * ink dark enough to set a word in; Mind is amber's deep step, which is
- * `earnedColor`'s family and reads as rest rather than as a button.
+ * A dot per stat, and the tint behind its name — read off the theme, so the
+ * washes stay washes under the dark scheme. Three families, one each, and
+ * none of them is the accent: this card is not a call to action.
  */
-const DOT: Record<CoreStat, string> = {
-  AGI: colors.sage,
-  STR: colors.damage,
-  MND: colors.accentEdge,
-};
-
-const CHIP_BG: Record<CoreStat, string> = {
-  AGI: ramp.sage[200],
-  STR: colors.tealTint,
-  MND: ramp.accent[200],
-};
-
-const CHIP_INK: Record<CoreStat, string> = {
-  AGI: ramp.sage[800],
-  STR: colors.tealInk,
-  MND: ramp.accent[800],
-};
+function palette({ colors, ramp }: Theme) {
+  const dot: Record<CoreStat, string> = { AGI: colors.sage, STR: colors.damage, MND: colors.accentEdge };
+  const chipBg: Record<CoreStat, string> = { AGI: ramp.sage[200], STR: colors.tealTint, MND: ramp.accent[200] };
+  const chipInk: Record<CoreStat, string> = { AGI: ramp.sage[800], STR: colors.tealInk, MND: ramp.accent[800] };
+  return { dot, chipBg, chipInk };
+}
 
 export function GrowthCard() {
+  const styles = useStyles(makeStyles);
+  const { dot, chipBg, chipInk } = palette(useTheme());
   const hidden = {
     accessibilityElementsHidden: true,
     importantForAccessibility: 'no-hide-descendants',
@@ -61,7 +48,7 @@ export function GrowthCard() {
   return (
     <Panel>
       <Text scale="chrome" style={styles.title}>
-        HOW YOUR KAIRO GROWS
+        How your Kairo grows
       </Text>
 
       {CORE_STATS.map((stat) => (
@@ -73,12 +60,12 @@ export function GrowthCard() {
           accessibilityLabel={`${STAT_NAMES[stat]}. ${GROWTH[stat]}`}
           style={styles.row}
         >
-          <View {...hidden} style={[styles.dot, { backgroundColor: DOT[stat] }]} />
+          <View {...hidden} style={[styles.dot, { backgroundColor: dot[stat] }]} />
           <Text {...hidden} style={styles.body}>
             {GROWTH[stat]}
           </Text>
-          <View {...hidden} style={[styles.chip, { backgroundColor: CHIP_BG[stat] }]}>
-            <Text scale="chrome" style={[styles.chipLabel, { color: CHIP_INK[stat] }]}>
+          <View {...hidden} style={[styles.chip, { backgroundColor: chipBg[stat] }]}>
+            <Text scale="chrome" style={[styles.chipLabel, { color: chipInk[stat] }]}>
               {STAT_NAMES[stat]}
             </Text>
           </View>
@@ -88,7 +75,7 @@ export function GrowthCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   title: { ...font.display.small, color: colors.text, marginBottom: space.sm },
   // `alignItems: 'flex-start'` rather than 'center': past ~1.3x the sentence
   // wraps to three lines and a centred dot floats in the middle of it.

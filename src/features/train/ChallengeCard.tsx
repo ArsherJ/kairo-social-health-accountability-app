@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import type { Challenge } from '@kairo/core';
-import { colors, earnedColor, font, radius, ramp, space } from '@/theme.ts';
-import { Label, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Label, Text, useStyles } from '@/ui/index.ts';
 import { AREA_NAMES, challengeHeadline, challengeHint, challengeLabel } from './challenge-copy.ts';
 
 /**
@@ -27,6 +27,7 @@ export function ChallengeCard({
   challenge: Challenge;
   cleared: boolean;
 }) {
+  const styles = useStyles(makeStyles);
   return (
     // One element, one meaning — not six stops. Every child is hidden
     // explicitly as well as the parent being marked accessible; neither half is
@@ -74,7 +75,7 @@ export function ChallengeCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, earnedColor, ramp }: Theme) => StyleSheet.create({
   card: {
     marginTop: space.md,
     padding: space.md,

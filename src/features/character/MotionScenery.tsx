@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
-import { radius, ramp } from '@/theme.ts';
+import { radius, type Theme } from '@/theme.ts';
+import { useStyles } from '@/ui/use-theme.ts';
 import { MOTION_LOCATIONS, type MotionLocation } from './living-mirror.ts';
 
 /**
@@ -30,6 +31,7 @@ import { MOTION_LOCATIONS, type MotionLocation } from './living-mirror.ts';
  * ships over the air.
  */
 export function MotionScenery({ location }: { location: MotionLocation }) {
+  const styles = useStyles(makeStyles);
   const depth = MOTION_LOCATIONS.indexOf(location);
 
   return (
@@ -49,7 +51,7 @@ export function MotionScenery({ location }: { location: MotionLocation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ ramp }: Theme) => StyleSheet.create({
   /**
    * One hairline where the land meets the sky. Present at every band, so the
    * ground does not appear from nowhere at 2,500 steps.

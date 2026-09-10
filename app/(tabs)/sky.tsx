@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   type LayoutChangeEvent,
   Pressable,
   ScrollView,
@@ -30,6 +31,8 @@ import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
 import { flightFrame } from '@/features/squad/flight-frame.ts';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
+import { SkyMinimap } from '@/features/squad/SkyMinimap.tsx';
+import { minimapHeight, type MinimapGeometry } from '@/features/squad/minimap.ts';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
 import { shareInvite } from '@/features/squad/share-invite.ts';
 import { skyReading } from '@/features/squad/sky-reading.ts';
@@ -37,24 +40,47 @@ import { useSquadDataConsent } from '@/features/squad/consent.ts';
 import { useMySquad, useOwnRecentDays, useSquadLeaderboard } from '@/features/squad/queries.ts';
 import { claimDaily } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
-import { CtaPill, Gradient, Glass, Panel, Text, TAB_PILL_CLEARANCE } from '@/ui/index.ts';
+import {
+  CtaPill,
+  Gradient,
+  Glass,
+  Panel,
+  Text,
+  TAB_PILL_CLEARANCE,
+  useScheme,
+  useStyles,
+} from '@/ui/index.ts';
 import type { Stop } from '@/ui/gradient.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { font, radius, space, themes, type Scheme, type Theme } from '@/theme.ts';
 
 /**
- * The flight, from the ground at midnight to the ridge at the top.
+ * The flight, from the ground at midnight to the ridge at the top, per scheme.
  *
  * Read bottom-to-top, which is why the stops run in that order visually: the
- * warm end is at the *foot* of the content, where the day starts.
+ * warm end is at the *foot* of the content, where the day starts. The dark
+ * flight is the same climb at night — indigo lifting to a warm ridge — so the
+ * gold flag and the accent trail still read at the top.
+ *
+ * Module constants: `Gradient` re-ramps when the array identity changes.
  */
-const FLIGHT: Stop[] = [
-  { color: ramp.sky[500], at: 0 },
-  { color: ramp.sky[400], at: 0.26 },
-  { color: '#8fe0ff', at: 0.52 },
-  { color: '#cff1ff', at: 0.74 },
-  { color: '#ffe9c4', at: 0.92 },
-  { color: '#ffc58a', at: 1 },
-];
+const FLIGHT: Record<Scheme, Stop[]> = {
+  light: [
+    { color: themes.light.ramp.sky[500], at: 0 },
+    { color: themes.light.ramp.sky[400], at: 0.26 },
+    { color: '#8fe0ff', at: 0.52 },
+    { color: '#cff1ff', at: 0.74 },
+    { color: '#ffe9c4', at: 0.92 },
+    { color: '#ffc58a', at: 1 },
+  ],
+  dark: [
+    { color: themes.dark.ramp.sky[900], at: 0 },
+    { color: '#12305e', at: 0.3 },
+    { color: '#1b4478', at: 0.55 },
+    { color: '#3a2d78', at: 0.78 },
+    { color: '#5a3a2a', at: 0.92 },
+    { color: '#7a4a22', at: 1 },
+  ],
+};
 
 /**
  * The Sky — the daily race, as one shared corridor (roadmap deviation #56).
@@ -76,6 +102,14 @@ const FLIGHT: Stop[] = [
  * zero, because dropping it looks like the member left and drawing it at zero
  * invents a bad day for somebody who may have had a good one.
  *
+ * **The minimap on the right edge is the whole flight at once** (deviation
+ * #72). The corridor is four screens tall; the strip draws all of it, every
+ * bird as a dot, the ridge as a tick, and a window over what the screen is
+ * showing. Dragging the strip scrolls the flight — `minimap.ts` owns the
+ * arithmetic and is tested against the same `flightFrame` the corridor is
+ * drawn with. The corridor itself is painted by the reader's own steps: the
+ * segments behind their bird take the accent, the ones ahead stay air.
+ *
  * **This screen owns the `race_seen` marker.** It moved here from the Today tab
  * when the race stopped being a card there — the marker measures looking at the
  * race, and this is the only screen that shows one. Once per the user's own
@@ -96,6 +130,14 @@ export default function Sky() {
   // chrome to clear yet" rather than as a negative inset.
   const [railHeight, setRailHeight] = useState(0);
   const measureRail = (e: LayoutChangeEvent) => setRailHeight(e.nativeEvent.layout.height);
+
+  // The pinned foot's height, for the same reason: the minimap has to end
+  // above the standing card, and that card grows with its copy.
+  const [footHeight, setFootHeight] = useState(0);
+  const measureFoot = (e: LayoutChangeEvent) => setFootHeight(e.nativeEvent.layout.height);
+
+  const styles = useStyles(makeStyles);
+  const scheme = useScheme();
 
   // Where the pinned chrome starts. Read twice — by the chrome itself and by
   // the flight that has to clear it — and the two have to agree, so it is
@@ -198,10 +240,56 @@ export default function Sky() {
     focusY: me ? pointAt(me.progress).y * boxHeight : null,
   });
 
+  /**
+   * The scroll, as a native-driven value the minimap's window rides on, and
+   * as a plain number for the accessibility actions that need to know where
+   * the flight is. `scrollTo` from the minimap goes through the ref; the
+   * scroller then reports the new offset back through the same `onScroll`, so
+   * the window and the flight can only ever say the same thing.
+   */
+  const scroller = useRef<ScrollView>(null);
+  const scrollY = useRef(new Animated.Value(frame.openAt)).current;
+  const offsetRef = useRef(frame.openAt);
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+          offsetRef.current = e.nativeEvent.contentOffset.y;
+        },
+      }),
+    [scrollY],
+  );
+  const scrollTo = (offset: number) => scroller.current?.scrollTo({ y: offset, animated: false });
+
+  const footTop = height - insets.bottom - TAB_PILL_CLEARANCE - footHeight;
+  const mapHeight = minimapHeight({
+    viewportHeight: height,
+    chromeBottom: chromeTop + railHeight,
+    footTop,
+    gap: space.md,
+  });
+  const minimap: MinimapGeometry = useMemo(
+    () => ({
+      contentHeight: frame.contentHeight,
+      viewportHeight: height,
+      topInset: frame.topInset,
+      boxWidth,
+      boxHeight,
+      mapHeight,
+    }),
+    [frame.contentHeight, frame.topInset, height, boxWidth, boxHeight, mapHeight],
+  );
+  const selfIndex = racers.findIndex((r) => r.isSelf);
+  const ghostIndexes = racers.flatMap((r, i) => (r.isGhost ? [i] : []));
+
   return (
     <View style={styles.screen}>
-      <ScrollView
+      <Animated.ScrollView
+        ref={scroller}
         contentOffset={{ x: 0, y: frame.openAt }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         style={StyleSheet.absoluteFill}
       >
@@ -209,7 +297,7 @@ export default function Sky() {
             clear air above the flight rather than a band of a different
             colour, so the gradient has to reach over it. */}
         <View style={{ width: boxWidth, height: frame.contentHeight }}>
-          <Gradient stops={FLIGHT} steps={40} />
+          <Gradient stops={FLIGHT[scheme]} steps={40} />
 
           {/* The drawing box. Everything the corridor knows about is
               positioned inside it, so insetting it moves the clouds, the
@@ -237,7 +325,7 @@ export default function Sky() {
               />
             ))}
 
-            <SkyCorridor width={boxWidth}>
+            <SkyCorridor width={boxWidth} progress={me ? me.progress : null}>
               {racers.map((racer, i) => (
                 <SkyMarker
                   key={racer.userId}
@@ -288,7 +376,24 @@ export default function Sky() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* The whole flight at once, pinned to the right edge between the rail
+          and the foot. Drawn only once both have been measured — a strip
+          sized against a zero-height rail would sit under it for a frame. */}
+      {mapHeight > 0 && railHeight > 0 && (
+        <SkyMinimap
+          geometry={minimap}
+          placements={placements}
+          selfIndex={selfIndex >= 0 ? selfIndex : null}
+          ghostIndexes={ghostIndexes}
+          selfProgress={me ? me.progress : null}
+          scrollY={scrollY}
+          offsetRef={offsetRef}
+          onScrollTo={scrollTo}
+          style={{ top: chromeTop + railHeight + space.md, right: space.sm }}
+        />
+      )}
 
       {/* Pinned over the flight, so scrolling moves the climb underneath it. */}
       <View
@@ -316,6 +421,7 @@ export default function Sky() {
 
       <View
         pointerEvents="box-none"
+        onLayout={measureFoot}
         style={[styles.pinnedFoot, { bottom: insets.bottom + TAB_PILL_CLEARANCE }]}
       >
         {/* The observation first and the offer second, so the screen is about
@@ -463,12 +569,12 @@ function buildRacers(input: {
   return [me, ...ghosts];
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp, scheme }: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.night },
   cloud: {
     position: 'absolute',
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.6)',
   },
   /**
    * The ridge and the ground labels sit on the right and centre respectively,
@@ -484,11 +590,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: radius.pill,
   },
-  ridgeText: { ...font.display.label, fontSize: 13, color: colors.night },
+  ridgeText: { ...font.display.label, fontSize: 13, color: colors.ink },
   ground: { position: 'absolute', alignSelf: 'center' },
   groundText: {
     ...font.body.label,
-    color: colors.text,
+    color: colors.ink,
     backgroundColor: 'rgba(255,255,255,0.75)',
     overflow: 'hidden',
     paddingVertical: 6,
@@ -505,7 +611,7 @@ const styles = StyleSheet.create({
   solo: { gap: space.xs },
   soloOffer: { ...font.body.body, fontSize: 13.5, color: colors.subtle, lineHeight: 19 },
   freshness: { paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center' },
-  freshnessText: { ...font.body.strong, fontSize: 11, color: colors.bg },
+  freshnessText: { ...font.body.strong, fontSize: 11, color: colors.onDeep },
 
   note: { ...font.body.body, fontSize: 13.5, color: colors.text, lineHeight: 19 },
 });

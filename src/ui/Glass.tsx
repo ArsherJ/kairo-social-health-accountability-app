@@ -1,34 +1,23 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, glass, radius, shadow } from '../theme.ts';
+import { colors, radius } from '../theme.ts';
+import { useTheme } from './use-theme.ts';
 
 /**
- * Chrome that floats over content.
- *
- * The tab bar, the flock rail pinned over the flight, the card at the foot of
- * the Sky, the lifted sheet in the permissions beat. Playful puts five of these
- * on screen where Sunlit had one, which is why the treatment is a component
- * rather than a style repeated five times.
+ * Chrome that floats over content: the tab bar, the flock rail pinned over the
+ * flight, the card at the foot of the Sky.
  *
  * **It is not a blur, and it must not become one.** `backdrop-filter` has no
  * React Native equivalent, and `expo-blur` is a native module: adding it moves
  * the fingerprint, spends one of the month's fifteen EAS builds, and withholds
- * every OTA update until that build lands — the same trade the Sky corridor
- * already refused for `react-native-svg` (deviation #56), and the reason this
- * whole redesign ships over the air. What is drawn instead is a translucent
- * fill with a hairline top highlight, which over Playful's bright grounds reads
- * as glass at a glance and costs nothing.
+ * every OTA update until that build lands. What is drawn instead is a
+ * translucent fill with a hairline top highlight.
  *
- * Two grounds, because one fill cannot serve both. `light` sits over cream,
- * white and the pale end of a sky; `dark` sits over the flight and the night
- * beats of onboarding. Choosing wrong does not look subtly off — it looks like
- * a grey box — so the prop has no default that could be silently wrong in half
- * the app: `tone` is required.
- *
- * The gradient is two stacked fills rather than a real one: the design's
- * `linear-gradient(180deg, .74, .44)` is a vertical fade, and at these heights
- * (74pt of tab bar, 130pt of rail) two bands are indistinguishable from the
- * ramp while costing one view instead of `Gradient`'s thirty-two.
+ * Two tones, because one fill cannot serve both. `light` sits over the page —
+ * cream under the light scheme, indigo under the dark one, and the theme hands
+ * back the right fill for each. `dark` sits over the flight, which is drawn on
+ * `night` in both schemes. Choosing wrong looks like a grey box, so `tone` is
+ * required.
  */
 export function Glass({
   tone,
@@ -42,12 +31,14 @@ export function Glass({
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 }) {
-  const palette = glass[tone];
+  const theme = useTheme();
+  const palette = theme.glass[tone];
 
   return (
     <View
       style={[
         styles.base,
+        theme.shadow.lg,
         {
           borderRadius: r,
           backgroundColor: palette.fill,
@@ -59,8 +50,7 @@ export function Glass({
       {/* The lower half of the fade, and the inset highlight along the top —
           the two things that make a flat translucent rectangle read as a lit
           surface rather than as a scrim. Both are decoration and neither may
-          intercept a touch, since this component's whole purpose is to sit
-          over things that are pressed. */}
+          intercept a touch. */}
       <View
         pointerEvents="none"
         accessibilityElementsHidden
@@ -86,19 +76,14 @@ const styles = StyleSheet.create({
   base: {
     borderWidth: StyleSheet.hairlineWidth,
     borderCurve: 'continuous',
-    ...shadow.lg,
   },
   /**
-   * The bottom 55% at a lower opacity, which is the fade.
-   *
-   * `overflow: 'hidden'` is deliberately *not* set on `base`: it would clip the
-   * shadow on Android (elevation is drawn by the platform, outside the bounds),
-   * which is the trap `Panel` already documents. So this child carries its own
-   * bottom radii instead of relying on the parent to cut it.
+   * The bottom 55% at a lower opacity, which is the fade. `overflow: 'hidden'`
+   * is deliberately *not* set on `base`: it would clip the shadow on Android.
    */
   fade: {
     top: '45%',
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   sheen: {
     position: 'absolute',
@@ -110,14 +95,18 @@ const styles = StyleSheet.create({
 });
 
 /**
- * The ink that reads on each glass tone.
+ * The ink that reads on each glass tone, under the light scheme.
  *
- * Exported beside the component because getting this wrong is the commonest
- * way to misuse it — `dark` glass over the flight takes cream text, and the
- * same component over the cream ground takes ink. A caller that reaches for
- * `colors.text` on dark glass renders indigo on indigo.
+ * Static, for the screens still on the static tokens. A themed screen reads
+ * `useGlassInk` instead: `dark` glass over the flight takes `onDeep` in both
+ * schemes, and `light` glass takes the page's own text colour.
  */
 export const glassInk = {
   light: colors.text,
   dark: colors.bg,
 } as const;
+
+export function useGlassInk(tone: 'light' | 'dark'): string {
+  const { colors: c } = useTheme();
+  return tone === 'dark' ? c.onDeep : c.text;
+}

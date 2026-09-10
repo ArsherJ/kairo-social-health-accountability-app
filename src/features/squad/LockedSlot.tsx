@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { font, ramp, radius, space } from '@/theme.ts';
-import { Panel, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Panel, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * The free seats in the squad (§7): "locked slots are visible every day —
@@ -42,6 +42,8 @@ export function LockedSlot({
   // same sentence in both cases, and a form that changes shape at one is a form
   // somebody has to read twice.
   const headline = `${remaining} ${remaining === 1 ? 'seat' : 'seats'} open`;
+  const styles = useStyles(makeStyles);
+  const { ramp } = useTheme();
 
   // A row that says "Invite your squad" and cannot be tapped is the QA pass's
   // finding in miniature: the affordance was already drawn, down to the `+`
@@ -86,7 +88,7 @@ export function LockedSlot({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ ramp }: Theme) => StyleSheet.create({
   row: {
     marginTop: space.sm,
     paddingVertical: space.md,
@@ -99,6 +101,8 @@ const styles = StyleSheet.create({
     // on Android, and leaving it out would make the fallback look deliberate.
     borderStyle: 'dashed',
     borderColor: ramp.sage[300],
+    shadowOpacity: 0,
+    elevation: 0,
   },
   pressed: { opacity: 0.6 },
   content: { flexDirection: 'row', alignItems: 'center' },

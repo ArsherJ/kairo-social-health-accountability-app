@@ -22,8 +22,8 @@ import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
 import { useWalkHistory } from '@/features/train/queries.ts';
-import { Button, Label, Screen, STAT_NAMES, Text } from '@/ui/index.ts';
-import { colors, font, radius, ramp, space } from '@/theme.ts';
+import { Button, Screen, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
+import { font, space, type Theme } from '@/theme.ts';
 import {
   CORE_STATS,
   currentLocalDate,
@@ -69,6 +69,8 @@ const STAT_LABELS: Record<CoreStat, string> = {
 
 export default function ProfileTab() {
   const router = useRouter();
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const session = useSessionStore((s) => s.session);
   const userId = session?.user.id;
   const profile = useProfile(userId);
@@ -302,20 +304,18 @@ export default function ProfileTab() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   /**
-   * Everything below the header, which bleeds. The header pads its own name and
-   * handle rows and lets only the scene band run to the edge, so this wrapper
-   * starts under it rather than around it.
+   * Everything below the header, which bleeds. The header pads its own rows,
+   * so this wrapper starts under it rather than around it.
    */
-  page: { paddingHorizontal: space.lg },
+  page: { paddingHorizontal: space.lg, marginTop: space.sm },
   centered: { paddingVertical: space.xl, alignItems: 'center' },
   detailBlock: { marginTop: space.md, gap: space.md },
   /**
-   * The guidance line. Accent-deep rather than muted, because unlike the spread
-   * aside on Today this one is an instruction — it is the only line on the
-   * screen naming something to go and do, and `accentDeep` is the body-size
-   * accent role (`accent` itself is a fill and measures 1.9:1 here).
+   * The guidance line. Accent-deep rather than muted, because unlike the
+   * spread aside on Today this one is an instruction — the only line on the
+   * screen naming something to go and do.
    */
   nextUp: { ...font.body.body, fontSize: 15, lineHeight: 22, color: colors.accentDeep },
   helpLink: {
@@ -324,20 +324,5 @@ const styles = StyleSheet.create({
     marginTop: space.xs,
     textAlign: 'center',
   },
-  value: { color: colors.text, ...font.display.minor, fontSize: 19, marginTop: space.xs },
-  help: { ...font.body.body, fontSize: 12, color: ramp.neutral[600], marginTop: space.sm, lineHeight: 18 },
   devStatus: { ...font.body.body, fontSize: 13, color: colors.subtle, marginTop: space.sm },
-  // `flexWrap` rather than a fixed four-across row: at large Dynamic Type the
-  // chips need two lines, and a row that cannot fit clips mid-word.
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
-  chip: {
-    paddingVertical: space.sm,
-    paddingHorizontal: space.md,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.neutral[200],
-  },
-  chipOn: { backgroundColor: colors.accent },
-  chipPressed: { opacity: 0.7 },
-  chipLabel: { color: colors.subtle, ...font.body.strong },
-  chipLabelOn: { color: colors.bg },
 });

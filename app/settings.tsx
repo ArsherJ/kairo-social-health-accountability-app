@@ -11,8 +11,19 @@ import { useUpdateProfile } from '@/features/profile/update-profile.ts';
 import { feedbackMailto, PRIVACY_POLICY_URL } from '@/features/support/links.ts';
 import { questTierName } from '@/features/quests/quest-copy.ts';
 import { questDifficultyHelp } from '@/features/onboarding/calibration-copy.ts';
-import { colors, font, radius, ramp, shadow, space } from '@/theme.ts';
-import { BackRow, Screen, Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import {
+  APPEARANCE_OPTIONS,
+  BackRow,
+  Screen,
+  SegmentedControl,
+  Text,
+  appearanceHelp,
+  setAppearance,
+  useAppearanceStore,
+  useStyles,
+  useTheme,
+} from '@/ui/index.ts';
 
 /**
  * Settings — the grouped list behind the gear on the You tab.
@@ -41,6 +52,9 @@ export default function Settings() {
   const userId = session?.user.id;
   const profile = useProfile(userId);
   const update = useUpdateProfile(userId);
+  const styles = useStyles(makeStyles);
+  const { colors, ramp } = useTheme();
+  const appearance = useAppearanceStore((s) => s.preference);
 
   return (
     <Screen>
@@ -78,6 +92,29 @@ export default function Settings() {
           <BodyMetricsCard userId={userId} profile={profile.data} />
         </Group>
       )}
+
+      {/* Appearance, first among the app's own preferences (deviation #72).
+          Three choices and the default follows the phone — see
+          `appearance.ts` for why a phone that has already answered this
+          question should not be asked twice. Local to this device, on MMKV:
+          which scheme a phone draws in is a fact about the phone. */}
+      <Group title="Appearance">
+        <View style={styles.card}>
+          <View style={styles.rowHead}>
+            <MaterialCommunityIcons name="theme-light-dark" size={21} color={ramp.sage[500]} />
+            <Text scale="chrome" style={styles.rowLabel}>
+              Theme
+            </Text>
+          </View>
+          <SegmentedControl
+            options={APPEARANCE_OPTIONS}
+            value={appearance}
+            onChange={setAppearance}
+            accessibilityLabel="Which scheme the app draws in"
+          />
+          <Text style={styles.help}>{appearanceHelp(appearance)}</Text>
+        </View>
+      </Group>
 
       <Group title="The game">
         {/*
@@ -238,6 +275,7 @@ const TIER_CHOICES: readonly [QuestTier | null, string][] = [
 ];
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.group}>
       <Text scale="chrome" style={styles.groupTitle}>
@@ -268,6 +306,8 @@ function Row({
   destructive?: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
   const hidden = {
     accessibilityElementsHidden: true,
     importantForAccessibility: 'no-hide-descendants',
@@ -292,7 +332,7 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, ramp, shadow }: Theme) => StyleSheet.create({
   title: { ...font.display.major, fontSize: 28, color: colors.text, marginTop: space.sm },
   group: { marginTop: space.lg },
   groupTitle: { ...font.body.label, color: colors.muted, marginLeft: 6, marginBottom: space.sm },
@@ -331,6 +371,6 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.accent },
   chipPressed: { opacity: 0.6 },
   chipLabel: { ...font.body.body, fontSize: 13, color: ramp.neutral[700] },
-  // Ink on the orange, not cream — `colors.accent` is a fill.
-  chipLabelOn: { color: colors.text },
+  // Ink on the orange — `colors.accent` is a fill, and `text` is cream at night.
+  chipLabelOn: { color: colors.ink },
 });
