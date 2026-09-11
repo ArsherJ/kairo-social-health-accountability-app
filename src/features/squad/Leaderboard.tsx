@@ -263,6 +263,10 @@ export function Leaderboard({
       )}
 
       <View style={styles.page}>
+        <View style={styles.toggle}>
+          <SegmentedControl options={MODES} value={mode} onChange={setMode} accessibilityLabel="Which day the board ranks" />
+        </View>
+
         {standing.kind === 'alone' && <Text style={styles.alone}>{SOLO_SKY_OBSERVATION}</Text>}
         {heroValue !== null && (
           <View accessible accessibilityLabel={`${heroValue}${subline ? `, ${subline.map((part) => part.text).join('')}` : ''}`}>
@@ -281,12 +285,12 @@ export function Leaderboard({
           and the two read as one claim when stacked. */
         }
         {walk && (
-          <Panel>
-            <Text style={{ ...font.body.body, color: colors.text }}>{walk.label}</Text>
+          <View style={styles.walkSummary}>
+            <Text style={styles.walkLabel}>{walk.label}</Text>
             <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
               <FlockStrip marks={walk.marks} label={walk.label} />
             </View>
-          </Panel>
+          </View>
         )}
         <View style={styles.programLine}>
           <Text style={styles.program}>{programLabel(squad.program)}</Text>
@@ -296,10 +300,6 @@ export function Leaderboard({
             </View>
           )}
           {headerDate != null && <Text style={styles.date}>{headerDate}</Text>}
-        </View>
-
-        <View style={styles.toggle}>
-          <SegmentedControl options={MODES} value={mode} onChange={setMode} accessibilityLabel="Which day the board ranks" />
         </View>
 
         {mixedDates && (
@@ -340,7 +340,7 @@ export function Leaderboard({
           the same sentence the standing above it stopped saying. */
         }
         {rows.length > 0 && (
-          <Panel style={{ padding: space.sm }}>
+          <Panel variant='lift' style={styles.board}>
             {rows.map((row) => (
               <LeaderboardRow
                 key={row.user_id}
@@ -404,16 +404,25 @@ export function Leaderboard({
 
 const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
   page: { paddingHorizontal: space.lg },
-  standingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.md },
+  standingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.sm },
   standing: { ...font.body.body, color: colors.subtle, flexShrink: 1 },
   standingGap: { color: colors.accentDeep },
-  alone: { ...font.body.body, color: colors.subtle, marginVertical: space.md },
+  alone: { ...font.body.body, color: colors.subtle, marginTop: space.sm },
+  walkSummary: {
+    gap: space.sm,
+    marginTop: space.sm,
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: ramp.sage[100],
+  },
+  walkLabel: { ...font.body.strong, color: colors.subtle },
   date: { ...font.body.label, color: ramp.neutral[600], letterSpacing: 0, marginLeft: 'auto' },
   programLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    marginTop: 9,
+    marginTop: space.md,
   },
   // The program and its boost are the board's rule, so they read as two tags
   // on the header rather than as a sentence: sage for the lane the squad is
@@ -460,7 +469,8 @@ const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
     marginLeft: 10,
     marginTop: space.xs,
   },
-  toggle: { marginTop: space.md },
+  toggle: { marginTop: space.sm },
+  board: { padding: 0 },
   note: {
     ...font.body.body,
     fontSize: 12,

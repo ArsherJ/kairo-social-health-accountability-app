@@ -90,11 +90,11 @@ export function LockedSlot({
 
 const makeStyles = ({ ramp }: Theme) => StyleSheet.create({
   row: {
-    marginTop: space.sm,
-    paddingVertical: space.md,
+    marginTop: space.md,
+    paddingVertical: space.sm,
     paddingHorizontal: space.md,
     backgroundColor: 'transparent',
-    borderWidth: 2,
+    borderWidth: 1,
     // iOS draws dashed borders only on square corners — with `Panel`'s radius
     // it falls back to solid, which still reads as a seat rather than a
     // person. Declared anyway: it is what the design asks for, it is correct
@@ -102,6 +102,7 @@ const makeStyles = ({ ramp }: Theme) => StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: ramp.sage[300],
     shadowOpacity: 0,
+    shadowRadius: 0,
     elevation: 0,
   },
   pressed: { opacity: 0.6 },

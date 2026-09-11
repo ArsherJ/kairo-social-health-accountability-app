@@ -5,7 +5,7 @@ import { CORE_STATS } from '@kairo/core';
 import { Button, Glass, StatCoin, Text, useReduceMotion, useTheme } from '../../ui/index.ts';
 import { claimModal, releaseModal } from '../../ui/modal-owner.ts';
 import { tw } from '../../ui/tailwind.ts';
-import { font, space } from '../../theme.ts';
+import { font, radius, space } from '../../theme.ts';
 import { KairoThumbnail } from '../character/KairoThumbnail.tsx';
 import { WHACK_COPY } from '../whack/whack-copy.ts';
 import { PERCH_COPY, perchDayLine, perchStatsLabel } from './perch-copy.ts';
@@ -23,7 +23,7 @@ export function PerchBirdSheet(
     dayLine?: string;
   },
 ) {
-  const { colors, glass } = useTheme();
+  const { colors, glass, ramp } = useTheme();
   const [ownsHost, setOwnsHost] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,19 +78,25 @@ export function PerchBirdSheet(
         >
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }}>
             <View accessibilityViewIsModal style={tw.style('p-lg gap-md', { width: sheetWidth })}>
-              <View style={tw`items-center gap-xs`}>
-                <KairoThumbnail size={104} pose='idle' lifetimePoints={member.ratings} decorative />
-                <Text accessibilityRole='header' style={{ ...font.display.major, color: ink }}>
-                  {member.character_name}
-                </Text>
-                <Text style={{ ...font.body.body, color: colors.subtle }}>
-                  Level {member.level}
-                </Text>
+              <View style={tw`flex-row items-center gap-md`}>
+                <KairoThumbnail size={88} pose='idle' lifetimePoints={member.ratings} decorative />
+                <View style={tw`flex-1 gap-xs`}>
+                  <Text accessibilityRole='header' style={{ ...font.display.major, color: ink }}>
+                    {member.character_name}
+                  </Text>
+                  <Text style={{ ...font.body.body, color: colors.subtle }}>
+                    Level {member.level}
+                  </Text>
+                </View>
               </View>
               <View
                 accessible
                 accessibilityLabel={perchStatsLabel(member.ratings)}
-                style={tw`flex-row flex-wrap justify-center gap-lg`}
+                style={tw.style('flex-row flex-wrap justify-center gap-lg p-md', {
+                  borderRadius: radius.lg,
+                  borderCurve: 'continuous',
+                  backgroundColor: ramp.sage[100],
+                })}
               >
                 {CORE_STATS.map((stat) => (
                   <View

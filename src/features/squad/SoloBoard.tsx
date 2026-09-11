@@ -8,7 +8,7 @@ import { useTodayBuckets } from '@/features/character/buckets.ts';
 import { useTodayScore } from '@/features/character/queries.ts';
 import { useProfile } from '@/features/profile/queries.ts';
 import { font, space, type Theme } from '@/theme.ts';
-import { Button, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
+import { Button, Panel, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
 import { LeaderboardRow } from './LeaderboardRow.tsx';
 import { LockedSlot } from './LockedSlot.tsx';
 import type { LeaderboardRow as Row } from './queries.ts';
@@ -190,7 +190,11 @@ export function SoloBoard({
           position; what changes is that nothing renders it. */
         }
         {totals && profile.data
-          ? <LeaderboardRow row={selfRow} mode='current' gap={null} ranked={false} />
+          ? (
+            <Panel variant='lift' style={styles.board}>
+              <LeaderboardRow row={selfRow} mode='current' gap={null} ranked={false} />
+            </Panel>
+          )
           : raw.isError || profile.isError
           ? (
             <View>
@@ -235,5 +239,6 @@ const makeStyles = ({ colors }: Theme) =>
       marginTop: space.md,
       lineHeight: 22,
     },
-    actions: { marginTop: space.lg, marginBottom: space.md },
+    actions: { marginTop: space.lg, marginBottom: space.md, gap: space.sm },
+    board: { padding: 0 },
   });

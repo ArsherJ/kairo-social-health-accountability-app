@@ -59,12 +59,12 @@ export function FlockStrip({ marks, label }: { marks: readonly FlockMark[]; labe
 }
 
 const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
-  strip: { flexDirection: 'row', gap: space.xs },
+  strip: { flexDirection: 'row', gap: space.sm },
   mark: { flex: 1, alignItems: 'center', gap: space.xs },
   // On the page since deviation #72, so the letters take the page's muted ink
   // and the discs the page's washes.
   letter: { ...font.body.label, color: colors.muted },
-  disc: { width: 30, height: 30, borderRadius: radius.pill },
+  disc: { width: 24, height: 24, borderRadius: radius.pill },
   cleared: { backgroundColor: colors.accent },
   unmet: { backgroundColor: ramp.neutral[300] },
   // A ring, not a fill. Nothing is known about this member's day, and an empty

@@ -44,8 +44,8 @@ export function FlockPerch(
   const { colors, ramp, earnedColor } = useTheme();
   const ink = colors.text;
   return (
-    <View style={tw.style('overflow-hidden pb-lg', { paddingTop: topInset + space.lg })}>
-      <View style={tw`px-lg gap-sm`}>
+    <View style={tw.style('overflow-hidden pb-md', { paddingTop: topInset + space.md })}>
+      <View style={tw`px-lg gap-xs`}>
         <Text
           scale='chrome'
           style={{ ...font.body.label, color: colors.subtle }}
@@ -62,7 +62,7 @@ export function FlockPerch(
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={tw`px-lg pt-lg pb-sm gap-sm items-end`}
+        contentContainerStyle={tw`px-lg pt-md pb-sm gap-sm items-end`}
       >
         {members.map((member) => (
           <Pressable
@@ -76,11 +76,11 @@ export function FlockPerch(
             onPress={() => onBirdPress(member)}
             style={({ pressed }) =>
               tw.style('items-center justify-end px-sm pb-md', {
-                width: 104,
-                minHeight: 184,
-                borderRadius: radius.xl,
+                width: 96,
+                minHeight: 152,
+                borderRadius: radius.lg,
                 borderCurve: 'continuous',
-                backgroundColor: member.is_self ? ramp.accent[200] : 'transparent',
+                backgroundColor: member.is_self ? ramp.accent[200] : ramp.sage[100],
                 opacity: pressed ? 0.65 : 1,
               })}
           >
@@ -93,7 +93,7 @@ export function FlockPerch(
               <CharacterFigure
                 level={member.level}
                 stage={evolutionStageForLevel(member.level)}
-                height={100}
+                height={84}
                 compact
                 figure={{ kind: 'pose', pose: 'idle' }}
                 body={{ tier: 'slim', shade: colors.sage, shadowWeight: 0 }}
@@ -106,8 +106,13 @@ export function FlockPerch(
               <View style={tw`flex-row items-center gap-xs`}>
                 <Text
                   scale='chrome'
-                  numberOfLines={1}
-                  style={{ ...font.display.small, color: ink, maxWidth: 82 }}
+                  numberOfLines={2}
+                  style={{
+                    ...font.display.small,
+                    color: ink,
+                    maxWidth: 76,
+                    textAlign: 'center',
+                  }}
                 >
                   {member.character_name}
                 </Text>
@@ -171,10 +176,11 @@ export function FlockPerch(
       </ScrollView>
       <View
         {...hidden}
-        style={tw.style('mx-lg h-2', {
+        style={tw.style('mx-lg', {
+          height: 3,
           borderRadius: radius.pill,
           borderCurve: 'continuous',
-          backgroundColor: ramp.sage[300],
+          backgroundColor: ramp.neutral[300],
         })}
       />
     </View>

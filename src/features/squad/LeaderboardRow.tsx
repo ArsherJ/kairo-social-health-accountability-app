@@ -242,32 +242,22 @@ export function LeaderboardRow({
   );
 }
 
-const makeStyles = ({ colors, ramp, earnedColor, shadow }: Theme) => StyleSheet.create({
+const makeStyles = ({ colors, ramp, earnedColor }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    marginTop: space.sm,
     paddingVertical: 12,
     paddingHorizontal: space.md,
-    borderRadius: radius.md,
-    borderCurve: 'continuous',
-    backgroundColor: colors.surface,
-    ...shadow.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   // A gold rule down the leading edge rather than a tinted card: gold means
   // earned, and a whole row of it competed with the self tint below.
   leader: { borderLeftWidth: 3, borderLeftColor: earnedColor },
-  // Your own row wins over the leader tint when you are both — being first is
-  // already said by the rank, and losing track of yourself in your own squad
-  // is the worse failure.
-  //
-  // `ramp.accent[200]` is `Panel`'s `tint` ground, spelled out rather than
-  // composed: that variant means *this one is you* and this is the row it was
-  // added for, but `Panel` also brings its own margin, padding and radius, and
-  // this row has three grounds (plain, leader, self) switching on one style
-  // array. Keep the two values in step.
-  self: { backgroundColor: ramp.accent[200], borderWidth: 1.5, borderColor: ramp.accent[500] },
+  // The wash does not add a competing outline, so the leader's gold rule stays
+  // visible when the first row is also the reader's own.
+  self: { backgroundColor: ramp.accent[200] },
   // minWidth, not width: the column still aligns at the default text size,
   // but a scaled rank glyph grows the box instead of being clipped by it.
   // `neutral[600]` is legitimate *here* and nowhere else on this row: at

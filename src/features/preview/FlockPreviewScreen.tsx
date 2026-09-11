@@ -12,7 +12,7 @@ import { LockedSlot } from '../squad/LockedSlot.tsx';
 import { PERCH_COPY } from '../squad/perch-copy.ts';
 import { whackAnnouncement, whackRowMark } from '../whack/whack-copy.ts';
 import { Button, Panel, Screen, SegmentedControl, Text, useTheme } from '../../ui/index.ts';
-import { font } from '../../theme.ts';
+import { font, radius } from '../../theme.ts';
 import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
 import { previewMembers } from './preview-data.ts';
@@ -21,7 +21,7 @@ import { PreviewStateNotice } from './PreviewStateNotice.tsx';
 export function FlockPreviewScreen(
   { state, onRetry }: { state: PreviewState; onRetry: () => void },
 ) {
-  const { colors } = useTheme();
+  const { colors, ramp } = useTheme();
   const [mode, setMode] = useState<'current' | 'completed'>('current');
   const [selected, setSelected] = useState<PerchMember | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -58,16 +58,28 @@ export function FlockPreviewScreen(
                 : undefined}
               whackedIds={mode === 'current' && sentTo ? [sentTo] : []}
             />
-            <View style={tw`px-lg`}>
-              {walk && (
+            {inviting && (
+              <View style={tw`px-lg`}>
                 <Panel>
-                  <Text style={{ ...font.display.small, color: colors.text }}>{walk.label}</Text>
-                  <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
-                    <FlockStrip marks={walk.marks} label={walk.label} />
-                  </View>
+                  <Text
+                    accessibilityRole='header'
+                    style={{ ...font.display.minor, color: colors.text }}
+                  >
+                    {copy.inviteTitle}
+                  </Text>
+                  <Text style={tw.style('py-md', font.body.body, { color: colors.subtle })}>
+                    {copy.inviteBody}
+                  </Text>
+                  <Button
+                    label={copy.inviteClose}
+                    variant='secondary'
+                    onPress={() => setInviting(false)}
+                  />
                 </Panel>
-              )}
-              <View style={tw`mt-lg`}>
+              </View>
+            )}
+            <View style={tw`px-lg`}>
+              <View style={tw`mt-sm`}>
                 <SegmentedControl
                   options={[{ value: 'current', label: PERCH_COPY.today }, {
                     value: 'completed',
@@ -78,7 +90,21 @@ export function FlockPreviewScreen(
                   accessibilityLabel='Which day the board ranks'
                 />
               </View>
-              <Panel style={{ padding: 8 }}>
+              {walk && (
+                <View
+                  style={tw.style('mt-sm p-md gap-sm', {
+                    borderRadius: radius.lg,
+                    borderCurve: 'continuous',
+                    backgroundColor: ramp.sage[100],
+                  })}
+                >
+                  <Text style={{ ...font.body.strong, color: colors.subtle }}>{walk.label}</Text>
+                  <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
+                    <FlockStrip marks={walk.marks} label={walk.label} />
+                  </View>
+                </View>
+              )}
+              <Panel variant='lift' style={{ padding: 0 }}>
                 {members.map((member) => (
                   <LeaderboardRow
                     key={member.user_id}
@@ -96,24 +122,6 @@ export function FlockPreviewScreen(
                 remaining={FREE_SQUAD_MAX_MEMBERS - members.length}
                 onPress={() => setInviting(true)}
               />
-              {inviting && (
-                <Panel>
-                  <Text
-                    accessibilityRole='header'
-                    style={{ ...font.display.minor, color: colors.text }}
-                  >
-                    {copy.inviteTitle}
-                  </Text>
-                  <Text style={tw.style('py-md', font.body.body, { color: colors.subtle })}>
-                    {copy.inviteBody}
-                  </Text>
-                  <Button
-                    label={copy.inviteClose}
-                    variant='secondary'
-                    onPress={() => setInviting(false)}
-                  />
-                </Panel>
-              )}
             </View>
             {selected && (
               <PerchBirdSheet
