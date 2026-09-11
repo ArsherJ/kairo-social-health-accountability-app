@@ -59,3 +59,27 @@ animation pass.
 Wing-notch cleanup on `race_victory`, beak repair on `sleep`, framing to the
 570 × 636 export canvas, crest masks, and the two Mind faces (`sleepy`,
 `well_rested`), which are local face-only edits of Idle and need no API call.
+
+## Run's stance: three attempts, all rejected
+
+Deviation #73 committed to fixing one art defect — Run's "bouncy hop/skip" read.
+Three `gpt-image-2` edits were spent on it and **none shipped**; the checked-in
+`run` is still the retained `pose-cleanup-01` export.
+
+| Attempt | Prompt | Outcome |
+| --- | --- | --- |
+| v1 | inherited from `pose-study-01` | the stance this was meant to fix |
+| v2 | `prompt-run-v2-rejected.txt` — forward pitch, legs stretched along travel, wings swept back | wings streamed horizontally and **clipped both canvas edges** (figure 570 px wide in a 570 px frame); lean did not land |
+| v3 | `prompt-run-v3-rejected.txt` — same, but motion moved into body and legs with wings held tucked | fits the frame, but reads as a bird **sitting with its legs out**. At 72 px it shows no motion at all, where the current pose does |
+
+**The finding is about the view, not the prompt.** Running is a side-on motion,
+and every pose in this pack is front-facing. A front view can show a leg
+stagger and a lean of a few degrees; it cannot show travel. The existing pose
+buys its motion with asymmetry and a raised foot, which is what reads at 44 and
+72 px — the sizes that matter most — and the three corrections each traded that
+away for a lean nobody can see at those sizes.
+
+So the defect stands, and it is **reclassified rather than carried**: fixing it
+needs a three-quarter or side-on view for `run`, which is an art-direction
+decision about the whole pack's camera, not a re-roll. Raw outputs for all three
+attempts are preserved in `raw/`.

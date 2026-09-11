@@ -311,6 +311,7 @@ export default function Today() {
 
   const mirror = resolveLivingMirror({
     steps,
+    verifiedStrengthMinutes: strength.data?.verifiedMinutes ?? 0,
     hasSleepSource: profile.data?.has_sleep_source ?? false,
     sleepMinutes: sleepMinutesToday,
     lifetimeBodyPoints: profile.data?.str_total ?? 0,

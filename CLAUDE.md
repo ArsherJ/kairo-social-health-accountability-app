@@ -1123,6 +1123,19 @@ and the three device-fault rounds that produced most of the layout rules.
   reject. `firstLevelOfStage` still derives 1/6/11/21 from
   `evolutionStageForLevel`, and the stage names are still a development
   vocabulary no player surface speaks.
+- **`dayPose()` resolves Motion against Body, and `summit` wins outright.**
+  Ridge draws `summit` whatever else happened; below it, **a verified strength
+  session takes the figure for the rest of the day** and draws `workout`;
+  otherwise the Motion ladder answers. Two axes want one drawing, so the order is
+  stated in one function and tested, rather than being an accident of branch
+  placement. The trade is deliberate — a trained player at the treeline loses
+  that day's `walk` — because Motion still reads in the tile, the meter and the
+  location word, while Body reads nowhere but the figure and the ground shadow.
+  It takes **minutes, not the occurrence id**: `living-reaction.ts` still reads
+  `verifiedWorkoutOccurrence` to fire the one-shot celebration, and a count
+  cannot re-fire anything. `resolveLivingMirror`'s `verifiedStrengthMinutes` is
+  **required and never defaulted**, or "did not train" and "caller forgot" become
+  the same silent answer.
 - **`summit` is the seventh pose and the ridge draws it** (deviation #73).
   `motionPose()` returns `idle → walk → run → summit` across the five Motion
   bands, so the day's finish stops looking identical to 80% of the way there. It
@@ -1143,6 +1156,15 @@ and the three device-fault rounds that produced most of the layout rules.
   centre — and `character-assets.test.ts`'s "frames every render against the base"
   is what holds it, because `bodyScale` can only make a young bird small if the
   artwork never is.
+- **Run's stance is a camera problem, not a prompt problem.** Deviation #73
+  committed to fixing its "bouncy hop/skip" read and three `gpt-image-2` edits
+  failed: one streamed the wings off both canvas edges, one read as a bird
+  sitting with its legs out. Running is a side-on motion and every pose in this
+  pack is front-facing — a front view can show a leg stagger and a few degrees of
+  lean, not travel. The shipped pose buys its motion with asymmetry and a raised
+  foot, which is what reads at 44 and 72 px. Fixing it means a three-quarter view
+  for `run`, which is a decision about the whole pack's camera. Attempts and
+  prompts are in `output/imagegen/plush-eagle-v3/pose-commission-01/`.
 - **Two Mind faces are local edits, not generations.** `sleepy` and
   `well_rested` are deterministic Pillow edits of the idle render — Mind's whole
   premise is that the body does not move, only the face, and generating a whole

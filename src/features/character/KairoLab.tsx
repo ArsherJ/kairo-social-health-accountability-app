@@ -213,6 +213,7 @@ function MirrorSky({
   const stage = evolutionStageForLevel(level);
   const mirror = resolveLivingMirror({
     steps,
+    verifiedStrengthMinutes: 0,
     hasSleepSource,
     sleepMinutes,
     lifetimeBodyPoints,

@@ -5,6 +5,7 @@ import {
   livingCharacterLabel,
   locationName,
   motionLocationForSteps,
+  dayPose,
   resolveLivingMirror,
   staticFigureSelection,
   type LivingReaction,
@@ -87,6 +88,7 @@ describe('resolveLivingMirror', () => {
     for (const hasSleepSource of [false, true]) {
       const model = resolveLivingMirror({
         steps: 2_500,
+        verifiedStrengthMinutes: 0,
         hasSleepSource,
         sleepMinutes: null,
         lifetimeBodyPoints: 0,
@@ -101,6 +103,7 @@ describe('resolveLivingMirror', () => {
   it('maps verified sleep and lifetime Body independently', () => {
     const model = resolveLivingMirror({
       steps: DAILY_STEP_BASELINE,
+      verifiedStrengthMinutes: 0,
       hasSleepSource: true,
       sleepMinutes: 480,
       lifetimeBodyPoints: 50_000,
@@ -120,6 +123,7 @@ describe('resolveLivingMirror', () => {
   it('draws summit at the ridge and run below it', () => {
     const at = (steps: number) => resolveLivingMirror({
       steps,
+      verifiedStrengthMinutes: 0,
       hasSleepSource: false,
       sleepMinutes: null,
       lifetimeBodyPoints: 0,
@@ -135,6 +139,38 @@ describe('resolveLivingMirror', () => {
     // `summit` is the drawing, never a sixth band: the ladder still ends at the
     // ridge and `locationName` still says "Ridge".
     expect(at(10_000).motion.location).toBe('ridge');
+  });
+});
+
+describe('dayPose', () => {
+  // Two axes want the same drawing and only one can have it, so the order is
+  // asserted rather than left to the shape of the branches.
+  it('gives the ridge to summit even on a training day', () => {
+    expect(dayPose({ location: 'ridge', verifiedStrengthMinutes: 0 })).toBe('summit');
+    expect(dayPose({ location: 'ridge', verifiedStrengthMinutes: 45 })).toBe('summit');
+  });
+
+  // Below the ridge a verified session takes the figure for the rest of the day
+  // — that is the whole point of it, and it costs that day's Motion pose
+  // knowingly: Motion still reads in the tile, the meter and the location word.
+  it('gives every band below the ridge to a verified session', () => {
+    for (const location of ['branch', 'treeline', 'valley', 'climb'] as const) {
+      expect(dayPose({ location, verifiedStrengthMinutes: 30 }), location).toBe('workout');
+    }
+  });
+
+  it('falls back to the Motion ladder with no session', () => {
+    expect(dayPose({ location: 'branch', verifiedStrengthMinutes: 0 })).toBe('idle');
+    expect(dayPose({ location: 'treeline', verifiedStrengthMinutes: 0 })).toBe('walk');
+    expect(dayPose({ location: 'valley', verifiedStrengthMinutes: 0 })).toBe('walk');
+    expect(dayPose({ location: 'climb', verifiedStrengthMinutes: 0 })).toBe('run');
+  });
+
+  // Zero is "did not train", and a non-finite reading is not a training day
+  // either — it is a missing answer, and a missing answer must never invent one.
+  it('treats a missing or zero reading as no session', () => {
+    expect(dayPose({ location: 'climb', verifiedStrengthMinutes: 0 })).toBe('run');
+    expect(dayPose({ location: 'climb', verifiedStrengthMinutes: Number.NaN })).toBe('run');
   });
 });
 

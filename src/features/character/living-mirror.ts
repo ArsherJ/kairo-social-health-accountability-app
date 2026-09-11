@@ -74,25 +74,49 @@ export function locationName(location: MotionLocation): string {
   return location[0]!.toUpperCase() + location.slice(1);
 }
 
-/**
- * The pose the day's steps put the bird in.
- *
- * **`ridge` gets `summit` and not `run`** (deviation #73). The top band is the
- * day's finish, and drawing it identically to 80% of the way there threw away
- * the app's single most important daily event. The pose is *persistent*: the
- * `daily_walk` reaction still fires on the crossing and still wins the priority
- * cascade in `staticFigureSelection` for `REACTION_HOLD_MS`, and this is what
- * the figure falls through to for the rest of the day.
- *
- * The pose name is deliberately not `ridge`. That word already names the step
- * count and the Motion band; a third referent is the collision `CONTEXT.md`
- * records, and no surface speaks `summit`.
- */
+/** The Motion ladder's own answer: five bands, four poses. */
 function motionPose(location: MotionLocation): KairoPose {
   if (location === 'branch') return 'idle';
   if (location === 'treeline' || location === 'valley') return 'walk';
   if (location === 'climb') return 'run';
   return 'summit';
+}
+
+/**
+ * The pose the day puts the bird in — Motion, with Body layered over it.
+ *
+ * Two axes want the same figure and only one drawing can win, so the order is
+ * stated once, here, rather than being an accident of where the branches sit.
+ *
+ * **`summit` wins outright.** Clearing the ridge is the day's headline and the
+ * rarer event; a training day is the commoner one, and a player who does both
+ * should see the scarcer achievement. It is also the only band whose pose the
+ * Motion ladder would otherwise have no way to show.
+ *
+ * **Below the ridge, a verified session takes the figure for the rest of the
+ * day.** That is the point of it: "I trained today" is a fact about the body,
+ * and the body is what the drawing is. It does cost that day's Motion pose —
+ * a trained player at the treeline draws `workout` rather than `walk` — and
+ * that trade is deliberate, because Motion still reads everywhere else on the
+ * screen (the tile, the meter, the location word) while Body reads nowhere but
+ * here and the ground shadow.
+ *
+ * **Minutes, not the occurrence id.** `living-reaction.ts` reads
+ * `verifiedWorkoutOccurrence` to fire the one-shot celebration and must keep
+ * doing so — an occurrence is how a reaction stays unseen-once. This asks a
+ * different question, "did today contain a session at all", and a count answers
+ * it without being able to re-fire anything.
+ */
+export function dayPose(input: {
+  location: MotionLocation;
+  verifiedStrengthMinutes: number;
+}): KairoPose {
+  if (input.location === 'ridge') return 'summit';
+  const minutes = Number.isFinite(input.verifiedStrengthMinutes)
+    ? input.verifiedStrengthMinutes
+    : 0;
+  if (minutes > 0) return 'workout';
+  return motionPose(input.location);
 }
 
 function bodyPresence(points: number): BodyPresence {
@@ -147,6 +171,12 @@ export function staticFigureSelection(input: {
  */
 export function resolveLivingMirror(input: {
   steps: number;
+  /**
+   * Today's verified strength minutes. **Required, never defaulted**: a default
+   * makes "this account did not train" and "the caller forgot to ask"
+   * indistinguishable, and the second silently deletes the Body axis.
+   */
+  verifiedStrengthMinutes: number;
   hasSleepSource: boolean;
   sleepMinutes: number | null;
   lifetimeBodyPoints: number;
@@ -164,9 +194,12 @@ export function resolveLivingMirror(input: {
     state: hasMindReading ? sleepStateFor(input.sleepMinutes) : 'normal' as SleepState,
     minutes: hasMindReading ? input.sleepMinutes : null,
   };
-  const pose = motionPose(location);
+  // One pose, the one that draws. `motion` carries the *reading* — where the
+  // day's steps put the player — and the figure carries the drawing, which Body
+  // can take over. Publishing both would be two answers to one question.
+  const pose = dayPose({ location, verifiedStrengthMinutes: input.verifiedStrengthMinutes });
   return {
-    motion: { location, fraction: Math.min(1, Math.max(0, input.steps) / DAILY_STEP_BASELINE), pose },
+    motion: { location, fraction: Math.min(1, Math.max(0, input.steps) / DAILY_STEP_BASELINE) },
     body: bodyPresence(input.lifetimeBodyPoints),
     mind,
     nextStep: input.nextStep,
