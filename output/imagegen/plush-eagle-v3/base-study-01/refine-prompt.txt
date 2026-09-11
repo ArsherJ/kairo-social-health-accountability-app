@@ -1,0 +1,37 @@
+Use case: precise-object-edit
+Asset type: KAIRO v3 base-concept proportion correction.
+
+Input image 1: Edit target — the first v3 base draft. Keep this same character and drawing
+language. Correct ONLY its overlong torso and its framing. Keep the head, face, three crest
+tufts, dot eyes, tiny smiling hooked beak, cheeks, two visible legs, three rounded toes per
+foot, palette and bold soft outline the same. Do not make its head or belly wider.
+
+Proportion correction: The input bird is too stretched vertically. Shorten the torso between
+the bottom of the head and the top of the legs by about one third, so the complete crest-to-
+soles silhouette is approximately 1.5 times its maximum width (three units high, two wide).
+Keep the large head the same size. Keep the two visible ochre legs the same length, with clear
+daylight between them. Bring the legs and feet upwards as the torso becomes shorter. The
+torso remains narrower than the head, with a gentle throat taper and a gentle waist taper.
+Shorten the relaxed mitten-shaped wings with the torso; each is a separate outlined shape
+readable against the body. Keep the bird upright and front-facing, both feet flat and level.
+The result is a neutral, soft, articulated plush bird with a compact torso, not a stretched
+bird, and not a spherical, dumpling-shaped or overweight bird.
+
+Rendering: Flat 2D cartoon illustration, like a clean hand-drawn sticker. One consistent
+rounded warm-charcoal outline weight throughout, smooth large shapes, solid matte colors.
+Absolutely no gradients, painted shading, feather detail, realistic anatomy, gloss, texture,
+lighting effects, or 3D.
+
+Palette: Warm ivory cream head/crest/chest/belly, chestnut brown back and wings, golden ochre
+beak/legs/feet, warm-charcoal outlines and eyes, muted peach-pink cheeks. No purple and no
+neon on the bird.
+
+Framing: One full-body figure centred on the square canvas, approximately 78% of canvas height
+and 52% of its width. The 3:2 figure proportion takes priority. Do not stretch the corrected
+figure back to fill the height of the input image. Leave clear margins. All crest tips, wings,
+legs and feet fully visible. Crest is centred over the head and remains the highest point.
+No text, props, clothing, shadows, glows, symbols, labels, or duplicate views.
+
+Technical background: Perfectly uniform solid chroma green RGB 0,255,0, edge-to-edge. The
+green is a temporary removable technical background only; no green spill, no reflected green,
+no gradient, and no floor.

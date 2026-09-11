@@ -1,0 +1,65 @@
+Use case: stylized-concept
+Asset type: One original KAIRO cartoon-eagle companion, revised base render (v3).
+
+Primary request: Create a cute, playful cartoon Philippine-eagle companion in the same
+charming drawing language as the attached reference, but with a NEUTRAL, athletic-capable
+build rather than a round one. This is a friendly little cartoon companion that can stand,
+walk and run — not a ball, not a dumpling, not a chubby blob.
+
+Input image 1: Style reference (the v2 round-eagle concept), not an anatomy reference.
+Borrow ONLY its drawing language: flat matte fills, bold softly-rounded dark outline,
+small solid dot eyes in a large pale face, tiny cheerful hooked beak, soft cheek blush,
+no internal detail. Do NOT copy its proportions — that reference is too round and too wide.
+Build a new, taller, better-articulated body.
+
+Silhouette proportion (most important): The whole figure is clearly TALLER THAN IT IS WIDE —
+roughly 3 units of height for every 2 units of width, measured from crest to soles and across
+the widest part of the relaxed figure. This 3:2 silhouette takes priority over framing.
+It must not be circular, spherical, egg-shaped or as wide as it is tall.
+
+Shape: A soft, rounded, plush-toy body with clear structure. A large rounded cream head sits
+on the body with a VISIBLE TAPER between them — a gentle narrowing at the throat and a gentle
+narrowing at the waist, so the head reads as a head on a body rather than one continuous blob.
+Warm-chestnut back and wings, large smooth cream chest and belly with no serrated feather
+edges.
+
+Wings: Two short, rounded, mitten-shaped chestnut wings held down beside the body, each drawn
+as a SEPARATE SHAPE WITH ITS OWN OUTLINE, clearly readable against the torso rather than fused
+into the body silhouette. No internal feather lines.
+
+Legs and feet: TWO VISIBLE OCHRE LEGS, short but clearly drawn below the body with a small
+gap of daylight between them — not hidden under the belly, not stumps. Each foot has three
+simple rounded spread toes. Both feet flat on the ground, side by side at the same height,
+level with each other.
+
+Crest: Three to four short, broad, softly swept cream crest tufts forming a small tuft at the
+top of the head, slightly asymmetric. The crest must be the HIGHEST POINT of the entire figure
+— nothing, including any wingtip, rises above it — and it must sit horizontally centred over
+the head. It must be bold and chunky enough to still read as a distinct shape when the whole
+figure is shrunk to 44 pixels tall.
+
+Face: Two small solid warm-charcoal circular dot eyes, each about 6-7% of the face width,
+spaced apart with generous empty cheek space between and around them. No irises, white rings,
+glints, eyelashes or elaborate eyebrows. A tiny ochre beak with a subtly hooked upper edge,
+open into a small happy smile — an open bird beak, never a human mouth with teeth. Two small
+muted peach-pink blush circles on the cream cheeks. Sweet, cheerful, alert, gently goofy.
+
+Rendering: Flat 2D cartoon illustration, like a clean hand-drawn sticker. One consistent
+rounded warm-charcoal outline weight throughout, smooth large shapes, solid matte colors.
+Absolutely no gradients, painted shading, feather detail, realistic anatomy, gloss, texture,
+lighting effects, or 3D.
+
+Palette: Warm ivory cream head/crest/chest/belly, chestnut brown back and wings, golden ochre
+beak/legs/feet, warm-charcoal outlines and eyes, muted peach-pink cheeks. No purple and no
+neon on the bird.
+
+Composition: Exactly one full-body eagle, front view, standing square and upright, centred
+horizontally, feet level on an implied ground line near the bottom. All crest tips, both
+wings, both legs and both feet fully visible and unobstructed. On the square canvas, the
+figure occupies about 78% of the canvas height and about 52% of the canvas width, consistent
+with a 3:2 silhouette, with clear empty margins on the left and right. No text, labels,
+icons, props, clothing, badges, symbols, ground shadow, glow, or duplicate views.
+
+Technical background: Perfectly uniform solid chroma green RGB 0,255,0, edge-to-edge. The
+green is a temporary removable technical background only; no green spill, no reflected green,
+no gradient, and no floor.

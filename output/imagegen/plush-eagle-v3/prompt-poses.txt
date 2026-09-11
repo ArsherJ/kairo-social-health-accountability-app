@@ -1,0 +1,76 @@
+KAIRO plush-eagle v3 — the four Motion poses
+============================================
+
+Run each pose as an identity-preserving EDIT of the approved v3 base render, one call per
+pose, with `--input-fidelity high`. The API default is `low` and drifts one bird into four
+different birds across a set — this is not optional.
+
+Compose each call as:
+
+    IDENTITY CLAUSE
+    + the pose paragraph
+    + the base prompt's Rendering / Palette / Technical background sections, verbatim
+
+State the pose POSITIVELY, as its own instruction. An edit told only "make it run" redraws
+the bird standing still; that is what the first stage-art run shipped.
+
+
+IDENTITY CLAUSE (prepend to every pose)
+---------------------------------------
+Redraw the bird from the input image in a new pose. Keep exactly the same bird: the same
+proportions, the same head and body shapes and their taper, the same crest tuft count, shape
+and colour, the same eye size, spacing and colour, the same beak, the same blush, the same
+wing shape, the same two ochre legs with three spread toes each, the same outline weight, and
+the same flat palette. Change ONLY the pose described below. Do not age, fatten, slim, or
+restyle the bird, and do not add or remove any feature.
+
+
+POSE — idle          (Motion: branch, under 25% of the day's steps)
+-------------------------------------------------------------------
+The bird stands square and upright facing the viewer, both feet flat on the ground side by
+side at the same height, taking its weight evenly, head level, with both wings held down and
+folded in against its sides.
+
+
+POSE — walk          (Motion: treeline / valley, 25-75%)
+--------------------------------------------------------
+The bird is mid-stride, walking towards the viewer: one leg is lifted clear of the ground and
+swung forward so that its foot sits well above the other, and the other leg is planted and
+carries the weight. The body leans very slightly forward. Both wings are held a little away
+from the body for balance. The lifted foot is drawn open, with the same three spread toes as
+the planted one, never as a closed fist or a stump.
+
+
+POSE — run           (Motion: climb, 75-100%)
+----------------------------------------------
+The bird is mid-run: the body leans forward, both wings are raised and swept out and back away
+from the body, one leg is lifted high and forward with the foot well clear of the ground, and
+the other is planted beneath the body. The crest tufts stream slightly backwards with the
+motion. The lifted foot is drawn open, with the same three spread toes as the planted one,
+never as a closed fist or a stump.
+
+
+POSE — ridge         (Motion: the 10,000-step finish line, cleared)
+--------------------------------------------------------------------
+The bird stands tall and triumphant, facing the viewer, both feet planted flat on the ground
+side by side at the same height and set slightly wider apart than in the input image. Its
+chest is pushed forward and its head is tilted a little upward. Both wings are raised and
+spread open and upward into a wide V, held clear and away from the body on each side, with
+both wingtips fully visible. Its crest tufts stand up perked. Its beak is open in a broad
+happy smile. Nothing rises above the crest tips.
+
+
+Notes for whoever runs these
+----------------------------
+- `ridge` is new. Today the code draws the same `run` art at 75% and at 100%, and the
+  finish-line arrival is a momentary celebration owned by `daily_walk`. This pose is the
+  persistent look for the rest of a cleared day, which is a deliberate change to that rule.
+- Framing is not the model's job. `normalise()` in `scripts/generate_stage_art.py` trims each
+  render to its own alpha and re-lays it against the base's bounding box — same canvas, same
+  centre line, same feet-on-the-bottom ground line, same figure height.
+- Nothing may rise above the crest tips in any pose. `scripts/generate_crest_masks.py` finds
+  the crest as the topmost opaque row inside the central 44% of the canvas; a raised wingtip
+  in that band gets tinted instead of the crest. This is why `ridge` spreads its wings wide
+  and outward rather than straight up over the head.
+- After any new render lands, rerun `scripts/generate_crest_masks.py`. Every render needs a
+  mask beside it and `character-assets.test.ts` fails if one is missing.

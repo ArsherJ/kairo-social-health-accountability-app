@@ -1,0 +1,36 @@
+Use case: identity-preserve
+Asset type: KAIRO v3 concept-only Motion pose study — walk.
+Input image 1: The edit target and sole identity/style anchor, the refined v3 base.
+
+Redraw the bird from the input image in a new pose. Keep exactly the same bird: the same
+proportions, the same head and body shapes and their taper, the same crest tuft count, shape
+and colour, the same eye size, spacing and colour, the same beak, the same blush, the same
+wing shape, the same two ochre legs with three spread toes each, the same outline weight, and
+the same flat palette. Change ONLY the pose described below. Do not age, fatten, slim, or
+restyle the bird, and do not add or remove any feature.
+
+POSE — walk
+The bird is mid-stride, walking towards the viewer: one leg is lifted clear of the ground and
+swung forward so that its foot sits well above the other, and the other leg is planted and
+carries the weight. The body leans very slightly forward. Both wings are held a little away
+from the body for balance. The lifted foot is drawn open, with the same three spread toes as
+the planted one, never as a closed fist or a stump.
+
+Rendering: Flat 2D cartoon illustration, like a clean hand-drawn sticker. One consistent
+rounded warm-charcoal outline weight throughout, smooth large shapes, solid matte colors.
+Absolutely no gradients, painted shading, feather detail, realistic anatomy, gloss, texture,
+lighting effects, or 3D.
+
+Palette: Warm ivory cream head/crest/chest/belly, chestnut brown back and wings, golden ochre
+beak/legs/feet, warm-charcoal outlines and eyes, muted peach-pink cheeks. No purple and no
+neon on the bird.
+
+Composition: Exactly one full-body bird, centered with clear margins. All crest tips, both
+wings, both legs and all toes fully visible inside the frame. Keep the crest above all other
+parts of the bird, including the wingtips. Leave room to the sides for the posed wings. No
+text, labels, props, clothing, badges, scenery, ground shadow, glow, or duplicate views.
+This is a static pose study, not an illustration of a scene.
+
+Technical background: Perfectly uniform solid chroma green RGB 0,255,0, edge-to-edge. The
+green is a temporary removable technical background only; no green spill, no reflected green,
+no gradient, and no floor.

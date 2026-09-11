@@ -7,12 +7,12 @@ iOS first via Expo; Supabase backend.
 Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 **Flock** (the squad) and **You**.
 
-The UI alignment branch combines the progress dashboard, scrubbable Sky minimap,
+The aligned UI baseline combines the progress dashboard, scrubbable Sky minimap,
 quiet light/dark surfaces, interactive flock perch and best-day sharing. See
 [the mobile preview guide](docs/engineering/mobile-screen-preview.md) for the
 account-free sample screens and verification limits. System appearance retains
 the native `userInterfaceStyle: automatic` change and needs a compatible build;
-this branch does not deploy one.
+merging this work does not deploy one.
 
 Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
 `/difficulty`, `/privacy`, `/name` — grouped into the four phases the progress
@@ -63,6 +63,7 @@ the band above it and on the You tab.
 
 ## Docs
 
+- [Selected plush-eagle v3 direction](output/imagegen/plush-eagle-v3/README.md) — the preferred cleaned character concept, source studies, and local verification. The app still uses its existing canonical static assets; character/runtime replacement is separate work.
 - [`docs/app-store-listing.md`](./docs/app-store-listing.md) — the App Store name, subtitle, description and keywords, typed into App Store Connect by hand. It makes no privacy claim of its own and points at the policy, which is why it is not one of `claim-surfaces.test.ts`' registered surfaces.
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.
 - [`CONTEXT.md`](./CONTEXT.md) — the domain glossary: the words Kairo means and the words it refuses. Vocabulary only, no implementation.
