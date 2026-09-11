@@ -6,6 +6,7 @@ import { OnboardingCta } from './OnboardingCta.tsx';
 import { OnboardingFrame } from './OnboardingFrame.tsx';
 import { beatCta, type OnboardingBeat } from './beats.ts';
 import { ONBOARDING_SCREEN_COPY } from './onboarding-screen-copy.ts';
+import { privacyCardSpokenLabel } from './privacy-card-copy.ts';
 
 export type PrivacyScreenProps = { beat: OnboardingBeat }
   & { onBack: () => void }
@@ -92,22 +93,25 @@ function PrivacyCard({
   const styles = useStyles(makeStyles);
   const { colors, ramp } = useTheme();
   const hidden = { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const;
+  const spokenLabel = privacyCardSpokenLabel({ title, body, required: locked });
   return (
     <View style={styles.card}>
       <View {...hidden} style={[styles.iconDisc, { backgroundColor: ramp.neutral[200] }]}>
         <MaterialCommunityIcons name={icon} size={23} color={tint} />
       </View>
-      <View {...hidden} style={styles.cardBody}>
-        <Text scale="chrome" style={styles.cardTitle}>{title}</Text>
-        <Text scale="chrome" style={styles.cardText}>{body}</Text>
+      <View accessible accessibilityLabel={spokenLabel} style={styles.cardBody}>
+        <Text {...hidden} scale="chrome" style={styles.cardTitle}>{title}</Text>
+        <Text {...hidden} scale="chrome" style={styles.cardText}>{body}</Text>
       </View>
       {locked ? (
-        <View accessible accessibilityLabel={copy.requiredLabel(title)} style={styles.lock}>
-          <MaterialCommunityIcons {...hidden} name="lock" size={14} color={colors.accentDeep} />
+        <View {...hidden} style={styles.lock}>
+          <MaterialCommunityIcons name="lock" size={14} color={colors.accentDeep} />
         </View>
       ) : (
         <Switch
+          accessibilityRole="switch"
           accessibilityLabel={title}
+          accessibilityHint={body}
           value={value}
           onValueChange={onChange}
           trackColor={{ true: colors.teal, false: colors.borderStrong }}

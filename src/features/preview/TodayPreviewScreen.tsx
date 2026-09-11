@@ -32,7 +32,7 @@ export function TodayPreviewScreen({ state, fixture, onRetry, onWhackBack }: {
   const [details, setDetails] = useState(false);
   const insets = useSafeAreaInsets();
   const dashboard = previewDashboard(state, fixture);
-  const { day: { steps }, level, mirror } = dashboard;
+  const { level, mirror } = dashboard;
   const stage = evolutionStageForLevel(level);
   const { colors } = useTheme();
   return (
@@ -98,7 +98,7 @@ export function TodayPreviewScreen({ state, fixture, onRetry, onWhackBack }: {
                     {copy.detailsBody}
                   </Text>
                   <Text style={tw.style('pt-md', font.display.small, { color: colors.text })}>
-                    {previewReadings(steps, state === 'empty' ? 0 : 342)}
+                    {previewReadings(dashboard.day.steps, dashboard.day.activeKcal)}
                   </Text>
                 </Panel>
               )}

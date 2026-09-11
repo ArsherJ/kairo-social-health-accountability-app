@@ -12,7 +12,7 @@ import { Text, useStyles } from '@/ui/index.ts';
 // puts the two numbers in a module root Vitest can load.
 import { SKY_FIGURE, SKY_SELF_FIGURE } from './flight-frame.ts';
 import { raceLaneLabel } from './race-label.ts';
-import { skyMarkerLabelAbove } from './sky-marker-label.ts';
+import { skyMarkerLayout } from './sky-marker-label.ts';
 
 /**
  * One bird on the corridor.
@@ -43,6 +43,8 @@ const HIDDEN = {
   importantForAccessibility: 'no-hide-descendants',
 } as const;
 
+const LABEL_MAX_WIDTH = 120;
+
 export function SkyMarker({
   racer,
   placement,
@@ -68,10 +70,13 @@ export function SkyMarker({
   const size = racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE;
   const [pillHeight, setPillHeight] = useState(0);
   const styles = useStyles(makeStyles);
-  const labelAbove = skyMarkerLabelAbove({
+  const layout = skyMarkerLayout({
+    placementX: placement.x,
     placementY: placement.y,
+    boxWidth,
     boxHeight,
     figureSize: size,
+    labelMaxWidth: LABEL_MAX_WIDTH,
     pillHeight,
     gap: space.xs,
     bottomClearance,
@@ -84,8 +89,10 @@ export function SkyMarker({
       style={[
         styles.marker,
         {
-          left: placement.x * boxWidth - size / 2,
-          top: placement.y * boxHeight - size / 2,
+          left: layout.figureLeft,
+          top: layout.figureTop,
+          width: size,
+          height: size,
         },
       ]}
     >
@@ -95,34 +102,44 @@ export function SkyMarker({
 
       <View
         {...HIDDEN}
-        onLayout={(event) => {
-          const measured = event.nativeEvent.layout.height;
-          setPillHeight((current) => current === measured ? current : measured);
-        }}
         style={[
-          styles.pill,
-          racer.isSelf ? styles.pillSelf : styles.pillOther,
-          labelAbove ? [styles.pillAbove, { bottom: size + space.xs }] : null,
+          styles.labelSlot,
+          {
+            left: layout.labelSlotLeft,
+            width: LABEL_MAX_WIDTH,
+          },
+          layout.labelAbove
+            ? { bottom: size + space.xs }
+            : { top: size + space.xs },
         ]}
       >
-        <Text
-          scale="fixed"
-          numberOfLines={1}
-          style={[styles.pillLabel, racer.isSelf ? styles.inkSelf : styles.inkOther]}
+        <View
+          onLayout={(event) => {
+            const measured = event.nativeEvent.layout.height;
+            setPillHeight((current) => current === measured ? current : measured);
+          }}
+          style={[
+            styles.pill,
+            racer.isSelf ? styles.pillSelf : styles.pillOther,
+          ]}
         >
-          {racer.isSelf ? 'You' : racer.characterName}
-        </Text>
+          <Text
+            scale="fixed"
+            numberOfLines={1}
+            style={[styles.pillLabel, racer.isSelf ? styles.inkSelf : styles.inkOther]}
+          >
+            {racer.isSelf ? 'You' : racer.characterName}
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
 const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
-  // `alignItems: 'center'` and no width: the marker is as wide as its pill,
-  // which is as wide as the name. A fixed width would clip a long one and
-  // leave a short one floating off-centre.
-  marker: { position: 'absolute', alignItems: 'center', gap: space.xs },
+  marker: { position: 'absolute' },
   ghost: { opacity: 0.45 },
+  labelSlot: { position: 'absolute', alignItems: 'center' },
   pill: {
     paddingVertical: 4,
     paddingHorizontal: space.sm,
@@ -130,7 +147,6 @@ const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
     borderCurve: 'continuous',
     maxWidth: 120,
   },
-  pillAbove: { position: 'absolute', alignSelf: 'center' },
   // Amber for you, ink for everybody else — the same "you are the accent" rule
   // the whole app runs on. Both are fills with a readable ink on them, never
   // accent-coloured text.

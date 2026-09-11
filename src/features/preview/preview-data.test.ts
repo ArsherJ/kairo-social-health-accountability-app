@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   PREVIEW_FIXTURES,
@@ -30,9 +31,10 @@ describe('isolated screen fixtures', () => {
     expect(privateRows.map((row) => row.user_id)).toEqual(ready.map((row) => row.user_id));
     expect(privateRows.every((row) => row.steps === null && row.active_kcal === null)).toBe(true);
     expect(ready.some((row) => row.steps !== null)).toBe(true);
+    expect(previewSkyRacers('withheld', 'sky-wide-rival').racers).toHaveLength(0);
   });
   it('keeps the current self reading consistent across Today, Sky, and Flock fixtures', () => {
-    for (const fixture of ['standard', 'ridge', 'ceiling'] as const) {
+    for (const fixture of ['standard', 'ridge', 'ceiling', 'ghosts'] as const) {
       const todaySteps = previewDashboard('ready', fixture).day.steps;
       const flockSelf = previewMembers('ready', 'current', fixture).find((member) => member.is_self);
       const skySelf = previewSkyRacers('ready', fixture).racers.find((racer) => racer.isSelf);
@@ -84,8 +86,25 @@ describe('isolated screen fixtures', () => {
       .map((member) => [member.user_id, member.character_name])))
       .toEqual(Object.fromEntries(members.map((member) => [member.user_id, member.character_name])));
     expect(PREVIEW_FIXTURES.map((fixture) => fixture.id)).toEqual([
-      'standard', 'long-name', 'ridge', 'ceiling', 'no-sleep', 'ghosts',
+      'standard', 'long-name', 'ridge', 'ceiling', 'no-sleep', 'ghosts', 'sky-wide-rival',
     ]);
+  });
+  it('puts a maximum-width rival near the Sky ground-label threshold', () => {
+    const rival = previewSkyRacers('ready', 'sky-wide-rival').racers
+      .find((racer) => !racer.isSelf);
+
+    expect(rival).toMatchObject({
+      characterName: 'Hiraya ng Kalangitan',
+      steps: 400,
+    });
+  });
+  it('renders Today details from the same fixture day as the visible readings', () => {
+    const source = readFileSync('src/features/preview/TodayPreviewScreen.tsx', 'utf8');
+
+    expect(source).toContain(
+      'previewReadings(dashboard.day.steps, dashboard.day.activeKcal)',
+    );
+    expect(source).not.toMatch(/previewReadings\([^)]*342/);
   });
   it('builds solo ghost days through the real race resolver', () => {
     const { racers, ghostIndexes } = previewSkyRacers('ready', 'ghosts');

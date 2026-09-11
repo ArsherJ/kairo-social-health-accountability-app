@@ -5,6 +5,7 @@ import { HEALTH_DISCLOSURE } from '../health/disclosure.ts';
 import { INVITE_HOST } from '../squad/invite-link.ts';
 import { inviteMessage } from '../squad/invite-message.ts';
 import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from '../support/links.ts';
+import { privacyCardSpokenLabel } from '../onboarding/privacy-card-copy.ts';
 import { NO_TRAIL_CLAUSE, PRIVACY_CLAIM } from './claim-copy.ts';
 
 /**
@@ -450,7 +451,9 @@ describe('the privacy claim, across every surface that makes it', () => {
           if (props) {
             for (const prop of props) expect(source).toContain(prop);
             const binding = code(readFileSync(bindingPath ?? '', 'utf8'));
-            for (const key of keys) expect(binding).toContain(`PRIVACY_CLAIM.${key}`);
+            for (const [index, key] of keys.entries()) {
+              expect(binding).toContain(`${props[index]}={PRIVACY_CLAIM.${key}}`);
+            }
           } else {
             for (const key of keys) expect(source).toContain(`PRIVACY_CLAIM.${key}`);
           }
@@ -464,6 +467,35 @@ describe('the privacy claim, across every surface that makes it', () => {
       }
     });
   }
+});
+
+describe('the privacy beat spoken disclosure', () => {
+  it('speaks the required status and the complete injected Health claim', () => {
+    expect(privacyCardSpokenLabel({
+      title: 'Health data',
+      body: PRIVACY_CLAIM.healthRequired,
+      required: true,
+    })).toBe(`Health data. Required. ${PRIVACY_CLAIM.healthRequired}`);
+  });
+
+  it('speaks the complete injected sharing claim and binds it to the actionable switch', () => {
+    expect(privacyCardSpokenLabel({
+      title: 'Share totals with your flock',
+      body: PRIVACY_CLAIM.sharingTotals,
+      required: false,
+    })).toBe(`Share totals with your flock. ${PRIVACY_CLAIM.sharingTotals}`);
+
+    const source = code(readFileSync('src/features/onboarding/PrivacyScreen.tsx', 'utf8'));
+    expect(source).toContain(
+      'privacyCardSpokenLabel({ title, body, required: locked })',
+    );
+    expect(source).toContain('accessibilityLabel={spokenLabel}');
+    expect(source).toContain('accessibilityLabel={title}');
+    expect(source).toContain('accessibilityHint={body}');
+    expect(source).toContain('accessibilityRole="switch"');
+    expect(source).toContain('<Text {...hidden} scale="chrome" style={styles.cardTitle}>{title}</Text>');
+    expect(source).toContain('<Text {...hidden} scale="chrome" style={styles.cardText}>{body}</Text>');
+  });
 });
 
 describe('the pages that carry the claim to a stranger', () => {

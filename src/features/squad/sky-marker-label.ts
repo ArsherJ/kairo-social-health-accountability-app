@@ -7,6 +7,19 @@ export interface SkyMarkerLabelInput {
   bottomClearance: number;
 }
 
+export interface SkyMarkerLayoutInput extends SkyMarkerLabelInput {
+  placementX: number;
+  boxWidth: number;
+  labelMaxWidth: number;
+}
+
+export interface SkyMarkerLayout {
+  figureLeft: number;
+  figureTop: number;
+  labelSlotLeft: number;
+  labelAbove: boolean;
+}
+
 function nonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -22,4 +35,14 @@ export function skyMarkerLabelAbove(input: SkyMarkerLabelInput): boolean {
     + nonNegative(input.gap)
     + nonNegative(input.pillHeight);
   return remainingTail < requiredTail;
+}
+
+/** Anchor the bird to path geometry and position its independently sized label. */
+export function skyMarkerLayout(input: SkyMarkerLayoutInput): SkyMarkerLayout {
+  return {
+    figureLeft: input.placementX * input.boxWidth - input.figureSize / 2,
+    figureTop: input.placementY * input.boxHeight - input.figureSize / 2,
+    labelSlotLeft: (input.figureSize - input.labelMaxWidth) / 2,
+    labelAbove: skyMarkerLabelAbove(input),
+  };
 }

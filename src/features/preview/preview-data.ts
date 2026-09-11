@@ -31,6 +31,7 @@ export const PREVIEW_FIXTURES = [
   { id: 'ceiling', label: 'Ceiling + reaction' },
   { id: 'no-sleep', label: 'No sleep' },
   { id: 'ghosts', label: 'Ghost days' },
+  { id: 'sky-wide-rival', label: 'Wide sky label' },
 ] as const;
 
 export type PreviewFixture = (typeof PREVIEW_FIXTURES)[number]['id'];
@@ -196,7 +197,18 @@ export function previewSkyRacers(
   state: PreviewState,
   fixture: PreviewFixture = 'standard',
 ) {
-  const members = previewMembers(fixture === 'ghosts' ? 'empty' : state, 'current', fixture);
+  const allMembers = previewMembers(state, 'current', fixture);
+  const members = fixture === 'ghosts'
+    ? allMembers.filter((member) => member.is_self)
+    : fixture === 'sky-wide-rival'
+      ? allMembers
+        .filter((member) => member.is_self || member.character_name === 'Ramon')
+        .map((member) => member.is_self ? member : {
+          ...member,
+          character_name: LONG_NAMES[1],
+          steps: member.steps === null ? null : 400,
+        })
+      : allMembers;
   const memberRacers = members.flatMap((member) => member.steps === null ? [] : [{
     userId: member.user_id,
     characterName: member.character_name,

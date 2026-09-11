@@ -72,7 +72,11 @@ Browser inspection is useful for a 320-point layout and pointer-driven minimap
 drag, but it does not prove iOS native behavior. The current browser baseline
 also logs known development warnings for legacy shadow props, `pointerEvents`,
 image tint, and the native animation-driver fallback; those warnings predate
-this redesign. Simulator automation can verify minimap taps and accessible
+this redesign. The final native Metro pass also emitted
+`Sending onAnimatedValueUpdate with no listeners registered.` twice around a
+bundle/QA reload. That native warning has no established pre-redesign baseline;
+no runtime error or red screen accompanied it, and this pass did not change a
+dependency to suppress it. Simulator automation can verify minimap taps and accessible
 increment/decrement actions, but its coordinate drag/scroll is unreliable, so
 native drag must remain explicitly unverified unless a human gesture or other
 reliable native tool performs it.
@@ -80,8 +84,7 @@ reliable native tool performs it.
 No Accessibility Inspector, physical-device, TestFlight, authenticated account,
 real Health grant, profile insert, consent mutation, invite, or whack is claimed
 by this preview pass. Those require separate release validation and, where
-applicable, a directed test account. Automated and simulator results for the
-warm-pastel pass are recorded in the implementation plan and Task 8 report.
+applicable, a directed test account.
 
 The 2026-09-11 account-free matrix covered all four tabs and all seven
 onboarding views in both schemes on the iPhone 17 simulator, after a cold
@@ -94,6 +97,29 @@ limits above remain unverified; no six-member visual fixture is claimed.
 Representative before/final captures are in the
 [2026-09-11 preview evidence](../../output/ui-redesign/2026-09-11/); experimental,
 issue, and full-window browser captures are intentionally excluded.
+
+The branch-wide review then found two presentation gaps and three verification
+gaps. Its fix wave makes each privacy card's complete injected disclosure
+available to assistive technology while leaving the sharing switch as a
+separate action; fixes the Sky bird to a figure-sized path anchor while its
+120-point label moves independently above or below; keeps the Ghost fixture's
+current self at 6,840 steps across Today, Sky, and Flock; and makes Ceiling
+details read the fixture day's 10,000 steps and 1,200 active kcal. **Wide sky
+label** is a preview-only fixture for the 44-point rival/120-point pill boundary:
+it places the named 400-step rival near the ground threshold while pure tests
+pin both exact sides and the post-measurement transition. Chrome responsive
+inspection confirmed that same rival's label above at 320 points, below at 460,
+and above again after returning to 320, with the bird centered on the path in
+both schemes. Native iPhone 17 portrait confirmed the wide label above in both
+schemes; Long names also confirmed wide mid-flight/ridge labels below and
+path-centered after measurement in both schemes. The app is portrait-locked,
+so rotation is not native threshold evidence. Native accessibility-hierarchy
+inspection exposed both complete privacy claims and the separate switch, which
+toggled off to on; this was not a VoiceOver audio or Accessibility Inspector
+pass. The final scoped controller verdict remains pending for the controller to
+seal. Post-fix automated verification passed TypeScript/workspace/Edge Function
+checks and 2,256 tests (495 core and 1,761 root/schema), with `git diff --check`
+clean; this paragraph records the evidence, not approval in advance.
 
 ## Implementation boundary
 

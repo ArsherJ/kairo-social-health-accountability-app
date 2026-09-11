@@ -642,23 +642,46 @@ Commit verified application/docs changes with an explicit file list, leaving mai
 
 ## Verification record
 
-Tasks 1–8 are implemented on `codex/plush-ui-redesign`; Task 8 implementation
-and controller QA are complete, with the independent Task 8 and whole-branch
-review still pending after its commit. Final Task 8 verification, run after the
-last application edit: `npm run typecheck` exit 0; `npm test` exit 0 with 495
-core and 1,755 root/schema tests (2,250 total); `git diff --check` exit 0. No
-package, native configuration, backend, schema, asset, production resolver, or
-gameplay-rule change is in Task 8.
+Tasks 1–8 are implemented on `codex/plush-ui-redesign`. Their pre-review
+verification, run after the last Task 8 application edit, was `npm run
+typecheck` exit 0; `npm test` exit 0 with 495 core and 1,755 root/schema tests
+(2,250 total); `git diff --check` exit 0. The independent whole-branch review
+subsequently returned two Important findings (privacy disclosure speech and a
+label-dependent Sky bird anchor) and three Minor findings (privacy binding
+guards, fixture consistency, and durable verification documentation). One
+bounded fix wave addresses those five findings without package, native
+configuration, backend, schema, asset, production resolver, path/minimap,
+gameplay-rule, character, Welcome, or Difficulty-shadow changes.
 
 Controller account-free QA passed all four tabs and all seven onboarding views
 in both schemes on an iPhone 17 simulator, cold-relaunch XXXL coverage, and
 Chrome responsive 320×598 coverage. Native Share was canceled without sending;
 browser minimap drag and native tap/accessibility actions are separate evidence.
 Original text size large, system light, and Reduce Motion off were restored.
-Native drag, Accessibility Inspector, physical device, TestFlight, authenticated
-Health/account actions, and a six-member visual fixture are not claimed. Exact
-outcomes and limitations are in
-`.superpowers/sdd/2026-09-11-plush-ui-redesign/task-8-report.md` and
-`task-8-final-qa.md`. No Task 8 reviewer was dispatched under the controller's
-explicit instruction during implementation; the controller's independent review
-will determine whether Task 8 step 5 can be checked.
+Exact limits remain: native minimap drag, Accessibility Inspector, physical
+device, TestFlight, authenticated Health/account actions, production Today
+details, real Settings, eligible StatRail, and a six-member visual fixture are
+not claimed. Browser QA retains four known development warnings for legacy
+shadow props, `pointerEvents`, image tint, and native animation-driver fallback.
+Native Metro also logged the unbaselined warning `Sending onAnimatedValueUpdate
+with no listeners registered.` twice around a reload, without a runtime error
+or red screen.
+
+The fix wave's pure/source guards cover the exact claim-to-prop and spoken-label
+bindings; a 44-point bird with a 120-point rival label immediately on both sides
+of the exact relocation threshold and after pill-height measurement; Ghost
+self-reading parity; the preview-only wide-rival state; and Today details bound
+to `dashboard.day`. Native accessibility-hierarchy inspection has confirmed
+both complete privacy claim payloads, the separate switch toggling off to on,
+unchanged light/dark paint, and the 400-step wide rival centered on the path
+with its pill above in portrait. This is not a VoiceOver audio or Accessibility
+Inspector pass. Chrome responsive inspection confirmed the same rival above at
+320 points, below at 460, and above again on return to 320 in both schemes,
+without moving its bird off the path. Native Long names inspection likewise
+kept wide mid-flight and ridge labels below and their birds centered after
+measurement in both schemes. Ghost self now reads 6,840 on Today/Flock and 68%
+on Sky; Ceiling details now agree with the same day's 10,000 steps and 1,200
+active kcal. Final post-fix verification passed `npm run typecheck`, 495 core
+tests, 1,761 root/schema tests (2,256 total), and `git diff --check`. The final
+scoped-review verdict remains pending for the controller to seal; Task 8 step 5
+stays unchecked until then.
