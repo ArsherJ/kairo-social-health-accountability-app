@@ -21,8 +21,8 @@ import { pointAt, type Placement } from '@kairo/core';
  * `boxHeight`, so the map and the flight cannot disagree about where a bird is.
  */
 
-/** The strip's width, in points. Narrow enough to sit beside the corridor. */
-export const MINIMAP_WIDTH = 40;
+/** The strip is also the scrub responder, so its width meets the 44-point touch minimum. */
+export const MINIMAP_WIDTH = 44;
 
 /** Horizontal breathing room inside the strip, so a dot never touches its edge. */
 const PAD_X = 9;

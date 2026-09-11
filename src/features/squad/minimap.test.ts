@@ -91,6 +91,10 @@ describe('the window', () => {
 });
 
 describe('a touch on the strip', () => {
+  it('reserves at least 44 points of width for the scrub responder', () => {
+    expect(MINIMAP_WIDTH).toBeGreaterThanOrEqual(44);
+  });
+
   it('scrolls to centre the screen on the touched point, clamped to the flight', () => {
     const g = PHONES[0]!;
     const middle = offsetForMapY(g, g.mapHeight / 2);

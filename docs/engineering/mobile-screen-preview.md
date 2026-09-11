@@ -1,7 +1,8 @@
 # Mobile screen preview
 
-Integration branch: `codex/ui-alignment`, combining `claude/mobile-app-ui-redesign-j5knw2`
-and `codex/mobile-screen-refresh`. Worktree: `.worktrees/ui-alignment`.
+This UI baseline was integrated on `codex/ui-alignment` from
+`claude/mobile-app-ui-redesign-j5knw2` and `codex/mobile-screen-refresh`.
+The commands below run from the repository checkout, including `main` after integration.
 
 When a preview is requested, run `npm run preview:ui`, then open <http://localhost:8082>.
 The alignment pass intentionally leaves the preview and simulator stopped.
@@ -14,6 +15,10 @@ The preview requires no account, health permission, or Supabase connection.
 - Sky: shared flight and right-side scrubbable minimap, step-driven trail fill, flock rail, find-my-bird control and explanation toggle. Path geometry is unchanged; changing its shape belongs to the later redesign.
 - You: profile, streak, selectable best days and the platform text-share action.
 - Onboarding: refreshed welcome beat with expandable explanation. Continue/Skip returns to Today in the preview; the real route retains the existing onboarding flow.
+
+The minimap strip is at least 44 points wide because the strip itself handles touch/drag.
+The pre-merge accessibility correction widens it from 40 to 44 points; the underlying flight
+geometry, vertical scrub mapping, and step progression are unchanged.
 
 Use the toolbar to switch light/dark and Ready/Loading/Empty/Private/Error fixtures.
 Private readings stay null and members remain visible. Error provides retry.
