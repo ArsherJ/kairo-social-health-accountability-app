@@ -5,6 +5,7 @@ import { evolutionStageForLevel } from '@kairo/core';
 import { Diorama } from '../character/Diorama.tsx';
 import { TodayChips } from '../character/TodayHud.tsx';
 import { TodayNextStep } from '../character/TodayNextStep.tsx';
+import { TodayProgressHero } from '../character/TodayProgressHero.tsx';
 import { QuestRows, TodayTiles } from '../character/TodayBoard.tsx';
 import { dateHeading } from '../character/today-board.ts';
 import { nextStepSentence } from '../quests/next-step.ts';
@@ -38,7 +39,7 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
         )
         : (
           <View style={tw.style('px-lg', { paddingTop: insets.top + space.md })}>
-            <View style={tw`flex-row items-center gap-sm pb-md`}>
+            <View style={tw`flex-row flex-wrap items-center gap-sm pb-md`}>
               <View style={tw`flex-1`}>
                 <Text scale='chrome' style={{ ...font.body.label, color: colors.muted }}>
                   {dateHeading(PREVIEW_TODAY)}
@@ -53,26 +54,26 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
                 streak={state === 'empty' ? 0 : 4}
               />
             </View>
-            <Diorama
-              height={236}
-              level={level}
-              stage={stage}
-              location={location}
-              figure={{ kind: 'pose', pose: steps > 0 ? 'walk' : 'idle' }}
-              body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
-              lifetimePoints={PREVIEW_POINTS}
-              figureLabel={`${copy.name}, level ${level}, at the ${location}.`}
+            <TodayProgressHero
+              motion={dashboard.motion}
+              character={(
+                <Diorama
+                  height={208}
+                  level={level}
+                  stage={stage}
+                  location={location}
+                  figure={{ kind: 'pose', pose: steps > 0 ? 'walk' : 'idle' }}
+                  body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
+                  lifetimePoints={PREVIEW_POINTS}
+                  figureLabel={`${copy.name}, level ${level}, at the ${location}.`}
+                />
+              )}
             />
             <View>
               <TodayNextStep
                 sentence={nextStepSentence(dashboard.next, copy.name)}
                 onDetails={() => setDetails((value) => !value)}
                 showDetails
-              />
-              <TodayTiles motion={dashboard.motion} body={dashboard.body} mind={dashboard.mind} />
-              <QuestRows
-                quests={dashboard.quests}
-                selected={dashboard.next.kind === 'quest' ? dashboard.next.index : null}
               />
               {details && (
                 <Panel>
@@ -90,6 +91,11 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
                   </Text>
                 </Panel>
               )}
+              <TodayTiles body={dashboard.body} mind={dashboard.mind} />
+              <QuestRows
+                quests={dashboard.quests}
+                selected={dashboard.next.kind === 'quest' ? dashboard.next.index : null}
+              />
               {state === 'ready' && <WhackBanner senderName='Rty' onWhackBack={onWhackBack} />}
             </View>
           </View>

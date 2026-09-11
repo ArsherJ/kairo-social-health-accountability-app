@@ -610,9 +610,8 @@ type SceneStop = { color: string; at: number };
 export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; fade: SceneStop[] }> = {
   light: {
     sky: [
-      { color: themes.light.ramp.sky[400], at: 0 },
-      { color: '#8fe0ff', at: 0.42 },
-      { color: themes.light.ramp.sky[200], at: 0.74 },
+      { color: themes.light.ramp.sky[200], at: 0 },
+      { color: themes.light.ramp.sage[100], at: 0.7 },
       { color: themes.light.colors.bg, at: 1 },
     ],
     crest: [
@@ -628,9 +627,8 @@ export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; 
   },
   dark: {
     sky: [
-      { color: themes.dark.ramp.sky[900], at: 0 },
-      { color: themes.dark.ramp.sky[300], at: 0.42 },
-      { color: themes.dark.ramp.sky[200], at: 0.74 },
+      { color: themes.dark.ramp.sky[200], at: 0 },
+      { color: themes.dark.ramp.sage[100], at: 0.7 },
       { color: themes.dark.colors.bg, at: 1 },
     ],
     crest: [

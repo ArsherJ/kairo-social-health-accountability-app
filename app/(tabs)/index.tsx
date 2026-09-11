@@ -25,6 +25,7 @@ import { useSessionStore } from '@/features/auth/session.ts';
 import { Diorama } from '@/features/character/Diorama.tsx';
 import { TodayDetailsSheet } from '@/features/character/TodayDetailsSheet.tsx';
 import { TodayNextStep } from '@/features/character/TodayNextStep.tsx';
+import { TodayProgressHero } from '@/features/character/TodayProgressHero.tsx';
 import { ceilingLine, restedLine, spreadLine } from '@/features/character/kairo-voice.ts';
 import { useTodayBuckets, useTodayVitals } from '@/features/character/buckets.ts';
 import {
@@ -109,15 +110,15 @@ function markFirstScoreSeen(userId: string): void {
 }
 
 /**
- * How tall the scene card is.
+ * How tall the scene inside the progress hero is.
  *
  * Fixed rather than a fraction of the screen, because the figure inside it is
  * sized from this (`Diorama` draws the character at `height * 0.6`) and a bird
  * that changed size between a 320pt and a 440pt phone would read as a different
- * bird. Half the old hero (deviation #72): the scene is one tile of the
- * dashboard now, and the day's figures sit beside it rather than over it.
+ * bird. The progress hero keeps this compact so Motion and KAIRO share the
+ * first viewport instead of becoming two independent cards.
  */
-const SCENE_HEIGHT = 236;
+const SCENE_HEIGHT = 208;
 
 /**
  * The neutral day, for the frame before buckets land.
@@ -457,14 +458,15 @@ export default function Today() {
         <View style={[styles.page, { paddingTop: insets.top + space.md }]}>
           {
             /* The date in the player's own zone (§2), never the device's, and
-              the character's name under it: the day belongs to somebody. */
+              the character's name under it: the day belongs to somebody. Both
+              remain in flow when the words or chips need another line. */
           }
           <View style={styles.header}>
             <View style={styles.headerWords}>
-              <Text scale='chrome' numberOfLines={1} style={styles.date}>
+              <Text scale='chrome' style={styles.date}>
                 {localToday ? dateHeading(localToday) : 'Today'}
               </Text>
-              <Text scale='chrome' numberOfLines={1} style={styles.name}>
+              <Text scale='chrome' style={styles.name}>
                 {characterName}
               </Text>
             </View>
@@ -472,31 +474,36 @@ export default function Today() {
           </View>
 
           {
-            /* The bird, in its sky, standing where today put it — one card of
-              the dashboard rather than the page's header. `Diorama` owns the
-              scenery, the figure, the ground shadow and the sky's fade; the
-              location word is the Motion tile's eyebrow now, so nothing floats
-              over the picture. */
+            /* Motion and the bird share one focused card. `Diorama` still owns
+              the scenery, figure, ground shadow and sky fade; the hero only
+              places that unchanged character beside its derived reading. */
           }
-          <View style={styles.scene}>
-            <Diorama
-              height={SCENE_HEIGHT}
-              level={level}
-              stage={stage}
-              location={mirror.motion.location}
-              figure={mirror.figure}
-              body={mirror.body}
-              dominance={dominance.data}
-              lifetimePoints={lifetimePoints}
-              figureLabel={livingCharacterLabel({
-                characterName,
-                level,
-                location: mirror.motion.location,
-                mind: mirror.mind,
-              })}
-              crest={ceilingReached}
-            />
-          </View>
+          {buckets.data && (
+            <View style={styles.scene}>
+              <TodayProgressHero
+                motion={motion}
+                character={(
+                  <Diorama
+                    height={SCENE_HEIGHT}
+                    level={level}
+                    stage={stage}
+                    location={mirror.motion.location}
+                    figure={mirror.figure}
+                    body={mirror.body}
+                    dominance={dominance.data}
+                    lifetimePoints={lifetimePoints}
+                    figureLabel={livingCharacterLabel({
+                      characterName,
+                      level,
+                      location: mirror.motion.location,
+                      mind: mirror.mind,
+                    })}
+                    crest={ceilingReached}
+                  />
+                )}
+              />
+            </View>
+          )}
 
           {
             /* One sentence, and the door to the sentences that explain the day.
@@ -520,14 +527,13 @@ export default function Today() {
           />
 
           {
-            /* The day, in real units. Motion is the hero because steps have
-              been the one big figure since deviation #30 and the walk's meter
-              under it is the ridge — one number, two readings (#56). */
+            /* The supporting day readings, in real units. Motion is already in
+              the progress hero above; Body and Mind stay paired here. */
           }
           {buckets.data
             ? (
               <>
-                <TodayTiles motion={motion} body={body} mind={mind} />
+                <TodayTiles body={body} mind={mind} />
 
                 <QuestRows
                   quests={quests}
@@ -606,10 +612,9 @@ const makeStyles = ({ colors }: Theme) =>
   StyleSheet.create({
     /** The page pads itself: `Screen bleed` hands the insets back. */
     page: { paddingHorizontal: space.lg },
-    header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-    // `flex: 1` + `minWidth: 0` so a long name truncates rather than pushing
-    // the chips off the row at large Dynamic Type.
-    headerWords: { flex: 1, minWidth: 0 },
+    header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
+    // A long name wraps in flow; the chips move to another line when needed.
+    headerWords: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 },
     date: { ...font.body.label, color: colors.muted, textTransform: 'uppercase' },
     name: { ...font.display.major, fontSize: 26, color: colors.text, marginTop: 2 },
     scene: { marginTop: space.md },

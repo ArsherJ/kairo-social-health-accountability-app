@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync('app/(tabs)/index.tsx', 'utf8');
+const boardSource = readFileSync('src/features/character/TodayBoard.tsx', 'utf8');
 
 /**
  * Today's composition, as the dashboard (deviation #72, over #59).
@@ -13,11 +14,16 @@ const source = readFileSync('app/(tabs)/index.tsx', 'utf8');
  */
 describe('Today dashboard composition', () => {
   it('renders the scene, the sentence, the tiles, the quest rows and the details', () => {
+    expect(source).toContain('<TodayProgressHero');
     expect(source).toContain('<Diorama');
     expect(source).toContain('<TodayNextStep');
     expect(source).toContain('<TodayTiles');
     expect(source).toContain('<QuestRows');
     expect(source).toContain('<TodayDetailsSheet');
+  });
+
+  it('keeps Motion in the progress hero rather than the supporting tiles', () => {
+    expect(boardSource).not.toContain('motion: TileReading');
   });
 
   it('composes every tile through the tested module, never inline', () => {

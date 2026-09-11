@@ -110,7 +110,7 @@ export function Diorama({
       <Gradient stops={crest ? stops.crest : stops.sky} />
 
       {
-        /* The sun, and three clouds drifting behind the figure.
+        /* The sun, and two quiet clouds drifting behind the figure.
 
           These replace the two anonymous soft bodies that stood here while the
           sky was a sage field. The bodies existed so the ramp would not read as
@@ -119,25 +119,16 @@ export function Diorama({
           hedge: it can carry the literal objects, and a sun and a few clouds
           are what stop it reading as a gradient.
 
-          All four are `pointerEvents="none"` by virtue of sitting under the
-          figure and the HUD, and all four are decoration — the sky's meaning is
+          All three are `pointerEvents="none"` by virtue of sitting under the
+          figure and the HUD, and all three are decoration — the sky's meaning is
           carried by `crest` and by `ceilingLine`, never by the weather here. */
       }
-      <View style={[styles.sun, { top: -height * 0.16, right: -60 }]} />
+      <View style={[styles.sun, { top: -height * 0.08, right: -28 }]} />
       <View
-        style={[styles.cloud, { top: height * 0.19, left: -40, width: 180, height: 62 }]}
+        style={[styles.cloud, { top: height * 0.2, left: 18, width: 72, height: 24 }]}
       />
       <View
-        style={[
-          styles.cloud,
-          { top: height * 0.33, right: -30, width: 150, height: 52, opacity: 0.7 },
-        ]}
-      />
-      <View
-        style={[
-          styles.cloud,
-          { top: height * 0.53, left: 44, width: 120, height: 40, opacity: 0.55 },
-        ]}
+        style={[styles.cloud, { top: height * 0.34, right: 24, width: 52, height: 18 }]}
       />
 
       {
@@ -198,7 +189,7 @@ export function Diorama({
   );
 }
 
-const makeStyles = ({ ramp, scheme }: Theme) =>
+const makeStyles = ({ colors, ramp, scheme }: Theme) =>
   StyleSheet.create({
     /**
      * A card now (deviation #72): the scene is one tile of the dashboard rather
@@ -214,34 +205,36 @@ const makeStyles = ({ ramp, scheme }: Theme) =>
      * A cloud: a white capsule, not a circle.
      *
      * The design blurs these; there is no blur here (see `Glass` for why the app
-     * owns no native blur) and none is needed — at 46% white on a saturated blue
-     * a hard capsule edge is already soft enough to read as vapour, and the
-     * figure sits in front of all three.
+     * owns no native blur) and none is needed. A low-opacity light surface keeps
+     * the capsules behind the figure instead of turning them into status bars.
      */
     cloud: {
       position: 'absolute',
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
+      backgroundColor: scheme === 'dark' ? colors.text : colors.surface,
       // Faint at night: a bright cloud on a night sky reads as a lamp.
-      backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.72)',
+      opacity: scheme === 'dark' ? 0.12 : 0.3,
     },
     /**
-     * The sun, mostly off the top-right corner.
+     * A compact sun tucked into the top-right corner.
      *
      * Gold rather than the accent: this is warmth in the scene and not a figure
      * about the player, and putting `colors.accent` in the sky would be the one
      * orange on this screen that does not mean "you" — which is the distinction
      * `earnedColor`'s own comment spends a paragraph on. A flat disc rather than
      * the design's radial gradient: `Gradient` bands only linearly, and a radial
-     * one built from concentric views is a great deal of machinery for a shape
-     * that is three-quarters off-screen.
+     * one built from concentric views is a great deal of machinery for a small
+     * supporting shape.
      */
     sun: {
       position: 'absolute',
-      width: 220,
-      height: 220,
+      width: 104,
+      height: 104,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       backgroundColor: ramp.gold[300],
-      opacity: scheme === 'dark' ? 0.55 : 0.85,
+      opacity: scheme === 'dark' ? 0.24 : 0.42,
     },
     stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   });

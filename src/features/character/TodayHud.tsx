@@ -73,7 +73,13 @@ export function TodayChips({
 
 const makeStyles = ({ colors, ramp }: Theme) =>
   StyleSheet.create({
-    chipRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+    chipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: space.sm,
+    },
     levelChip: {
       flexDirection: 'row',
       alignItems: 'center',

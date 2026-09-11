@@ -1,48 +1,38 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { font, radius, space, type Theme } from '@/theme.ts';
 import { StatIcon, Text, Tile, useStyles, useTheme } from '@/ui/index.ts';
 import { questHeadline, questLabel, questProgressLine } from '../quests/quest-copy.ts';
 import type { TodayQuest } from '../quests/queries.ts';
+import { stackDashboard } from './dashboard-layout.ts';
 import type { TileReading } from './today-board.ts';
 
 /**
  * The dashboard's tiles and the quest list (deviation #72).
  *
  * Draws what `today-board.ts` composed and decides nothing: every sentence,
- * fraction and label arrives ready. The hero is Motion, because the day's one
- * big figure has been steps since deviation #30 and the ridge it climbs to is
- * the one number the app teaches; Body and Mind sit two across beneath it.
+ * fraction and label arrives ready. Motion lives with the character in
+ * `TodayProgressHero`; Body and Mind are its supporting pair here.
  *
  * The stat glyphs take their own hues (`STAT_COLORS`) — the same reason a
- * Flock row's do: three tiles with three eyebrows are told apart at a glance by
+ * Flock row's do: the supporting tiles are told apart at a glance by
  * colour before they are read.
  */
 export function TodayTiles({
-  motion,
   body,
   mind,
 }: {
-  motion: TileReading;
   body: TileReading;
   mind: TileReading;
 }) {
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = stackDashboard(width, fontScale);
   const styles = useStyles(makeStyles);
   const { colors, ramp } = useTheme();
 
   return (
     <View style={styles.tiles}>
-      <Tile
-        size="hero"
-        eyebrow={motion.eyebrow}
-        figure={motion.figure}
-        unit={motion.unit}
-        caption={motion.caption}
-        meter={motion.fraction === null ? null : { fraction: motion.fraction, color: colors.accent }}
-        accessibilityLabel={motion.label}
-        glyph={<StatIcon stat="AGI" size={14} />}
-      />
-      <View style={styles.pair}>
+      <View style={[styles.pair, stacked && styles.pairStacked]}>
         <Tile
           eyebrow={body.eyebrow}
           figure={body.figure}
@@ -150,8 +140,9 @@ export function QuestRows({
 
 const makeStyles = ({ colors, ramp, shadow }: Theme) =>
   StyleSheet.create({
-    tiles: { gap: space.sm + 2, marginTop: space.md },
+    tiles: { marginTop: space.md },
     pair: { flexDirection: 'row', gap: space.sm + 2 },
+    pairStacked: { flexDirection: 'column' },
 
     card: {
       marginTop: space.md,

@@ -35,7 +35,7 @@ export const TodayNextStep = forwardRef<View, {
           style={(
             { pressed },
           ) => [
-            { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+            styles.detailsTarget,
             pressed && { opacity: 0.6 },
           ]}
         >
@@ -48,7 +48,7 @@ export const TodayNextStep = forwardRef<View, {
 
 const makeStyles = ({ colors }: Theme) =>
   StyleSheet.create({
-    nextStep: { gap: space.sm, paddingTop: space.md },
+    nextStep: { gap: space.xs, paddingTop: space.sm },
     sentence: {
       ...font.body.body,
       fontSize: 15,
@@ -61,4 +61,5 @@ const makeStyles = ({ colors }: Theme) =>
      * point of the screen.
      */
     detailsLink: { ...font.body.strong, color: colors.accentDeep },
+    detailsTarget: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   });

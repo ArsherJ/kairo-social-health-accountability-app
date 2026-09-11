@@ -40,9 +40,9 @@ export function GroundShadow({
  * a heavy STR figure, and because a ring is the one device this app reserves
  * for something earned (see `earnedColor`).
  *
- * `width` defaults to 2, the value it was fixed at before `figureResponse()`
- * began thickening it by level band — so nothing else that draws a ring
- * changed when that arrived.
+ * `width` defaults to 2, the semantic width it carried before
+ * `figureResponse()` began varying it by level band. This renderer quiets that
+ * answer into thin paint without changing the response or the ring's size.
  */
 export function PresenceRing({
   size,
@@ -55,7 +55,15 @@ export function PresenceRing({
 }) {
   return (
     <View
-      style={[styles.ring, { width: size, height: size, borderColor: color, borderWidth: width }]}
+      style={[
+        styles.ring,
+        {
+          width: size,
+          height: size,
+          borderColor: color,
+          borderWidth: Math.max(1, width * 0.55),
+        },
+      ]}
     />
   );
 }
@@ -65,7 +73,7 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderRadius: radius.pill,
-    borderWidth: 2,
-    opacity: 0.5,
+    borderCurve: 'continuous',
+    opacity: 0.2,
   },
 });
