@@ -18,7 +18,7 @@ and reveals two control rows:
 - **Screen state:** Ready, Loading, Empty, Private, Error. Private flock
   readings remain null; it never turns a withheld reading into measured zero.
 - **Fixtures:** Everyday, Long names, Ridge, Ceiling + reaction, No sleep,
-  Ghost days. The Today fixture passes readings through `resolveLivingMirror`;
+  Ghost days, Wide sky label. The Today fixture passes readings through `resolveLivingMirror`;
   the Ridge case
   reaches the `summit` pose through that resolver, and the ceiling sample uses
   the real reaction priority and growth ceiling. Long names reach all four tab
@@ -87,8 +87,10 @@ by this preview pass. Those require separate release validation and, where
 applicable, a directed test account.
 
 The 2026-09-11 account-free matrix covered all four tabs and all seven
-onboarding views in both schemes on the iPhone 17 simulator, after a cold
-relaunch at XXXL Dynamic Type, and in Chrome responsive 320×598. Native taps,
+onboarding views in both schemes at normal text size on the iPhone 17 simulator
+and in Chrome responsive 320×598. Cold-relaunch XXXL Dynamic Type covered all
+four tabs and all seven onboarding views in dark mode, with light-mode checks
+of all four tabs, Privacy, and shared controls. Native taps,
 accessible minimap adjustment, local states, the actual Name software keyboard,
 and native Share/Cancel were exercised; browser forward/reverse minimap drag
 was exercised separately. Text size `large`, system light appearance, and
@@ -116,10 +118,22 @@ path-centered after measurement in both schemes. The app is portrait-locked,
 so rotation is not native threshold evidence. Native accessibility-hierarchy
 inspection exposed both complete privacy claims and the separate switch, which
 toggled off to on; this was not a VoiceOver audio or Accessibility Inspector
-pass. The final scoped controller verdict remains pending for the controller to
-seal. Post-fix automated verification passed TypeScript/workspace/Edge Function
-checks and 2,256 tests (495 core and 1,761 root/schema), with `git diff --check`
-clean; this paragraph records the evidence, not approval in advance.
+pass. Final scoped re-review of `a048895..6d4cda4` found no remaining Critical or
+Important issue and no fix-introduced regression. Four findings were addressed;
+one Minor test-coverage finding is explicitly deferred: the guard pins route
+claim bindings and generic spoken-body use, but not the intervening
+`body={healthCopy}` / `body={sharingCopy}` bindings inside `PrivacyScreen`.
+Those bindings are correct in the code and both full claims were confirmed in
+the native accessibility hierarchy. A future missing or swapped child binding
+could nevertheless evade this source guard. The controller accepted that
+bounded coverage gap after the single final fix wave; it is not a claim of
+complete automated rendering coverage.
+
+Independent controller verification on `6d4cda4` passed
+TypeScript/workspace/Edge Function checks and 2,256 tests (495 core and 1,761
+root/schema), with `git diff --check` clean. The branch remains
+`codex/plush-ui-redesign`; `main` is unchanged, and no merge, push, deployment,
+native build, or account mutation was performed.
 
 ## Implementation boundary
 

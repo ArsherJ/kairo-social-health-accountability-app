@@ -625,7 +625,7 @@ Repeat at XXXL Dynamic Type after relaunch; verify at a narrow 320-point layout 
 
 Open/cancel share sheets but do not select a recipient. Do not submit the real name step, send a real invite/whack, mutate consent, or grant health access during preview QA. If authentic end-to-end verification needs an account, report it as separate work requiring the user's test-account direction.
 
-- [ ] **5. Review, document, and hand off.** Use requesting-code-review before integration; follow that skill's bounded reviewer instructions if available and inspect the review against actual diffs. Fix findings with targeted tests, re-run full verification after fixes, and only then mark tasks checked.
+- [x] **5. Review, document, and hand off.** Use requesting-code-review before integration; follow that skill's bounded reviewer instructions if available and inspect the review against actual diffs. Fix findings with targeted tests, re-run full verification after fixes, and only then mark tasks checked.
 
 Update governing docs with the new palette, combined Today hero, unchanged Sky math, themed onboarding, preview coverage, and exact verification limits. Read writing-for-agents before editing CLAUDE.md; update current-state rules and mark superseded visual eras as history, not competing current instructions. Update user-journey only for changed visible layout/policy-link behavior, not gameplay semantics. Do not auto-sync Notion.
 
@@ -654,8 +654,10 @@ configuration, backend, schema, asset, production resolver, path/minimap,
 gameplay-rule, character, Welcome, or Difficulty-shadow changes.
 
 Controller account-free QA passed all four tabs and all seven onboarding views
-in both schemes on an iPhone 17 simulator, cold-relaunch XXXL coverage, and
-Chrome responsive 320×598 coverage. Native Share was canceled without sending;
+in both schemes at normal text size on an iPhone 17 simulator and in Chrome
+responsive 320×598. Cold-relaunch XXXL covered all four tabs and all seven
+onboarding views in dark mode, with light-mode checks of all four tabs, Privacy,
+and shared controls. Native Share was canceled without sending;
 browser minimap drag and native tap/accessibility actions are separate evidence.
 Original text size large, system light, and Reduce Motion off were restored.
 Exact limits remain: native minimap drag, Accessibility Inspector, physical
@@ -682,6 +684,21 @@ kept wide mid-flight and ridge labels below and their birds centered after
 measurement in both schemes. Ghost self now reads 6,840 on Today/Flock and 68%
 on Sky; Ceiling details now agree with the same day's 10,000 steps and 1,200
 active kcal. Final post-fix verification passed `npm run typecheck`, 495 core
-tests, 1,761 root/schema tests (2,256 total), and `git diff --check`. The final
-scoped-review verdict remains pending for the controller to seal; Task 8 step 5
-stays unchecked until then.
+tests, 1,761 root/schema tests (2,256 total), and `git diff --check`. The
+controller independently repeated that complete verification on `6d4cda4` with
+exit 0 and the same counts.
+
+Final scoped re-review of `a048895..6d4cda4` confirms four findings addressed,
+no remaining Critical/Important issue, and no fix-introduced regression. One
+Minor coverage finding remains: exact route claim bindings and generic spoken
+body use are guarded, but `PrivacyScreen`'s intervening `body={healthCopy}` and
+`body={sharingCopy}` bindings are not pinned. The controller checked that both
+bindings are correct and both complete disclosure payloads reach native
+accessibility. This test-coverage gap is explicitly deferred after the single
+final fix wave; a future missing or swapped child binding could evade the guard.
+No second fix wave or silent dismissal occurred.
+
+All eight tasks are complete with that documented Minor deferral. Keep
+`codex/plush-ui-redesign` and its workspace as-is; `main` remains at
+`3b3cbdbe17d095deaff07de9c0e65293d2b2cc89`. No merge, push, deployment, native
+build, paid generation, or account mutation is part of this handoff.
