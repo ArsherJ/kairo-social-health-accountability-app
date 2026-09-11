@@ -98,7 +98,7 @@ export function SkyFlockRail({
           {...HIDDEN}
           name='account-multiple'
           size={14}
-          color={colors.accent}
+          color={colors.subtle}
         />
         <Text {...HIDDEN} scale='chrome' style={styles.titleText}>
           YOUR FLOCK TODAY
@@ -197,7 +197,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
   StyleSheet.create({
     rail: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 12, borderRadius: radius.lg },
     title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-    titleText: { ...font.body.label, color: colors.accentDeep },
+    titleText: { ...font.body.label, color: colors.text },
     /**
      * One row. **No `flexWrap`** — see the width budget on the module comment.
      * `center` rather than `space-between` so a squad of two sits together
@@ -214,6 +214,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       width: SEAT,
       height: SEAT,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2.5,
@@ -239,6 +240,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       width: 20,
       height: 20,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,

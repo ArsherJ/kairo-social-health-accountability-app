@@ -646,19 +646,13 @@ export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; 
 
 export const flightSky: Record<Scheme, SceneStop[]> = {
   light: [
-    { color: themes.light.ramp.sky[500], at: 0 },
-    { color: themes.light.ramp.sky[400], at: 0.26 },
-    { color: '#8fe0ff', at: 0.52 },
-    { color: '#cff1ff', at: 0.74 },
-    { color: '#ffe9c4', at: 0.92 },
-    { color: '#ffc58a', at: 1 },
+    { color: themes.light.ramp.sky[200], at: 0 },
+    { color: themes.light.ramp.sage[100], at: 0.7 },
+    { color: themes.light.colors.bg, at: 1 },
   ],
   dark: [
     { color: themes.dark.ramp.sky[900], at: 0 },
-    { color: '#12305e', at: 0.3 },
-    { color: '#1b4478', at: 0.55 },
-    { color: '#3a2d78', at: 0.78 },
-    { color: '#5a3a2a', at: 0.92 },
-    { color: '#7a4a22', at: 1 },
+    { color: themes.dark.ramp.sky[200], at: 0.7 },
+    { color: themes.dark.colors.bg, at: 1 },
   ],
 };

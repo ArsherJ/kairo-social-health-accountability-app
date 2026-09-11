@@ -10,13 +10,16 @@ export function SkyControls({ onLocate }: { onLocate?: () => void }) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   return (
-    <Glass tone='dark' style={{ padding: space.md, marginBottom: space.sm }}>
+    <Glass
+      tone='light'
+      style={{ paddingVertical: space.sm, paddingHorizontal: space.md, marginBottom: space.sm }}
+    >
       <View style={tw`flex-row items-center gap-sm`}>
         <View style={tw`flex-1 gap-xs`}>
-          <Text scale='chrome' style={{ ...font.body.label, color: colors.onDeep }}>
+          <Text scale='chrome' style={{ ...font.body.label, color: colors.subtle }}>
             {copy.eyebrow}
           </Text>
-          <Text style={{ ...font.display.minor, color: colors.onDeep }}>{copy.title}</Text>
+          <Text style={{ ...font.display.minor, color: colors.text }}>{copy.title}</Text>
         </View>
         {onLocate && (
           <Pressable
@@ -29,7 +32,7 @@ export function SkyControls({ onLocate }: { onLocate?: () => void }) {
             <MaterialCommunityIcons
               name='crosshairs-gps'
               size={24}
-              color={colors.onDeep}
+              color={colors.subtle}
               accessibilityElementsHidden
               importantForAccessibility='no-hide-descendants'
             />
@@ -46,14 +49,14 @@ export function SkyControls({ onLocate }: { onLocate?: () => void }) {
           <MaterialCommunityIcons
             name={expanded ? 'close' : 'information-outline'}
             size={24}
-            color={colors.onDeep}
+            color={colors.subtle}
             accessibilityElementsHidden
             importantForAccessibility='no-hide-descendants'
           />
         </Pressable>
       </View>
       {expanded && (
-        <Text style={tw.style('pt-md', font.body.body, { color: colors.onDeep, lineHeight: 22 })}>
+        <Text style={tw.style('pt-md', font.body.body, { color: colors.subtle, lineHeight: 22 })}>
           {copy.explanation}
         </Text>
       )}

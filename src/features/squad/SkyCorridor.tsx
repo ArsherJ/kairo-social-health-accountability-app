@@ -26,16 +26,19 @@ import { useStyles } from '@/ui/use-theme.ts';
  */
 
 /**
- * How many pieces the band is cut into. Forty-eight, so the curve reads as a
- * curve on every bend across a box four times the screen's height.
+ * How many pieces the band is cut into. Seventy-two keeps the finer trail
+ * smooth on every bend across a box four times the screen's height.
  */
-const SEGMENTS = 48;
+const SEGMENTS = 72;
 
 /**
  * The corridor's width, as a fraction of the box's **width** — the design's
- * `stroke-width: 34` in a 393-wide viewBox.
+ * `stroke-width: 12` in a 393-wide viewBox.
  */
-const BAND = 34 / 393;
+const BAND = 12 / 393;
+
+/** The earned ridge keeps its old visual width, independent of the fine trail. */
+const RIDGE = 68 / 393;
 
 export function SkyCorridor({
   width,
@@ -50,6 +53,7 @@ export function SkyCorridor({
   const styles = useStyles(makeStyles);
   const height = width / SKY_PATH_ASPECT;
   const band = width * BAND;
+  const ridge = width * RIDGE;
 
   // One extra so the last segment reaches the end rather than stopping a
   // step short of it.
@@ -91,6 +95,7 @@ export function SkyCorridor({
                   width: segmentLength,
                   height: band,
                   borderRadius: band / 2,
+                  borderCurve: 'continuous',
                   transform: [{ rotate: `${angleAt(t)}deg` }],
                 },
               ]}
@@ -105,9 +110,9 @@ export function SkyCorridor({
           style={[
             styles.flag,
             {
-              left: pointAt(1).x * width - band,
+              left: pointAt(1).x * width - ridge / 2,
               top: pointAt(1).y * height,
-              width: band * 2,
+              width: ridge,
             },
           ]}
         />
@@ -118,21 +123,19 @@ export function SkyCorridor({
   );
 }
 
-const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
+const makeStyles = ({ colors, earnedColor, ramp }: Theme) =>
   StyleSheet.create({
     box: { alignSelf: 'center' },
     segment: {
       position: 'absolute',
-      // A wash rather than a fill: the corridor is air, and the birds have to
-      // read against it.
-      backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.5)',
+      backgroundColor: ramp.neutral[300],
     },
-    // Flown: the accent, held just off full so the birds still lead.
-    flown: { backgroundColor: colors.accent, opacity: 0.85 },
+    flown: { backgroundColor: colors.accent },
     flag: {
       position: 'absolute',
       height: 3,
       borderRadius: 2,
+      borderCurve: 'continuous',
       backgroundColor: earnedColor,
     },
   });

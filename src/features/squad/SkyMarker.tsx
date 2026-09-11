@@ -103,6 +103,7 @@ const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: space.sm,
     borderRadius: radius.pill,
+    borderCurve: 'continuous',
     maxWidth: 120,
   },
   // Amber for you, ink for everybody else — the same "you are the accent" rule

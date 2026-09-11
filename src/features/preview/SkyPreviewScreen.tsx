@@ -17,9 +17,10 @@ import {
   TAB_PILL_CLEARANCE,
   Text,
   useReduceMotion,
+  useStyles,
   useTheme,
 } from '../../ui/index.ts';
-import { flightSky, font, space } from '../../theme.ts';
+import { flightSky, font, radius, space, type Theme } from '../../theme.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
 import { previewMembers } from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
@@ -32,6 +33,7 @@ export function SkyPreviewScreen(
   },
 ) {
   const { colors, scheme } = useTheme();
+  const styles = useStyles(makeStyles);
   const [footHeight, setFootHeight] = useState(0);
   const scroll = useRef<ScrollView>(null);
   const opened = useRef(false);
@@ -132,8 +134,8 @@ export function SkyPreviewScreen(
                         />
                       ))}
                     </SkyCorridor>
-                    <View style={{ position: 'absolute', top: space.md, left: space.lg }}>
-                      <Text style={{ ...font.display.minor, color: colors.text }}>
+                    <View style={[styles.ridge, { top: space.md, left: space.lg }]}>
+                      <Text style={styles.ridgeText}>
                         {RACE_FINISH_LINE.toLocaleString()} · ridge
                       </Text>
                     </View>
@@ -191,3 +193,15 @@ export function SkyPreviewScreen(
     </Screen>
   );
 }
+
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
+  ridge: {
+    position: 'absolute',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    borderCurve: 'continuous',
+    backgroundColor: ramp.gold[400],
+  },
+  ridgeText: { ...font.display.minor, color: colors.ink },
+});

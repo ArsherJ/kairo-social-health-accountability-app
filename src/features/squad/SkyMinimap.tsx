@@ -159,17 +159,16 @@ export function SkyMinimap({
   );
 }
 
-const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
+const makeStyles = ({ colors, earnedColor, ramp }: Theme) =>
   StyleSheet.create({
     strip: {
       position: 'absolute',
       width: MINIMAP_WIDTH,
       borderRadius: radius.pill,
-      // A dark scrim in both schemes: the strip sits over the flight, which
-      // is drawn on `night` whatever the page is.
-      backgroundColor: scheme === 'dark' ? 'rgba(11,27,77,0.72)' : 'rgba(11,27,77,0.5)',
+      borderCurve: 'continuous',
+      backgroundColor: colors.surfaceLift,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'rgba(255,255,255,0.3)',
+      borderColor: colors.borderStrong,
       overflow: 'hidden',
     },
     ridge: {
@@ -178,6 +177,7 @@ const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
       right: 6,
       height: 2,
       borderRadius: 1,
+      borderCurve: 'continuous',
       backgroundColor: earnedColor,
     },
     pathDot: {
@@ -185,7 +185,8 @@ const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
       width: 3,
       height: 3,
       borderRadius: 1.5,
-      backgroundColor: 'rgba(255,255,255,0.45)',
+      borderCurve: 'continuous',
+      backgroundColor: ramp.neutral[400],
     },
     pathDotFlown: { backgroundColor: colors.accent },
     bird: {
@@ -193,7 +194,8 @@ const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
       width: 7,
       height: 7,
       borderRadius: radius.pill,
-      backgroundColor: colors.onDeep,
+      borderCurve: 'continuous',
+      backgroundColor: colors.subtle,
     },
     birdSelf: {
       width: 10,
@@ -209,8 +211,8 @@ const makeStyles = ({ colors, earnedColor, scheme }: Theme) =>
       right: 0,
       top: 0,
       borderRadius: radius.md,
-      backgroundColor: 'rgba(255,255,255,0.16)',
+      borderCurve: 'continuous',
       borderWidth: 1.5,
-      borderColor: 'rgba(255,255,255,0.7)',
+      borderColor: ramp.sky[800],
     },
   });

@@ -580,13 +580,14 @@ function buildRacers(input: {
   return [me, ...ghosts];
 }
 
-const makeStyles = ({ colors, ramp, scheme }: Theme) =>
+const makeStyles = ({ colors, ramp }: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.night },
     cloud: {
       position: 'absolute',
       borderRadius: radius.pill,
-      backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.6)',
+      borderCurve: 'continuous',
+      backgroundColor: ramp.sky[100],
     },
     /**
      * The ridge and the ground labels sit on the right and centre respectively,
@@ -601,17 +602,19 @@ const makeStyles = ({ colors, ramp, scheme }: Theme) =>
       paddingVertical: 4,
       paddingHorizontal: 10,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
     },
     ridgeText: { ...font.display.label, fontSize: 13, color: colors.ink },
     ground: { position: 'absolute', alignSelf: 'center' },
     groundText: {
       ...font.body.label,
-      color: colors.ink,
-      backgroundColor: 'rgba(255,255,255,0.75)',
+      color: colors.text,
+      backgroundColor: colors.surfaceLift,
       overflow: 'hidden',
       paddingVertical: 6,
       paddingHorizontal: 14,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
     },
 
     // `box-none` on both pinned layers so a touch that misses the chrome reaches

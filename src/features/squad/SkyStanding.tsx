@@ -107,12 +107,12 @@ function FloatingSurface({ children }: { variant?: string; children: React.React
   );
 }
 
-const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   // `flex: 1` so the position chip keeps its place when the headline wraps at
   // large type, rather than being pushed off the row.
   headline: { flex: 1, ...font.display.minor, color: colors.text },
-  position: { ...font.body.label, color: ramp.neutral[500], flexShrink: 0 },
+  position: { ...font.body.label, color: colors.subtle, flexShrink: 0 },
   meter: { marginTop: space.md },
   floating: { padding: space.md + 2 },
 });
