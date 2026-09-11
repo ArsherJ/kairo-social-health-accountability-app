@@ -6,7 +6,7 @@ Branch: `codex/plush-ui-redesign`
 
 Basis: `main` at `3b3cbdb`, including the installed plush eagle v3 pack.
 
-Status: Visual direction approved in conversation; written specification awaiting review.
+Status: Visual direction and written specification approved in conversation on 2026-09-11.
 
 ## 1. Outcome and scope
 
