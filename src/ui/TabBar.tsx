@@ -5,7 +5,12 @@ import { font, space, type Theme } from '../theme.ts';
 import { Glass } from './Glass.tsx';
 import { animationDuration } from './motion-policy.ts';
 import { useReduceMotionState } from './motion.ts';
-import { TAB_ITEMS, type TabId } from './tab-copy.ts';
+import {
+  TAB_ITEM_FLEX,
+  TAB_ITEM_GAP,
+  TAB_ITEMS,
+  type TabId,
+} from './tab-copy.ts';
 import { tabPillGeometry } from './tab-pill-geometry.ts';
 import { Text } from './Text.tsx';
 import { useStyles, useTheme } from './use-theme.ts';
@@ -23,8 +28,6 @@ export interface TabBarProps {
 const BAR_HEIGHT = 68;
 const BAR_INSET = 16;
 const ICON_SIZE = 22;
-const GAP = 6;
-const FOCUSED_FLEX = 1;
 const TRAVEL_MS = 160;
 const EASE = Easing.out(Easing.cubic);
 
@@ -55,8 +58,8 @@ export function TabBar({
       focusedIndex,
       row.w,
       TAB_ITEMS.length,
-      GAP,
-      FOCUSED_FLEX,
+      TAB_ITEM_GAP,
+      TAB_ITEM_FLEX,
     );
     const instant = !didPlace.current || !motionReady;
     const duration = instant ? 0 : animationDuration(TRAVEL_MS, reduceMotion);
@@ -164,7 +167,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       flex: 1,
       flexDirection: 'row',
       alignItems: 'stretch',
-      gap: GAP,
+      gap: TAB_ITEM_GAP,
       position: 'relative',
     },
     pill: {
@@ -176,7 +179,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       backgroundColor: ramp.sage[200],
     },
     item: {
-      flex: FOCUSED_FLEX,
+      flex: TAB_ITEM_FLEX,
       minWidth: 0,
       alignItems: 'center',
       justifyContent: 'center',

@@ -1,32 +1,34 @@
 import { describe, expect, it } from 'vitest';
+import { TAB_ITEM_FLEX, TAB_ITEM_GAP, TAB_ITEMS } from './tab-copy.ts';
 import { tabPillGeometry } from './tab-pill-geometry.ts';
 
-// The bar Kairo actually ships: four tabs, 6pt gaps, the selected tab 1.5x wide.
+// The bar Kairo actually ships: four equal tabs separated by 6pt gaps.
 const FOUR = (index: number, rowWidth = 272) =>
-  tabPillGeometry(index, rowWidth, 4, 6, 1.5);
+  tabPillGeometry(index, rowWidth, TAB_ITEMS.length, TAB_ITEM_GAP, TAB_ITEM_FLEX);
 
 describe('tabPillGeometry', () => {
-  it('pins the first tab to the row edge', () => {
-    expect(FOUR(0).left).toBe(0);
+  it('gives the current four-tab bar equal 63.5-point items', () => {
+    expect([0, 1, 2, 3].map((index) => FOUR(index).width)).toEqual([
+      63.5,
+      63.5,
+      63.5,
+      63.5,
+    ]);
   });
 
-  it('makes the pill focusedFlex units wide, whichever tab is selected', () => {
-    const a = FOUR(0).width;
-    const b = FOUR(2).width;
-    expect(a).toBeCloseTo(b);
-    // (272 - 3*6) / 4.5 = 56.44 per unit; the pill is 1.5 of those.
-    expect(a).toBeCloseTo(84.67, 1);
+  it('places the equal items at each exact slot in the 272-point row', () => {
+    expect([0, 1, 2, 3].map((index) => FOUR(index).left)).toEqual([
+      0,
+      69.5,
+      139,
+      208.5,
+    ]);
   });
 
-  it('lands the last tab flush against the row edge', () => {
-    const { left, width } = FOUR(3);
-    expect(left + width).toBeCloseTo(272);
-  });
-
-  it('steps left by one unit-plus-gap per tab', () => {
-    const step = FOUR(1).left - FOUR(0).left;
-    expect(FOUR(2).left - FOUR(1).left).toBeCloseTo(step);
-    expect(FOUR(3).left - FOUR(2).left).toBeCloseTo(step);
+  it('still supports a generic bar whose selected item is wider', () => {
+    const selected = tabPillGeometry(2, 272, 4, 6, 1.5);
+    expect(selected.left).toBeCloseTo(124.89, 2);
+    expect(selected.width).toBeCloseTo(84.67, 2);
   });
 
   it('scales with the measured row width', () => {
