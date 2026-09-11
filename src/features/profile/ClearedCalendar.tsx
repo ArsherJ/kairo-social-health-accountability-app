@@ -179,7 +179,13 @@ const CELL = `${100 / 7}%`;
 
 const makeStyles = ({ colors, ramp }: Theme) =>
   StyleSheet.create({
-    head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.lg },
+    head: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: space.sm,
+      marginTop: space.lg,
+    },
     month: { ...font.display.minor, color: colors.text, flexShrink: 1 },
     countChip: {
       marginLeft: 'auto',
@@ -189,6 +195,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       paddingVertical: 6,
       paddingHorizontal: 12,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       backgroundColor: ramp.accent[200],
     },
     countLabel: { ...font.body.strong, color: colors.accentDeep },
@@ -231,6 +238,6 @@ const makeStyles = ({ colors, ramp }: Theme) =>
       borderTopColor: colors.border,
     },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    swatch: { width: 14, height: 14, borderRadius: 5 },
+    swatch: { width: 14, height: 14, borderRadius: 5, borderCurve: 'continuous' },
     legendLabel: { ...font.body.strong, fontSize: 11, color: colors.muted },
   });

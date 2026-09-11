@@ -1,15 +1,15 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import type { LifetimePoints } from '@/features/character/plumage.ts';
 import { font, radius, space, type Theme } from '@/theme.ts';
 import { ProgressRing, Text, useStyles, useTheme } from '@/ui/index.ts';
+import { profileHeaderLabel } from './profile-header-copy.ts';
 import { xpProgress } from './xp-progress.ts';
 
-const RING = 96;
-const DISC = 82;
+const RING = 112;
+const DISC = 102;
 
 /**
  * Who you are, at the top of the You tab.
@@ -37,6 +37,7 @@ export function ProfileHeader({
   speciesLine,
   joined,
   lifetimePoints,
+  onSettings,
 }: {
   name: string;
   /** `@bagwis`, derived by the caller from the name. */
@@ -56,8 +57,9 @@ export function ProfileHeader({
    * (issue #33).
    */
   lifetimePoints: LifetimePoints | undefined;
+  /** Omitted when the surrounding surface has no settings destination. */
+  onSettings?: () => void;
 }) {
-  const router = useRouter();
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
   // The You tab bleeds, so the inset comes back here — see the note above.
@@ -77,34 +79,44 @@ export function ProfileHeader({
           {handle}
         </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          onPress={() => router.push('/settings')}
-          style={({ pressed }) => [styles.disc, pressed && styles.pressed]}
-        >
-          <MaterialCommunityIcons name="cog-outline" size={20} color={colors.text} />
-        </Pressable>
+        {onSettings && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            onPress={onSettings}
+            style={({ pressed }) => [styles.disc, pressed && styles.pressed]}
+          >
+            <MaterialCommunityIcons name="cog-outline" size={20} color={colors.text} />
+          </Pressable>
+        )}
       </View>
 
-      <View style={styles.identity}>
-        <View
-          accessible
-          accessibilityLabel={
-            `${name}. ${speciesLine}. Level ${xp.level}, ${toNext.toLocaleString()} XP to the next.`
-          }
-        >
-          <View {...hidden}>
-            <ProgressRing fraction={xp.fraction} size={RING} thickness={5}>
-              <View style={styles.avatar}>
-                <KairoThumbnail pose="idle" size={DISC - 10} decorative lifetimePoints={lifetimePoints} />
-              </View>
-            </ProgressRing>
-          </View>
+      <View
+        accessible
+        accessibilityLabel={profileHeaderLabel({
+          name,
+          species: speciesLine,
+          level: xp.level,
+          toNext,
+          joined,
+        })}
+        style={styles.identity}
+      >
+        <View {...hidden}>
+          <ProgressRing fraction={xp.fraction} size={RING} thickness={3}>
+            <View style={styles.avatar}>
+              <KairoThumbnail
+                pose="idle"
+                size={DISC - 10}
+                decorative
+                lifetimePoints={lifetimePoints}
+              />
+            </View>
+          </ProgressRing>
         </View>
 
         <View {...hidden} style={styles.words}>
-          <Text scale="chrome" numberOfLines={1} style={styles.name}>
+          <Text scale="chrome" style={styles.name}>
             {name}
           </Text>
           {/* The quiet register: the species is the one line here that is not
@@ -114,11 +126,11 @@ export function ProfileHeader({
           </Text>
           {joined != null && (
             <Text scale="chrome" style={styles.meta}>
-              {joined} · Level {xp.level}
+              {joined}
             </Text>
           )}
           <Text scale="chrome" style={styles.xp}>
-            {toNext.toLocaleString()} XP to {xp.level + 1}
+            Level {xp.level} · {toNext.toLocaleString('en-US')} XP to {xp.level + 1}
           </Text>
         </View>
       </View>
@@ -126,42 +138,47 @@ export function ProfileHeader({
   );
 }
 
-const makeStyles = ({ colors, shadow }: Theme) =>
+const makeStyles = ({ colors, ramp, shadow }: Theme) =>
   StyleSheet.create({
-    topRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg },
+    topRow: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space.sm,
+      paddingHorizontal: space.lg,
+    },
     handle: { ...font.display.minor, color: colors.text, flexShrink: 1 },
     disc: {
       marginLeft: 'auto',
       width: 44,
       height: 44,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.surface,
       ...shadow.sm,
     },
     pressed: { opacity: 0.6 },
-    // The ring beside the words rather than above them: a centred stack put
-    // four lines of type under a picture and left half the width empty.
     identity: {
-      flexDirection: 'row',
       alignItems: 'center',
       gap: space.md,
-      marginTop: space.lg,
+      marginTop: space.md,
       paddingHorizontal: space.lg,
     },
     avatar: {
       width: DISC,
       height: DISC,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-      backgroundColor: colors.surface,
+      backgroundColor: ramp.sage[200],
     },
-    words: { flex: 1, minWidth: 0 },
-    name: { ...font.display.major, fontSize: 24, color: colors.text },
-    species: { ...font.body.quiet, color: colors.muted, marginTop: 2 },
-    meta: { ...font.body.strong, color: colors.muted, marginTop: 2 },
-    xp: { ...font.body.strong, color: colors.accentDeep, marginTop: 4 },
+    words: { width: '100%', minWidth: 0, alignItems: 'center' },
+    name: { ...font.display.major, fontSize: 26, color: colors.text, textAlign: 'center' },
+    species: { ...font.body.quiet, color: colors.muted, marginTop: 2, textAlign: 'center' },
+    meta: { ...font.body.strong, color: colors.muted, marginTop: 2, textAlign: 'center' },
+    xp: { ...font.body.strong, color: colors.accentDeep, marginTop: 4, textAlign: 'center' },
   });

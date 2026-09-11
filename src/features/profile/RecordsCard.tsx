@@ -82,9 +82,9 @@ export function RecordsCard({ records, today, isError = false, onRetry }: {
                         minHeight: 80,
                         borderRadius: radius.lg,
                         borderCurve: 'continuous',
-                        borderWidth: 2,
-                        borderColor: active ? colors.accent : 'transparent',
-                        backgroundColor: active ? ramp.accent[100] : ramp.neutral[100],
+                        borderWidth: 1,
+                        borderColor: active ? colors.accentEdge : 'transparent',
+                        backgroundColor: active ? ramp.accent[200] : 'transparent',
                         opacity: pressed ? 0.7 : 1,
                       })}
                   >

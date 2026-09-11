@@ -67,7 +67,7 @@ export function StreakCard({ streak }: { streak: Streak | null | undefined }) {
         <MaterialCommunityIcons
           name={shield.banked ? 'shield-check' : 'shield-outline'}
           size={17}
-          color={shield.banked ? ramp.sage[700] : colors.muted}
+          color={shield.banked ? ramp.gold[700] : colors.muted}
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
@@ -99,14 +99,28 @@ const makeStyles = ({ colors, ramp, shadow }: Theme) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: space.sm,
-      alignSelf: 'flex-start',
+      alignSelf: 'stretch',
+      minWidth: 0,
       marginTop: space.md,
       paddingVertical: 9,
       paddingHorizontal: 12,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       backgroundColor: ramp.neutral[200],
     },
-    shieldBanked: { backgroundColor: ramp.sage[200] },
-    shieldReady: { ...font.body.strong, fontSize: 12.5, color: ramp.sage[800], flexShrink: 1 },
-    shieldSpent: { ...font.body.strong, fontSize: 12.5, color: colors.muted, flexShrink: 1 },
+    shieldBanked: { backgroundColor: ramp.gold[200] },
+    shieldReady: {
+      flex: 1,
+      minWidth: 0,
+      ...font.body.strong,
+      fontSize: 12.5,
+      color: ramp.gold[800],
+    },
+    shieldSpent: {
+      flex: 1,
+      minWidth: 0,
+      ...font.body.strong,
+      fontSize: 12.5,
+      color: colors.muted,
+    },
   });

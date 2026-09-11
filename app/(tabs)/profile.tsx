@@ -184,6 +184,7 @@ export default function ProfileTab() {
             totalXp={profile.data.total_xp}
             speciesLine={speciesLine(displaySpecies(profile.data.species))}
             joined={joinedLabel(profile.data.created_at)}
+            onSettings={() => router.push('/settings')}
             // The same three rollups the rail below reads. The bird in the ring
             // is this account's own, so it wears the crest Today and the flock
             // draw it with (issue #33).

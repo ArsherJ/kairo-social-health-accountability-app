@@ -26,20 +26,17 @@ const GROWTH: Record<CoreStat, string> = {
 };
 
 /**
- * A dot per stat, and the tint behind its name — read off the theme, so the
- * washes stay washes under the dark scheme. Three families, one each, and
- * none of them is the accent: this card is not a call to action.
+ * A quiet dot per stat. None uses the accent: this card explains rather than
+ * asks the player to act.
  */
-function palette({ colors, ramp }: Theme) {
+function palette({ colors }: Theme) {
   const dot: Record<CoreStat, string> = { AGI: colors.sage, STR: colors.damage, MND: colors.accentEdge };
-  const chipBg: Record<CoreStat, string> = { AGI: ramp.sage[200], STR: colors.tealTint, MND: ramp.accent[200] };
-  const chipInk: Record<CoreStat, string> = { AGI: ramp.sage[800], STR: colors.tealInk, MND: ramp.accent[800] };
-  return { dot, chipBg, chipInk };
+  return { dot };
 }
 
 export function GrowthCard() {
   const styles = useStyles(makeStyles);
-  const { dot, chipBg, chipInk } = palette(useTheme());
+  const { dot } = palette(useTheme());
   const hidden = {
     accessibilityElementsHidden: true,
     importantForAccessibility: 'no-hide-descendants',
@@ -52,8 +49,8 @@ export function GrowthCard() {
       </Text>
 
       {CORE_STATS.map((stat) => (
-        // One element per row: a dot, a sentence and a chip read as three
-        // stops otherwise, and the dot and the chip say nothing on their own.
+        // One element per row: the dot is decorative and the visible name and
+        // explanation form a single spoken thought.
         <View
           key={stat}
           accessible
@@ -61,13 +58,11 @@ export function GrowthCard() {
           style={styles.row}
         >
           <View {...hidden} style={[styles.dot, { backgroundColor: dot[stat] }]} />
-          <Text {...hidden} style={styles.body}>
-            {GROWTH[stat]}
-          </Text>
-          <View {...hidden} style={[styles.chip, { backgroundColor: chipBg[stat] }]}>
-            <Text scale="chrome" style={[styles.chipLabel, { color: chipInk[stat] }]}>
+          <View {...hidden} style={styles.words}>
+            <Text scale="chrome" style={styles.statName}>
               {STAT_NAMES[stat]}
             </Text>
+            <Text style={styles.body}>{GROWTH[stat]}</Text>
           </View>
         </View>
       ))}
@@ -80,13 +75,14 @@ const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   // `alignItems: 'flex-start'` rather than 'center': past ~1.3x the sentence
   // wraps to three lines and a centred dot floats in the middle of it.
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, marginTop: space.md },
-  dot: { width: 10, height: 10, borderRadius: radius.pill, marginTop: 6 },
-  body: { flex: 1, ...font.body.body, fontSize: 14, lineHeight: 20, color: colors.subtle },
-  chip: {
-    paddingVertical: space.xs,
-    paddingHorizontal: space.sm,
+  dot: {
+    width: 10,
+    height: 10,
     borderRadius: radius.pill,
-    flexShrink: 0,
+    borderCurve: 'continuous',
+    marginTop: 6,
   },
-  chipLabel: { ...font.body.label, letterSpacing: 0.5 },
+  words: { flex: 1, minWidth: 0, gap: 2 },
+  statName: { ...font.body.label, color: colors.text },
+  body: { flex: 1, ...font.body.body, fontSize: 14, lineHeight: 20, color: colors.subtle },
 });
