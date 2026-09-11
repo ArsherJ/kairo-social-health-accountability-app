@@ -140,7 +140,7 @@ export const ramp = {
 export const colors = {
   bg: '#fbf8f2',
   /**
-   * A card. Playful cards are **white on cream** and lifted by shadow — the
+   * A card. Warm-pastel cards are **white on cream** and lifted by shadow — the
    * ground is warm enough that plain white reads as raised without a border.
    * Reaching for `borderColor` to build a card is working against the system;
    * a border here means *selected*, never *contained*.
@@ -151,8 +151,8 @@ export const colors = {
   /**
    * The warm field the character occupies. **A place, not a card**: no radius
    * of its own, no shadow, and nothing that is not the character's own sky may
-   * use it. On Playful the bird stands in daylight, so this is the pale bottom
-   * of the hero's blue ramp rather than a tint of the ground.
+   * use it. In the light scheme the bird stands in daylight, so this is the
+   * pale bottom of the hero's blue ramp rather than a tint of the ground.
    */
   sky: ramp.sky[200],
   /** The ground the flight is drawn on, and the dark half of onboarding. */
@@ -255,7 +255,7 @@ export const colors = {
  */
 export const glass = {
   light: {
-    fill: 'rgba(255,255,255,0.78)',
+    fill: 'rgba(255,255,255,0.96)',
     fillSoft: 'rgba(255,255,255,0.46)',
     edge: 'rgba(255,255,255,0.9)',
   },
@@ -277,10 +277,8 @@ export const glass = {
  * and a cleared day on the calendar.
  *
  * All of them mean "earned", and none means "you" — which is the distinction
- * that kept them off `colors.accent` in the first place. **Playful is the first
- * palette that can actually show that distinction**: through Sunlit this was
- * `ramp.accent[600]`, one step of the same amber the primary fill came from, so
- * "you" and "you earned it" were a shade apart. It is its own hue now.
+ * that keeps them off the apricot `colors.accent`. Gold remains its own hue so
+ * the two roles cannot collapse into a shade difference.
  */
 export const earnedColor = ramp.gold[400];
 

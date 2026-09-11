@@ -30,4 +30,8 @@ describe('the plush palette', () => {
       expect(contrastRatio(theme.colors.ink, theme.colors.accent)).toBeGreaterThanOrEqual(4.5);
     }
   });
+
+  it('keeps light floating chrome opaque enough to separate sheet content', () => {
+    expect(light.glass.light.fill.toLowerCase()).toBe('rgba(255,255,255,0.96)');
+  });
 });
