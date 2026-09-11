@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { CHARACTER_NAME_MAX } from '@kairo/core';
 import { describe, expect, it } from 'vitest';
+import { CHARACTER_NAME_MAX } from '../../../packages/kairo-core/src/profile.ts';
 
 const source = readFileSync(
   new URL('./FlockPerch.tsx', import.meta.url),
