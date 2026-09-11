@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import type { Placement, Racer } from '@kairo/core';
+import { useContext, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
+import type { Racer } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { KAIRO_THUMBNAIL_POSE } from '@/features/character/character-surface-policy.ts';
 import { font, radius, space, type Theme } from '@/theme.ts';
@@ -12,6 +12,12 @@ import { Text, useStyles } from '@/ui/index.ts';
 // puts the two numbers in a module root Vitest can load.
 import { SKY_FIGURE, SKY_SELF_FIGURE } from './flight-frame.ts';
 import { raceLaneLabel } from './race-label.ts';
+import { SkyDriftActiveContext, useSkyDrift } from './sky-drift.tsx';
+import {
+  SKY_FLIGHT_RIGHT_CLEARANCE,
+  skyDriftProfile,
+  type SkyFlightPlacement,
+} from './sky-flight.ts';
 import { skyMarkerLayout } from './sky-marker-label.ts';
 
 /**
@@ -25,15 +31,15 @@ import { skyMarkerLayout } from './sky-marker-label.ts';
  * did not happen on that build, so neither half is redundant.
  *
  * The label is `raceLaneLabel`'s, unchanged: position, who, how far. It says a
- * percentage rather than a step count, because the corridor draws a distance to
+ * percentage rather than a step count, because the flight draws a distance to
  * a flag and a label naming a figure the screen does not show would describe a
  * different product.
  *
  * Absolutely positioned, and this is the one place in the race where that is
- * right: the corridor is drawn geometry rather than a flow, and `placeRacers`
- * has already decided where this sits. The rule the six-lane track carried —
+ * right: the flight is drawn geometry rather than a flow, and the shared open
+ * projection has already decided where this sits. The rule the six-lane track carried —
  * flow-based layout, no `top` on any child — was about a *lane*, whose height
- * had to follow Dynamic Type. A marker on a curve has no such obligation; what
+ * had to follow Dynamic Type. A marker in the open flight has no such obligation; what
  * it must do instead is keep its pill legible when the type grows, which is
  * what `numberOfLines` and the pill's intrinsic width do below.
  */
@@ -53,7 +59,7 @@ export function SkyMarker({
   bottomClearance,
 }: {
   racer: Racer;
-  placement: Placement;
+  placement: SkyFlightPlacement;
   boxWidth: number;
   boxHeight: number;
   bottomClearance: number;
@@ -69,6 +75,9 @@ export function SkyMarker({
 
   const size = racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE;
   const [pillHeight, setPillHeight] = useState(0);
+  const driftActive = useContext(SkyDriftActiveContext);
+  const translateX = useSkyDrift(racer.userId, driftActive);
+  const driftAmplitude = skyDriftProfile(racer.userId).amplitude;
   const styles = useStyles(makeStyles);
   const layout = skyMarkerLayout({
     placementX: placement.x,
@@ -80,10 +89,13 @@ export function SkyMarker({
     pillHeight,
     gap: space.xs,
     bottomClearance,
+    labelTier: placement.labelTier,
+    rightClearance: SKY_FLIGHT_RIGHT_CLEARANCE,
+    horizontalMotionClearance: driftAmplitude,
   });
 
   return (
-    <View
+    <Animated.View
       accessible
       accessibilityLabel={label}
       style={[
@@ -93,6 +105,7 @@ export function SkyMarker({
           top: layout.figureTop,
           width: size,
           height: size,
+          transform: [{ translateX }],
         },
       ]}
     >
@@ -109,8 +122,8 @@ export function SkyMarker({
             width: LABEL_MAX_WIDTH,
           },
           layout.labelAbove
-            ? { bottom: size + space.xs }
-            : { top: size + space.xs },
+            ? { bottom: size + space.xs + layout.labelOffset }
+            : { top: size + space.xs + layout.labelOffset },
         ]}
       >
         <View
@@ -132,7 +145,7 @@ export function SkyMarker({
           </Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -18,7 +18,9 @@ and reveals two control rows:
 - **Screen state:** Ready, Loading, Empty, Private, Error. Private flock
   readings remain null; it never turns a withheld reading into measured zero.
 - **Fixtures:** Everyday, Long names, Ridge, Ceiling + reaction, No sleep,
-  Ghost days, Wide sky label. The Today fixture passes readings through `resolveLivingMirror`;
+  Ghost days, Wide sky label, Crowded sky. Crowded sky is a Sky-only six-bird
+  sample with nearby progress and self in front; it does not change live data.
+  The Today fixture passes readings through `resolveLivingMirror`;
   the Ridge case
   reaches the `summit` pose through that resolver, and the ceiling sample uses
   the real reaction priority and growth ceiling. Long names reach all four tab
@@ -48,9 +50,12 @@ zero default.
 
 - **Today:** first-viewport Motion progress beside the plush eagle, details,
   all three quests, missing sleep, Ridge/summit, crest ceiling, and reaction.
-- **Sky:** the fine trail, right-side minimap, Locate, explanation, solo,
-  private, ghost, and ridge-clearance states. `flightFrame`, `raceProgress`, and
-  minimap arithmetic remain the geometry authority.
+- **Sky:** open-air flight with automatic lateral drift, layered ridges,
+  right-side minimap, Locate, explanation, solo, private, ghost, and
+  ridge-clearance states. No trail is painted. The scene/map/Locate share a
+  straight progress projection; `flightFrame` still owns measured clearances
+  and `raceProgress` remains the earned-step authority. Reduce Motion makes the
+  scene static; drifting never adds steps or changes a rank.
 - **Flock:** compact perch, Today/Yesterday summary, every roster bird, one
   trailing invitation, private readings, solo/no-rank, and bird-sheet close.
   Maximum-length names widen their own horizontal perch card and wrap without
@@ -86,7 +91,8 @@ real Health grant, profile insert, consent mutation, invite, or whack is claimed
 by this preview pass. Those require separate release validation and, where
 applicable, a directed test account.
 
-The 2026-09-11 account-free matrix covered all four tabs and all seven
+The initial 2026-09-11 plush-redesign matrix (before the open-flight refinement)
+covered all four tabs and all seven
 onboarding views in both schemes at normal text size on the iPhone 17 simulator
 and in Chrome responsive 320×598. Cold-relaunch XXXL Dynamic Type covered all
 four tabs and all seven onboarding views in dark mode, with light-mode checks
@@ -134,6 +140,41 @@ TypeScript/workspace/Edge Function checks and 2,256 tests (495 core and 1,761
 root/schema), with `git diff --check` clean. The branch remains
 `codex/plush-ui-redesign`; `main` is unchanged, and no merge, push, deployment,
 native build, or account mutation was performed.
+
+## Open-flight verification — 2026-09-11
+
+The follow-up removes both trails and adds automatic horizontal bird/cloud
+drift over layered ridge silhouettes. Birds keep identity-based lateral rest
+positions. A shared bounded layout separates nearby complete markers and
+drift envelopes; scene, map and Locate all consume that same result. Displayed
+percentages, ranking and step scoring remain unchanged. Actual measured header,
+footer and navigation clearances keep the start/finish reachable. Reduce Motion
+and foreground/focus gating stop and reset decorative motion.
+
+Independent checks on the final open-flight tree passed TypeScript, workspace
+and Edge Function checks, **2,266 tests** (495 core + 1,771 root/schema), and
+`git diff --check`. Final scoped code review found no remaining Critical,
+Important or Minor change request. Regression tests cover nearby/tied groups,
+all one-to-six counts, whole bird/name intersections, progress monotonicity,
+mixed ridge/midnight positions, measured footer clearance and crowded Locate.
+
+Controller visual checks on iPhone 17/iOS 26.5 covered the six-bird fixture in
+both schemes, maximum Dynamic Type with Locate below the rail, native map
+top/bottom taps and accessible adjustment, Private/Empty/Loading/Error/Retry,
+and the shared One Sky illustration in both schemes. Chrome at 320×598 covered
+both schemes and forward/reverse minimap dragging. A small viewport shows only
+part of the scrollable flock at once. Frozen-code Reduce Motion checks showed
+a static scene; switching tabs and backgrounding/returning did not produce a
+runtime error. Text size `large`, system light appearance and Reduce Motion off
+were restored. Representative captures use the `open-sky-` prefix in the
+preview-evidence directory above.
+
+These are account-free preview checks, not an authenticated flight, VoiceOver
+audio, Accessibility Inspector, physical-device or TestFlight pass. Native
+gesture dragging remains unverified; browser drag is separate evidence. The
+earlier development-warning and release-validation limits still apply. This
+refinement stays on `codex/plush-ui-redesign`, with no merge, push, new native
+dependency, asset regeneration or backend write.
 
 ## Implementation boundary
 

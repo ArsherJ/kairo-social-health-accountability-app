@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { SKY_PATH_ASPECT, placeRacers, pointAt } from '@kairo/core';
+import { SKY_PATH_ASPECT } from '@kairo/core';
 import {
   MINIMAP_WIDTH,
   mapPoint,
-  miniPath,
   miniRacers,
   minimapHeight,
   offsetForMapY,
   viewportWindow,
   type MinimapGeometry,
 } from './minimap.ts';
+import { skyFlightPlacements, skyFlightPoint } from './sky-flight.ts';
 
 /** A 393x852 phone with a measured rail, and the narrow 320x568 one. */
 function geometry(width: number, height: number): MinimapGeometry {
@@ -27,35 +27,23 @@ function geometry(width: number, height: number): MinimapGeometry {
 
 const PHONES = [geometry(393, 852), geometry(320, 568)];
 
-describe('the miniature path', () => {
-  it('stays inside the strip on every phone', () => {
-    for (const g of PHONES) {
-      for (const p of miniPath(g)) {
-        expect(p.x).toBeGreaterThanOrEqual(0);
-        expect(p.x).toBeLessThanOrEqual(MINIMAP_WIDTH);
-        expect(p.y).toBeGreaterThanOrEqual(0);
-        expect(p.y).toBeLessThanOrEqual(g.mapHeight);
-      }
-    }
-  });
-
+describe('the open flight map', () => {
   it('puts the ridge above the ground, as the flight does', () => {
     const g = PHONES[0]!;
-    const ridge = mapPoint(g, pointAt(1).x, pointAt(1).y);
-    const ground = mapPoint(g, pointAt(0).x, pointAt(0).y);
+    const ridge = mapPoint(g, skyFlightPoint(1).x, skyFlightPoint(1).y);
+    const ground = mapPoint(g, skyFlightPoint(0).x, skyFlightPoint(0).y);
     expect(ridge.y).toBeLessThan(ground.y);
-  });
-
-  it('uses the strip\'s width — the path is not squashed to a line', () => {
-    const xs = miniPath(PHONES[0]!).map((p) => p.x);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(MINIMAP_WIDTH * 0.4);
   });
 });
 
 describe('the birds', () => {
   it('sit on the miniature where the corridor put them, ties pulled apart included', () => {
     const g = PHONES[0]!;
-    const placements = placeRacers([0.5, 0.5, 0.9]);
+    const placements = skyFlightPlacements([
+      { identity: 'a', progress: 0.5 },
+      { identity: 'b', progress: 0.5 },
+      { identity: 'c', progress: 0.9 },
+    ]);
     const dots = miniRacers(g, placements);
     expect(dots).toHaveLength(3);
     // The two tied birds are drawn apart, not on one pixel.

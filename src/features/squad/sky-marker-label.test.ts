@@ -23,6 +23,7 @@ describe('skyMarkerLabelAbove', () => {
 describe('skyMarkerLayout', () => {
   const wideRival = {
     placementX: 0.4,
+    placementY: 0.5,
     boxWidth: 1000,
     boxHeight: 1000,
     figureSize: 44,
@@ -30,6 +31,7 @@ describe('skyMarkerLayout', () => {
     pillHeight: 30,
     gap: 4,
     bottomClearance: 120,
+    labelTier: 0,
   };
 
   it('keeps a 44-point bird on one anchor when its 120-point label crosses the exact threshold', () => {
@@ -60,5 +62,47 @@ describe('skyMarkerLayout', () => {
     expect(afterMeasurement.figureLeft).toBe(beforeMeasurement.figureLeft);
     expect(afterMeasurement.figureTop).toBe(beforeMeasurement.figureTop);
     expect(afterMeasurement.labelSlotLeft).toBe(beforeMeasurement.labelSlotLeft);
+  });
+
+  it('keeps both the figure and its independently sized label inside 320 points', () => {
+    const left = skyMarkerLayout({
+      ...wideRival,
+      placementX: 0,
+      boxWidth: 320,
+    });
+    const right = skyMarkerLayout({
+      ...wideRival,
+      placementX: 1,
+      boxWidth: 320,
+    });
+
+    expect(left.figureLeft).toBe(0);
+    expect(left.labelSlotLeft).toBe(0);
+    expect(right.figureLeft + wideRival.figureSize).toBe(320);
+    expect(right.figureLeft + right.labelSlotLeft + wideRival.labelMaxWidth).toBe(320);
+  });
+
+  it('separates labels assigned to different tiers without moving their birds', () => {
+    const first = skyMarkerLayout({ ...wideRival, labelTier: 0 });
+    const third = skyMarkerLayout({ ...wideRival, labelTier: 2 });
+
+    expect(first.figureLeft).toBe(third.figureLeft);
+    expect(first.figureTop).toBe(third.figureTop);
+    expect(first.labelOffset).toBe(0);
+    expect(third.labelOffset).toBe(68);
+  });
+
+  it('keeps the full label and bird drift excursion before the minimap', () => {
+    const layout = skyMarkerLayout({
+      ...wideRival,
+      placementX: 0.9,
+      boxWidth: 320,
+      rightClearance: 52,
+      horizontalMotionClearance: 9,
+    });
+
+    expect(layout.figureLeft + wideRival.figureSize + 9).toBeLessThanOrEqual(268);
+    expect(layout.figureLeft + layout.labelSlotLeft + wideRival.labelMaxWidth + 9)
+      .toBeLessThanOrEqual(268);
   });
 });

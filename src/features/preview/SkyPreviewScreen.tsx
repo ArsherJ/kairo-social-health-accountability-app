@@ -1,14 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { placeRacers, pointAt, RACE_FINISH_LINE, SKY_PATH_ASPECT } from '@kairo/core';
+import { RACE_FINISH_LINE, SKY_PATH_ASPECT } from '@kairo/core';
 import { SkyCorridor } from '../squad/SkyCorridor.tsx';
 import { SkyMinimap } from '../squad/SkyMinimap.tsx';
 import { minimapHeight } from '../squad/minimap.ts';
 import { SkyMarker } from '../squad/SkyMarker.tsx';
 import { SkyControls } from '../squad/SkyControls.tsx';
 import { SkyFlockRail } from '../squad/SkyFlockRail.tsx';
-import { flightFrame } from '../squad/flight-frame.ts';
+import { SKY_FIGURE, SKY_SELF_FIGURE, flightFrame } from '../squad/flight-frame.ts';
+import {
+  skyFlightBottomClearance,
+  skyFlightFocusY,
+  skyFlightPlacements,
+} from '../squad/sky-flight.ts';
 import {
   Button,
   Gradient,
@@ -46,13 +51,28 @@ export function SkyPreviewScreen(
   const { members, racers, ghostIndexes } = previewSkyRacers(state, fixture);
   const me = racers.find((racer) => racer.isSelf);
   const boxHeight = size.width / SKY_PATH_ASPECT;
-  const placements = placeRacers(racers.map((racer) => racer.progress));
+  const flightBottomClearance = skyFlightBottomClearance({
+    insetBottom: insets.bottom,
+    tabClearance: TAB_PILL_CLEARANCE,
+    footerHeight: footHeight,
+    gap: space.sm,
+  });
+  const placements = skyFlightPlacements(
+    racers.map((racer) => ({
+      identity: racer.userId,
+      progress: racer.progress,
+      figureSize: racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE,
+    })),
+    size.width,
+    flightBottomClearance,
+  );
+  const selfIndex = racers.findIndex((racer) => racer.isSelf);
   const frame = flightFrame({
     boxHeight,
     viewportHeight: size.height,
     chromeBottom: insets.top + space.md + railHeight,
     gap: space.md,
-    focusY: me ? pointAt(me.progress).y * boxHeight : null,
+    focusY: me ? skyFlightFocusY(placements, selfIndex, boxHeight) : null,
   });
   const locate = () => scroll.current?.scrollTo({ y: frame.openAt, animated: !reduceMotion });
 
@@ -82,7 +102,6 @@ export function SkyPreviewScreen(
     boxHeight,
     mapHeight,
   }), [frame.contentHeight, frame.topInset, size.height, size.width, boxHeight, mapHeight]);
-  const selfIndex = racers.findIndex((racer) => racer.isSelf);
 
   return (
     <Screen bleed scroll={false}>
@@ -114,7 +133,11 @@ export function SkyPreviewScreen(
                 <View style={{ width: size.width, height: frame.contentHeight }}>
                   <Gradient stops={flightSky[scheme]} steps={40} />
                   <View style={{ marginTop: frame.topInset, width: size.width, height: boxHeight }}>
-                    <SkyCorridor width={size.width} progress={me?.progress ?? null}>
+                    <SkyCorridor
+                      width={size.width}
+                      progress={me?.progress ?? null}
+                      motionActive
+                    >
                       {racers.map((racer, index) => (
                         <SkyMarker
                           key={racer.userId}
@@ -122,7 +145,7 @@ export function SkyPreviewScreen(
                           placement={placements[index]!}
                           boxWidth={size.width}
                           boxHeight={boxHeight}
-                          bottomClearance={insets.bottom + TAB_PILL_CLEARANCE}
+                          bottomClearance={flightBottomClearance}
                         />
                       ))}
                     </SkyCorridor>

@@ -79,10 +79,10 @@ export interface FlightFrameInput {
 /**
  * How far down the viewport to put the bird the flight opens on.
  *
- * A third, which is the design's own figure: opening at the ground shows a new
- * day's worth of empty sky and opening at the ridge shows the flag to somebody
- * who has not reached it. A third puts what the reader came for on screen and
- * leaves the climb above them visible as the thing to do.
+ * A third is preferred: it puts what the reader came for on screen and leaves
+ * the climb above visible as the thing to do. Enlarged chrome can extend past
+ * that point, so the actual target moves down just enough to clear the measured
+ * chrome, the layout gap, and half of the self figure.
  */
 const FOCUS_FROM_TOP = 1 / 3;
 
@@ -94,9 +94,15 @@ export function flightFrame(input: FlightFrameInput): FlightFrame {
 
   // No bird of your own opens at the foot, where the day starts.
   const focus = topInset + (input.focusY ?? input.boxHeight);
+  const preferredFocus = input.viewportHeight * FOCUS_FROM_TOP;
+  const clearOfChrome = topInset + SKY_SELF_FIGURE / 2;
+  const focusFromTop = Math.min(
+    Math.max(0, input.viewportHeight - SKY_SELF_FIGURE / 2),
+    Math.max(preferredFocus, clearOfChrome),
+  );
 
   const furthest = Math.max(0, contentHeight - input.viewportHeight);
-  const openAt = Math.min(furthest, Math.max(0, focus - input.viewportHeight * FOCUS_FROM_TOP));
+  const openAt = Math.min(furthest, Math.max(0, focus - focusFromTop));
 
   return { topInset, contentHeight, openAt };
 }

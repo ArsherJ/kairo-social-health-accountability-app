@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SKY_PATH_ASPECT, pointAt } from '@kairo/core';
+import { SKY_PATH_ASPECT } from '@kairo/core';
 import { SKY_SELF_FIGURE, flightFrame } from './flight-frame.ts';
+import { skyFlightPoint } from './sky-flight.ts';
 
 /**
  * The flight is scrolled under chrome that is pinned over it, so the drawing
@@ -52,10 +53,10 @@ describe('flightFrame', () => {
           viewportHeight: phone.height,
           chromeBottom,
           gap: GAP,
-          focusY: pointAt(1).y * boxHeight,
+          focusY: skyFlightPoint(1).y * boxHeight,
         });
 
-        const headTop = frame.topInset + pointAt(1).y * boxHeight - SKY_SELF_FIGURE / 2;
+        const headTop = frame.topInset + skyFlightPoint(1).y * boxHeight - SKY_SELF_FIGURE / 2;
         expect(headTop).toBeGreaterThan(chromeBottom);
       }
     }
@@ -71,7 +72,7 @@ describe('flightFrame', () => {
     // its own rather than left implied by the clearance above.
     for (const phone of PHONES) {
       const boxHeight = phone.width / SKY_PATH_ASPECT;
-      expect(pointAt(1).y * boxHeight - SKY_SELF_FIGURE / 2).toBeGreaterThanOrEqual(0);
+      expect(skyFlightPoint(1).y * boxHeight - SKY_SELF_FIGURE / 2).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -119,13 +120,27 @@ describe('flightFrame', () => {
     expect(frame.openAt).toBeCloseTo(780 - 852 / 3);
   });
 
+  it('opens below tall measured chrome when one third of the viewport is obscured', () => {
+    const chromeBottom = 340;
+    const frame = flightFrame({
+      boxHeight: 1560,
+      viewportHeight: 852,
+      chromeBottom,
+      gap: GAP,
+      focusY: 780,
+    });
+    const birdOnScreen = frame.topInset + 780 - frame.openAt;
+
+    expect(birdOnScreen - SKY_SELF_FIGURE / 2).toBeGreaterThanOrEqual(chromeBottom + GAP);
+  });
+
   it('never scrolls above the start of the flight', () => {
     const frame = flightFrame({
       boxHeight: 1560,
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
-      focusY: pointAt(1).y * 1560,
+      focusY: skyFlightPoint(1).y * 1560,
     });
 
     expect(frame.openAt).toBeGreaterThanOrEqual(0);

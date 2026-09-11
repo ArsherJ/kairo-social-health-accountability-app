@@ -9,7 +9,8 @@ Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 
 The warm-pastel UI pairs cream, cocoa, lilac, mint and apricot with the canonical
 plush eagle in both appearance schemes. Today places Motion progress beside the
-character; Sky keeps its scrubbable minimap and unchanged race geometry; Flock
+character; Sky shows open-air flight, gentle sideways drift and layered ridges
+with a scrubbable minimap and unchanged step scoring; Flock
 uses a compact perch; You leads with one portrait; all seven onboarding views
 share the same themed presentation. See
 [the mobile preview guide](docs/engineering/mobile-screen-preview.md) for the

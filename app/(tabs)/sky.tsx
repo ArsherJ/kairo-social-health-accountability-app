@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   type LayoutChangeEvent,
@@ -8,13 +8,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   currentLocalDate,
   ghostRivals,
-  placeRacers,
-  pointAt,
   RACE_FINISH_LINE,
   type RacerInput,
   rankRacers,
@@ -31,9 +29,15 @@ import { SkyControls } from '@/features/squad/SkyControls.tsx';
 import { useReduceMotion } from '@/ui/motion.ts';
 import { SkyCorridor } from '@/features/squad/SkyCorridor.tsx';
 import { SkyFlockRail } from '@/features/squad/SkyFlockRail.tsx';
-import { flightFrame } from '@/features/squad/flight-frame.ts';
+import { SKY_FIGURE, SKY_SELF_FIGURE, flightFrame } from '@/features/squad/flight-frame.ts';
 import { SkyMarker } from '@/features/squad/SkyMarker.tsx';
 import { SkyMinimap } from '@/features/squad/SkyMinimap.tsx';
+import {
+  skyFlightBottomClearance,
+  skyFlightFocusY,
+  skyFlightPlacements,
+  skyFlightPoint,
+} from '@/features/squad/sky-flight.ts';
 import { type MinimapGeometry, minimapHeight } from '@/features/squad/minimap.ts';
 import { SkyStanding } from '@/features/squad/SkyStanding.tsx';
 import { shareInvite } from '@/features/squad/share-invite.ts';
@@ -61,7 +65,7 @@ import { flightSky, font, radius, space, type Theme } from '@/theme.ts';
  * Read bottom-to-top, which is why the stops run in that order visually: the
  * warm end is at the *foot* of the content, where the day starts. The dark
  * flight is the same climb at night — indigo lifting to a warm ridge — so the
- * gold flag and the accent trail still read at the top.
+ * gold ridge still reads at the top.
  *
  * Module constants: `Gradient` re-ramps when the array identity changes.
  */
@@ -87,12 +91,12 @@ import { flightSky, font, radius, space, type Theme } from '@/theme.ts';
  * invents a bad day for somebody who may have had a good one.
  *
  * **The minimap on the right edge is the whole flight at once** (deviation
- * #72). The corridor is four screens tall; the strip draws all of it, every
+ * #72). The flight is four screens tall; the strip draws all of it, every
  * bird as a dot, the ridge as a tick, and a window over what the screen is
  * showing. Dragging the strip scrolls the flight — `minimap.ts` owns the
  * arithmetic and is tested against the same `flightFrame` the corridor is
- * drawn with. The corridor itself is painted by the reader's own steps: the
- * segments behind their bird take the accent, the ones ahead stay air.
+ * drawn with. The bird's straight altitude is painted from the reader's own
+ * step-derived progress; no decorative motion changes that position.
  *
  * **This screen owns the `race_seen` marker.** It moved here from the Today tab
  * when the race stopped being a card there — the marker measures looking at the
@@ -123,6 +127,16 @@ export default function Sky() {
   const styles = useStyles(makeStyles);
   const scheme = useScheme();
   const reduceMotion = useReduceMotion();
+  const [screenFocused, setScreenFocused] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => setScreenFocused(false);
+    }, []),
+  );
+
+  const motionActive = screenFocused;
 
   // Where the pinned chrome starts. Read twice — by the chrome itself and by
   // the flight that has to clear it — and the two have to agree, so it is
@@ -194,15 +208,30 @@ export default function Sky() {
   // rather than from a second constant.
   const boxWidth = width;
   const boxHeight = boxWidth / SKY_PATH_ASPECT;
+  const flightBottomClearance = skyFlightBottomClearance({
+    insetBottom: insets.bottom,
+    tabClearance: TAB_PILL_CLEARANCE,
+    footerHeight: footHeight,
+    gap: space.sm,
+  });
 
-  const placements = placeRacers(racers.map((r) => r.progress));
+  const placements = skyFlightPlacements(
+    racers.map((racer) => ({
+      identity: racer.userId,
+      progress: racer.progress,
+      figureSize: racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE,
+    })),
+    boxWidth,
+    flightBottomClearance,
+  );
+  const selfIndex = racers.findIndex((racer) => racer.isSelf);
 
   /**
    * Where the flight starts and where it opens — `flightFrame`'s, not this
    * screen's.
    *
    * The flight is inset below the flock rail rather than starting under it.
-   * The top of the path is the ridge, which is where everybody who cleared the
+   * The top of the flight is the ridge, which is where everybody who cleared the
    * Daily Walk sits, so an uninset corridor drew that bird with its head under
    * the rail — and because the scroller cannot go above zero, no amount of
    * dragging recovered it. The inset makes the clearance a property of the
@@ -221,7 +250,7 @@ export default function Sky() {
     viewportHeight: height,
     chromeBottom: chromeTop + railHeight,
     gap: space.md,
-    focusY: me ? pointAt(me.progress).y * boxHeight : null,
+    focusY: me ? skyFlightFocusY(placements, selfIndex, boxHeight) : null,
   });
 
   /**
@@ -264,7 +293,6 @@ export default function Sky() {
     }),
     [frame.contentHeight, frame.topInset, height, boxWidth, boxHeight, mapHeight],
   );
-  const selfIndex = racers.findIndex((r) => r.isSelf);
   const ghostIndexes = racers.flatMap((r, i) => (r.isGhost ? [i] : []));
 
   return (
@@ -293,30 +321,11 @@ export default function Sky() {
               place a coordinate could be left behind. */
             }
             <View style={{ width: boxWidth, height: boxHeight, marginTop: frame.topInset }}>
-              {
-                /* Clouds, thinning as the flight climbs. Decoration only — the
-                race's meaning is entirely in the birds and the ridge. */
-              }
-              {CLOUDS.map((cloud, i) => (
-                <View
-                  key={i}
-                  accessibilityElementsHidden
-                  importantForAccessibility='no-hide-descendants'
-                  style={[
-                    styles.cloud,
-                    {
-                      top: boxHeight * cloud.at,
-                      left: cloud.left === null ? undefined : boxWidth * cloud.left,
-                      right: cloud.right === null ? undefined : boxWidth * cloud.right,
-                      width: cloud.w,
-                      height: cloud.h,
-                      opacity: cloud.opacity,
-                    },
-                  ]}
-                />
-              ))}
-
-              <SkyCorridor width={boxWidth} progress={me ? me.progress : null}>
+              <SkyCorridor
+                width={boxWidth}
+                progress={me ? me.progress : null}
+                motionActive={motionActive}
+              >
                 {racers.map((racer, i) => (
                   <SkyMarker
                     key={racer.userId}
@@ -324,7 +333,7 @@ export default function Sky() {
                     placement={placements[i] as (typeof placements)[number]}
                     boxWidth={boxWidth}
                     boxHeight={boxHeight}
-                    bottomClearance={insets.bottom + TAB_PILL_CLEARANCE}
+                    bottomClearance={flightBottomClearance}
                   />
                 ))}
               </SkyCorridor>
@@ -341,7 +350,7 @@ export default function Sky() {
               <View
                 accessible
                 accessibilityLabel={`The ridge, ${RACE_FINISH_LINE.toLocaleString()} steps`}
-                style={[styles.ridge, { top: pointAt(1).y * boxHeight - 14 }]}
+                style={[styles.ridge, { top: skyFlightPoint(1).y * boxHeight - 14 }]}
               >
                 <Text
                   scale='fixed'
@@ -357,7 +366,7 @@ export default function Sky() {
               <View
                 accessible
                 accessibilityLabel='Midnight, where the day started'
-                style={[styles.ground, { top: pointAt(0).y * boxHeight + 24 }]}
+                style={[styles.ground, { top: skyFlightPoint(0).y * boxHeight + 24 }]}
               >
                 <Text
                   scale='fixed'
@@ -507,21 +516,6 @@ export default function Sky() {
 }
 
 /**
- * Where the clouds sit, as fractions of the flight.
- *
- * A module constant rather than a literal in the render body: this array is
- * mapped on every scroll frame's re-render, and a fresh array each time is a
- * fresh key set for React to reconcile.
- */
-const CLOUDS = [
-  { at: 0.1, left: -0.1, right: null, w: 190, h: 66, opacity: 0.5 },
-  { at: 0.23, left: null, right: -0.1, w: 210, h: 70, opacity: 0.55 },
-  { at: 0.42, left: -0.13, right: null, w: 220, h: 74, opacity: 0.6 },
-  { at: 0.6, left: null, right: 0.05, w: 170, h: 58, opacity: 0.65 },
-  { at: 0.78, left: 0.1, right: null, w: 240, h: 78, opacity: 0.7 },
-] as const;
-
-/**
  * Who is on the corridor.
  *
  * Identical in shape to the Today tab's, and deliberately duplicated rather
@@ -584,12 +578,6 @@ function buildRacers(input: {
 const makeStyles = ({ colors, ramp }: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.night },
-    cloud: {
-      position: 'absolute',
-      borderRadius: radius.pill,
-      borderCurve: 'continuous',
-      backgroundColor: ramp.sky[100],
-    },
     /**
      * The ridge and the ground labels sit on the right and centre respectively,
      * clear of the corridor, which runs up the middle. Both are absolutely

@@ -1,11 +1,11 @@
-import { pointAt, type Placement } from '@kairo/core';
+import { SKY_MINIMAP_WIDTH, type SkyFlightPlacement } from './sky-flight.ts';
 
 /**
  * The flight's minimap — the arithmetic (deviation #72).
  *
  * The Sky is a corridor four times taller than the screen, scrolled. A pinned
- * strip on the right edge draws the whole flight at once: the path in
- * miniature, every bird as a dot, the ridge as a tick, and a window showing
+ * strip on the right edge draws the whole flight at once: every bird as a dot,
+ * the ridge as a tick, and a window showing
  * which part of the flight the screen is looking at. Dragging the window
  * scrolls the flight; that is what makes it a map rather than a picture.
  *
@@ -22,13 +22,10 @@ import { pointAt, type Placement } from '@kairo/core';
  */
 
 /** The strip is also the scrub responder, so its width meets the 44-point touch minimum. */
-export const MINIMAP_WIDTH = 44;
+export const MINIMAP_WIDTH = SKY_MINIMAP_WIDTH;
 
 /** Horizontal breathing room inside the strip, so a dot never touches its edge. */
 const PAD_X = 9;
-
-/** How many points along the path the miniature draws. */
-const PATH_SAMPLES = 36;
 
 export interface MinimapGeometry {
   /** The scroller's whole content, in points — `flightFrame().contentHeight`. */
@@ -44,20 +41,6 @@ export interface MinimapGeometry {
   mapHeight: number;
 }
 
-/** The band of the drawing box's width the path actually occupies. */
-function pathXRange(): { min: number; max: number } {
-  let min = 1;
-  let max = 0;
-  for (let i = 0; i <= PATH_SAMPLES; i++) {
-    const { x } = pointAt(i / PATH_SAMPLES);
-    if (x < min) min = x;
-    if (x > max) max = x;
-  }
-  return { min, max };
-}
-
-const X_RANGE = pathXRange();
-
 /** Points per content point, vertically. */
 function scaleY(g: MinimapGeometry): number {
   return g.contentHeight > 0 ? g.mapHeight / g.contentHeight : 0;
@@ -65,27 +48,17 @@ function scaleY(g: MinimapGeometry): number {
 
 /** A normalised box position to a point inside the strip. */
 export function mapPoint(g: MinimapGeometry, x: number, y: number): { x: number; y: number } {
-  const span = X_RANGE.max - X_RANGE.min;
-  const u = span > 0 ? (x - X_RANGE.min) / span : 0.5;
-  const clampedU = Math.min(1, Math.max(0, u));
+  const clampedX = Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0.5));
   return {
-    x: PAD_X + clampedU * (MINIMAP_WIDTH - PAD_X * 2),
+    x: PAD_X + clampedX * (MINIMAP_WIDTH - PAD_X * 2),
     y: (g.topInset + y * g.boxHeight) * scaleY(g),
   };
-}
-
-/** The miniature path, as points to join. */
-export function miniPath(g: MinimapGeometry): { x: number; y: number }[] {
-  return Array.from({ length: PATH_SAMPLES + 1 }, (_, i) => {
-    const p = pointAt(i / PATH_SAMPLES);
-    return mapPoint(g, p.x, p.y);
-  });
 }
 
 /** Where each bird sits in the strip, from the corridor's own placements. */
 export function miniRacers(
   g: MinimapGeometry,
-  placements: readonly Placement[],
+  placements: readonly SkyFlightPlacement[],
 ): { x: number; y: number }[] {
   return placements.map((p) => mapPoint(g, p.x, p.y));
 }

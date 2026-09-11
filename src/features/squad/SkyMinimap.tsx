@@ -1,23 +1,23 @@
 import { useMemo, useRef, type MutableRefObject } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
-import type { Placement } from '@kairo/core';
 import { radius, type Theme } from '@/theme.ts';
 import { useStyles } from '@/ui/use-theme.ts';
 import {
   MINIMAP_WIDTH,
-  miniPath,
+  mapPoint,
   miniRacers,
   offsetForMapY,
   viewportWindow,
   type MinimapGeometry,
 } from './minimap.ts';
+import { skyFlightPoint, type SkyFlightPlacement } from './sky-flight.ts';
 
 /**
  * The whole flight, in a strip on the right edge (deviation #72).
  *
  * The corridor is four screens tall and the reader sees one of them. This is
- * the other three: the path in miniature, every bird as a dot, the ridge as a
- * tick, and a window over the part of the flight the screen is showing. It is
+ * the other three: every bird at its straight-flight rest position, the ridge
+ * as a tick, and a window over the part of the flight the screen is showing. It is
  * **scrubbable** — a touch or a drag on the strip scrolls the flight to that
  * point — which is what makes it a map rather than a decoration.
  *
@@ -46,12 +46,12 @@ export function SkyMinimap({
   style,
 }: {
   geometry: MinimapGeometry;
-  placements: readonly Placement[];
+  placements: readonly SkyFlightPlacement[];
   /** Which placement is the reader's own bird, or null with none. */
   selfIndex: number | null;
   /** Placements that are ghosts of the reader's own past days. */
   ghostIndexes: readonly number[];
-  /** The reader's own progress 0–1, so the trail behind them is painted. */
+  /** Retained interface input; progress is already represented by the self dot. */
   selfProgress: number | null;
   /** The scroller's live offset, driven natively. */
   scrollY: Animated.Value;
@@ -62,7 +62,6 @@ export function SkyMinimap({
 }) {
   const styles = useStyles(makeStyles);
 
-  const path = useMemo(() => miniPath(geometry), [geometry]);
   const birds = useMemo(() => miniRacers(geometry, placements), [geometry, placements]);
   const windowAtTop = viewportWindow(geometry, 0);
   const furthest = Math.max(0, geometry.contentHeight - geometry.viewportHeight);
@@ -89,9 +88,8 @@ export function SkyMinimap({
     }),
   ).current;
 
-  const ridgeY = path[path.length - 1]?.y ?? 0;
-  const flownCount =
-    selfProgress === null ? 0 : Math.round(Math.min(1, Math.max(0, selfProgress)) * (path.length - 1));
+  const ridge = skyFlightPoint(1);
+  const ridgeY = mapPoint(geometry, ridge.x, ridge.y).y;
 
   return (
     <View
@@ -118,20 +116,7 @@ export function SkyMinimap({
         {/* The ridge, at the top of the climb. */}
         <View style={[styles.ridge, { top: ridgeY - 1 }]} />
 
-        {/* The path as a dotted trail. Dots behind the reader's own bird take
-            the accent — the same "flown" paint the corridor itself carries. */}
-        {path.map((p, i) => (
-          <View
-            key={i}
-            style={[
-              styles.pathDot,
-              i <= flownCount ? styles.pathDotFlown : null,
-              { left: p.x - 1.5, top: p.y - 1.5 },
-            ]}
-          />
-        ))}
-
-        {/* The birds. Drawn after the path so they sit on it. */}
+        {/* Bird dots report the same straight projection as the full flight. */}
         {birds.map((b, i) => {
           const self = i === selfIndex;
           const ghost = ghostIndexes.includes(i);
@@ -180,15 +165,6 @@ const makeStyles = ({ colors, earnedColor, ramp }: Theme) =>
       borderCurve: 'continuous',
       backgroundColor: earnedColor,
     },
-    pathDot: {
-      position: 'absolute',
-      width: 3,
-      height: 3,
-      borderRadius: 1.5,
-      borderCurve: 'continuous',
-      backgroundColor: ramp.neutral[400],
-    },
-    pathDotFlown: { backgroundColor: colors.accent },
     bird: {
       position: 'absolute',
       width: 7,

@@ -87,6 +87,7 @@ describe('isolated screen fixtures', () => {
       .toEqual(Object.fromEntries(members.map((member) => [member.user_id, member.character_name])));
     expect(PREVIEW_FIXTURES.map((fixture) => fixture.id)).toEqual([
       'standard', 'long-name', 'ridge', 'ceiling', 'no-sleep', 'ghosts', 'sky-wide-rival',
+      'sky-crowded',
     ]);
   });
   it('puts a maximum-width rival near the Sky ground-label threshold', () => {
@@ -97,6 +98,14 @@ describe('isolated screen fixtures', () => {
       characterName: 'Hiraya ng Kalangitan',
       steps: 400,
     });
+  });
+  it('offers six close Sky racers with self leading only in the crowded fixture', () => {
+    const crowded = previewSkyRacers('ready', 'sky-crowded').racers;
+    expect(crowded).toHaveLength(6);
+    expect(crowded[0]).toMatchObject({ isSelf: true });
+    expect(Math.max(...crowded.map((racer) => racer.progress))
+      - Math.min(...crowded.map((racer) => racer.progress))).toBeLessThan(0.06);
+    expect(previewSkyRacers('ready', 'standard').racers).toHaveLength(3);
   });
   it('renders Today details from the same fixture day as the visible readings', () => {
     const source = readFileSync('src/features/preview/TodayPreviewScreen.tsx', 'utf8');

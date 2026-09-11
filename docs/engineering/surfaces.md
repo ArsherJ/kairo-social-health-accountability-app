@@ -868,7 +868,8 @@ owns growth; aura/plumage and the crest sky remain with the figure. Motion is
 removed from the supporting tiles so one day never prints the same reading
 twice.
 
-**Sky changed paint, not flight.** The bead-like path became a finer projected
+**Sky changed paint, not flight in the initial plush pass** (the open-flight
+refinement below supersedes this presentation). The bead-like path became a finer projected
 trail, but `flightFrame`, `raceProgress`, `placeRacers`, minimap mapping and the
 measured rail remain the only authorities. The distinction matters: a quieter
 path can be reviewed as presentation, while new geometry would change where a
@@ -905,3 +906,28 @@ nested Name view receives its measured window offset for keyboard avoidance,
 while the production route retains zero. The preview remains sample-data
 verification, not authenticated HealthKit or backend evidence; the exact
 boundary and current matrix live in `mobile-screen-preview.md`.
+
+## Open-air Sky refinement (2026-09-11)
+
+The user removed the track metaphor: the flock now flies through open sky
+toward layered ridges, with automatic sideways drifting rather than manual
+steering. The main view and minimap have no winding stroke or dotted trail.
+Forward distance stays proportional to the existing earned-step progress; time
+only animates decorative lateral movement and scenery, never scores or rank.
+
+The presentation projection is shared by the scene, minimap and Locate. Stable
+identities keep refetches from randomly rearranging the lateral rest positions.
+Nearby birds fan out only for legibility; their spoken percentages and rankings
+continue to describe earned progress, not that decorative spacing. Collision
+bounds include the whole bird, its name and its full sideways excursion.
+Measured `flightFrame` clearances and independent name-label anchors still
+apply, including at the ridge and ground. The minimap remains a 44-point scrub
+target with accessible adjustment, not a steering control.
+
+Ambient motion runs only while the screen/app is active and Reduce Motion has
+resolved off. It stops and returns to a static rest position otherwise. The
+existing v3 figure is translated, not regenerated or assigned a new gameplay
+state. Shared native Views and theme roles provide the scenery; no new native
+dependency or asset build is introduced. The curved keystone helpers remain
+historical/reusable geometry, not the new Sky presentation authority; core
+ranking, scoring, consent, ghosts and finish-line semantics are unchanged.

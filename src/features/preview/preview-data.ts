@@ -32,6 +32,7 @@ export const PREVIEW_FIXTURES = [
   { id: 'no-sleep', label: 'No sleep' },
   { id: 'ghosts', label: 'Ghost days' },
   { id: 'sky-wide-rival', label: 'Wide sky label' },
+  { id: 'sky-crowded', label: 'Crowded sky' },
 ] as const;
 
 export type PreviewFixture = (typeof PREVIEW_FIXTURES)[number]['id'];
@@ -208,6 +209,8 @@ export function previewSkyRacers(
           character_name: LONG_NAMES[1],
           steps: member.steps === null ? null : 400,
         })
+      : fixture === 'sky-crowded' && allMembers.length >= 3
+        ? crowdedSkyMembers(allMembers)
       : allMembers;
   const memberRacers = members.flatMap((member) => member.steps === null ? [] : [{
     userId: member.user_id,
@@ -233,6 +236,20 @@ export function previewSkyRacers(
     racers,
     ghostIndexes: racers.flatMap((racer, index) => racer.isGhost ? [index] : []),
   };
+}
+
+function crowdedSkyMembers(members: ReturnType<typeof previewMembers>) {
+  const self = members.find((member) => member.is_self)!;
+  const rivals = members.filter((member) => !member.is_self);
+  const sources = [self, rivals[0]!, rivals[1]!, rivals[0]!, rivals[1]!, rivals[0]!] as const;
+  return sources.map((member, index) => ({
+    ...member,
+    rank: index + 1,
+    user_id: index === 0 ? member.user_id : `preview-sky-crowded-${index}`,
+    character_name: index === 0 ? member.character_name : ['Ramon', 'Trina', 'Maya', 'Lio', 'Sinta'][index - 1]!,
+    is_self: index === 0,
+    steps: member.steps === null ? null : 5900 - index * 80,
+  }));
 }
 
 export function previewStreak(fixture: PreviewFixture): Streak {

@@ -1,139 +1,181 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { SKY_PATH_ASPECT, angleAt, pointAt } from '@kairo/core';
+import { useContext, type ReactNode } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
+import { SKY_PATH_ASPECT } from '@kairo/core';
 import type { Theme } from '@/theme.ts';
 import { useStyles } from '@/ui/use-theme.ts';
-import { trailAngle } from './sky-trail.ts';
+import { SkyDriftActiveContext, SkyDriftProvider, useSkyDrift } from './sky-drift.tsx';
+import { skyFlightPoint } from './sky-flight.ts';
 
 /**
- * The shared lane everybody flies (roadmap deviation #56).
- *
- * **Drawn without `react-native-svg`, deliberately.** That library would
- * render this path in one element and was rejected on cost, not on taste: it
- * is a native module, so it moves the EAS fingerprint, spends one of the
- * month's fifteen builds and withholds every OTA update until that build
- * lands. So the band is `SEGMENTS` short rounded views, each positioned at a
- * point on the curve and rotated to its tangent, overlapping into a
- * continuous stroke.
- *
- * **The path is painted by the reader's own steps** (deviation #72). The
- * segments behind their bird take the accent — the part of the flight they
- * have flown — and the segments ahead stay a wash of air. That makes the
- * corridor answer "how far have I come" at a glance, which six equal segments
- * of one colour never did, and it is the same fact the Motion tile's meter
- * states on Today: `progress` is `raceProgress(steps)`, capped at the line.
- *
- * The geometry is `@kairo/core`'s and none of it is computed here.
+ * The shared open flight. Progress is intentionally not painted as a track:
+ * birds move straight toward the ridge while atmosphere supplies the depth.
  */
-
-/**
- * How many pieces the band is cut into. Seventy-two keeps the finer trail
- * smooth on every bend across a box four times the screen's height.
- */
-const SEGMENTS = 72;
-
-/**
- * The corridor's width, as a fraction of the box's **width** — the design's
- * `stroke-width: 12` in a 393-wide viewBox.
- */
-const BAND = 12 / 393;
-
-/** The earned ridge keeps its old visual width, independent of the fine trail. */
-const RIDGE = 68 / 393;
-
 export function SkyCorridor({
   width,
-  progress = null,
+  motionActive = false,
   children,
 }: {
   width: number;
-  /** The reader's own progress along the flight, 0–1, or null with no bird. */
   progress?: number | null;
+  motionActive?: boolean;
   children?: ReactNode;
 }) {
   const styles = useStyles(makeStyles);
   const height = width / SKY_PATH_ASPECT;
-  const band = width * BAND;
-  const ridge = width * RIDGE;
-
-  // One extra so the last segment reaches the end rather than stopping a
-  // step short of it.
-  const steps = Array.from({ length: SEGMENTS + 1 }, (_, i) => i / SEGMENTS);
-
-  // Segment length, plus a little, so consecutive pieces overlap instead of
-  // leaving a gap on the outside of a bend. Measured off the path rather than
-  // approximated from the box.
-  const points = steps.map((t) => pointAt(t));
-  const pathLength = points.reduce((total, p, i) => {
-    if (i === 0) return 0;
-    const prev = points[i - 1] as { x: number; y: number };
-    return total + Math.hypot((p.x - prev.x) * width, (p.y - prev.y) * height);
-  }, 0);
-  const segmentLength = (pathLength / SEGMENTS) * 1.6;
-
-  const flownTo = progress === null ? -1 : Math.min(1, Math.max(0, progress));
+  const ridge = skyFlightPoint(1);
 
   return (
     // The corridor says nothing on its own — the markers inside it carry every
     // word. Hidden rather than labelled.
     <View style={[styles.box, { width, height }]}>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={StyleSheet.absoluteFill}
-      >
-        {steps.map((t, i) => {
-          const p = points[i] as { x: number; y: number };
-          return (
-            <View
-              key={t}
-              style={[
-                styles.segment,
-                t <= flownTo && styles.flown,
-                {
-                  left: p.x * width - segmentLength / 2,
-                  top: p.y * height - band / 2,
-                  width: segmentLength,
-                  height: band,
-                  borderRadius: band / 2,
-                  borderCurve: 'continuous',
-                  transform: [{ rotate: `${trailAngle(angleAt(t), SKY_PATH_ASPECT)}deg` }],
-                },
-              ]}
-            />
-          );
-        })}
-
-        {/* The ridge, at the top of the climb: a rule across the direction of
-            travel, in gold because it is earned. It names nothing here; the
-            screen's own ridge marker says what the line is, once. */}
+      <SkyDriftProvider active={motionActive}>
         <View
-          style={[
-            styles.flag,
-            {
-              left: pointAt(1).x * width - ridge / 2,
-              top: pointAt(1).y * height,
-              width: ridge,
-            },
-          ]}
-        />
-      </View>
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[StyleSheet.absoluteFill, styles.scenery]}
+        >
+          {RIDGES.map((layer, index) => {
+            const layerHeight = layer.height * width / 393;
+            const color = index % 2 === 0
+              ? styles.ridgeFar.backgroundColor
+              : styles.ridgeNear.backgroundColor;
+            return (
+              <View
+                key={layer.at}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: layer.at * height - layerHeight,
+                  bottom: 0,
+                  opacity: layer.opacity,
+                }}
+              >
+                {PEAKS.map((peak) => (
+                  <View
+                    key={peak.left}
+                    style={{
+                      position: 'absolute',
+                      left: peak.left * width,
+                      top: 0,
+                      width: 0,
+                      height: 0,
+                      borderLeftWidth: peak.width * width / 2,
+                      borderRightWidth: peak.width * width / 2,
+                      borderBottomWidth: layerHeight,
+                      borderLeftColor: 'transparent',
+                      borderRightColor: 'transparent',
+                      borderBottomColor: color,
+                    }}
+                  />
+                ))}
+                <View
+                  style={[
+                    styles.ridgeBody,
+                    { top: Math.max(0, layerHeight - 2), backgroundColor: color },
+                  ]}
+                />
+              </View>
+            );
+          })}
 
-      {children}
+          {CLOUDS.map((cloud, index) => (
+            <CloudWisp
+              key={cloud.at}
+              cloud={cloud}
+              identity={`cloud-${index}`}
+              width={width}
+              height={height}
+              styles={styles}
+            />
+          ))}
+
+          <View
+            style={[
+              styles.finish,
+              {
+                left: ridge.x * width - 38,
+                top: ridge.y * height,
+              },
+            ]}
+          />
+        </View>
+
+        {children}
+      </SkyDriftProvider>
     </View>
+  );
+}
+
+const RIDGES = [
+  { at: 0.055, height: 64, opacity: 0.48 },
+  { at: 0.31, height: 52, opacity: 0.22 },
+  { at: 0.56, height: 58, opacity: 0.25 },
+  { at: 0.81, height: 50, opacity: 0.2 },
+] as const;
+
+const PEAKS = [
+  { left: -0.19, width: 0.62 },
+  { left: 0.19, width: 0.5 },
+  { left: 0.52, width: 0.7 },
+] as const;
+
+const CLOUDS = [
+  { at: 0.2, left: 0.09, scale: 0.82, opacity: 0.22 },
+  { at: 0.43, left: 0.67, scale: 0.68, opacity: 0.17 },
+  { at: 0.68, left: 0.16, scale: 0.74, opacity: 0.18 },
+  { at: 0.88, left: 0.62, scale: 0.62, opacity: 0.15 },
+] as const;
+
+function CloudWisp({
+  cloud,
+  identity,
+  width,
+  height,
+  styles,
+}: {
+  cloud: (typeof CLOUDS)[number];
+  identity: string;
+  width: number;
+  height: number;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const active = useContext(SkyDriftActiveContext);
+  const translateX = useSkyDrift(identity, active);
+  return (
+    <Animated.View
+      style={[
+        styles.cloud,
+        {
+          top: cloud.at * height,
+          left: cloud.left * width,
+          opacity: cloud.opacity,
+          transform: [{ translateX }, { scale: cloud.scale }],
+        },
+      ]}
+    >
+      <View style={[styles.cloudLobe, styles.cloudLeft]} />
+      <View style={[styles.cloudLobe, styles.cloudMiddle]} />
+      <View style={[styles.cloudLobe, styles.cloudRight]} />
+    </Animated.View>
   );
 }
 
 const makeStyles = ({ colors, earnedColor, ramp }: Theme) =>
   StyleSheet.create({
     box: { alignSelf: 'center' },
-    segment: {
+    scenery: { overflow: 'hidden' },
+    ridgeFar: { backgroundColor: ramp.sky[300] },
+    ridgeNear: { backgroundColor: ramp.sage[200] },
+    ridgeBody: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+    cloud: { position: 'absolute', width: 76, height: 28 },
+    cloudLobe: { position: 'absolute', backgroundColor: colors.onDeep },
+    cloudLeft: { left: 0, top: 12, width: 34, height: 10, borderRadius: 7, borderCurve: 'continuous' },
+    cloudMiddle: { left: 23, top: 3, width: 28, height: 20, borderRadius: 13, borderCurve: 'continuous' },
+    cloudRight: { left: 43, top: 11, width: 33, height: 11, borderRadius: 7, borderCurve: 'continuous' },
+    finish: {
       position: 'absolute',
-      backgroundColor: ramp.neutral[300],
-    },
-    flown: { backgroundColor: colors.accent },
-    flag: {
-      position: 'absolute',
+      width: 76,
       height: 3,
       borderRadius: 2,
       borderCurve: 'continuous',
