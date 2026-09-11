@@ -122,7 +122,8 @@ describe('crestTint', () => {
     // answer to a question two components already share one answer to.
     for (const path of [
       'src/features/squad/LeaderboardRow.tsx',
-      'src/features/squad/Leaderboard.tsx',
+      'src/features/squad/FlockPerch.tsx',
+      'src/features/squad/PerchBirdSheet.tsx',
       'src/features/profile/ProfileHeader.tsx',
     ]) {
       const source = strip(path);

@@ -622,3 +622,63 @@ export const dark: Theme = {
 };
 
 export const themes: Record<Scheme, Theme> = { light, dark };
+
+/** Scenery tokens share the app's schemes and stay out of screen files. */
+type SceneStop = { color: string; at: number };
+export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; fade: SceneStop[] }> = {
+  light: {
+    sky: [
+      { color: themes.light.ramp.sky[400], at: 0 },
+      { color: '#8fe0ff', at: 0.42 },
+      { color: themes.light.ramp.sky[200], at: 0.74 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+    crest: [
+      { color: themes.light.ramp.gold[300], at: 0 },
+      { color: themes.light.ramp.accent[300], at: 0.5 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+    fade: [
+      { color: '#fff6ec00', at: 0 },
+      { color: '#fff6ec59', at: 0.55 },
+      { color: themes.light.colors.bg, at: 1 },
+    ],
+  },
+  dark: {
+    sky: [
+      { color: themes.dark.ramp.sky[900], at: 0 },
+      { color: themes.dark.ramp.sky[300], at: 0.42 },
+      { color: themes.dark.ramp.sky[200], at: 0.74 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+    crest: [
+      { color: themes.dark.ramp.gold[300], at: 0 },
+      { color: themes.dark.ramp.accent[300], at: 0.5 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+    fade: [
+      { color: '#14112a00', at: 0 },
+      { color: '#14112a59', at: 0.55 },
+      { color: themes.dark.colors.bg, at: 1 },
+    ],
+  },
+};
+
+export const flightSky: Record<Scheme, SceneStop[]> = {
+  light: [
+    { color: themes.light.ramp.sky[500], at: 0 },
+    { color: themes.light.ramp.sky[400], at: 0.26 },
+    { color: '#8fe0ff', at: 0.52 },
+    { color: '#cff1ff', at: 0.74 },
+    { color: '#ffe9c4', at: 0.92 },
+    { color: '#ffc58a', at: 1 },
+  ],
+  dark: [
+    { color: themes.dark.ramp.sky[900], at: 0 },
+    { color: '#12305e', at: 0.3 },
+    { color: '#1b4478', at: 0.55 },
+    { color: '#3a2d78', at: 0.78 },
+    { color: '#5a3a2a', at: 0.92 },
+    { color: '#7a4a22', at: 1 },
+  ],
+};

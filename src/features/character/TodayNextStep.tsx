@@ -24,15 +24,20 @@ export const TodayNextStep = forwardRef<View, {
   const styles = useStyles(makeStyles);
   return (
     <View style={styles.nextStep}>
-      <Text accessibilityRole="summary" style={styles.sentence}>{sentence}</Text>
+      <Text accessibilityRole='summary' style={styles.sentence}>{sentence}</Text>
       {showDetails && (
         <Pressable
           ref={ref}
-          accessibilityRole="button"
+          accessibilityRole='button'
           accessibilityLabel="See today's details"
           hitSlop={space.sm}
           onPress={onDetails}
-          style={({ pressed }) => pressed && { opacity: 0.6 }}
+          style={(
+            { pressed },
+          ) => [
+            { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+            pressed && { opacity: 0.6 },
+          ]}
         >
           <Text style={styles.detailsLink}>See today&apos;s details</Text>
         </Pressable>

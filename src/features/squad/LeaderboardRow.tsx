@@ -9,6 +9,7 @@ import {
   type SpeciesId,
 } from '@/features/character/species.ts';
 import { leaderboardRowLabel } from './row-label.ts';
+import { PERCH_COPY } from './perch-copy.ts';
 import type { LeaderboardMode, LeaderboardRow as Row } from './queries.ts';
 import { font, radius, space, type Theme } from '@/theme.ts';
 import { StatIcon, STAT_NAMES, Text, useStyles, useTheme } from '@/ui/index.ts';
@@ -34,10 +35,12 @@ export function LeaderboardRow({
   mode,
   gap,
   ranked = true,
+  whackMark,
 }: {
   row: Row;
   mode: LeaderboardMode;
   gap: number | null;
+  whackMark?: string;
   /**
    * Whether there is anybody to be ranked against.
    *
@@ -92,6 +95,8 @@ export function LeaderboardRow({
         ...(mode === 'current' ? { streakDays: row.current_streak } : {}),
         provisional: mode === 'completed' && row.status === 'provisional',
         flagged: row.flagged,
+        sharing: row.steps !== null,
+        whackMark,
         statNames: STAT_NAMES,
       })}
       style={[
@@ -153,6 +158,9 @@ export function LeaderboardRow({
             </View>
           )}
         </View>
+
+        {row.steps === null && <Text scale="chrome" style={styles.meta}>{PERCH_COPY.notSharing}</Text>}
+        {whackMark && <Text scale="chrome" style={[styles.meta, { color: colors.damage }]}>{whackMark}</Text>}
 
         {/* Glyphs, not sentences.
 

@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { CoreStat, Dominance, EvolutionStage } from '@kairo/core';
-import { radius, themes, type Scheme, type Theme } from '@/theme.ts';
+import { dioramaSky, radius, type Theme } from '@/theme.ts';
 import { Gradient } from '@/ui/Gradient.tsx';
-import type { Stop } from '@/ui/gradient.ts';
 import { useScheme, useStyles } from '@/ui/use-theme.ts';
 import { CharacterFigure } from './CharacterFigure.tsx';
 import { MotionScenery } from './MotionScenery.tsx';
@@ -44,44 +43,6 @@ import type { BodyPresence, MotionLocation, StaticFigureSelection } from './livi
  * late afternoon rather than an alert, in both schemes, and it is always
  * paired with `ceilingLine`.
  */
-const STOPS: Record<Scheme, { sky: Stop[]; crest: Stop[]; fade: Stop[] }> = {
-  light: {
-    sky: [
-      { color: themes.light.ramp.sky[400], at: 0 },
-      { color: '#8fe0ff', at: 0.42 },
-      { color: themes.light.ramp.sky[200], at: 0.74 },
-      { color: themes.light.colors.bg, at: 1 },
-    ],
-    crest: [
-      { color: themes.light.ramp.gold[300], at: 0 },
-      { color: themes.light.ramp.accent[300], at: 0.5 },
-      { color: themes.light.colors.bg, at: 1 },
-    ],
-    fade: [
-      { color: '#fff6ec00', at: 0 },
-      { color: '#fff6ec59', at: 0.55 },
-      { color: themes.light.colors.bg, at: 1 },
-    ],
-  },
-  dark: {
-    sky: [
-      { color: themes.dark.ramp.sky[900], at: 0 },
-      { color: themes.dark.ramp.sky[300], at: 0.42 },
-      { color: themes.dark.ramp.sky[200], at: 0.74 },
-      { color: themes.dark.colors.bg, at: 1 },
-    ],
-    crest: [
-      { color: themes.dark.ramp.gold[300], at: 0 },
-      { color: themes.dark.ramp.accent[300], at: 0.5 },
-      { color: themes.dark.colors.bg, at: 1 },
-    ],
-    fade: [
-      { color: '#14112a00', at: 0 },
-      { color: '#14112a59', at: 0.55 },
-      { color: themes.dark.colors.bg, at: 1 },
-    ],
-  },
-};
 
 export function Diorama({
   height,
@@ -143,12 +104,13 @@ export function Diorama({
   children?: ReactNode;
 }) {
   const styles = useStyles(makeStyles);
-  const stops = STOPS[useScheme()];
+  const stops = dioramaSky[useScheme()];
   return (
     <View style={[styles.sky, { height }]}>
       <Gradient stops={crest ? stops.crest : stops.sky} />
 
-      {/* The sun, and three clouds drifting behind the figure.
+      {
+        /* The sun, and three clouds drifting behind the figure.
 
           These replace the two anonymous soft bodies that stood here while the
           sky was a sage field. The bodies existed so the ramp would not read as
@@ -159,7 +121,8 @@ export function Diorama({
 
           All four are `pointerEvents="none"` by virtue of sitting under the
           figure and the HUD, and all four are decoration — the sky's meaning is
-          carried by `crest` and by `ceilingLine`, never by the weather here. */}
+          carried by `crest` and by `ceilingLine`, never by the weather here. */
+      }
       <View style={[styles.sun, { top: -height * 0.16, right: -60 }]} />
       <View
         style={[styles.cloud, { top: height * 0.19, left: -40, width: 180, height: 62 }]}
@@ -177,9 +140,11 @@ export function Diorama({
         ]}
       />
 
-      {/* Where KAIRO is standing today. Under the fade and the figure, over the
+      {
+        /* Where KAIRO is standing today. Under the fade and the figure, over the
           sky: it is the ground, not weather. Decorative — the location is also
-          printed as a word in the HUD. */}
+          printed as a word in the HUD. */
+      }
       <MotionScenery location={location} />
 
       <Gradient stops={stops.fade} steps={28} style={{ top: height * 0.46 }} />
@@ -200,15 +165,17 @@ export function Diorama({
         // and where it is standing, never a Hunter (deviation #26) and never a
         // physique tier.
         accessible
-        accessibilityRole="image"
+        accessibilityRole='image'
         accessibilityLabel={figureLabel}
         style={[styles.stage, { bottom: height * 0.12 }]}
       >
-        {/* `accessible` on the wrapper should collapse this on iOS and did
+        {
+          /* `accessible` on the wrapper should collapse this on iOS and did
             not, on the 2026-08-14 build, so the figure is hidden explicitly
             rather than trusting the implicit behaviour. Same fix, same
-            reason, as `LeaderboardRow`. */}
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            reason, as `LeaderboardRow`. */
+        }
+        <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
           <CharacterFigure
             level={level}
             stage={stage}
@@ -221,57 +188,60 @@ export function Diorama({
         </View>
       </View>
 
-      {/* Outside the figure's element on purpose: the HUD lives here — the
+      {
+        /* Outside the figure's element on purpose: the HUD lives here — the
           level and streak pills and the stat rail, each of which names
-          itself. Collapsing the whole diorama would swallow them. */}
+          itself. Collapsing the whole diorama would swallow them. */
+      }
       {children}
     </View>
   );
 }
 
-const makeStyles = ({ ramp, scheme }: Theme) => StyleSheet.create({
-  /**
-   * A card now (deviation #72): the scene is one tile of the dashboard rather
-   * than the page's whole header, so it takes the card radius on every corner
-   * and clips its own sky.
-   */
-  sky: {
-    borderRadius: radius.lg,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-  },
-  /**
-   * A cloud: a white capsule, not a circle.
-   *
-   * The design blurs these; there is no blur here (see `Glass` for why the app
-   * owns no native blur) and none is needed — at 46% white on a saturated blue
-   * a hard capsule edge is already soft enough to read as vapour, and the
-   * figure sits in front of all three.
-   */
-  cloud: {
-    position: 'absolute',
-    borderRadius: radius.pill,
-    // Faint at night: a bright cloud on a night sky reads as a lamp.
-    backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.72)',
-  },
-  /**
-   * The sun, mostly off the top-right corner.
-   *
-   * Gold rather than the accent: this is warmth in the scene and not a figure
-   * about the player, and putting `colors.accent` in the sky would be the one
-   * orange on this screen that does not mean "you" — which is the distinction
-   * `earnedColor`'s own comment spends a paragraph on. A flat disc rather than
-   * the design's radial gradient: `Gradient` bands only linearly, and a radial
-   * one built from concentric views is a great deal of machinery for a shape
-   * that is three-quarters off-screen.
-   */
-  sun: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: radius.pill,
-    backgroundColor: ramp.gold[300],
-    opacity: scheme === 'dark' ? 0.55 : 0.85,
-  },
-  stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-});
+const makeStyles = ({ ramp, scheme }: Theme) =>
+  StyleSheet.create({
+    /**
+     * A card now (deviation #72): the scene is one tile of the dashboard rather
+     * than the page's whole header, so it takes the card radius on every corner
+     * and clips its own sky.
+     */
+    sky: {
+      borderRadius: radius.lg,
+      borderCurve: 'continuous',
+      overflow: 'hidden',
+    },
+    /**
+     * A cloud: a white capsule, not a circle.
+     *
+     * The design blurs these; there is no blur here (see `Glass` for why the app
+     * owns no native blur) and none is needed — at 46% white on a saturated blue
+     * a hard capsule edge is already soft enough to read as vapour, and the
+     * figure sits in front of all three.
+     */
+    cloud: {
+      position: 'absolute',
+      borderRadius: radius.pill,
+      // Faint at night: a bright cloud on a night sky reads as a lamp.
+      backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.72)',
+    },
+    /**
+     * The sun, mostly off the top-right corner.
+     *
+     * Gold rather than the accent: this is warmth in the scene and not a figure
+     * about the player, and putting `colors.accent` in the sky would be the one
+     * orange on this screen that does not mean "you" — which is the distinction
+     * `earnedColor`'s own comment spends a paragraph on. A flat disc rather than
+     * the design's radial gradient: `Gradient` bands only linearly, and a radial
+     * one built from concentric views is a great deal of machinery for a shape
+     * that is three-quarters off-screen.
+     */
+    sun: {
+      position: 'absolute',
+      width: 220,
+      height: 220,
+      borderRadius: radius.pill,
+      backgroundColor: ramp.gold[300],
+      opacity: scheme === 'dark' ? 0.55 : 0.85,
+    },
+    stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  });

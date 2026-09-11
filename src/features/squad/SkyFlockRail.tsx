@@ -64,10 +64,12 @@ type WithheldMember = { user_id: string; character_name: string };
 export function SkyFlockRail({
   racers,
   withheld,
+  onInvite,
 }: {
   racers: readonly Racer[];
   /** Squadmates whose totals are not shared, so they have no position. */
   withheld: readonly WithheldMember[];
+  onInvite?: () => void;
 }) {
   const router = useRouter();
   const styles = useStyles(makeStyles);
@@ -90,48 +92,48 @@ export function SkyFlockRail({
   const overflow = roster.length - shown.length;
 
   return (
-    <Glass tone="light" style={styles.rail}>
+    <Glass tone='light' style={styles.rail}>
       <View style={styles.title}>
         <MaterialCommunityIcons
           {...HIDDEN}
-          name="account-multiple"
+          name='account-multiple'
           size={14}
           color={colors.accent}
         />
-        <Text {...HIDDEN} scale="chrome" style={styles.titleText}>
+        <Text {...HIDDEN} scale='chrome' style={styles.titleText}>
           YOUR FLOCK TODAY
         </Text>
       </View>
 
       <View style={styles.seats}>
         {shown.map((slot) =>
-          slot.kind === 'racer' ? (
-            <RacerSeat key={slot.racer.userId} racer={slot.racer} />
-          ) : (
-            <WithheldSeat key={slot.member.user_id} member={slot.member} />
-          ),
+          slot.kind === 'racer'
+            ? <RacerSeat key={slot.racer.userId} racer={slot.racer} />
+            : <WithheldSeat key={slot.member.user_id} member={slot.member} />
         )}
 
-        {overflow > 0 ? (
-          <View
-            accessible
-            accessibilityLabel={`${overflow} more in your flock`}
-            style={[styles.seat, styles.seatOverflow]}
-          >
-            <Text {...HIDDEN} scale="fixed" style={styles.overflowLabel}>
-              +{overflow}
-            </Text>
-          </View>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Invite someone to your flock"
-            onPress={() => router.push('/flock')}
-            style={({ pressed }) => [styles.seat, styles.seatEmpty, pressed && styles.pressed]}
-          >
-            <MaterialCommunityIcons {...HIDDEN} name="plus" size={22} color={colors.muted} />
-          </Pressable>
-        )}
+        {overflow > 0
+          ? (
+            <View
+              accessible
+              accessibilityLabel={`${overflow} more in your flock`}
+              style={[styles.seat, styles.seatOverflow]}
+            >
+              <Text {...HIDDEN} scale='fixed' style={styles.overflowLabel}>
+                +{overflow}
+              </Text>
+            </View>
+          )
+          : (
+            <Pressable
+              accessibilityRole='button'
+              accessibilityLabel='Invite someone to your flock'
+              onPress={onInvite ?? (() => router.push('/flock'))}
+              style={({ pressed }) => [styles.seat, styles.seatEmpty, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons {...HIDDEN} name='plus' size={22} color={colors.muted} />
+            </Pressable>
+          )}
       </View>
     </Glass>
   );
@@ -149,11 +151,9 @@ function RacerSeat({ racer }: { racer: Racer }) {
   return (
     <View
       accessible
-      accessibilityLabel={
-        racer.isSelf
-          ? `You, position ${racer.rank}`
-          : `${racer.characterName}, position ${racer.rank}`
-      }
+      accessibilityLabel={racer.isSelf
+        ? `You, position ${racer.rank}`
+        : `${racer.characterName}, position ${racer.rank}`}
       style={[
         styles.seat,
         racer.rank === 1 && styles.seatLeader,
@@ -162,11 +162,11 @@ function RacerSeat({ racer }: { racer: Racer }) {
       ]}
     >
       <View {...HIDDEN}>
-        <KairoThumbnail pose="run" size={SEAT - 8} decorative />
+        <KairoThumbnail pose='run' size={SEAT - 8} decorative />
       </View>
       {racer.rank === 1 && (
         <View {...HIDDEN} style={[styles.badge, styles.badgeLeader]}>
-          <MaterialCommunityIcons name="crown" size={11} color={colors.ink} />
+          <MaterialCommunityIcons name='crown' size={11} color={colors.ink} />
         </View>
       )}
     </View>
@@ -184,65 +184,66 @@ function WithheldSeat({ member }: { member: WithheldMember }) {
       style={[styles.seat, styles.seatWithheld]}
     >
       <View {...HIDDEN} style={styles.dimmed}>
-        <KairoThumbnail pose="walk" size={SEAT - 8} decorative />
+        <KairoThumbnail pose='walk' size={SEAT - 8} decorative />
       </View>
       <View {...HIDDEN} style={[styles.badge, styles.badgeWithheld]}>
-        <MaterialCommunityIcons name="eye-off" size={10} color={colors.muted} />
+        <MaterialCommunityIcons name='eye-off' size={10} color={colors.muted} />
       </View>
     </View>
   );
 }
 
-const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
-  rail: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 12, borderRadius: radius.lg },
-  title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  titleText: { ...font.body.label, color: colors.accentDeep },
-  /**
-   * One row. **No `flexWrap`** — see the width budget on the module comment.
-   * `center` rather than `space-between` so a squad of two sits together
-   * instead of being flung to both edges with a gulf between them.
-   */
-  seats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 10,
-  },
-  seat: {
-    width: SEAT,
-    height: SEAT,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.5,
-    borderColor: colors.border,
-    backgroundColor: ramp.sky[100],
-  },
-  // A ring in the seat's standing, which is the one thing the rail says beyond
-  // "present". Gold is earned, accent is you — the palette's standing rule, and
-  // the reason the leader's ring is not simply a brighter accent.
-  seatLeader: { borderColor: ramp.gold[400], backgroundColor: ramp.accent[300] },
-  seatSelf: { borderColor: colors.accent, backgroundColor: colors.coralTint },
-  seatGhost: { opacity: 0.6 },
-  seatWithheld: { backgroundColor: ramp.neutral[200] },
-  seatEmpty: { borderStyle: 'dashed', backgroundColor: 'transparent' },
-  seatOverflow: { backgroundColor: ramp.neutral[200], borderColor: 'transparent' },
-  overflowLabel: { ...font.display.label, fontSize: 13, color: colors.subtle },
-  pressed: { opacity: 0.6 },
-  dimmed: { opacity: 0.4 },
-  badge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 20,
-    height: 20,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  badgeLeader: { backgroundColor: ramp.gold[400] },
-  badgeWithheld: { backgroundColor: colors.surface, borderColor: ramp.neutral[200] },
-});
+const makeStyles = ({ colors, ramp }: Theme) =>
+  StyleSheet.create({
+    rail: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 12, borderRadius: radius.lg },
+    title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    titleText: { ...font.body.label, color: colors.accentDeep },
+    /**
+     * One row. **No `flexWrap`** — see the width budget on the module comment.
+     * `center` rather than `space-between` so a squad of two sits together
+     * instead of being flung to both edges with a gulf between them.
+     */
+    seats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 10,
+    },
+    seat: {
+      width: SEAT,
+      height: SEAT,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2.5,
+      borderColor: colors.border,
+      backgroundColor: ramp.sky[100],
+    },
+    // A ring in the seat's standing, which is the one thing the rail says beyond
+    // "present". Gold is earned, accent is you — the palette's standing rule, and
+    // the reason the leader's ring is not simply a brighter accent.
+    seatLeader: { borderColor: ramp.gold[400], backgroundColor: ramp.accent[300] },
+    seatSelf: { borderColor: colors.accent, backgroundColor: colors.coralTint },
+    seatGhost: { opacity: 0.6 },
+    seatWithheld: { backgroundColor: ramp.neutral[200] },
+    seatEmpty: { borderStyle: 'dashed', backgroundColor: 'transparent' },
+    seatOverflow: { backgroundColor: ramp.neutral[200], borderColor: 'transparent' },
+    overflowLabel: { ...font.display.label, fontSize: 13, color: colors.subtle },
+    pressed: { opacity: 0.6 },
+    dimmed: { opacity: 0.4 },
+    badge: {
+      position: 'absolute',
+      bottom: -4,
+      right: -4,
+      width: 20,
+      height: 20,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.surface,
+    },
+    badgeLeader: { backgroundColor: ramp.gold[400] },
+    badgeWithheld: { backgroundColor: colors.surface, borderColor: ramp.neutral[200] },
+  });

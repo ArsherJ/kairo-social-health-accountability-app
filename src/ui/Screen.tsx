@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { ScrollView, View, type RefreshControlProps } from 'react-native';
+import { type RefreshControlProps, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { space } from '../theme.ts';
 import { useChromeStore } from './chrome.ts';
@@ -34,11 +34,14 @@ export function Screen({
   scroll = true,
   bleed = false,
   refreshControl,
+  tone,
   children,
 }: {
   scroll?: boolean;
   bleed?: boolean;
   refreshControl?: ReactElement<RefreshControlProps>;
+  /** Fixed night beat backdrop; descendants still use their scoped theme. */
+  tone?: 'light' | 'dark';
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -51,7 +54,7 @@ export function Screen({
     paddingBottom: insets.bottom + (navHidden ? space.lg : TAB_PILL_CLEARANCE),
     paddingHorizontal: bleed ? 0 : space.lg,
   };
-  const container = { flex: 1, backgroundColor: colors.bg };
+  const container = { flex: 1, backgroundColor: tone === 'dark' ? colors.midnight : colors.bg };
 
   if (!scroll) {
     return <View style={[container, padding]}>{children}</View>;

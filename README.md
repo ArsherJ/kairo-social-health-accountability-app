@@ -7,6 +7,13 @@ iOS first via Expo; Supabase backend.
 Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 **Flock** (the squad) and **You**.
 
+The UI alignment branch combines the progress dashboard, scrubbable Sky minimap,
+quiet light/dark surfaces, interactive flock perch and best-day sharing. See
+[the mobile preview guide](docs/engineering/mobile-screen-preview.md) for the
+account-free sample screens and verification limits. System appearance retains
+the native `userInterfaceStyle: automatic` change and needs a compatible build;
+this branch does not deploy one.
+
 Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
 `/difficulty`, `/privacy`, `/name` — grouped into the four phases the progress
 rail draws: what this is, letting it in, your choices, the name. The Health ask

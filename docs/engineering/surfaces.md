@@ -754,12 +754,19 @@ beside them, meant nothing that worked stopped working and the migration could
 proceed screen by screen. The screens left on the static palette are named in
 `CLAUDE.md` and are a decision, not a backlog.
 
-**Why `useStyles` and not a provider.** The preference is on MMKV and the
+**Why the global scheme lives in a store.** The preference is on MMKV and the
 phone's answer is synchronous, so the scheme is known before the first render
-and a context has nothing to provide that a store does not. `useStyles`
+without a global provider. `useStyles`
 caches one sheet per factory per scheme, keyed by the factory's identity —
 which is why a factory must be a module-level constant, and why the doc
 comment on every `makeStyles` says so.
+
+The 2026-09-11 branch alignment adds a narrow `ThemeScope`: preview controls
+and authored onboarding scenes need a local rendering choice, not a write to
+the device preference. It selects the same canonical theme and preserves the
+stylesheet cache. Shared cards and sheets now follow that choice together;
+the independent preview palette is removed. The fixed night beats keep light
+status-bar ink even when the rest of the app is light.
 
 **Why `userInterfaceStyle` had to move, and what it costs.** `dark` in
 `app.config.ts` forces the iOS trait collection, so `useColorScheme()` reports

@@ -1,8 +1,15 @@
-import { useMemo } from 'react';
+import { createContext, createElement, type ReactNode, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
-import { themes, type Scheme, type Theme } from '../theme.ts';
+import { type Scheme, type Theme, themes } from '../theme.ts';
 import { resolveScheme } from './appearance.ts';
 import { useAppearanceStore } from './appearance-store.ts';
+
+const SchemeContext = createContext<Scheme | undefined>(undefined);
+
+/** A local rendering scope; never writes the remembered device preference. */
+export function ThemeScope({ scheme, children }: { scheme: Scheme; children: ReactNode }) {
+  return createElement(SchemeContext.Provider, { value: scheme }, children);
+}
 
 /**
  * The scheme the app is drawing in right now.
@@ -13,11 +20,13 @@ import { useAppearanceStore } from './appearance-store.ts';
  * reason, and pinning it back to a scheme would make `system` a lie.
  */
 export function useScheme(): Scheme {
+  const scoped = useContext(SchemeContext);
   const preference = useAppearanceStore((s) => s.preference);
   const system = useColorScheme();
   // RN can answer `'unspecified'` on some hosts; the policy reads anything
   // that is not `'dark'` as light, so it is passed through as unknown.
-  return resolveScheme(preference, system === 'dark' ? 'dark' : system === 'light' ? 'light' : null);
+  return scoped ??
+    resolveScheme(preference, system === 'dark' ? 'dark' : system === 'light' ? 'light' : null);
 }
 
 /** The tokens for the current scheme. Same names as the static exports. */

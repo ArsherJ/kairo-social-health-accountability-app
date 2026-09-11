@@ -931,7 +931,13 @@ under the dated heading; the rules:
   (`appearance-store.ts`, its own storage id, untouched by sign-out) through
   `resolveScheme()` (`appearance.ts`, zero-import, tested); a phone that
   reports nothing reads as light, never a silent flip to dark. The status bar
-  follows the scheme in `app/_layout.tsx`.
+  follows the focused surface via `status-bar-tone.ts` in `app/_layout.tsx`.
+- **Local theme scopes use the same tokens.** `ThemeScope` in `use-theme.ts`
+  overrides rendering only, never the stored preference. The root scopes the
+  authored auth/onboarding routes to light; `statusBarTone` accounts for their
+  fixed deep beats. The sample preview scopes its own light/dark toggle so
+  `Screen`, cards, sheets and scenery all change together. Preview boundaries
+  and verification are in `docs/engineering/mobile-screen-preview.md`.
 - **Today is a dashboard and the Living Mirror's rules are what keep it
   honest.** `today-board.ts` composes every tile sentence and is the only place
   a tile's words come from — raw units only, no engine key, unknown is never

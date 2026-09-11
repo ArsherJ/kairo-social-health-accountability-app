@@ -31,7 +31,7 @@ export function CrestLayer({ source, tint }: { source: ImageSourcePropType; tint
   return (
     <Image
       source={source}
-      style={[StyleSheet.absoluteFill, { tintColor: tint, opacity: CREST_TINT_OPACITY }]}
+      style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', tintColor: tint, opacity: CREST_TINT_OPACITY }]}
       resizeMode="contain"
       accessibilityIgnoresInvertColors
       accessibilityElementsHidden

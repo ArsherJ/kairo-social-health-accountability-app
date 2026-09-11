@@ -99,6 +99,7 @@ export function CharacterFigure({
   body,
   dominance,
   lifetimePoints,
+  compact = false,
 }: {
   /**
    * `profiles.level`. Passed rather than derived here, so the figure stays a
@@ -123,6 +124,8 @@ export function CharacterFigure({
    * which is what keeps this figure and a flock row agreeing.
    */
   lifetimePoints?: Record<CoreStat, number>;
+  /** The perch carries stage and plumage; the hero owns shadow and halo. */
+  compact?: boolean;
 }) {
   const { art, crest: crestMask } = imagesFor(figure);
   const scale = height / 220;
@@ -162,16 +165,16 @@ export function CharacterFigure({
   const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
   return (
-    <View style={[styles.frame, { height }]}>
-      <GroundShadow
+    <View style={[styles.frame, { height, width: 190 * scale }]}>
+      {!compact && <GroundShadow
         width={response.shadowWidth}
         color={body.shade}
         opacity={response.shadowOpacity}
-      />
+      />}
 
       {/* Rendered on `ringSize !== null` rather than on `aura !== 'none'`: one
           condition, in the module that decides it. */}
-      {response.ringSize !== null && (
+      {!compact && response.ringSize !== null && (
         <PresenceRing
           size={response.ringSize}
           width={response.ringWidth}
@@ -192,7 +195,7 @@ export function CharacterFigure({
         <View style={{ width: 190 * scale * response.bodyScale, height: 212 * scale * response.bodyScale }}>
           <Image
             source={art}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
             resizeMode="contain"
             accessibilityIgnoresInvertColors
           />

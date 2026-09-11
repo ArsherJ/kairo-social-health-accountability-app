@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  findNodeHandle,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  DAILY_STEP_BASELINE,
-  MAX_DAILY_SCORE_PHONE_ONLY,
+  type CoreStat,
   currentLocalDate,
+  DAILY_STEP_BASELINE,
+  type DayTotals,
   evolutionStageForLevel,
   levelForXp,
+  MAX_DAILY_SCORE_PHONE_ONLY,
   questTier,
   restedShift,
   spreadShift,
   topBandFor,
-  type CoreStat,
-  type DayTotals,
 } from '@kairo/core';
 import { useSessionStore } from '@/features/auth/session.ts';
 import { Diorama } from '@/features/character/Diorama.tsx';
@@ -25,16 +31,12 @@ import {
   livingCharacterLabel,
   locationName,
   motionLocationForSteps,
-  resolveLivingMirror,
   type ReactionKind,
+  resolveLivingMirror,
 } from '@/features/character/living-mirror.ts';
 import { useLivingReaction } from '@/features/character/useLivingReaction.ts';
 import { todayDetails } from '@/features/character/today-details.ts';
-import {
-  useDominantStat,
-  useScoredDayCount,
-  useTodayScore,
-} from '@/features/character/queries.ts';
+import { useDominantStat, useScoredDayCount, useTodayScore } from '@/features/character/queries.ts';
 import { useDisclosure } from '@/features/character/useDisclosure.ts';
 import { useSyncStatusStore } from '@/features/health/status-store.ts';
 import { useProfile, useStreak } from '@/features/profile/queries.ts';
@@ -46,14 +48,11 @@ import { flockPaneHref } from '@/features/squad/flock-pane.ts';
 import { useMySquad } from '@/features/squad/queries.ts';
 import { claimDaily, type DailyMarker } from '@/features/telemetry/daily-marker.ts';
 import { track } from '@/features/telemetry/events.ts';
-import {
-  hasReached,
-  markReached,
-  markUnreached,
-} from '@/features/telemetry/milestone-store.ts';
-import { dailyWalkState, walkNote, type DailyWalkState } from '@/features/train/daily-walk.ts';
+import { hasReached, markReached, markUnreached } from '@/features/telemetry/milestone-store.ts';
+import { type DailyWalkState, dailyWalkState, walkNote } from '@/features/train/daily-walk.ts';
 import { useWalkHistory } from '@/features/train/queries.ts';
 import { useTodayStrengthSummary } from '@/features/train/useTodayStrengthSummary.ts';
+import { TODAY_SCREEN_COPY } from '@/features/character/today-screen-copy.ts';
 import { TodayChips } from '@/features/character/TodayHud.tsx';
 import { QuestRows, TodayTiles } from '@/features/character/TodayBoard.tsx';
 import {
@@ -65,7 +64,7 @@ import {
 import { WelcomePopups } from '@/features/onboarding/WelcomePopups.tsx';
 import { claimModal, releaseModal, useModalOwner } from '@/ui/modal-owner.ts';
 import { STAT_NAMES } from '@/ui/StatIcon.tsx';
-import { Screen, Text, useStyles } from '@/ui/index.ts';
+import { Button, Panel, Screen, Text, useStyles, useTheme } from '@/ui/index.ts';
 import { font, space, type Theme } from '@/theme.ts';
 
 /**
@@ -295,7 +294,7 @@ export default function Today() {
     userId,
     ready: Boolean(
       localToday && profile.data && buckets.data && vitals.isFetched &&
-      walkHistory.isFetched && records.isFetched && strength.isFetched
+        walkHistory.isFetched && records.isFetched && strength.isFetched,
     ),
     signals: {
       localDate: localToday ?? '',
@@ -345,10 +344,10 @@ export default function Today() {
     // `DAILY_STEP_BASELINE` by derivation, which is why no literal appears.
     motionNote: totals
       ? spreadLine({
-          activeHours: totals.activeHours,
-          goldSteps: topBandFor('AGI', spreadShift(totals.activeHours)),
-          baseSteps: topBandFor('AGI'),
-        })
+        activeHours: totals.activeHours,
+        goldSteps: topBandFor('AGI', spreadShift(totals.activeHours)),
+        baseSteps: topBandFor('AGI'),
+      })
       : null,
     // And why today's Body is, when last night bought it. The same shape as the
     // line above and read through the same `restedShift` the scorer used, from
@@ -450,30 +449,35 @@ export default function Today() {
   });
 
   const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
 
   return (
     <>
       <Screen bleed>
         <View style={[styles.page, { paddingTop: insets.top + space.md }]}>
-          {/* The date in the player's own zone (§2), never the device's, and
-              the character's name under it: the day belongs to somebody. */}
+          {
+            /* The date in the player's own zone (§2), never the device's, and
+              the character's name under it: the day belongs to somebody. */
+          }
           <View style={styles.header}>
             <View style={styles.headerWords}>
-              <Text scale="chrome" numberOfLines={1} style={styles.date}>
+              <Text scale='chrome' numberOfLines={1} style={styles.date}>
                 {localToday ? dateHeading(localToday) : 'Today'}
               </Text>
-              <Text scale="chrome" numberOfLines={1} style={styles.name}>
+              <Text scale='chrome' numberOfLines={1} style={styles.name}>
                 {characterName}
               </Text>
             </View>
             <TodayChips level={level} xp={xp} streak={streak.data?.current_streak ?? 0} />
           </View>
 
-          {/* The bird, in its sky, standing where today put it — one card of
+          {
+            /* The bird, in its sky, standing where today put it — one card of
               the dashboard rather than the page's header. `Diorama` owns the
               scenery, the figure, the ground shadow and the sky's fade; the
               location word is the Motion tile's eyebrow now, so nothing floats
-              over the picture. */}
+              over the picture. */
+          }
           <View style={styles.scene}>
             <Diorama
               height={SCENE_HEIGHT}
@@ -494,41 +498,71 @@ export default function Today() {
             />
           </View>
 
-          {/* One sentence, and the door to the sentences that explain the day.
+          {
+            /* One sentence, and the door to the sentences that explain the day.
 
               `ceilingLine` outranks the next step deliberately: the crest
               changes the sky, and an unexplained change to the screen someone
               opens first is indistinguishable from a bug, so the crest is
               always paired with the line that explains it. The reaction
-              sentence preempts both for `REACTION_HOLD_MS` and then returns. */}
+              sentence preempts both for `REACTION_HOLD_MS` and then returns. */
+          }
           <TodayNextStep
             ref={detailsTriggerRef}
-            sentence={
-              reaction?.sentence ??
-              (ceilingReached ? ceilingLine(characterName) : nextStepSentence(nextStep, characterName))
-            }
+            sentence={reaction?.sentence ??
+              (ceilingReached
+                ? ceilingLine(characterName)
+                : nextStepSentence(nextStep, characterName))}
             onDetails={openDetails}
             // Hidden, not disabled: a dead control with nothing explaining it
             // is the same false accusation `QUIET_GRACE_MS` exists to prevent.
             showDetails={Boolean(buckets.data)}
           />
 
-          {/* The day, in real units. Motion is the hero because steps have
+          {
+            /* The day, in real units. Motion is the hero because steps have
               been the one big figure since deviation #30 and the walk's meter
-              under it is the ridge — one number, two readings (#56). */}
-          <TodayTiles motion={motion} body={body} mind={mind} />
+              under it is the ridge — one number, two readings (#56). */
+          }
+          {buckets.data
+            ? (
+              <>
+                <TodayTiles motion={motion} body={body} mind={mind} />
 
-          <QuestRows
-            quests={quests}
-            selected={nextStep.kind === 'quest' ? nextStep.index : null}
-          />
+                <QuestRows
+                  quests={quests}
+                  selected={nextStep.kind === 'quest' ? nextStep.index : null}
+                />
+              </>
+            )
+            : buckets.isError
+            ? (
+              <Panel>
+                <Text accessibilityRole='alert' style={{ ...font.body.body, color: colors.damage }}>
+                  {TODAY_SCREEN_COPY.error}
+                </Text>
+                <Button
+                  label={TODAY_SCREEN_COPY.retry}
+                  variant='ghost'
+                  onPress={() => void buckets.refetch()}
+                />
+              </Panel>
+            )
+            : (
+              <ActivityIndicator
+                accessibilityLabel={TODAY_SCREEN_COPY.waiting}
+                color={colors.accentDeep}
+              />
+            )}
         </View>
 
-        {/* The four cards that land after onboarding, the last of them the
+        {
+          /* The four cards that land after onboarding, the last of them the
             flock ask. Mounted here because this is where onboarding drops you.
             It leases the same modal host details and the permission asks do,
             so the three can never compete. Both doors land on the Flock tab
-            rather than acting from here. */}
+            rather than acting from here. */
+        }
         <WelcomePopups
           userId={userId}
           characterName={characterName}
@@ -540,9 +574,11 @@ export default function Today() {
         />
       </Screen>
 
-      {/* A sibling of `Screen`, not a child: a native `<Modal>` presents on the
+      {
+        /* A sibling of `Screen`, not a child: a native `<Modal>` presents on the
           root view controller wherever it is mounted, and nesting it inside the
-          scrolling page only makes that less obvious. */}
+          scrolling page only makes that less obvious. */
+      }
       <TodayDetailsSheet
         visible={modalOwner === 'today-details'}
         sections={sections}

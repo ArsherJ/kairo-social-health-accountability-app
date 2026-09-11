@@ -4,7 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { redirectTarget, resolveRoute } from '@/features/auth/route.ts';
@@ -12,9 +12,11 @@ import { startSessionListener, useSessionStore } from '@/features/auth/session.t
 import { useProfile } from '@/features/profile/queries.ts';
 import { flushTelemetryBuffer } from '@/features/telemetry/events.ts';
 import { hideDevMenuFloatingButton } from '@/lib/dev-menu-fab.ts';
-import { Panel, Button, Text, useScheme, useStyles } from '@/ui/index.ts';
+import { Button, Panel, Text, useScheme, useStyles } from '@/ui/index.ts';
 import { queryClient } from '@/lib/query-client.ts';
 import { font, space, type Theme } from '@/theme.ts';
+import { ThemeScope } from '@/ui/use-theme.ts';
+import { statusBarTone, surfaceScheme } from '@/ui/status-bar-tone.ts';
 
 /**
  * What iOS does with a push that lands while Kairo is already open.
@@ -86,6 +88,7 @@ export default function RootLayout() {
   // sits on the right ground, and the status bar's ink follows the page
   // rather than being pinned to one scheme.
   const scheme = useScheme();
+  const pathname = usePathname();
   const styles = useStyles(makeStyles);
 
   if (!fontsLoaded && !fontError) {
@@ -99,10 +102,14 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {/* Ink on a light page, light on a dark one. `style` is the *bar's*
-            colour, so it is the opposite of the scheme. */}
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <Gate />
+        {
+          /* Ink on a light page, light on a dark one. `style` is the *bar's*
+            colour, so it is the opposite of the scheme. */
+        }
+        <StatusBar style={statusBarTone(pathname, scheme === 'dark')} />
+        <ThemeScope scheme={surfaceScheme(pathname, scheme)}>
+          <Gate />
+        </ThemeScope>
       </SafeAreaProvider>
     </QueryClientProvider>
   );
@@ -158,11 +165,13 @@ function Gate() {
 
   return (
     <Fragment>
-      {/* No `<Stack.Screen>` children: Expo Router generates one per route
+      {
+        /* No `<Stack.Screen>` children: Expo Router generates one per route
           file, and naming them by hand is a second list to keep in step with
           `app/`. Groups without a layout — `(auth)`, `(onboard)` — flatten into
           this navigator exactly as they did under `<Slot/>`, so `segments[0]`
-          is unchanged and `redirectTarget()` keeps its tests. */}
+          is unchanged and `redirectTarget()` keeps its tests. */
+      }
       <Stack
         screenOptions={{
           headerShown: false,
@@ -189,15 +198,15 @@ function Gate() {
         // as loading, so the user lands back exactly where the fetch failed
         // once they retry successfully.
         <View style={[styles.overlay, styles.errorContainer]}>
-          <Panel variant="plain" style={styles.panelOverride}>
+          <Panel variant='plain' style={styles.panelOverride}>
             <Text style={styles.errorTitle}>Couldn't reach your character</Text>
             <Text style={styles.errorBody}>
               That's usually just a bad connection. Check your signal and try again.
             </Text>
             <Button
-              label="Try again"
+              label='Try again'
               onPress={() => profile.refetch()}
-              variant="primary"
+              variant='primary'
               disabled={false}
               busy={false}
             />
@@ -208,36 +217,37 @@ function Gate() {
   );
 }
 
-const makeStyles = ({ colors }: Theme) => StyleSheet.create({
-  // Opaque, and absolutely positioned over the navigator rather than replacing
-  // it. `backgroundColor` is what makes it a cover: without it the half-built
-  // screen underneath shows through, which is exactly what these two states
-  // exist to hide.
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.bg,
-  },
-  // A style entry rather than a colour prop, so the sheet is the one place
-  // this file reads a token.
-  spinner: { color: colors.accentDeep },
-  centered: { justifyContent: 'center' },
-  holdContainer: { alignItems: 'center' },
-  holdMark: { color: colors.accentInk, ...font.display.brand },
-  holdSpinner: { marginTop: space.lg },
-  errorContainer: {
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-  },
-  panelOverride: { marginTop: 0 },
-  errorTitle: { color: colors.text, ...font.body.title, textAlign: 'center' },
-  errorBody: {
-    color: colors.subtle,
-    ...font.body.body,
-    textAlign: 'center',
-    marginTop: space.sm,
-  },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    // Opaque, and absolutely positioned over the navigator rather than replacing
+    // it. `backgroundColor` is what makes it a cover: without it the half-built
+    // screen underneath shows through, which is exactly what these two states
+    // exist to hide.
+    overlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.bg,
+    },
+    // A style entry rather than a colour prop, so the sheet is the one place
+    // this file reads a token.
+    spinner: { color: colors.accentDeep },
+    centered: { justifyContent: 'center' },
+    holdContainer: { alignItems: 'center' },
+    holdMark: { color: colors.accentInk, ...font.display.brand },
+    holdSpinner: { marginTop: space.lg },
+    errorContainer: {
+      justifyContent: 'center',
+      paddingHorizontal: space.lg,
+    },
+    panelOverride: { marginTop: 0 },
+    errorTitle: { color: colors.text, ...font.body.title, textAlign: 'center' },
+    errorBody: {
+      color: colors.subtle,
+      ...font.body.body,
+      textAlign: 'center',
+      marginTop: space.sm,
+    },
+  });
