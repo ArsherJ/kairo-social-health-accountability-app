@@ -84,7 +84,7 @@ export function Tile({
       </View>
 
       {caption ? (
-        <Text {...hidden} scale="chrome" numberOfLines={2} style={styles.caption}>
+        <Text {...hidden} scale="chrome" style={styles.caption}>
           {caption}
         </Text>
       ) : null}

@@ -68,6 +68,7 @@ const makeStyles = ({ colors, ramp, shadow, earnedColor }: Theme) =>
       height: 3,
       borderBottomLeftRadius: radius.pill,
       borderBottomRightRadius: radius.pill,
+      borderCurve: 'continuous',
       backgroundColor: earnedColor,
     },
   });

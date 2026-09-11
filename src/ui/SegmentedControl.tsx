@@ -67,11 +67,12 @@ const makeStyles = ({ colors, ramp, shadow }: Theme) =>
     },
     segment: {
       flex: 1,
-      // ≥44pt touch target with no reliance on hitSlop.
-      paddingVertical: 11,
+      minHeight: 44,
+      paddingVertical: 10,
       borderRadius: radius.md - 3,
       borderCurve: 'continuous',
       alignItems: 'center',
+      justifyContent: 'center',
     },
     segmentOn: { backgroundColor: colors.surface, ...shadow.sm },
     label: { ...font.body.strong, fontSize: 13, color: colors.muted },

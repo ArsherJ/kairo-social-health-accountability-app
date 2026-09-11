@@ -32,6 +32,7 @@ const makeStyles = ({ colors }: Theme) =>
       paddingVertical: 10,
       paddingHorizontal: space.lg,
       borderRadius: radius.pill,
+      borderCurve: 'continuous',
       backgroundColor: colors.accent,
     },
     // `sage` is a deep violet and carries `onDeep`; `accent` is a bright

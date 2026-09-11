@@ -47,20 +47,8 @@ export function Glass({
         style,
       ]}
     >
-      {/* The lower half of the fade, and the inset highlight along the top —
-          the two things that make a flat translucent rectangle read as a lit
-          surface rather than as a scrim. Both are decoration and neither may
-          intercept a touch. */}
-      <View
-        pointerEvents="none"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={[
-          StyleSheet.absoluteFill,
-          styles.fade,
-          { borderBottomLeftRadius: r, borderBottomRightRadius: r },
-        ]}
-      />
+      {/* The inset highlight keeps the uniform translucent fill legible as a
+          surface without putting a hard band through content below it. */}
       <View
         pointerEvents="none"
         accessibilityElementsHidden
@@ -76,14 +64,6 @@ const styles = StyleSheet.create({
   base: {
     borderWidth: StyleSheet.hairlineWidth,
     borderCurve: 'continuous',
-  },
-  /**
-   * The bottom 55% at a lower opacity, which is the fade. `overflow: 'hidden'`
-   * is deliberately *not* set on `base`: it would clip the shadow on Android.
-   */
-  fade: {
-    top: '45%',
-    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   sheen: {
     position: 'absolute',

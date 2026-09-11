@@ -7,11 +7,9 @@ import { colors, dark, ramp } from '../theme.ts';
 /**
  * The palette's accessibility claims, as assertions.
  *
- * This file exists because `colors.accent` changed hue on 2026-08-27 and the
- * new amber measures 1.9:1 as text on cream, where the terracotta it replaced
- * measured 4.7:1. Every rule below is a rule the redesign can silently undo by
- * moving one hex value, and none of them fails visibly — low-contrast text
- * renders perfectly, it is just unreadable for some people.
+ * Every rule below is a rule a palette change can silently undo by moving one
+ * hex value. Low-contrast text still renders perfectly; it is just unreadable
+ * for some people.
  *
  * WCAG 2.1 AA: 4.5:1 for body text, 3:1 for large text (>=24px, or >=18.66px
  * bold) and for meaningful non-text such as a hairline rule.
@@ -46,7 +44,7 @@ describe('body text is readable on every ground it is set on', () => {
   it.each([
     ['text on the page', colors.text, colors.bg],
     ['text on a card', colors.text, colors.surface],
-    ['text on the amber tint', colors.text, ramp.accent[200]],
+    ['text on the apricot tint', colors.text, ramp.accent[200]],
     ['text on the sky field', colors.text, colors.sky],
     ['subtle on the page', colors.subtle, colors.bg],
     ['subtle on a card', colors.subtle, colors.surface],
@@ -97,11 +95,8 @@ describe('the ramp keeps its ink-strength contract', () => {
 
 describe('the supporting families', () => {
   it('teal is a fill that carries a cream label at body size', () => {
-    // The secondary button. `font.display.action` is 18pt Caprasimo, which is
-    // NOT "large" under WCAG — large needs 24pt, or 18.66pt *bold*, and
-    // Caprasimo ships in one weight so there is no bold to reach for. So this
-    // is the body threshold, and it is why `colors.teal` is a darker step than
-    // the design's bright `#35a99b`: that one measures 2.7:1 against cream.
+    // The secondary button. `font.display.action` is 19pt Fredoka, which is
+    // not large under WCAG, so the deep mint keeps the body threshold.
     expect(contrastRatio(colors.bg, colors.teal)).toBeGreaterThanOrEqual(AA_BODY);
   });
 
@@ -121,14 +116,7 @@ describe('the supporting families', () => {
   });
 
   /**
-   * The coral split, which is Playful's version of the amber one.
-   *
-   * The design sets "behind pace" in `#d62e6b`, which measures 4.40:1 on cream
-   * — near enough to pass a glance and not near enough to pass AA. So the two
-   * roles are separated the same way `accent` was: `coralEdge` is the fill and
-   * the 3px lip under a coral button, `damage` is the ink. They sit side by
-   * side on the Flock tab, so the pair has to be deliberate rather than a
-   * rounding of one value.
+   * The soft coral fill and its readable damage ink are separate roles.
    */
   it('coral is a FILL — ink sits on it, and it is never body text', () => {
     expect(contrastRatio(colors.text, colors.coral)).toBeGreaterThanOrEqual(AA_BODY);
@@ -198,13 +186,9 @@ describe('sky — the flight, and the blue beat of onboarding', () => {
 /**
  * Every painted fill in the app, and what may be set on it.
  *
- * This block exists because the Playful swap broke four call sites at once and
- * none of them looked broken. Sunlit's accent was amber, and cream-on-amber was
- * already impossible, so nobody had written cream on it; Playful's is orange,
- * and orange *looks* dark enough to take a cream label. It is not — 2.65:1 —
- * and neither is coral (2.93) nor gold (1.52). The tab bar's active pill, the
- * board's day toggle, and the streak chip all shipped that pairing in the first
- * pass of this redesign.
+ * This block exists because an earlier palette swap broke four call sites at
+ * once and none of them looked broken. Soft fills can look dark enough to take
+ * a cream label while still missing body contrast.
  *
  * So the rule is stated once here rather than trusted to each surface: **a
  * bright fill takes ink.** The design's own mockups draw these labels white,
@@ -234,11 +218,8 @@ describe('a bright fill takes ink, never cream', () => {
   /**
    * `coralEdge` is the exception, and the exception is the useful part.
    *
-   * It is a mid-tone: 3.33:1 under ink and 4.40:1 under cream, so it carries
-   * **neither** at body size. That is not a value to fix — it is exactly what a
-   * 3px lip under a coral button should be, sitting between the fill above it
-   * and the ground below. What it must never become is a surface somebody sets
-   * a word on, and the only way to say so is to assert both failures.
+   * It is a mid-tone that carries **neither** ink at body size. That is not a
+   * value to fix: it is decoration rather than a surface for words.
    */
   it('coralEdge carries no label at all — it is a lip, and only a lip', () => {
     expect(contrastRatio(colors.text, colors.coralEdge)).toBeLessThan(AA_BODY);
@@ -255,8 +236,8 @@ describe('a bright fill takes ink, never cream', () => {
  * avatar tints below were in while they lived in `Avatar.tsx`.
  *
  * **What is asserted here is separation, not contrast, and that is deliberate.**
- * Measured on the cream ground these are 2.65:1, 2.93:1 and 4.50:1, so two of
- * the three sit under WCAG 1.4.11's 3:1 for meaningful non-text. They are not
+ * Measured on the cream ground these are 1.75:1, 1.84:1 and 2.68:1. They sit
+ * under WCAG 1.4.11's 3:1 for meaningful non-text, but they are not
  * meaningful non-text: a stat glyph never carries a fact by itself — the rating
  * is printed beside it, and a Flock row is one accessibility element whose label
  * (`row-label.ts`) speaks every stat by name. The hues make a dense row
@@ -286,14 +267,13 @@ describe('the stat hues stay apart, and stay off words', () => {
   it.each(statHues)('%s sits where it sat when this was written', (_stat, hue) => {
     // A characterization pin, not a bar: it notices a hue moving, and says
     // nothing about which way is better.
-    const measured: Record<string, number> = { AGI: 2.65, STR: 2.93, MND: 4.5 };
+    const measured: Record<string, number> = { AGI: 1.75, STR: 1.84, MND: 2.68 };
     expect(contrastRatio(hue, colors.bg)).toBeCloseTo(measured[_stat] as number, 1);
   });
 
   it.each(statHues)('%s carries no word on cream at body size', (_stat, hue) => {
-    // The claim the table's own doc makes. MND clears 4.5 by three thousandths
-    // and is still not a text colour — `ramp.sage[700]` is — so the bar here is
-    // the large-text one, which all three genuinely fail.
+    // The claim the table's own doc makes. The matching ink roles carry words;
+    // these decorative family fills do not.
     expect(contrastRatio(hue, colors.bg)).toBeLessThan(AA_BODY * 1.01);
   });
 });
@@ -301,9 +281,9 @@ describe('the stat hues stay apart, and stay off words', () => {
 /**
  * The avatar tints, which are the same rule applied by a table.
  *
- * This block is here because the self tint set **cream on `colors.accent`** —
- * 2.65:1, the exact pairing the `brightFills` block above asserts must fail —
- * and it survived every pass of that block, because the table lived in
+ * This block is here because the self tint once set **cream on
+ * `colors.accent`**, the exact pairing the `brightFills` block above asserts
+ * must fail. It survived every pass of that block because the table lived in
  * `Avatar.tsx` where root Vitest cannot reach it. Moving it to
  * `avatar-tint.ts` is what makes these five rows assertable at all.
  *
@@ -321,13 +301,10 @@ describe('every avatar tint carries its own initial', () => {
     },
   );
 
-  it('the self tint is ink on the primary fill, and cream is what it must not be', () => {
+  it('the self tint uses the shared ink even though accent 900 also reads now', () => {
     expect(SELF_AVATAR_TINT.bg).toBe(colors.accent);
-    // `ramp.accent[900]` is the tempting alternative — it is the ink the other
-    // four rows use — and it measures 4.39 on this brighter ground. Near enough
-    // to pass a glance, not near enough to pass AA. Asserting the failure is
-    // what stops it being reached for.
-    expect(contrastRatio(ramp.accent[900], colors.accent)).toBeLessThan(AA_BODY);
+    expect(SELF_AVATAR_TINT.ink).toBe(colors.ink);
+    expect(contrastRatio(ramp.accent[900], colors.accent)).toBeGreaterThanOrEqual(AA_BODY);
     expect(contrastRatio(colors.bg, colors.accent)).toBeLessThan(AA_BODY);
   });
 });
@@ -360,7 +337,7 @@ describe('a deep fill takes cream', () => {
  * dark scheme keeps the token names and the ramp's ink-strength contract, and
  * that contract is what these assert: a wash you set text on, a fill ink sits
  * on, an ink that reads on the page. Two tokens do not flip — `ink` stays dark
- * and `onDeep` stays light — because a bright orange takes dark ink whatever
+ * and `onDeep` stays light — because a bright apricot takes dark ink whatever
  * the page behind it is, and those two are what the bright and deep fills
  * carry in both schemes.
  */
@@ -371,7 +348,7 @@ describe('the dark scheme keeps every claim the light one makes', () => {
     ['text on the page', c.text, c.bg],
     ['text on a card', c.text, c.surface],
     ['text on the lifted card', c.text, c.surfaceLift],
-    ['text on the orange wash', c.text, r.accent[200]],
+    ['text on the apricot wash', c.text, r.accent[200]],
     ['text on the sky field', c.text, c.sky],
     ['subtle on the page', c.subtle, c.bg],
     ['subtle on a card', c.subtle, c.surface],
@@ -381,7 +358,7 @@ describe('the dark scheme keeps every claim the light one makes', () => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(AA_BODY);
   });
 
-  it('accentDeep is body-size orange on the page and on the wash', () => {
+  it('accentDeep is body-size apricot ink on the page and on the wash', () => {
     expect(contrastRatio(c.accentDeep, c.bg)).toBeGreaterThanOrEqual(AA_BODY);
     expect(contrastRatio(c.accentDeep, r.accent[200])).toBeGreaterThanOrEqual(AA_BODY);
   });
@@ -442,7 +419,7 @@ describe('the dark scheme keeps every claim the light one makes', () => {
   });
 
   it('keeps the middle of every ramp — the fills — the same hue in both schemes', () => {
-    // A fill is a fill: the primary button is the same orange at night. Only
+    // A fill is a fill: the primary button is the same apricot at night. Only
     // the ends of a ramp move, and they move because they are inks and washes.
     for (const family of ['accent', 'sage', 'teal', 'gold', 'sky'] as const) {
       expect(r[family][500], family).toBe(ramp[family][500]);

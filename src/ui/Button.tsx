@@ -31,6 +31,12 @@ export function Button({
   const { colors } = useTheme();
   const { scale, onPressIn, onPressOut } = usePressScale();
   const inert = disabled || busy;
+  const busyColor = {
+    primary: colors.ink,
+    secondary: colors.onDeep,
+    ghost: colors.accentDeep,
+    destructive: colors.damage,
+  }[variant];
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
@@ -47,7 +53,7 @@ export function Button({
         style={[styles.base, styles[variant], inert && styles.disabled]}
       >
         {busy ? (
-          <ActivityIndicator color={variant === 'primary' ? colors.ink : colors.accentDeep} />
+          <ActivityIndicator color={busyColor} />
         ) : (
           // `chrome`: `base` sets minHeight rather than height, so the pill
           // grows with the label — but an action line past ~1.4x wraps, and a
@@ -73,20 +79,8 @@ const makeStyles = ({ colors }: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    /**
-     * The lip. `borderBottomWidth`, never `shadow` — a border is the same 3px
-     * everywhere and costs nothing. Filled variants only.
-     */
-    primary: {
-      backgroundColor: colors.accent,
-      borderBottomWidth: 3,
-      borderBottomColor: colors.accentEdge,
-    },
-    secondary: {
-      backgroundColor: colors.teal,
-      borderBottomWidth: 3,
-      borderBottomColor: colors.tealEdge,
-    },
+    primary: { backgroundColor: colors.accent },
+    secondary: { backgroundColor: colors.teal },
     ghost: {},
     /**
      * Leaving a squad, deleting an account. Outlined rather than filled: these

@@ -1,12 +1,10 @@
 /**
- * Design tokens — the **Playful** system (2026-08-30, deviation #58).
+ * Design tokens — the **warm-pastel** system (2026-09-11).
  *
  * Kairo used to be near-black with a violet accent, then warm-light with a
- * terracotta one, then Sunlit — a cream ground with amber for you and sage for
- * your lane. It is Playful now: the same cream ground under a candy palette,
- * chunky rounded cards, and a display face with real personality. Depth comes
- * from a soft drop shadow and, on chrome that floats over content, from a
- * frosted translucent fill.
+ * terracotta one, then Sunlit and Playful. It is warm-pastel now: a quiet cream
+ * or charcoal-plum ground beneath apricot, lilac, mint, and earned gold. Depth
+ * comes from restrained drop shadows and translucent fills on floating chrome.
  *
  * **Every token kept its name through that shift**, exactly as through Sunlit's
  * — which is what lets ~90 call sites re-skin without being edited. A token
@@ -45,71 +43,69 @@ import type { TextStyle } from 'react-native';
  * *because* the contract held. `contrast.test.ts` pins the steps that carry
  * text. Moving a step's strength silently breaks every site that reads it.
  *
- * Where the design named a value it is used verbatim (`#FFF0E3`, `#EFE9FF`,
- * `#E6FAF6`, `#8A3410`, `#3B2680`); the rest fill the ramp around them.
+ * The approved apricot, lilac, and mint anchors are used verbatim; the rest
+ * preserve the same wash/fill/ink contract around them.
  */
 export const ramp = {
   /**
-   * Warm grey drifting to indigo at the dark end, so `neutral[900]` *is*
+   * Warm grey drifting to cocoa at the dark end, so `neutral[900]` *is*
    * `colors.text` — a muted line and the ink it supports are the same hue
    * family, which is what stops secondary copy reading as a different colour
    * rather than as a quieter one.
    */
   neutral: {
-    100: '#fffbf4',
-    200: '#f1ece4',
-    300: '#e2dbd0',
-    400: '#c2bab0',
-    500: '#918a99',
-    600: '#6b6394',
-    700: '#4e477a',
-    800: '#38315f',
-    900: '#241b4d',
+    100: '#fffdf9',
+    200: '#f2ede8',
+    300: '#e6ddd7',
+    400: '#cbbfba',
+    500: '#998b86',
+    600: '#756761',
+    700: '#61524d',
+    800: '#4b3b35',
+    900: '#382b29',
   },
-  /** Orange. You, your day, the primary action. */
+  /** Apricot. You, your day, the primary action. */
   accent: {
-    100: '#fff7f0',
-    200: '#fff0e3',
-    300: '#ffe7d8',
-    400: '#ffa877',
-    500: '#ff6b35',
-    600: '#e0521f',
-    700: '#b24314',
-    800: '#8a3410',
-    900: '#5c220a',
+    100: '#fff8f1',
+    200: '#faeadc',
+    300: '#f7d8bf',
+    400: '#f5bd96',
+    500: '#f4af82',
+    600: '#d48658',
+    700: '#99582f',
+    800: '#754326',
+    900: '#4f2f20',
   },
   /** Violet. Your lane, squad warmth, and Mind. */
   sage: {
-    100: '#f7f4ff',
-    200: '#efe9ff',
-    300: '#ddd1ff',
-    400: '#b69bff',
-    500: '#7c4dff',
-    600: '#6a3bef',
-    700: '#5a2bd6',
-    800: '#3b2680',
-    900: '#241b4d',
+    100: '#f8f4fc',
+    200: '#f0e8f8',
+    300: '#dfd2ef',
+    400: '#c9b2e9',
+    500: '#ac8bd3',
+    600: '#795398',
+    700: '#6e448f',
+    800: '#523564',
+    900: '#38283f',
   },
   /** Teal. Rest, and the second action. */
   teal: {
-    100: '#f2fcf9',
-    200: '#e6faf6',
-    300: '#c6f0e8',
-    400: '#5fdcc8',
-    500: '#00c2a8',
-    600: '#00a492',
-    700: '#00786b',
-    800: '#00584e',
-    900: '#00332d',
+    100: '#f5faf6',
+    200: '#e7f3eb',
+    300: '#d2e9dd',
+    400: '#b2dcca',
+    500: '#77bba7',
+    600: '#4f907d',
+    700: '#386f60',
+    800: '#28564a',
+    900: '#193a32',
   },
   /**
    * Gold. **Earned, and only earned** — a crown, the ridge flag, a banked
    * Streak Shield, the run of cleared days on the calendar.
    *
-   * New in Playful, and it exists because Sunlit had to spend `accent[600]` on
-   * this job (see `earnedColor` below) while amber was also the primary fill.
-   * At two different hues the two roles can finally be told apart on sight:
-   * orange means *you*, gold means *you earned it*.
+   * It exists because the primary fill and earned feedback need to remain
+   * distinguishable: apricot means *you*, gold means *you earned it*.
    */
   gold: {
     100: '#fffaeb',
@@ -142,7 +138,7 @@ export const ramp = {
 } as const;
 
 export const colors = {
-  bg: '#fff6ec',
+  bg: '#fbf8f2',
   /**
    * A card. Playful cards are **white on cream** and lifted by shadow — the
    * ground is warm enough that plain white reads as raised without a border.
@@ -162,44 +158,36 @@ export const colors = {
   /** The ground the flight is drawn on, and the dark half of onboarding. */
   night: ramp.sky[900],
   /** Darker still — the permissions and trivia beats, where the sheet lifts. */
-  midnight: '#141033',
+  midnight: '#211c23',
   // An 8-digit hex is a real colour to RN — the system's divider at 16% alpha.
   // Not measurable by `contrastRatio`, which is why it is excluded there.
-  border: '#241b4d29',
+  border: '#382b291f',
   borderStrong: ramp.neutral[400],
-  text: '#241b4d',
+  text: '#382b29',
   subtle: ramp.neutral[700],
   muted: ramp.neutral[600],
   /**
-   * Orange. **A fill and never text** — 2.65:1 on `bg`, which is unreadable.
+   * Apricot. **A fill and never text**.
    *
    * This is the single easiest thing in the palette to undo by accident:
    * pointing a `color:` at it renders perfectly and fails for anyone who needs
    * contrast. `contrast.test.ts` asserts it fails as text, so the test goes red
    * if the value ever drifts back into a range that would tempt somebody.
    *
-   * Ink on it is `colors.text` at 5.53:1.
+   * Ink on it is `colors.ink`, in both schemes.
    */
   accent: ramp.accent[500],
   /**
-   * Accent as **large display type only** — 24pt and up, or 18.66pt bold.
-   * 4.12:1 on `bg`.
-   *
-   * Deliberately *not* a ramp step: `ramp.accent[700]` has to carry `Label`'s
-   * 10pt eyebrow, and that is a heavier ink than a 62pt numeral wants.
+   * Accent for **large display type**. The shared 700 ink also carries the
+   * small accent eyebrow, so both roles remain readable without a second hue.
    */
-  accentInk: '#c9541c',
+  accentInk: ramp.accent[700],
   /**
    * Accent as **body-size text**, on the page or on the `ramp.accent[200]`
-   * wash. The design's own `#8A3410`, which is where it uses orange type.
-   *
-   * `ramp.accent[800]` and not 700 for the reason Sunlit found: accent text on
-   * the amber wash is the commonest thing this token does, and one value that
-   * passes on both grounds beats two that each pass on one. 7.62:1 on the page,
-   * 7.30:1 on the wash.
+   * wash. One deep cocoa-apricot ink passes on both grounds.
    */
   accentDeep: ramp.accent[800],
-  /** The hard 3px lip under a primary button. Never a text colour. */
+  /** A deeper decorative edge. Never a text colour. */
   accentEdge: ramp.accent[600],
   /** Violet. Your lane, squad warmth, and Mind. Never a call to action. */
   sage: ramp.sage[600],
@@ -207,10 +195,9 @@ export const colors = {
    * Teal. **Rest, and the secondary action** — the sleep card, the invite
    * block, "cleared".
    *
-   * `ramp.teal[700]` and not the design's bright `[500]`: a cream label on
-   * `#00c2a8` is 2.12:1, and `font.display.action` is 19pt Fredoka SemiBold,
-   * which is not "large" under WCAG. The bright step stays available for dots,
-   * washes, rings and check marks, where nothing has to be read off it.
+   * `ramp.teal[700]` rather than the decorative `[500]`, because
+   * `font.display.action` is not large under WCAG. The bright step stays
+   * available for dots, washes, rings and check marks.
    */
   teal: ramp.teal[700],
   tealEdge: ramp.teal[800],
@@ -220,37 +207,35 @@ export const colors = {
    * The streak. A fill — the flame pill, the hot half of a gradient.
    * `damage` is the readable ink in this hue.
    */
-  coral: '#ff4d8d',
+  coral: '#f4a5a8',
   /** The 3px lip under a coral fill, and the ink on a coral wash. */
-  coralEdge: '#d62e6b',
-  coralTint: '#ffe3ee',
+  coralEdge: '#c96f78',
+  coralTint: '#fae6e5',
   /**
    * Something that went wrong, or is about to: an error line, the outline on a
    * destructive control. It named "a battle slipping away" until the Battle was
    * retired on 2026-09-06 (deviation #66) — the value never moved, the sentence
    * describing it did.
    *
-   * The design's `#d62e6b` measures 4.40:1 on cream — just under body AA — so
-   * it stays a fill (`coralEdge`) and the readable ink is one step deeper at
-   * 6.47:1. Same hue, and the two are used side by side.
+   * `coralEdge` remains decorative-only; `damage` is the deeper readable ink.
    */
-  damage: '#b0134a',
+  damage: '#8b3543',
   /** @deprecated Kept so older call sites still compile. Use `damage`. */
-  danger: '#b0134a',
+  danger: '#8b3543',
   /**
    * The ink that sits on a **bright fill** — the primary button, the streak
    * pill, a cleared calendar day, the selected segment. Always dark, in both
    * schemes: `colors.text` flips to cream under the dark scheme and a bright
-   * orange takes ink whatever the ground behind it is. Reaching for `text` on
+   * apricot takes ink whatever the ground behind it is. Reaching for `text` on
    * a fill is the mistake this token exists to make impossible to write.
    */
-  ink: '#241b4d',
+  ink: '#382b29',
   /**
    * The ink that sits on a **deep fill** — teal, sage 600, night. Always light,
    * in both schemes, for the same reason `ink` is always dark. Under the light
    * scheme it is `bg`; under the dark one `bg` is near-black and this is not.
    */
-  onDeep: '#fff6ec',
+  onDeep: '#fbf8f2',
 } as const;
 
 /**
@@ -275,9 +260,9 @@ export const glass = {
     edge: 'rgba(255,255,255,0.9)',
   },
   dark: {
-    fill: 'rgba(11,27,77,0.66)',
-    fillSoft: 'rgba(11,27,77,0.42)',
-    edge: 'rgba(255,255,255,0.28)',
+    fill: 'rgba(56,43,41,0.78)',
+    fillSoft: 'rgba(56,43,41,0.52)',
+    edge: 'rgba(250,243,235,0.28)',
   },
 } as const;
 
@@ -308,8 +293,8 @@ export const space = {
 } as const;
 
 /**
- * Playful is a rounder system than anything before it — a card is a 28–32pt
- * radius, a chip is a 24pt one, and chrome is a 34pt superellipse. `borderCurve:
+ * The rounded system uses a 28–32pt card radius, a 24pt chip, and 34pt chrome.
+ * `borderCurve:
  * 'continuous'` belongs on every one of them; at these radii the difference
  * between a circular and a continuous corner is plainly visible.
  */
@@ -328,8 +313,8 @@ export const radius = {
 /**
  * Elevation, derived from the ground: soft ink-tinted shadows.
  *
- * This is what replaced the old palette's 1px borders, and Playful leans on it
- * harder — a white card on cream has no other edge. RN's `shadowRadius` is
+ * This replaces containment borders; a white card on cream needs only a quiet
+ * lift. RN's `shadowRadius` is
  * roughly half a CSS blur, which is why these numbers look smaller than the
  * design's `0 18px 34px -22px`. `elevation` keeps Android in step; the app is
  * iOS first (§15) but the tokens should not be the reason that stops being true.
@@ -337,24 +322,24 @@ export const radius = {
 export const shadow = {
   sm: {
     shadowColor: ramp.neutral[900],
-    shadowOpacity: 0.14,
-    shadowRadius: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
   md: {
     shadowColor: ramp.neutral[900],
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    shadowOpacity: 0.07,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   lg: {
     shadowColor: ramp.neutral[900],
-    shadowOpacity: 0.24,
-    shadowRadius: 17,
-    shadowOffset: { width: 0, height: 13 },
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
 } as const;
 
@@ -437,7 +422,7 @@ export const font = {
   inks. Under the dark scheme that means the low steps are *dark* tints and
   the high steps are *light* tints — the ink-strength contract inverted about
   the ground rather than the hue scale reversed. A call site that was right
-  on cream is right on indigo without being edited, which is the whole reason
+  on cream is right on charcoal without being edited, which is the whole reason
   the ramp is described by strength rather than by brightness.
 
   Two tokens are the same in both schemes on purpose: `ink` (always dark, for
@@ -480,48 +465,48 @@ export interface Theme {
  */
 const darkRamp: RampFamilies = {
   neutral: {
-    100: '#1a1634',
-    200: '#262147',
-    300: '#332c5a',
-    400: '#4b4373',
-    500: '#8b83ad',
-    600: '#aba3cf',
-    700: '#cbc4e6',
-    800: '#e3ddf5',
-    900: '#f4efff',
+    100: '#282229',
+    200: '#342c35',
+    300: '#453a45',
+    400: '#665967',
+    500: '#958796',
+    600: '#bfb0bf',
+    700: '#d8cbd5',
+    800: '#eee2e8',
+    900: '#faf3eb',
   },
   accent: {
-    100: '#2a1a16',
-    200: '#3b2317',
-    300: '#4f2d1a',
-    400: '#ff9a5c',
-    500: '#ff6b35',
-    600: '#e0521f',
-    700: '#ffa876',
-    800: '#ffbf99',
-    900: '#ffdcc7',
+    100: '#30221f',
+    200: '#433026',
+    300: '#62432f',
+    400: '#f5bd96',
+    500: '#f4af82',
+    600: '#d48658',
+    700: '#efb38e',
+    800: '#f6cfb4',
+    900: '#ffe6d1',
   },
   sage: {
-    100: '#1c1740',
-    200: '#2a2158',
-    300: '#3a2d78',
-    400: '#b69bff',
-    500: '#7c4dff',
-    600: '#6a3bef',
-    700: '#c7b3ff',
-    800: '#ddd1ff',
-    900: '#f1ecff',
+    100: '#2a222f',
+    200: '#403249',
+    300: '#584160',
+    400: '#c9b2e9',
+    500: '#ac8bd3',
+    600: '#795398',
+    700: '#ceb1e5',
+    800: '#e5d0f2',
+    900: '#f5e9fc',
   },
   teal: {
-    100: '#0a2521',
-    200: '#0c2f2b',
-    300: '#0f423c',
-    400: '#5fdcc8',
-    500: '#00c2a8',
-    600: '#00a492',
-    700: '#7fe6d6',
-    800: '#b3f0e7',
-    900: '#e0faf6',
+    100: '#1d2925',
+    200: '#263c35',
+    300: '#315044',
+    400: '#b2dcca',
+    500: '#77bba7',
+    600: '#4f907d',
+    700: '#9fd7c3',
+    800: '#c5eadc',
+    900: '#e9f8f2',
   },
   gold: {
     100: '#2b2110',
@@ -548,39 +533,38 @@ const darkRamp: RampFamilies = {
 };
 
 /**
- * The dark ground is the palette's own indigo — `neutral[900]` deepened — so
- * the two schemes read as one brand at two times of day rather than as a
- * warm app and a grey one.
+ * The dark ground is a warm charcoal-plum, so the two schemes read as one
+ * brand at two times of day rather than as a warm app and a grey one.
  */
 const darkColors: ColorRoles = {
-  bg: '#14112a',
-  surface: '#1e1a3a',
-  surfaceLift: '#262148',
+  bg: '#211c23',
+  surface: '#302932',
+  surfaceLift: '#3a313d',
   sky: darkRamp.sky[200],
   night: darkRamp.sky[900],
-  midnight: '#0c0a1f',
-  border: '#f4efff29',
+  midnight: '#19161c',
+  border: '#faf3eb29',
   borderStrong: darkRamp.neutral[400],
-  text: '#f4efff',
+  text: '#faf3eb',
   subtle: darkRamp.neutral[700],
   muted: darkRamp.neutral[600],
   accent: darkRamp.accent[500],
-  /** Large display type in orange, on indigo. 7.9:1. */
-  accentInk: '#ff9a66',
-  /** Body-size orange, on the page and on the dark orange wash. */
+  /** Large display type in apricot, on charcoal-plum. */
+  accentInk: darkRamp.accent[700],
+  /** Body-size apricot ink, on the page and on the dark apricot wash. */
   accentDeep: darkRamp.accent[800],
   accentEdge: darkRamp.accent[600],
   sage: darkRamp.sage[600],
-  teal: '#00786b',
-  tealEdge: '#00584e',
+  teal: ramp.teal[700],
+  tealEdge: ramp.teal[800],
   tealTint: darkRamp.teal[200],
   tealInk: darkRamp.teal[700],
-  coral: '#ff4d8d',
-  coralEdge: '#d62e6b',
-  coralTint: '#3d1526',
-  /** The readable pink on indigo; the light scheme's `#b0134a` measures 1.8:1 here. */
-  damage: '#ff7fae',
-  danger: '#ff7fae',
+  coral: colors.coral,
+  coralEdge: colors.coralEdge,
+  coralTint: '#4a2d33',
+  /** The readable coral ink on the dark page. */
+  damage: '#f2afb6',
+  danger: '#f2afb6',
   ink: colors.ink,
   onDeep: colors.onDeep,
 };
@@ -600,23 +584,23 @@ export const dark: Theme = {
   ramp: darkRamp,
   /**
    * Glass over a dark page is a *dark* translucent fill: a white one over
-   * indigo reads as a grey box, which is the failure `Glass`'s own comment
+   * charcoal reads as a grey box, which is the failure `Glass`'s own comment
    * warns about. The `dark` tone — chrome over the flight — is unchanged,
    * because the flight is drawn on `night` in both schemes.
    */
   glass: {
     light: {
-      fill: 'rgba(38,33,72,0.84)',
-      fillSoft: 'rgba(38,33,72,0.56)',
-      edge: 'rgba(255,255,255,0.16)',
+      fill: 'rgba(58,49,61,0.96)',
+      fillSoft: 'rgba(58,49,61,0.86)',
+      edge: 'rgba(250,243,235,0.16)',
     },
     dark: glass.dark,
   },
-  /** Ink-tinted shadows vanish on indigo; these are black and heavier. */
+  /** Dark surfaces keep the same restrained depth with a black shadow. */
   shadow: {
-    sm: { ...shadow.sm, shadowColor: '#000000', shadowOpacity: 0.3 },
-    md: { ...shadow.md, shadowColor: '#000000', shadowOpacity: 0.36 },
-    lg: { ...shadow.lg, shadowColor: '#000000', shadowOpacity: 0.48 },
+    sm: { ...shadow.sm, shadowColor: '#000000' },
+    md: { ...shadow.md, shadowColor: '#000000' },
+    lg: { ...shadow.lg, shadowColor: '#000000' },
   },
   earnedColor: darkRamp.gold[400],
 };
@@ -639,8 +623,8 @@ export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; 
       { color: themes.light.colors.bg, at: 1 },
     ],
     fade: [
-      { color: '#fff6ec00', at: 0 },
-      { color: '#fff6ec59', at: 0.55 },
+      { color: '#fbf8f200', at: 0 },
+      { color: '#fbf8f259', at: 0.55 },
       { color: themes.light.colors.bg, at: 1 },
     ],
   },
@@ -657,8 +641,8 @@ export const dioramaSky: Record<Scheme, { sky: SceneStop[]; crest: SceneStop[]; 
       { color: themes.dark.colors.bg, at: 1 },
     ],
     fade: [
-      { color: '#14112a00', at: 0 },
-      { color: '#14112a59', at: 0.55 },
+      { color: '#211c2300', at: 0 },
+      { color: '#211c2359', at: 0.55 },
       { color: themes.dark.colors.bg, at: 1 },
     ],
   },
