@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { SKY_PATH_ASPECT, angleAt, pointAt } from '@kairo/core';
 import type { Theme } from '@/theme.ts';
 import { useStyles } from '@/ui/use-theme.ts';
+import { trailAngle } from './sky-trail.ts';
 
 /**
  * The shared lane everybody flies (roadmap deviation #56).
@@ -96,7 +97,7 @@ export function SkyCorridor({
                   height: band,
                   borderRadius: band / 2,
                   borderCurve: 'continuous',
-                  transform: [{ rotate: `${angleAt(t)}deg` }],
+                  transform: [{ rotate: `${trailAngle(angleAt(t), SKY_PATH_ASPECT)}deg` }],
                 },
               ]}
             />
