@@ -14,6 +14,7 @@ Kairo is a Philippines-market health accountability app, **solo-first**: an RPG 
 - **The app has a dark scheme** (deviation #72). `src/theme.ts` exports `light`, `dark` and `themes`; a screen reads `useTheme()` / `useStyles(makeStyles)` and the static `colors`/`ramp` exports are the light palette for tests and for the onboarding and sign-in screens, which stay light by design. Settings → Appearance is System / Light / Dark on MMKV. **`userInterfaceStyle` is `automatic` in `app.config.ts`, which is a native field — this redesign ships with a build, not an OTA.**
 - **The Sky has a minimap** (deviation #72): a scrubbable strip on the right edge drawing the whole flight, every bird and the ridge, with a window that follows the scroll; the corridor's segments behind the reader's own bird are painted in the accent. `minimap.ts` owns the arithmetic and is tested against `flightFrame`.
 - **The palette is Playful** (deviation #58), quieter since #72: one accent wash on the tab bar rather than four gradients, no gradient bands on Flock or You, cards at `radius.lg`. Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
+- **The character art is the plush eagle v3 pack as of 2026-09-11** (deviation #73): eleven renders and eleven crest masks, unsuffixed filenames, **no per-stage bodies and no cosmetics**. The growth stage reads as size through `figureResponse`'s `bodyScale`; `summit` is the seventh pose and the one the ridge draws. Ships with a build, riding along on the one deviation #72 already owes.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
@@ -1101,29 +1102,55 @@ and the three device-fault rounds that produced most of the layout rules.
   `ios.infoPlist.EXDevMenuShowFloatingActionButton`, which is a fingerprint
   input and costs a native build. It was never in TestFlight: `expo-dev-menu` is
   a debug-only pod.
-- **The character's body follows its growth stage** (issues #30/#31). Twelve
-  literal `require`s in `KAIRO_STAGE_ASSETS` — a computed path is a blank image
-  on a device and nothing at build time — with `character-assets.test.ts`
-  failing a cell that is missing, computed, naming an absent file, **or naming
-  the same file as another cell**. The stage rides on **idle, walk and run
-  only**; `sleep`, `workout` and `race_victory` stay adult-only, so a pre-adult
-  celebration draws that stage's walk and is still *spoken* through
-  `reaction.sentence`. Mind-state art stays adult-only too. The stage is derived
-  **once** and handed to both `resolveLivingMirror` and `CharacterFigure`;
-  `GROWTH_STAGES` derives from `GROWTH_STAGE_NAMES` and `firstLevelOfStage`
-  derives 1/6/11/21 from `evolutionStageForLevel`. The stage names are a
-  development vocabulary — no player surface speaks one.
-- **`scripts/generate_stage_art.py` reproduces the nine images**, as
-  identity-preserving edits of the adult render for the same pose. `POSE_PROMPTS`
-  must restate each pose's stagger and wing set positively (age is the loudest
-  thing in the prompt and the model draws a well-posed bird standing still);
-  `--input-fidelity high` is required, since `low` is the API default and drifts
-  a stage into three different birds; `normalise()` owns the framing against the
-  adult's bounding box, so **artwork must never be pre-shrunk** —
-  `figureResponse`'s `bodyScale` stands a hatchling smaller in the same box.
-  The paste is unmasked and `ALPHA_FLOOR` is 16, both for the shared ground
-  line. Nine, and never a tenth. **The device pass at each stage boundary is
-  still owed.**
+- **The character is the plush eagle v3 pack, and there is no per-stage body**
+  (deviation #73, 2026-09-11, superseding issues #30/#31). Eleven renders and
+  eleven crest masks under `assets/character/{base,poses,states,crests}`, named
+  **without a version suffix** — v1 is deleted, not shipped beside it, so there
+  is nothing to disambiguate from. `KAIRO_STAGE_ASSETS`, `KAIRO_STAGE_CRESTS`,
+  `STAGE_POSES` and the whole cosmetics system are gone with it, and the bundle
+  fell from 7.7 MB to 1.2 MB. Literal `require`s are still mandatory — a computed
+  path is a blank image on a device and nothing at build time — and
+  `character-assets.test.ts` still fails a cell that is missing, computed or
+  naming an absent file.
+- **The growth stage now reads as *size*, never as anatomy.** `staticFigureSelection`
+  has no `{ kind: 'stage' }` branch and `resolveLivingMirror` takes no stage at
+  all; `CharacterFigure` keeps the prop because `figureResponse`'s `bodyScale`,
+  the ground shadow and the presence ring all read it. Restoring per-stage bodies
+  is re-adding one table and one branch. **Shipping mixed was refused**: a
+  character that silently becomes a different species at level 21 reads as a bug,
+  and pointing all four stage cells at one file is exactly what
+  `character-assets.test.ts`'s `'two stages share a drawing'` assertion exists to
+  reject. `firstLevelOfStage` still derives 1/6/11/21 from
+  `evolutionStageForLevel`, and the stage names are still a development
+  vocabulary no player surface speaks.
+- **`summit` is the seventh pose and the ridge draws it** (deviation #73).
+  `motionPose()` returns `idle → walk → run → summit` across the five Motion
+  bands, so the day's finish stops looking identical to 80% of the way there. It
+  is **persistent, not a celebration**: `daily_walk` still fires its
+  `race_victory` reaction on the crossing and still wins the priority cascade for
+  `REACTION_HOLD_MS`, and the figure settles into `summit` afterwards. The name
+  is deliberately not `ridge` — that word already means the step count, the
+  Motion band and the race's finish line, and `CONTEXT.md` carries `summit` as
+  silent development vocabulary. **No surface speaks it**, and `MOTION_LOCATIONS`
+  is unchanged: the ladder still ends at the ridge and `locationName` still says
+  "Ridge".
+- **`scripts/generate_crest_masks.py` is the only character art generator left**,
+  and it must be **re-run after any change to the art in its `SOURCES`**, which a
+  test holds against `REQUIRED_PNG`. Its constants were not retuned for v3 — they
+  reproduce the pack's checked-in masks byte-identically. `generate_stage_art.py`
+  is deleted; there is no stage art to generate. **A render must be framed against
+  the base** — same 570 × 636 canvas, same figure height, same ground line, same
+  centre — and `character-assets.test.ts`'s "frames every render against the base"
+  is what holds it, because `bodyScale` can only make a young bird small if the
+  artwork never is.
+- **Two Mind faces are local edits, not generations.** `sleepy` and
+  `well_rested` are deterministic Pillow edits of the idle render — Mind's whole
+  premise is that the body does not move, only the face, and generating a whole
+  bird to shift two eyes is how identity drifts. `normal` is a byte copy of idle
+  under a second filename, because the registry guard reads paths and a shared
+  path reads as a duplicated cell. `staticFigureSelection` never picks `normal`,
+  and nothing draws the `sleep` pose at all — it exists so the registry stays
+  whole.
 - **The crest takes the dominant stat's hue and the body's scale follows the
   stage** (issue #33), which is how two eagles in a flock stop looking
   identical. `crestTint` reads **lifetime** points through `laneStat` — not
@@ -1159,8 +1186,13 @@ and the three device-fault rounds that produced most of the layout rules.
   tempting wrong answer at 4.39 and a test asserts that failure. Nothing mounts
   `Avatar` today.
 - **Settings is its own screen** (`/settings`, behind the gear on You), and
-  **"Dress your Kairo" is deliberately not built** — the cosmetic PNGs are
-  flattened previews, not composable layers.
+  **"Dress your Kairo" is deliberately not built.** Its twelve PNGs were
+  flattened full-character previews rather than composable layers, and deviation
+  #73 deleted them along with `KAIRO_COSMETIC_ASSETS`, `data/cosmetics.json` and
+  the manifest validation — keeping a validated contract for an unbuilt feature
+  meant every pose change paid it a tax, which `summit` would have paid across
+  twelve entries. Building it later starts from layers, which is where it always
+  had to start.
 - **Kairo says things without words, so a group that means something is one
   element with a composed label** and its decorative children are hidden. That
   grouping is **explicit** — the parent keeps `accessible` +

@@ -58,7 +58,7 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
               level={level}
               stage={stage}
               location={location}
-              figure={{ kind: 'stage', stage, pose: steps > 0 ? 'walk' : 'idle' }}
+              figure={{ kind: 'pose', pose: steps > 0 ? 'walk' : 'idle' }}
               body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
               lifetimePoints={PREVIEW_POINTS}
               figureLabel={`${copy.name}, level ${level}, at the ${location}.`}

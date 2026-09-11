@@ -58,7 +58,7 @@ export function WelcomeScreen(
                   level={1}
                   stage={evolutionStageForLevel(1)}
                   compact
-                  figure={{ kind: 'stage', stage: evolutionStageForLevel(1), pose: 'idle' }}
+                  figure={{ kind: 'pose', pose: 'idle' }}
                   body={{ tier: 'slim', shade: colors.sage, shadowWeight: 0 }}
                 />
               </View>
@@ -67,7 +67,7 @@ export function WelcomeScreen(
                 level={21}
                 stage={evolutionStageForLevel(21)}
                 compact
-                figure={{ kind: 'stage', stage: evolutionStageForLevel(21), pose: 'idle' }}
+                figure={{ kind: 'pose', pose: 'idle' }}
                 body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
               />
             </View>

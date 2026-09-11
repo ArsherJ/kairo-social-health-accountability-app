@@ -396,6 +396,13 @@ place.
   only the gear is gone.
 
 **The character's body follows its growth stage as of 2026-09-07** (issue #30).
+*Superseded 2026-09-11 by deviation #73: the plush eagle v3 pack has one body,
+`KAIRO_STAGE_ASSETS` and `{ kind: 'stage' }` are deleted, and the growth stage
+now reads as size only — through `figureResponse`'s `bodyScale` and the ground
+shadow, which this section already describes and which is unchanged. The framing
+rule below outlived the stages and now binds the whole pack. Kept because the
+reasoning about why a level-up has to be visible, and about computed `require`
+paths, is still live.*
 `staticFigureSelection` takes an `EvolutionStage` and returns a fourth variant,
 `{ kind: 'stage', stage, pose }`, which `KAIRO_STAGE_ASSETS` resolves. **The
 nine images landed on 2026-09-08** (issue #31), so every stage draws its own
@@ -591,9 +598,12 @@ kept — seven call sites still said `'Figtree-Bold'` as a string literal, and R
 answer to an unknown family is a silent fallback to the system face, invisible on
 a simulator that has the old font and visible only on a clean device.
 `type-faces.test.ts` scans for it and also checks every named face is actually
-loaded and present on disk. **"Dress your Kairo" is deliberately not built**:
-`character-assets.ts` says the cosmetic PNGs are flattened full-character
-previews, not composable layers, so a four-slot tray has no assets behind it.
+loaded and present on disk. **"Dress your Kairo" is deliberately not built**: the cosmetic PNGs were
+flattened full-character previews, not composable layers, so a four-slot tray had
+no assets behind it. Deviation #73 deleted them outright along with the manifest
+and its validation — keeping a validated contract for an unbuilt feature meant
+every pose change paid it a tax, and `summit` would have paid it across twelve
+entries. Building it later starts from layers.
 
 **Avatar's tint table lives in `avatar-tint.ts`, and that is why its inks are
 tested.** The table sat in `Avatar.tsx`, which reaches React Native, so

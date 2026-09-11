@@ -39,82 +39,46 @@ describe('motionLocationForSteps', () => {
   });
 });
 
-// The literals, not `GROWTH_STAGES`: a test that derives its own input from the
-// table under test agrees with it by construction.
-const stages = [1, 2, 3, 4] as const;
-const preAdult = [1, 2, 3] as const;
-const ADULT = 4 as const;
-
 describe('staticFigureSelection', () => {
   const reaction: LivingReaction = {
     kind: 'level', occurrence: 'level:2->3', pose: 'race_victory', animation: 'level_up',
     sentence: 'Level 3.', priority: 50,
   };
-  const adult = ADULT;
 
   it('uses reaction, non-neutral Mind, Motion, then base priority', () => {
-    expect(staticFigureSelection({ stage: adult, reaction, mind: { visible: true, state: 'sleepy' }, motionPose: 'walk' }))
+    expect(staticFigureSelection({ reaction, mind: { visible: true, state: 'sleepy' }, motionPose: 'walk' }))
       .toEqual({ kind: 'pose', pose: 'race_victory' });
-    expect(staticFigureSelection({ stage: adult, reaction: null, mind: { visible: true, state: 'sleepy' }, motionPose: 'walk' }))
+    expect(staticFigureSelection({ reaction: null, mind: { visible: true, state: 'sleepy' }, motionPose: 'walk' }))
       .toEqual({ kind: 'state', state: 'sleepy' });
-    expect(staticFigureSelection({ stage: adult, reaction: null, mind: { visible: true, state: 'normal' }, motionPose: 'walk' }))
-      .toEqual({ kind: 'stage', stage: adult, pose: 'walk' });
-    expect(staticFigureSelection({ stage: adult, reaction: null, mind: { visible: false, state: 'normal' }, motionPose: null }))
+    expect(staticFigureSelection({ reaction: null, mind: { visible: true, state: 'normal' }, motionPose: 'walk' }))
+      .toEqual({ kind: 'pose', pose: 'walk' });
+    expect(staticFigureSelection({ reaction: null, mind: { visible: false, state: 'normal' }, motionPose: null }))
       .toEqual({ kind: 'base' });
   });
 
-  // The whole ticket. The three poses that actually draw are the three that
-  // carry the growth stage, so a level-up changes the picture on the screen the
-  // player opens first.
-  it('carries the growth stage on every pose that draws', () => {
-    for (const stage of stages) {
-      for (const pose of ['idle', 'walk', 'run'] as const) {
-        expect(staticFigureSelection({ stage, reaction: null, mind: { visible: false, state: 'normal' }, motionPose: pose }))
-          .toEqual({ kind: 'stage', stage, pose });
-      }
+  // A reaction draws its own pose, whatever the Motion pose underneath it was.
+  // There is no stage branch to fall back through any more (deviation #73): one
+  // body means `race_victory` and `workout` are reachable at every level, so the
+  // pre-adult substitution this function used to make has nothing left to do.
+  it('draws the reaction pose whatever the day was doing', () => {
+    for (const motionPose of ['idle', 'walk', 'run', 'summit', null] as const) {
+      expect(staticFigureSelection({ reaction, mind: { visible: false, state: 'normal' }, motionPose }))
+        .toEqual({ kind: 'pose', pose: 'race_victory' });
     }
-  });
-
-  // A young bird must not turn into an adult for three seconds every time it
-  // celebrates — least of all on the level-up this change exists to serve.
-  // `race_victory` and `workout` exist as adult art only, so a pre-adult
-  // reaction keeps the body it was already standing in and lets the animation
-  // carry the celebration.
-  it('keeps a pre-adult reaction in its own stage art', () => {
-    for (const stage of preAdult) {
-      expect(staticFigureSelection({ stage, reaction, mind: { visible: false, state: 'normal' }, motionPose: 'run' }))
-        .toEqual({ kind: 'stage', stage, pose: 'run' });
-      expect(staticFigureSelection({
-        stage,
-        reaction: { ...reaction, kind: 'workout', pose: 'workout', animation: 'excited' },
-        mind: { visible: false, state: 'normal' },
-        motionPose: null,
-      })).toEqual({ kind: 'stage', stage, pose: 'idle' });
-    }
-    expect(staticFigureSelection({ stage: adult, reaction, mind: { visible: false, state: 'normal' }, motionPose: 'run' }))
-      .toEqual({ kind: 'pose', pose: 'race_victory' });
-  });
-
-  // A reaction whose own pose is one of the three draws that pose at its stage
-  // rather than falling back to where the body was standing — the Treeline
-  // reaction is a walk, and a walking bird is a picture every stage has.
-  it('draws a reaction pose that the stage art already covers', () => {
     expect(staticFigureSelection({
-      stage: 2,
-      reaction: { ...reaction, kind: 'motion_location', pose: 'walk', animation: 'happy' },
+      reaction: { ...reaction, kind: 'workout', pose: 'workout', animation: 'excited' },
       mind: { visible: false, state: 'normal' },
-      motionPose: 'run',
-    })).toEqual({ kind: 'stage', stage: 2, pose: 'walk' });
+      motionPose: null,
+    })).toEqual({ kind: 'pose', pose: 'workout' });
   });
 
-  // Mind-state art is adult-only for now and that is a deliberate, smaller lie
-  // than a celebrating adult: the state images are wearable-gated, so most
-  // accounts never reach them, and it is revisited at the animation handoff.
-  it('keeps the Mind state on the adult art at every stage', () => {
-    for (const stage of stages) {
-      expect(staticFigureSelection({ stage, reaction: null, mind: { visible: true, state: 'well_rested' }, motionPose: 'walk' }))
-        .toEqual({ kind: 'state', state: 'well_rested' });
-    }
+  // An account that cannot earn Mind at all reads `visible: false`, and falls
+  // through to its Motion pose rather than to a state it could never reach.
+  it('withholds the Mind state from an account that cannot earn it', () => {
+    expect(staticFigureSelection({ reaction: null, mind: { visible: false, state: 'sleepy' }, motionPose: 'run' }))
+      .toEqual({ kind: 'pose', pose: 'run' });
+    expect(staticFigureSelection({ reaction: null, mind: { visible: true, state: 'well_rested' }, motionPose: 'walk' }))
+      .toEqual({ kind: 'state', state: 'well_rested' });
   });
 });
 
@@ -122,7 +86,6 @@ describe('resolveLivingMirror', () => {
   it('hides an unavailable or unknown Mind reading instead of showing zero', () => {
     for (const hasSleepSource of [false, true]) {
       const model = resolveLivingMirror({
-        stage: 4,
         steps: 2_500,
         hasSleepSource,
         sleepMinutes: null,
@@ -137,7 +100,6 @@ describe('resolveLivingMirror', () => {
 
   it('maps verified sleep and lifetime Body independently', () => {
     const model = resolveLivingMirror({
-      stage: 4,
       steps: DAILY_STEP_BASELINE,
       hasSleepSource: true,
       sleepMinutes: 480,
@@ -150,22 +112,29 @@ describe('resolveLivingMirror', () => {
     expect(model.body.tier).toBe('strong');
   });
 
-  // One derivation of the stage reaches the figure. The screen reads it once
-  // from the level and hands it here; nothing in this module re-derives it,
-  // because a second reading is a second thing that can disagree.
-  it('carries the growth stage it was given into the figure', () => {
-    for (const stage of stages) {
-      const model = resolveLivingMirror({
-        stage,
-        steps: 2_500,
-        hasSleepSource: false,
-        sleepMinutes: null,
-        lifetimeBodyPoints: 0,
-        nextStep: { kind: 'rest' },
-        reaction: null,
-      });
-      expect(model.figure).toEqual({ kind: 'stage', stage, pose: 'walk' });
-    }
+  // The Motion ladder's five bands resolve to four poses, and the top band is
+  // the one that earns its own. `ridge` drawing the same `run` as `climb` threw
+  // away the day's finish; `summit` is what it draws now, and it is persistent
+  // rather than a celebration — the `daily_walk` reaction still outranks it
+  // while it is unseen.
+  it('draws summit at the ridge and run below it', () => {
+    const at = (steps: number) => resolveLivingMirror({
+      steps,
+      hasSleepSource: false,
+      sleepMinutes: null,
+      lifetimeBodyPoints: 0,
+      nextStep: { kind: 'rest' },
+      reaction: null,
+    });
+    expect(at(500).figure).toEqual({ kind: 'pose', pose: 'idle' });
+    expect(at(3_000).figure).toEqual({ kind: 'pose', pose: 'walk' });
+    expect(at(6_000).figure).toEqual({ kind: 'pose', pose: 'walk' });
+    expect(at(8_000).figure).toEqual({ kind: 'pose', pose: 'run' });
+    expect(at(10_000).figure).toEqual({ kind: 'pose', pose: 'summit' });
+    expect(at(25_000).figure).toEqual({ kind: 'pose', pose: 'summit' });
+    // `summit` is the drawing, never a sixth band: the ladder still ends at the
+    // ridge and `locationName` still says "Ridge".
+    expect(at(10_000).motion.location).toBe('ridge');
   });
 });
 

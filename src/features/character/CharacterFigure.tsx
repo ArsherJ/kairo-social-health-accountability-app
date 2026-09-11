@@ -9,8 +9,6 @@ import {
   KAIRO_BASE_CREST,
   KAIRO_POSE_ASSETS,
   KAIRO_POSE_CRESTS,
-  KAIRO_STAGE_ASSETS,
-  KAIRO_STAGE_CRESTS,
   KAIRO_STATE_ASSETS,
   KAIRO_STATE_CRESTS,
 } from './character-assets.ts';
@@ -26,23 +24,15 @@ import type { BodyPresence, StaticFigureSelection } from './living-mirror.ts';
  * them out of the same branch is what makes it impossible for the crest on
  * screen to belong to a bird that is not.
  *
- * **The growth stage comes off the selection, not off the `stage` prop**, even
- * though the two hold the same value: `staticFigureSelection` has already
- * decided what a pre-adult reaction draws, and re-reading the prop here would
- * let a later edit answer that question a second time in a place with none of
- * the reasoning. The prop stays for the ground shadow, the ring and the body's
- * scale, which read the stage as *presence* and *size* rather than as a body.
+ * **It does not read the growth stage** (deviation #73). It used to, to pick a
+ * per-stage body; the v3 pack has one body, so the stage reaches `figureResponse`
+ * and becomes size and shadow instead. The `stage` prop stays on the component
+ * for exactly that — presence, not anatomy.
  */
 function imagesFor(selection: StaticFigureSelection): {
   art: ImageSourcePropType;
   crest: ImageSourcePropType;
 } {
-  if (selection.kind === 'stage') {
-    return {
-      art: KAIRO_STAGE_ASSETS[selection.stage][selection.pose],
-      crest: KAIRO_STAGE_CRESTS[selection.stage][selection.pose],
-    };
-  }
   if (selection.kind === 'pose') {
     return { art: KAIRO_POSE_ASSETS[selection.pose], crest: KAIRO_POSE_CRESTS[selection.pose] };
   }

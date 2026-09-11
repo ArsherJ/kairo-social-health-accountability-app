@@ -1,0 +1,39 @@
+Use case: identity-preserve
+Asset type: KAIRO v3 concept-only pose — workout.
+Input image 1: The edit target and sole identity/style anchor, the refined v3 base.
+
+Redraw the bird from the input image in a new pose. Keep exactly the same bird: the same
+proportions, the same head and body shapes and their taper, the same crest tuft count, shape
+and colour, the same eye size, spacing and colour, the same beak, the same blush, the same
+wing shape, the same two ochre legs with three spread toes each, the same outline weight, and
+the same flat palette. Change ONLY the pose described below. Do not age, fatten, slim, or
+restyle the bird, and do not add or remove any feature.
+
+POSE — workout
+The bird is flexing, proud after exercise, facing the viewer. Both feet are planted flat on
+the ground at the same height and set a little wider apart than in the input image, in a
+sturdy braced stance. Both wings are bent upward at their midpoint so that each rounded
+mitten tip points up and inward beside the head, like a double bicep flex, held clear of the
+body on each side, with both wingtips fully visible and both wingtips still lower than the
+crest tips. The wings keep their smooth mitten outline with no internal feather lines and no
+notches. Its chest is pushed forward, its head is level, and its beak is open in a small
+determined smile. Its crest tufts stand up perked.
+
+Rendering: Flat 2D cartoon illustration, like a clean hand-drawn sticker. One consistent
+rounded warm-charcoal outline weight throughout, smooth large shapes, solid matte colors.
+Absolutely no gradients, painted shading, feather detail, realistic anatomy, gloss, texture,
+lighting effects, or 3D.
+
+Palette: Warm ivory cream head/crest/chest/belly, chestnut brown back and wings, golden ochre
+beak/legs/feet, warm-charcoal outlines and eyes, muted peach-pink cheeks. No purple and no
+neon on the bird.
+
+Composition: Exactly one full-body bird, centered with clear margins. All crest tips, both
+wings, both legs and all toes fully visible inside the frame. Keep the crest above all other
+parts of the bird, including the wingtips. Leave room to the sides for the posed wings. No
+text, labels, props, clothing, badges, scenery, ground shadow, glow, or duplicate views.
+This is a static pose study, not an illustration of a scene.
+
+Technical background: Perfectly uniform solid chroma green RGB 0,255,0, edge-to-edge. The
+green is a temporary removable technical background only; no green spill, no reflected green,
+no gradient, and no floor.

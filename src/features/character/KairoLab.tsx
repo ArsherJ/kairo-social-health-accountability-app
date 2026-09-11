@@ -5,7 +5,6 @@ import { evolutionStageForLevel, type CoreStat } from '@kairo/core';
 
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
-import cosmetics from '../../../data/cosmetics.json';
 import { colors, font, space } from '@/theme.ts';
 import { Screen, STAT_NAMES, Text } from '@/ui/index.ts';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
@@ -23,17 +22,11 @@ import {
 import { resolveStatDetail, statDetailLine } from './stat-detail.ts';
 import {
   KAIRO_BASE_ASSET,
-  KAIRO_COSMETIC_ASSETS,
   KAIRO_POSE_ASSETS,
-  KAIRO_STAGE_ASSETS,
   KAIRO_STATE_ASSETS,
 } from './character-assets.ts';
 import { GROWTH_STAGE_NAMES } from './character-contract.ts';
-import {
-  cosmeticAnchorMetadata,
-  firstLevelOfStage,
-  KAIRO_STATIC_CATALOG,
-} from './kairo-lab-contract.ts';
+import { firstLevelOfStage, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
 
 const PREVIEW_SIZES = [
   { label: '190 × 212', dimensions: { width: 190, height: 212 } },
@@ -219,7 +212,6 @@ function MirrorSky({
   const steps = { branch: 0, treeline: 2_500, valley: 5_000, climb: 7_500, ridge: 10_000 }[location];
   const stage = evolutionStageForLevel(level);
   const mirror = resolveLivingMirror({
-    stage,
     steps,
     hasSleepSource,
     sleepMinutes,
@@ -247,54 +239,30 @@ function MirrorSky({
 }
 
 /**
- * The body at each growth stage — the ticket's own verification surface.
+ * The figure at each growth stage — one body, four sizes.
  *
- * Two readings, because they fail differently. The **registry** row draws
- * `KAIRO_STAGE_ASSETS` directly, so a cell pointing at the wrong art is
- * visible; the **resolver** row drives `resolveLivingMirror` from a level, so a
- * selection that drops the stage on the way to the figure is visible too. A
- * registry check alone would pass with the stage never reaching the screen.
+ * **There is no registry row any more** (deviation #73). It drew
+ * `KAIRO_STAGE_ASSETS` cell by cell, and that table is gone: the v3 pack has one
+ * body, so the stage reaches the figure as `figureResponse`'s `bodyScale` and
+ * the ground shadow rather than as separate art. The resolver row is what is
+ * left, and it is the reading that mattered — it drives `resolveLivingMirror`
+ * from a level, so a stage that stops changing the figure's size is visible
+ * here.
  */
 function GrowthStages() {
   return (
     <Section title="Growth stages">
       <Text style={labStyles.sentence}>
-        Four ages of one eagle, each in the three poses that draw. Read the registry rows across
-        first — down, then first feathers, then near-grown, then adult — and the resolver rows after,
-        which is the same art arriving through a level rather than through a table. A stage that
-        drew another stage's body would be a growth boundary a player crosses and cannot see. One
-        consequence is visible to a player already: a pre-adult celebration draws the stage's walk
-        rather than the adult's wings-out pose, because that pose exists at one stage only.
+        One eagle at four ages, each at the lowest level of its stage, standing at the Ridge. The
+        body is the same drawing every time; what changes is how big it stands and how wide its
+        shadow falls. A stage that drew at its neighbour's size would be a growth boundary a player
+        crosses and cannot see.
       </Text>
-
-      {KAIRO_STATIC_CATALOG.stages.map((stage) => (
-        <View key={`registry-${stage}`} style={styles.entry}>
-          <Text style={styles.entryTitle}>
-            {`Registry: stage ${stage} · ${GROWTH_STAGE_NAMES[stage]}`}
-          </Text>
-          <View style={styles.previews}>
-            {KAIRO_STATIC_CATALOG.stagePoses.map((pose) => (
-              <PreviewFrame
-                key={pose}
-                source={KAIRO_STAGE_ASSETS[stage][pose]}
-                name={`${GROWTH_STAGE_NAMES[stage]} ${pose}`}
-                label="120 × 134"
-                dimensions={{ width: 120, height: 134 }}
-              />
-            ))}
-          </View>
-          <View style={styles.metadata}>
-            <Metadata>
-              {`Poses: ${KAIRO_STATIC_CATALOG.stagePoses.join(', ')} · Levels ${firstLevelOfStage(stage)}+`}
-            </Metadata>
-          </View>
-        </View>
-      ))}
 
       {KAIRO_STATIC_CATALOG.stages.map((stage) => (
         <View key={`resolver-${stage}`} style={styles.entry}>
           <Text style={styles.entryTitle}>
-            {`Resolver: level ${firstLevelOfStage(stage)} at the Ridge — ${GROWTH_STAGE_NAMES[stage]}, running`}
+            {`Level ${firstLevelOfStage(stage)} at the Ridge — ${GROWTH_STAGE_NAMES[stage]}`}
           </Text>
           <MirrorSky location="ridge" level={firstLevelOfStage(stage)} />
         </View>
@@ -442,7 +410,7 @@ export function KairoLab() {
       <Text style={styles.title}>KAIRO asset catalog</Text>
       <Text style={styles.status}>Static asset catalog — Rive parked</Text>
       <Text style={styles.intro}>
-        This provisional v1 pack is a read-only static inventory. Cosmetic images are flattened QA
+        This pack is a read-only static inventory. The
         previews, not equipable layers.
       </Text>
       <Text style={styles.parked}>
@@ -487,21 +455,6 @@ export function KairoLab() {
         ))}
       </Section>
 
-      <Section title="Cosmetic QA previews">
-        {KAIRO_STATIC_CATALOG.cosmetics.map((cosmeticId) => {
-          const cosmetic = cosmetics.items.find((item) => item.id === cosmeticId);
-          if (!cosmetic) return null;
-          return (
-            <CatalogEntry
-              key={cosmeticId}
-              source={KAIRO_COSMETIC_ASSETS[cosmeticId]}
-              title={cosmetic.displayName}
-            >
-              <Metadata>{`ID: ${cosmetic.id} · Slot: ${cosmetic.slot}\n${cosmeticAnchorMetadata(cosmetic)}\nCompatible poses: ${cosmetic.compatiblePoses.join(', ')}`}</Metadata>
-            </CatalogEntry>
-          );
-        })}
-      </Section>
     </Screen>
   );
 }

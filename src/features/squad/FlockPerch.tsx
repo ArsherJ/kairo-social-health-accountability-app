@@ -95,11 +95,7 @@ export function FlockPerch(
                 stage={evolutionStageForLevel(member.level)}
                 height={100}
                 compact
-                figure={{
-                  kind: 'stage',
-                  stage: evolutionStageForLevel(member.level),
-                  pose: 'idle',
-                }}
+                figure={{ kind: 'pose', pose: 'idle' }}
                 body={{ tier: 'slim', shade: colors.sage, shadowWeight: 0 }}
                 lifetimePoints={{
                   AGI: member.ratings.AGI ?? 0,

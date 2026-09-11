@@ -2,6 +2,20 @@ import type { EvolutionStage } from '@kairo/core';
 
 export const SLEEP_STATES = ['sleepy', 'normal', 'well_rested'] as const;
 export const STRENGTH_TIERS = ['slim', 'fit', 'strong'] as const;
+/**
+ * **`summit` is the pose drawn at the ridge, and it is silent.**
+ *
+ * The Motion ladder's top band is `ridge` and the player sees that word; this
+ * names the *drawing* they see standing there, and no surface speaks it — the
+ * growth-stage names are the same kind of development vocabulary. Calling the
+ * pose `ridge` too would give one word a third referent beside the step count
+ * and the band, which is the collision `CONTEXT.md` records against it.
+ *
+ * It is a persistent look rather than a celebration: `daily_walk` still fires
+ * its `race_victory` reaction when the line is crossed, wins the priority
+ * cascade for `REACTION_HOLD_MS`, and then falls through to this for the rest
+ * of the day.
+ */
 export const KAIRO_POSES = [
   'idle',
   'sleep',
@@ -9,6 +23,7 @@ export const KAIRO_POSES = [
   'run',
   'workout',
   'race_victory',
+  'summit',
 ] as const;
 /**
  * **`tired` has no producer, deliberately.** `living-reaction.ts` builds no
@@ -23,20 +38,6 @@ export const KAIRO_POSES = [
  * integration is churn.
  */
 export const KAIRO_REACTIONS = ['happy', 'excited', 'tired', 'victory', 'level_up'] as const;
-export const COSMETIC_SLOTS = ['body', 'feet', 'back', 'neck', 'face', 'head', 'effect'] as const;
-
-/**
- * The three poses the **growth stage** has art for.
- *
- * They are not an arbitrary subset: they are the poses that actually draw.
- * `staticFigureSelection` returns the Motion pose on every ordinary day, and
- * `motionPose()` only ever answers with one of these three — so the base render
- * is effectively unreachable on the day screen, and applying the stage to it
- * would be a change nobody could see. `sleep`, `workout` and `race_victory`
- * exist as adult art only; see `staticFigureSelection` for what a pre-adult
- * reaction draws instead.
- */
-export const STAGE_POSES = ['idle', 'walk', 'run'] as const;
 
 /**
  * The growth stages, by name, in `EvolutionStage` order.
@@ -87,28 +88,12 @@ export const ADULT_STAGE: EvolutionStage = 4;
 export type SleepState = (typeof SLEEP_STATES)[number];
 export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 export type KairoPose = (typeof KAIRO_POSES)[number];
-export type StagePose = (typeof STAGE_POSES)[number];
 export type KairoReactionId = (typeof KAIRO_REACTIONS)[number];
-export type CosmeticSlot = (typeof COSMETIC_SLOTS)[number];
-export type CosmeticId =
-  | 'runner_cap'
-  | 'woven_salakot'
-  | 'leaf_crown'
-  | 'round_glasses'
-  | 'flight_goggles'
-  | 'sunlit_bandana'
-  | 'sampaguita_garland'
-  | 'trail_vest'
-  | 'woven_cape'
-  | 'trail_sneakers'
-  | 'rain_boots'
-  | 'firefly_aura';
 
 export interface KairoSelection {
   sleepState: SleepState;
   strengthTier: StrengthTier;
   pose: KairoPose;
-  cosmetics: Partial<Record<CosmeticSlot, CosmeticId>>;
   reaction?: { id: KairoReactionId; occurrence: string };
 }
 
@@ -125,24 +110,6 @@ export interface CharacterManifest {
   rive: { artboard: 'KAIRO'; viewModel: 'KairoCharacter'; stateMachine: 'KairoStateMachine' };
   defaults: { sleepState: 'normal'; strengthTier: 'fit'; pose: 'idle' };
   properties: Record<string, { path: string; type: DataBindingPropertyType }>;
-  cosmeticProperties: Record<CosmeticSlot, { path: string; type: 'enum'; order: number }>;
-}
-
-export interface CosmeticManifest {
-  schemaVersion: 1;
-  characterId: 'kairo_creature';
-  slotEnums: Record<CosmeticSlot, readonly ('none' | CosmeticId)[]>;
-  items: readonly CosmeticManifestItem[];
-}
-
-export interface CosmeticManifestItem {
-  id: CosmeticId;
-  displayName: string;
-  slot: CosmeticSlot;
-  anchor: string;
-  riveEnumValue: CosmeticId;
-  components: readonly { anchor: string }[];
-  compatiblePoses: readonly KairoPose[];
 }
 
 export interface AnimationManifest {
@@ -165,7 +132,6 @@ export interface AnimationManifest {
 
 export interface CharacterManifestBundle {
   character: unknown;
-  cosmetics: unknown;
   animations: unknown;
 }
 
@@ -180,31 +146,6 @@ const EXPECTED_PROPERTIES = {
   reducedMotion: { path: 'motion/reduced_motion', type: 'boolean' },
 } as const;
 
-const EXPECTED_COSMETIC_PROPERTIES = {
-  body: { path: 'cosmetics/body', type: 'enum', order: 10 },
-  feet: { path: 'cosmetics/feet', type: 'enum', order: 20 },
-  back: { path: 'cosmetics/back', type: 'enum', order: 30 },
-  neck: { path: 'cosmetics/neck', type: 'enum', order: 40 },
-  face: { path: 'cosmetics/face', type: 'enum', order: 50 },
-  head: { path: 'cosmetics/head', type: 'enum', order: 60 },
-  effect: { path: 'cosmetics/effect', type: 'enum', order: 100 },
-} as const;
-
-const EXPECTED_COSMETICS: readonly [CosmeticId, string, CosmeticSlot, string][] = [
-  ['runner_cap', 'Runner Cap', 'head', 'head_top'],
-  ['woven_salakot', 'Woven Salakot', 'head', 'head_top'],
-  ['leaf_crown', 'Leaf Crown', 'head', 'head_top'],
-  ['round_glasses', 'Round Glasses', 'face', 'head_center'],
-  ['flight_goggles', 'Flight Goggles', 'face', 'head_center'],
-  ['sunlit_bandana', 'Sunlit Bandana', 'neck', 'neck'],
-  ['sampaguita_garland', 'Sampaguita Garland', 'neck', 'neck'],
-  ['trail_vest', 'Trail Vest', 'body', 'body_center'],
-  ['woven_cape', 'Woven Cape', 'back', 'back'],
-  ['trail_sneakers', 'Trail Sneakers', 'feet', 'left_foot'],
-  ['rain_boots', 'Rain Boots', 'feet', 'left_foot'],
-  ['firefly_aura', 'Firefly Aura', 'effect', 'body_center'],
-];
-
 const CHARACTER_MANIFEST_KEYS = [
   'schemaVersion',
   'characterId',
@@ -212,24 +153,13 @@ const CHARACTER_MANIFEST_KEYS = [
   'rive',
   'defaults',
   'properties',
-  'cosmeticProperties',
 ] as const;
-const COSMETIC_MANIFEST_KEYS = ['schemaVersion', 'characterId', 'slotEnums', 'items'] as const;
 const ANIMATION_MANIFEST_KEYS = [
   'schemaVersion',
   'characterId',
   'transitionSeconds',
   'poses',
   'reactions',
-] as const;
-const COSMETIC_ITEM_KEYS = [
-  'id',
-  'displayName',
-  'slot',
-  'anchor',
-  'riveEnumValue',
-  'components',
-  'compatiblePoses',
 ] as const;
 const REACTION_KEYS = [
   'id',
@@ -250,6 +180,9 @@ const EXPECTED_POSES = [
   ['run', 0.5, 'loop'],
   ['workout', 1.2, 'loop'],
   ['race_victory', 1.4, 'hold'],
+  // Held rather than looped: `summit` is the day's standing look after the
+  // ridge, not a cycle.
+  ['summit', 1.4, 'hold'],
 ] as const;
 
 const EXPECTED_REACTIONS = [
@@ -297,16 +230,13 @@ function addExactKeyErrors(
 /** Returns ordered development diagnostics for malformed checked-in manifest data. */
 export function validateCharacterManifests({
   character,
-  cosmetics,
   animations,
 }: CharacterManifestBundle): string[] {
   const errors: string[] = [];
   const characterManifest = addHeaderErrors(errors, 'character', character);
-  const cosmeticsManifest = addHeaderErrors(errors, 'cosmetics', cosmetics);
   const animationsManifest = addHeaderErrors(errors, 'animations', animations);
 
   addExactKeyErrors(errors, 'character', characterManifest, CHARACTER_MANIFEST_KEYS);
-  addExactKeyErrors(errors, 'cosmetics', cosmeticsManifest, COSMETIC_MANIFEST_KEYS);
   addExactKeyErrors(errors, 'animations', animationsManifest, ANIMATION_MANIFEST_KEYS);
 
   if (characterManifest.assetVersion !== 'v1') errors.push('character.assetVersion must equal v1');
@@ -338,98 +268,6 @@ export function validateCharacterManifests({
     }
   }
 
-  const cosmeticProperties = asRecord(characterManifest.cosmeticProperties);
-  addExactKeyErrors(
-    errors,
-    'character.cosmeticProperties',
-    cosmeticProperties,
-    COSMETIC_SLOTS,
-  );
-  for (const slot of COSMETIC_SLOTS) {
-    const expected = EXPECTED_COSMETIC_PROPERTIES[slot];
-    const property = asRecord(cosmeticProperties[slot]);
-    addExactKeyErrors(errors, `character.cosmeticProperties.${slot}`, property, [
-      'path',
-      'type',
-      'order',
-    ]);
-    if (
-      property.path !== expected.path ||
-      property.type !== expected.type ||
-      property.order !== expected.order
-    ) {
-      errors.push(
-        `character.cosmeticProperties.${slot} must equal ${expected.path} (${expected.type}, order ${expected.order})`,
-      );
-    }
-  }
-
-  const items = Array.isArray(cosmeticsManifest.items) ? cosmeticsManifest.items : [];
-  if (items.length !== EXPECTED_COSMETICS.length) errors.push('cosmetics.items must contain 12 items');
-  if (!sameArray(items.map((item) => asRecord(item).id), EXPECTED_COSMETICS.map(([id]) => id))) {
-    errors.push('cosmetics.items must preserve canonical item order');
-  }
-  const itemById = new Map<string, UnknownRecord>();
-  for (let index = 0; index < items.length; index += 1) {
-    const item = asRecord(items[index]);
-    addExactKeyErrors(errors, `cosmetics.items[${index}]`, item, COSMETIC_ITEM_KEYS);
-    if (Array.isArray(item.components)) {
-      for (let componentIndex = 0; componentIndex < item.components.length; componentIndex += 1) {
-        addExactKeyErrors(
-          errors,
-          `cosmetics.items[${index}].components[${componentIndex}]`,
-          asRecord(item.components[componentIndex]),
-          ['anchor'],
-        );
-      }
-    }
-    const id = item.id;
-    if (typeof id !== 'string') {
-      errors.push(`cosmetics.items[${index}].id must be a string`);
-    } else if (itemById.has(id)) {
-      errors.push(`cosmetics.items[${index}].id duplicates ${id}`);
-    } else {
-      itemById.set(id, item);
-    }
-  }
-
-  for (const [id, displayName, slot, anchor] of EXPECTED_COSMETICS) {
-    const item = itemById.get(id);
-    if (!item) {
-      errors.push(`cosmetics.items.${id} must be registered`);
-      continue;
-    }
-    if (item.displayName !== displayName) {
-      errors.push(`cosmetics.items.${id}.displayName must equal ${displayName}`);
-    }
-    if (item.slot !== slot || item.anchor !== anchor) {
-      errors.push(`cosmetics.items.${id} must use ${slot}/${anchor}`);
-    }
-    if (item.riveEnumValue !== id) errors.push(`cosmetics.items.${id}.riveEnumValue must equal ${id}`);
-    const componentAnchors = Array.isArray(item.components)
-      ? item.components.map((component) => asRecord(component).anchor)
-      : [];
-    const expectedAnchors = slot === 'feet' ? ['left_foot', 'right_foot'] : [anchor];
-    if (!sameArray(componentAnchors, expectedAnchors)) {
-      errors.push(`cosmetics.items.${id}.components must use ${expectedAnchors.join(', ')}`);
-    }
-    if (!sameArray(item.compatiblePoses, KAIRO_POSES)) {
-      errors.push(`cosmetics.items.${id}.compatiblePoses must equal canonical pose order`);
-    }
-  }
-
-  const slotEnums = asRecord(cosmeticsManifest.slotEnums);
-  addExactKeyErrors(errors, 'cosmetics.slotEnums', slotEnums, COSMETIC_SLOTS);
-  for (const slot of COSMETIC_SLOTS) {
-    const expectedValues = [
-      'none',
-      ...EXPECTED_COSMETICS.filter(([, , itemSlot]) => itemSlot === slot).map(([id]) => id),
-    ];
-    if (!sameArray(slotEnums[slot], expectedValues)) {
-      errors.push(`cosmetics.slotEnums.${slot} must equal none plus its slot IDs`);
-    }
-  }
-
   if (animationsManifest.transitionSeconds !== 0.18) {
     errors.push('animations.transitionSeconds must equal 0.18');
   }
@@ -437,7 +275,7 @@ export function validateCharacterManifests({
   if (poses.some((entry) => asRecord(entry).id === 'level_up')) {
     errors.push('animations.poses must not contain level_up');
   }
-  if (poses.length !== EXPECTED_POSES.length) errors.push('animations.poses must contain six poses');
+  if (poses.length !== EXPECTED_POSES.length) errors.push('animations.poses must contain seven poses');
   for (const [index, [id, durationSeconds, completion]] of EXPECTED_POSES.entries()) {
     const pose = asRecord(poses[index]);
     addExactKeyErrors(errors, `animations.poses[${index}]`, pose, [

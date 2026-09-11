@@ -1,20 +1,18 @@
 import { evolutionStageForLevel, type EvolutionStage } from '@kairo/core';
 
-import cosmetics from '../../../data/cosmetics.json';
-import {
-  GROWTH_STAGES,
-  KAIRO_POSES,
-  SLEEP_STATES,
-  STAGE_POSES,
-  type CosmeticId,
-} from './character-contract.ts';
+import { GROWTH_STAGES, KAIRO_POSES, SLEEP_STATES } from './character-contract.ts';
 
 /**
  * Ordered inventory for the development-only static PNG catalog.
  *
- * Pose and state IDs stay attached to the canonical contract, while cosmetic
- * IDs retain the reviewed order in the semantic manifest. This module is pure
- * so contract tests can verify catalog coverage without loading Metro assets.
+ * Pose and state IDs stay attached to the canonical contract. This module is
+ * pure so contract tests can verify catalog coverage without loading Metro
+ * assets.
+ *
+ * **No cosmetics and no per-stage poses** (deviation #73). The cosmetic PNGs
+ * were flattened previews of a feature that was never built, and the v3 pack
+ * has one body, so `stages` here drives only `firstLevelOfStage` and the size
+ * response rather than a table of bodies.
  */
 export const KAIRO_STATIC_CATALOG = {
   base: ['base'],
@@ -23,22 +21,8 @@ export const KAIRO_STATIC_CATALOG = {
   // since a player has exactly one. Both lists come from the contract rather
   // than being restated here.
   stages: GROWTH_STAGES,
-  stagePoses: STAGE_POSES,
   states: SLEEP_STATES,
-  cosmetics: cosmetics.items.map((item) => item.id as CosmeticId),
 } as const;
-
-/** The manifest has component anchors, not a separate component identity schema. */
-export function cosmeticAnchorMetadata({
-  anchor,
-  components,
-}: {
-  anchor: string;
-  components: readonly { anchor: string }[];
-}) {
-  const componentAnchors = components.map((component) => component.anchor).join(', ');
-  return `Primary anchor: ${anchor}\nComponent anchors (${components.length}): ${componentAnchors}`;
-}
 
 /**
  * The lowest level in a growth stage, **derived from the band function** rather

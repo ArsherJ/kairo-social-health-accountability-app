@@ -13,13 +13,13 @@ import type { SpeciesId } from './species.ts';
  * root Vitest can test it; a `require` of a PNG would end that.
  *
  * **Interim state (2026-08-28):** every species points at the single static
- * base render `assets/character/base/kairo_base_front_v1.png` while the Rive
+ * base render `assets/character/base/kairo_base_front.png` while the Rive
  * character is authored (see the 2026-08-27 character asset system plan). The
  * per-species habitat backdrops were retired at the same time — the diorama
  * falls back to its sage sky. When Rive lands, this map is where the real
  * per-species art (or the one shared `.riv`) reconnects, file-for-file.
  */
-const KAIRO_BASE = require('../../../assets/character/base/kairo_base_front_v1.png') as ImageSourcePropType;
+const KAIRO_BASE = require('../../../assets/character/base/kairo_base_front.png') as ImageSourcePropType;
 
 export const SPECIES_FIGURES: Record<SpeciesId, ImageSourcePropType> = {
   pilandok: KAIRO_BASE,

@@ -4,20 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import animations from '../../../data/animations.json';
 import character from '../../../data/character.json';
-import cosmetics from '../../../data/cosmetics.json';
 import {
-  COSMETIC_SLOTS,
   KAIRO_POSES,
   KAIRO_REACTIONS,
   SLEEP_STATES,
   STRENGTH_TIERS,
   validateCharacterManifests,
 } from './character-contract.ts';
-import {
-  cosmeticAnchorMetadata,
-  firstLevelOfStage,
-  KAIRO_STATIC_CATALOG,
-} from './kairo-lab-contract.ts';
+import { firstLevelOfStage, KAIRO_STATIC_CATALOG } from './kairo-lab-contract.ts';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const KAIRO_LAB_PATH = resolve(REPO_ROOT, 'src/features/character/KairoLab.tsx');
@@ -30,7 +24,6 @@ const PRODUCTION_NAVIGATION_PATHS = [
 type MutableRecord = Record<string, unknown>;
 type MutableManifestBundle = {
   character: MutableRecord;
-  cosmetics: MutableRecord;
   animations: MutableRecord;
 };
 
@@ -43,7 +36,7 @@ function mutableArray(value: unknown): unknown[] {
 }
 
 function manifestFixture(): MutableManifestBundle {
-  return structuredClone({ character, cosmetics, animations }) as MutableManifestBundle;
+  return structuredClone({ character, animations }) as MutableManifestBundle;
 }
 
 const ADVERSARIAL_MANIFEST_MUTATIONS: readonly {
@@ -57,13 +50,6 @@ const ADVERSARIAL_MANIFEST_MUTATIONS: readonly {
       mutableCharacter.unapproved = true;
     },
     expected: ['character.unapproved must not be declared'],
-  },
-  {
-    name: 'an extra cosmetics top-level key',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      mutableCosmetics.unapproved = true;
-    },
-    expected: ['cosmetics.unapproved must not be declared'],
   },
   {
     name: 'an extra animations top-level key',
@@ -95,36 +81,6 @@ const ADVERSARIAL_MANIFEST_MUTATIONS: readonly {
     expected: ['character.properties.sleepState.unapproved must not be declared'],
   },
   {
-    name: 'an extra cosmetic-property key',
-    mutate: ({ character: mutableCharacter }) => {
-      const cosmeticProperties = mutableRecord(mutableCharacter.cosmeticProperties);
-      mutableRecord(cosmeticProperties.body).unapproved = true;
-    },
-    expected: ['character.cosmeticProperties.body.unapproved must not be declared'],
-  },
-  {
-    name: 'an extra slot-enum key',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      mutableRecord(mutableCosmetics.slotEnums).unapproved = ['none'];
-    },
-    expected: ['cosmetics.slotEnums.unapproved must not be declared'],
-  },
-  {
-    name: 'an extra cosmetic-item key',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      mutableRecord(mutableArray(mutableCosmetics.items)[0]).unapproved = true;
-    },
-    expected: ['cosmetics.items[0].unapproved must not be declared'],
-  },
-  {
-    name: 'an extra cosmetic-component key',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      const item = mutableRecord(mutableArray(mutableCosmetics.items)[0]);
-      mutableRecord(mutableArray(item.components)[0]).unapproved = true;
-    },
-    expected: ['cosmetics.items[0].components[0].unapproved must not be declared'],
-  },
-  {
     name: 'an extra pose key',
     mutate: ({ animations: mutableAnimations }) => {
       mutableRecord(mutableArray(mutableAnimations.poses)[0]).unapproved = true;
@@ -137,28 +93,6 @@ const ADVERSARIAL_MANIFEST_MUTATIONS: readonly {
       mutableRecord(mutableArray(mutableAnimations.reactions)[0]).unapproved = true;
     },
     expected: ['animations.reactions[0].unapproved must not be declared'],
-  },
-  {
-    name: 'cosmetic items outside canonical order',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      const items = mutableArray(mutableCosmetics.items);
-      [items[0], items[1]] = [items[1], items[0]];
-    },
-    expected: ['cosmetics.items must preserve canonical item order'],
-  },
-  {
-    name: 'an empty cosmetic display name',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      mutableRecord(mutableArray(mutableCosmetics.items)[0]).displayName = '';
-    },
-    expected: ['cosmetics.items.runner_cap.displayName must equal Runner Cap'],
-  },
-  {
-    name: 'a changed cosmetic display name',
-    mutate: ({ cosmetics: mutableCosmetics }) => {
-      mutableRecord(mutableArray(mutableCosmetics.items)[0]).displayName = 'Running Cap';
-    },
-    expected: ['cosmetics.items.runner_cap.displayName must equal Runner Cap'],
   },
 ];
 
@@ -173,6 +107,7 @@ describe('KAIRO character contract', () => {
       'run',
       'workout',
       'race_victory',
+      'summit',
     ]);
     expect(KAIRO_REACTIONS).toEqual([
       'happy',
@@ -181,20 +116,11 @@ describe('KAIRO character contract', () => {
       'victory',
       'level_up',
     ]);
-    expect(COSMETIC_SLOTS).toEqual([
-      'body',
-      'feet',
-      'back',
-      'neck',
-      'face',
-      'head',
-      'effect',
-    ]);
     expect(KAIRO_POSES).not.toContain('level_up');
   });
 
   it('validates every checked-in manifest as one contract', () => {
-    expect(validateCharacterManifests({ character, cosmetics, animations })).toEqual([]);
+    expect(validateCharacterManifests({ character, animations })).toEqual([]);
   });
 
   it('rejects an unapproved runtime property with a path-specific diagnostic', () => {
@@ -207,27 +133,11 @@ describe('KAIRO character contract', () => {
             mood: { path: 'appearance/mood', type: 'enum' },
           },
         },
-        cosmetics,
         animations,
       }),
     ).toEqual(['character.properties.mood must not be declared']);
   });
 
-  it('rejects an unapproved cosmetic property with a path-specific diagnostic', () => {
-    expect(
-      validateCharacterManifests({
-        character: {
-          ...character,
-          cosmeticProperties: {
-            ...character.cosmeticProperties,
-            aura: { path: 'cosmetics/aura', type: 'enum', order: 110 },
-          },
-        },
-        cosmetics,
-        animations,
-      }),
-    ).toEqual(['character.cosmeticProperties.aura must not be declared']);
-  });
 
   it.each(ADVERSARIAL_MANIFEST_MUTATIONS)(
     'rejects $name with deterministic path-specific diagnostics',
@@ -239,12 +149,6 @@ describe('KAIRO character contract', () => {
     },
   );
 
-  it('registers all 12 cosmetics for all six poses', () => {
-    expect(cosmetics.items).toHaveLength(12);
-    for (const item of cosmetics.items) {
-      expect(item.compatiblePoses).toEqual(KAIRO_POSES);
-    }
-  });
 
   it('keeps level-up and victory semantics distinct', () => {
     expect(animations.poses.map((entry) => entry.id)).toContain('race_victory');
@@ -256,24 +160,9 @@ describe('KAIRO character contract', () => {
   it('lists every approved static KAIRO catalog preview in canonical order', () => {
     expect(KAIRO_STATIC_CATALOG).toEqual({
       base: ['base'],
-      poses: ['idle', 'sleep', 'walk', 'run', 'workout', 'race_victory'],
+      poses: ['idle', 'sleep', 'walk', 'run', 'workout', 'race_victory', 'summit'],
       stages: [1, 2, 3, 4],
-      stagePoses: ['idle', 'walk', 'run'],
       states: ['sleepy', 'normal', 'well_rested'],
-      cosmetics: [
-        'runner_cap',
-        'woven_salakot',
-        'leaf_crown',
-        'round_glasses',
-        'flight_goggles',
-        'sunlit_bandana',
-        'sampaguita_garland',
-        'trail_vest',
-        'woven_cape',
-        'trail_sneakers',
-        'rain_boots',
-        'firefly_aura',
-      ],
     });
   });
 
@@ -285,19 +174,6 @@ describe('KAIRO character contract', () => {
     expect(KAIRO_STATIC_CATALOG.stages.map(firstLevelOfStage)).toEqual([1, 6, 11, 21]);
   });
 
-  it('labels the complete available cosmetic anchor semantics without inventing component identity', () => {
-    const trailSneakers = cosmetics.items.find((item) => item.id === 'trail_sneakers');
-    expect(trailSneakers).toBeDefined();
-    expect(cosmeticAnchorMetadata(trailSneakers!)).toBe(
-      'Primary anchor: left_foot\nComponent anchors (2): left_foot, right_foot',
-    );
-
-    for (const cosmetic of cosmetics.items.filter((item) => item.components.length === 1)) {
-      expect(cosmeticAnchorMetadata(cosmetic)).toBe(
-        `Primary anchor: ${cosmetic.anchor}\nComponent anchors (1): ${cosmetic.anchor}`,
-      );
-    }
-  });
 
   it('keeps the development catalog static and unreachable from production navigation', () => {
     const labSource = existsSync(KAIRO_LAB_PATH) ? readFileSync(KAIRO_LAB_PATH, 'utf8') : '';
@@ -308,14 +184,11 @@ describe('KAIRO character contract', () => {
     for (const registry of [
       'KAIRO_BASE_ASSET',
       'KAIRO_POSE_ASSETS',
-      'KAIRO_STAGE_ASSETS',
       'KAIRO_STATE_ASSETS',
-      'KAIRO_COSMETIC_ASSETS',
     ]) {
       expect(labSource).toContain(registry);
     }
     expect(labSource).toContain('Static asset catalog — Rive parked');
-    expect(labSource).toContain('cosmeticAnchorMetadata(cosmetic)');
     expect(labSource).not.toMatch(
       /@rive-app\/react-native|\.riv|KairoRenderer|\bbinding\b|\bview[-_ ]?model\b/i,
     );

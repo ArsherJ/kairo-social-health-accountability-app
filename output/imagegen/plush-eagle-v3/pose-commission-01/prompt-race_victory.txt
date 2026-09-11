@@ -1,0 +1,44 @@
+Use case: identity-preserve
+Asset type: KAIRO v3 concept-only pose — race_victory.
+Input image 1: The edit target and sole identity/style anchor, the refined v3 base.
+
+Redraw the bird from the input image in a new pose. Keep exactly the same bird: the same
+proportions, the same head and body shapes and their taper, the same crest tuft count, shape
+and colour, the same eye colour, the same eye spacing, the same beak, the same blush, the same
+wing shape, the same two ochre legs with three spread toes each, the same outline weight, and
+the same flat palette. Change ONLY the pose and the eye shape described below. Do not age,
+fatten, slim, or restyle the bird, and do not add or remove any feature.
+
+POSE — race_victory
+The bird is celebrating, mid-cheer, facing the viewer. One leg is planted flat on the ground
+carrying its weight and the other is kicked up in a small joyful skip, its foot lifted clear
+of the ground and drawn open with the same three spread toes as the planted one. Its body
+leans back a little and its head is tilted up. Both wings are thrown up and out to the sides
+in a wide open V, higher and more energetic than a standing pose, held clear of the body, with
+both wingtips fully visible and both wingtips still lower than the crest tips. EACH WING KEEPS
+THE INPUT'S SMOOTH ROUNDED MITTEN OUTLINE EXACTLY — one clean unbroken curve with a softly
+rounded tip, no internal feather lines, no feather notches, no scallops, no serrations, no
+points and no split tips along any edge. The wings are simple solid chestnut shapes, only
+rotated and raised from where the input holds them. Its beak is
+open wide in a big delighted smile. Its two dot eyes become two happy upward-curving arcs, like
+a cheerful closed-eye smile, drawn in the same warm-charcoal ink and at the same spacing and
+scale as the dots they replace. Its crest tufts stand up perked.
+
+Rendering: Flat 2D cartoon illustration, like a clean hand-drawn sticker. One consistent
+rounded warm-charcoal outline weight throughout, smooth large shapes, solid matte colors.
+Absolutely no gradients, painted shading, feather detail, realistic anatomy, gloss, texture,
+lighting effects, or 3D.
+
+Palette: Warm ivory cream head/crest/chest/belly, chestnut brown back and wings, golden ochre
+beak/legs/feet, warm-charcoal outlines and eyes, muted peach-pink cheeks. No purple and no
+neon on the bird.
+
+Composition: Exactly one full-body bird, centered with clear margins. All crest tips, both
+wings, both legs and all toes fully visible inside the frame. Keep the crest above all other
+parts of the bird, including the wingtips. Leave room to the sides for the posed wings. No
+text, labels, props, clothing, badges, scenery, ground shadow, glow, or duplicate views.
+This is a static pose study, not an illustration of a scene.
+
+Technical background: Perfectly uniform solid chroma green RGB 0,255,0, edge-to-edge. The
+green is a temporary removable technical background only; no green spill, no reflected green,
+no gradient, and no floor.

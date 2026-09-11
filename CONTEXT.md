@@ -155,6 +155,14 @@ keeps its one meaning.
 **Daily Walk** and the race's **finish line** — one number with three readings,
 never a shifted one. Reaching it is spoken once, by the walk.
 
+**Summit** — the drawing of the character standing at the **ridge**, and
+nothing else. Development vocabulary: no surface speaks it, exactly as no
+surface speaks a growth stage's name. It exists because the pose needed a name
+and **ridge** was already carrying three meanings; a fourth would have made the
+word useless. It is a *persistent* look rather than a celebration — crossing the
+line still fires the walk's one reaction, and this is what the figure settles
+into for the rest of the day.
+
 **Shift** — a signal making another reading's bands *easier*, never its points
 larger. There are exactly two: the **spread**, where movement across many hours
 lowers Motion's ladder, and the **rested** night, where sleep lowers Body's. A
