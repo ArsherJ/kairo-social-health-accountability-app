@@ -840,7 +840,68 @@ daylight. The ring sits beside its words now rather than above them, because a
 centred stack left half the width empty. Both screens still `bleed` and take
 `insets.top` themselves.
 
-**What was not done.** The onboarding run and sign-in stay light. `Avatar`,
-`TodayPanel` and `KairoLab` are unmounted and untouched. The device pass under
-the dark scheme — every screen at the largest Dynamic Type, on a device — is
-owed, exactly as the growth-stage boundaries are.
+**What deviation #72 did not do.** At that point the onboarding run and sign-in
+stayed light. The 2026-09-11 pass below supersedes the onboarding half; sign-in
+remains authored light. `Avatar`, `TodayPanel` and `KairoLab` stayed unmounted.
+The device matrix was still owed at the end of #72; later evidence belongs to
+the warm-pastel implementation record, not retroactively to this section.
+
+---
+
+## Warm-pastel plush composition (2026-09-11)
+
+The plush eagle made the remaining saturated chrome feel like a frame from a
+different product. The palette therefore moved under the existing semantic
+roles again: warm cream/charcoal pages, cocoa/cream text, apricot for the person
+and primary action, lilac for support and selection, mint for secondary/restful
+surfaces. The contrast and ink-strength contracts did not move. A bright fill
+still takes dark ink in both schemes; runtime components still read `Theme`
+rather than naming screen-local colors.
+
+**Today combines instead of stacking.** A 236-point illustration followed by a
+separate Motion tile made the first viewport choose between the character and
+the reason to move. `TodayProgressHero` places the already-derived reading and
+the existing `Diorama` beside each other, stacking when width or text requires.
+The hero does not fetch or resolve anything: `resolveLivingMirror` still owns
+Mind, verified-strength, summit and reaction priority; `figureResponse` still
+owns growth; aura/plumage and the crest sky remain with the figure. Motion is
+removed from the supporting tiles so one day never prints the same reading
+twice.
+
+**Sky changed paint, not flight.** The bead-like path became a finer projected
+trail, but `flightFrame`, `raceProgress`, `placeRacers`, minimap mapping and the
+measured rail remain the only authorities. The distinction matters: a quieter
+path can be reviewed as presentation, while new geometry would change where a
+person appears to stand. Browser pointer drag and simulator taps/accessibility
+adjustment exercise the same responder; native coordinate-drag automation is
+not reliable evidence and stays named as a limitation.
+
+**Flock and You give the reading room.** The perch is a compact gathering so
+the Today/Yesterday board enters the first viewport earlier, with one invite and
+the existing leader/self/private/solo semantics. Perch cards keep a compact
+minimum, but a maximum-length name may widen its own card within the horizontal
+roster and wrap without a line clamp; preserving a two-line silhouette is not a
+reason to hide a person's name at large text. You uses one shared portrait and
+identity header, then streak, selectable records, growth and calendar; a second
+bird or trophy would invent a second reward language. Native actions remain
+native: best-day Share is opened and canceled during safe preview QA, never
+simulated as sent.
+
+**Onboarding is one themed run.** The seven routes now mount shared view
+components in both schemes. Routes retain impressions, Health permission,
+calibration, pending answers, profile insertion and navigation; the account-free
+preview injects only callbacks and local values. The setup panel remains a phase
+of Connect, never an eighth route. Privacy copy is passed from `PRIVACY_CLAIM`,
+and the policy action opens the public page without changing an answer.
+
+**The safe preview has one inset boundary.** Its toolbar consumes the physical
+top inset; a nested `SafeAreaInsetsContext.Provider` gives only the shared canvas
+`top: 0` while preserving the real bottom value. Fixing the production screens
+to compensate would have under-padded every real route. Fixture controls expose
+long names, ridge/summit, ceiling/reaction, missing sleep, private, loading and
+error states through the production resolvers and views; solo ghost days use
+the real race resolver, and the You fixtures cover each shield branch. The
+nested Name view receives its measured window offset for keyboard avoidance,
+while the production route retains zero. The preview remains sample-data
+verification, not authenticated HealthKit or backend evidence; the exact
+boundary and current matrix live in `mobile-screen-preview.md`.

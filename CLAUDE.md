@@ -6,15 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kairo is a Philippines-market health accountability app, **solo-first**: an RPG character levels from your real HealthKit activity, and squads are an optional layer on top — a daily race to a shared finish line. (A pooled Battle sat beside the race until deviation #66 retired it on 2026-09-06.) iOS first via Expo; Supabase backend.
 
-**Current state (2026-09-06) — the ground truth a fresh session needs first:**
+**Current state (2026-09-11) — the ground truth a fresh session needs first:**
 
 - **Tabs** are **Today · Sky · Flock · You** — `app/(tabs)/` is `index` (Today) · `sky` · `flock` · `profile` (You). There is no character tab.
 - **Onboarding** is seven beats: `/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name` (`/mirror` sits between the sky card and the Health ask, added by deviation #62). The profile row commits exactly once, on `/name` (deviation #58; see its block below).
-- **Today is a dashboard as of 2026-09-10** (deviation #72, over #59's Living Mirror): the date and name with Level/Streak chips, the KAIRO scene at card size, the bird's one sentence and the details link, then the readings — Motion as the hero tile with the walk's meter, Body and Mind two across — and the three quests as rows. Still no race copy, no Mastery coins, no score total; the quest contract and the reaction rules are #59's. The tile sentences are `today-board.ts`, tested.
-- **The app has a dark scheme** (deviation #72). `src/theme.ts` exports `light`, `dark` and `themes`; a screen reads `useTheme()` / `useStyles(makeStyles)` and the static `colors`/`ramp` exports are the light palette for tests and for the onboarding and sign-in screens, which stay light by design. Settings → Appearance is System / Light / Dark on MMKV. **`userInterfaceStyle` is `automatic` in `app.config.ts`, which is a native field — this redesign ships with a build, not an OTA.**
+- **Today is a progress-and-character dashboard as of 2026-09-11**: Motion and its walk meter sit beside the plush eagle in one responsive hero, followed by the bird's sentence/details action, Body and Mind, and the three quest rows. Motion appears once. `resolveLivingMirror` still owns the figure — Mind, verified strength, summit and reaction priority — while level scale, presence, plumage and the ceiling sky remain intact. Still no race copy, Mastery coins or score total; `today-board.ts` owns reading copy.
+- **The app has warm-pastel light and dark schemes**: cream/charcoal pages, cocoa/cream ink, apricot primary actions, lilac support and mint secondary surfaces under the existing semantic roles. `src/theme.ts` exports `light`, `dark` and `themes`; themed screens — including all seven onboarding views — read `useTheme()` / `useStyles(makeStyles)`. Static `colors`/`ramp` remain the light palette for pure tests and authored sign-in. Settings → Appearance is System / Light / Dark on MMKV. **`userInterfaceStyle` is `automatic` in `app.config.ts`, a native field that ships with a build, not an OTA.**
 - **The Sky has a minimap** (deviation #72): a scrubbable strip on the right edge drawing the whole flight, every bird and the ridge, with a window that follows the scroll; the corridor's segments behind the reader's own bird are painted in the accent. `minimap.ts` owns the arithmetic and is tested against `flightFrame`.
+- **The compact Flock perch is horizontally scrollable and never clamps a person's name by line count.** Cards keep a 96-point minimum, while a long label may widen to 144 points and make the card grow vertically; the domain allows 20-character names and XXXL readability outranks the earlier two-line silhouette.
 - **The palette is Playful** (deviation #58), quieter since #72: one accent wash on the tab bar rather than four gradients, no gradient bands on Flock or You, cards at `radius.lg`. Every character is a **Philippine eagle** (deviations #55/#57); `profiles.species` still stores all four values and is resolved at the render boundary.
 - **The character art is the plush eagle v3 pack as of 2026-09-11** (deviation #73): eleven renders and eleven crest masks, unsuffixed filenames, **no per-stage bodies and no cosmetics**. The growth stage reads as size through `figureResponse`'s `bodyScale`; `summit` is the seventh pose and the one the ridge draws. Ships with a build, riding along on the one deviation #72 already owes.
+- **The account-free preview mounts the four tabs and all seven real onboarding views.** Its local controls cover ready/loading/empty/private/error plus long names, ridge/summit, ceiling/reaction, missing sleep, solo ghosts and every shield branch; Connect, quest, privacy and name answers never invoke production stores or mutations. The toolbar consumes the top safe area, so only the shared screen canvas receives a preview-local top inset of zero; the nested Name view uses its measured window offset for the keyboard, while the production route keeps zero. The real bottom inset and route ownership stay intact. See `docs/engineering/mobile-screen-preview.md` before sample UI verification.
 - **The scoring engine is untouched since the race pivot** and still decides every day exactly as §5/§6 specify.
 - **There is no Battle, and no squad-wide target of any kind** (deviation #66, 2026-09-06). Nothing creates, renders or grades one and every live row is closed; what survives is history — see the block below. The notification ask keeps `hasSquad || hasScoredDay`.
 - **The Digest reaches solo players and stops for lapsed ones** (deviations #61/#65). The privacy claim is made in **three** places, not four.
@@ -898,16 +900,28 @@ wants; `curl`-based scripts in `supabase/scripts/` need nothing.
 
 **EAS guards both build inputs and generated native outcomes.** The `eas-build-pre-install` hook runs `scripts/guard-eas-build-platform.mjs`: it preserves Android's development-only boundary and rejects either missing public Supabase variable without printing its value. The iOS-only `eas-build-post-install` hook runs after dependency installation, CNG prebuild and CocoaPods, when `scripts/verify-ios-native-output.mjs` can assert the generated result: React Native is configured and actually built from source, the incompatible `React-Core-prebuilt` pod is absent, a generated target frameworks script embeds `ExpoModulesJSI.framework`, and the generated `Expo.plist` carries a working EAS Update configuration (enabled, `file:fingerprint`, zero launch wait, a real `u.expo.dev` endpoint). These lifecycle hooks replace the retired Xcode Cloud artifact guards. Do not move the outcome checks into pre-install, where `ios/` and `Pods/` do not exist yet.
 
-**Kairo follows the phone's appearance and Today is a dashboard as of
-2026-09-10** (deviation #72). The reasoning is in `docs/engineering/surfaces.md`
-under the dated heading; the rules:
+**Kairo's warm-pastel plush presentation is current as of 2026-09-11.** The
+palette and shared controls keep the semantic-role and contrast contracts below.
+Today combines Motion progress and the resolved figure in one responsive hero;
+Sky uses a finer trail without changing `flightFrame`, race progress or minimap
+math; Flock compacts the perch and keeps board semantics; You uses one shared
+portrait/header; all seven onboarding routes consume theme-aware shared views.
+The safe preview mounts those views with local fixture state and no production
+auth, health, profile, consent or telemetry effects. Detailed preview boundaries
+and verification limits live in `docs/engineering/mobile-screen-preview.md`.
+
+**Appearance architecture established 2026-09-10** (deviation #72). The
+screen-layout descriptions in this block are historical where the 2026-09-11
+warm-pastel presentation above replaces them; the scheme, token, inset and
+geometry contracts remain current. The reasoning is in
+`docs/engineering/surfaces.md` under the dated headings:
 
 - **Two schemes, one set of roles.** `src/theme.ts` keeps every token name and
   adds `light`, `dark`, `themes`, `Theme` and `Scheme`. The static exports
   (`colors`, `ramp`, `glass`, `shadow`, `earnedColor`) **are the light
-  palette** and stay: root Vitest reads them, `contrast.test.ts` holds both
-  palettes to the same claims, and the onboarding run and sign-in are left on
-  them deliberately — they carry their own night beats. A themed screen writes
+  palette** and stay: root Vitest reads them and `contrast.test.ts` holds both
+  palettes to the same claims. Authored sign-in still reads the light roles;
+  onboarding now consumes the local theme scope. A themed screen writes
   `const makeStyles = (t: Theme) => StyleSheet.create({...})` at module scope
   and reads `useStyles(makeStyles)`; a one-off colour reads `useTheme()`. The
   factory **must be a module-level constant** — the cache is keyed by its
@@ -935,8 +949,8 @@ under the dated heading; the rules:
   follows the focused surface via `status-bar-tone.ts` in `app/_layout.tsx`.
 - **Local theme scopes use the same tokens.** `ThemeScope` in `use-theme.ts`
   overrides rendering only, never the stored preference. The root scopes the
-  authored auth/onboarding routes to light; `statusBarTone` accounts for their
-  fixed deep beats. The sample preview scopes its own light/dark toggle so
+  authored auth routes to light; onboarding consumes the current scheme and
+  `statusBarTone` follows each surface. The sample preview scopes its own light/dark toggle so
   `Screen`, cards, sheets and scenery all change together. Preview boundaries
   and verification are in `docs/engineering/mobile-screen-preview.md`.
 - **Today is a dashboard and the Living Mirror's rules are what keep it

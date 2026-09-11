@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Placement, Racer } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
@@ -11,6 +12,7 @@ import { Text, useStyles } from '@/ui/index.ts';
 // puts the two numbers in a module root Vitest can load.
 import { SKY_FIGURE, SKY_SELF_FIGURE } from './flight-frame.ts';
 import { raceLaneLabel } from './race-label.ts';
+import { skyMarkerLabelAbove } from './sky-marker-label.ts';
 
 /**
  * One bird on the corridor.
@@ -46,11 +48,13 @@ export function SkyMarker({
   placement,
   boxWidth,
   boxHeight,
+  bottomClearance,
 }: {
   racer: Racer;
   placement: Placement;
   boxWidth: number;
   boxHeight: number;
+  bottomClearance: number;
 }) {
   const label = raceLaneLabel({
     rank: racer.rank,
@@ -62,7 +66,16 @@ export function SkyMarker({
   });
 
   const size = racer.isSelf ? SKY_SELF_FIGURE : SKY_FIGURE;
+  const [pillHeight, setPillHeight] = useState(0);
   const styles = useStyles(makeStyles);
+  const labelAbove = skyMarkerLabelAbove({
+    placementY: placement.y,
+    boxHeight,
+    figureSize: size,
+    pillHeight,
+    gap: space.xs,
+    bottomClearance,
+  });
 
   return (
     <View
@@ -80,7 +93,18 @@ export function SkyMarker({
         <KairoThumbnail pose={KAIRO_THUMBNAIL_POSE.skyMarker} size={size} decorative />
       </View>
 
-      <View {...HIDDEN} style={[styles.pill, racer.isSelf ? styles.pillSelf : styles.pillOther]}>
+      <View
+        {...HIDDEN}
+        onLayout={(event) => {
+          const measured = event.nativeEvent.layout.height;
+          setPillHeight((current) => current === measured ? current : measured);
+        }}
+        style={[
+          styles.pill,
+          racer.isSelf ? styles.pillSelf : styles.pillOther,
+          labelAbove ? [styles.pillAbove, { bottom: size + space.xs }] : null,
+        ]}
+      >
         <Text
           scale="fixed"
           numberOfLines={1}
@@ -106,6 +130,7 @@ const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
     borderCurve: 'continuous',
     maxWidth: 120,
   },
+  pillAbove: { position: 'absolute', alignSelf: 'center' },
   // Amber for you, ink for everybody else — the same "you are the accent" rule
   // the whole app runs on. Both are fills with a readable ink on them, never
   // accent-coloured text.

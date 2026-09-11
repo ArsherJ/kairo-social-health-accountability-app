@@ -5,6 +5,7 @@ export const PREVIEW_COPY = {
   light: 'Light',
   dark: 'Dark',
   state: 'Screen state',
+  fixtures: 'Fixtures',
   ready: 'Ready',
   loading: 'Loading',
   empty: 'Empty',
@@ -31,18 +32,30 @@ export const PREVIEW_COPY = {
   done: 'You’re ready for a little more sky.',
 } as const;
 
+export const ONBOARDING_PREVIEW_COPY = {
+  localOnly: 'Seven real onboarding views · answers stay in this preview',
+  beatLabels: {
+    welcome: 'Welcome',
+    'one-sky': 'One sky',
+    mirror: 'Mirror',
+    connect: 'Connect',
+    difficulty: 'Difficulty',
+    privacy: 'Privacy',
+    name: 'Name',
+  },
+  sampleStates: {
+    default: 'Default',
+    busy: 'Busy',
+    error: 'Error',
+    hatching: 'Connect setup phase',
+  },
+  fillName: 'Fill sample name',
+  sampleName: 'Munting Tala sa Gabi',
+  sampleError: 'Sample profile error. Nothing was saved.',
+} as const;
+
 export function previewReadings(steps: number, activeKcal: number): string {
   return `${steps.toLocaleString('en-US')} steps · ${activeKcal} active kcal`;
 }
 export type PreviewState = 'ready' | 'loading' | 'empty' | 'withheld' | 'error';
 export type PreviewTab = 'today' | 'sky' | 'flock' | 'you';
-export const PREVIEW_TABS: readonly {
-  id: PreviewTab;
-  label: string;
-  icon: 'white-balance-sunny' | 'weather-windy' | 'account-multiple' | 'account';
-}[] = [
-  { id: 'today', label: 'Today', icon: 'white-balance-sunny' },
-  { id: 'sky', label: 'Sky', icon: 'weather-windy' },
-  { id: 'flock', label: 'Flock', icon: 'account-multiple' },
-  { id: 'you', label: 'You', icon: 'account' },
-];

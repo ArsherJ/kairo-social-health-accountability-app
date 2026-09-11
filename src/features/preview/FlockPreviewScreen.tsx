@@ -15,11 +15,15 @@ import { Button, Panel, Screen, SegmentedControl, Text, useTheme } from '../../u
 import { font, radius } from '../../theme.ts';
 import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
-import { previewMembers } from './preview-data.ts';
+import { previewMembers, type PreviewFixture } from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
 
 export function FlockPreviewScreen(
-  { state, onRetry }: { state: PreviewState; onRetry: () => void },
+  { state, fixture, onRetry }: {
+    state: PreviewState;
+    fixture: PreviewFixture;
+    onRetry: () => void;
+  },
 ) {
   const { colors, ramp } = useTheme();
   const [mode, setMode] = useState<'current' | 'completed'>('current');
@@ -27,7 +31,7 @@ export function FlockPreviewScreen(
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const insets = useSafeAreaInsets();
-  const members = previewMembers(state, mode);
+  const members = previewMembers(state, mode, fixture);
   const gaps = leaderboardGaps(members);
   const walk = flockWalk({
     members: members.map((member) => ({
@@ -58,7 +62,7 @@ export function FlockPreviewScreen(
                 : undefined}
               whackedIds={mode === 'current' && sentTo ? [sentTo] : []}
             />
-            {inviting && (
+            {inviting ? (
               <View style={tw`px-lg`}>
                 <Panel>
                   <Text
@@ -77,7 +81,7 @@ export function FlockPreviewScreen(
                   />
                 </Panel>
               </View>
-            )}
+            ) : null}
             <View style={tw`px-lg`}>
               <View style={tw`mt-sm`}>
                 <SegmentedControl
@@ -90,7 +94,7 @@ export function FlockPreviewScreen(
                   accessibilityLabel='Which day the board ranks'
                 />
               </View>
-              {walk && (
+              {walk ? (
                 <View
                   style={tw.style('mt-sm p-md gap-sm', {
                     borderRadius: radius.lg,
@@ -103,7 +107,7 @@ export function FlockPreviewScreen(
                     <FlockStrip marks={walk.marks} label={walk.label} />
                   </View>
                 </View>
-              )}
+              ) : null}
               <Panel variant='lift' style={{ padding: 0 }}>
                 {members.map((member) => (
                   <LeaderboardRow
@@ -123,7 +127,7 @@ export function FlockPreviewScreen(
                 onPress={() => setInviting(true)}
               />
             </View>
-            {selected && (
+            {selected ? (
               <PerchBirdSheet
                 key={selected.user_id}
                 member={selected}
@@ -139,7 +143,7 @@ export function FlockPreviewScreen(
                   }
                   : undefined}
               />
-            )}
+            ) : null}
           </>
         )}
     </Screen>

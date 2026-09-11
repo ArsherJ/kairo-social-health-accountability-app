@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { placeRacers, pointAt, RACE_FINISH_LINE, rankRacers, SKY_PATH_ASPECT } from '@kairo/core';
+import { placeRacers, pointAt, RACE_FINISH_LINE, SKY_PATH_ASPECT } from '@kairo/core';
 import { SkyCorridor } from '../squad/SkyCorridor.tsx';
 import { SkyMinimap } from '../squad/SkyMinimap.tsx';
 import { minimapHeight } from '../squad/minimap.ts';
@@ -22,12 +22,13 @@ import {
 } from '../../ui/index.ts';
 import { flightSky, font, radius, space, type Theme } from '../../theme.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
-import { previewMembers } from './preview-data.ts';
+import { previewSkyRacers, type PreviewFixture } from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
 
 export function SkyPreviewScreen(
-  { state, onRetry, onInvite }: {
+  { state, fixture, onRetry, onInvite }: {
     state: PreviewState;
+    fixture: PreviewFixture;
     onRetry: () => void;
     onInvite: () => void;
   },
@@ -42,17 +43,7 @@ export function SkyPreviewScreen(
   const [railHeight, setRailHeight] = useState(172);
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
-  const members = previewMembers(state);
-  const racers = rankRacers(members.flatMap((member) =>
-    member.steps === null ? [] : [{
-      userId: member.user_id,
-      characterName: member.character_name,
-      species: member.species,
-      steps: member.steps,
-      total: member.total,
-      isSelf: member.is_self,
-    }]
-  ));
+  const { members, racers, ghostIndexes } = previewSkyRacers(state, fixture);
   const me = racers.find((racer) => racer.isSelf);
   const boxHeight = size.width / SKY_PATH_ASPECT;
   const placements = placeRacers(racers.map((racer) => racer.progress));
@@ -131,6 +122,7 @@ export function SkyPreviewScreen(
                           placement={placements[index]!}
                           boxWidth={size.width}
                           boxHeight={boxHeight}
+                          bottomClearance={insets.bottom + TAB_PILL_CLEARANCE}
                         />
                       ))}
                     </SkyCorridor>
@@ -142,19 +134,19 @@ export function SkyPreviewScreen(
                   </View>
                 </View>
               </Animated.ScrollView>
-              {mapHeight > 0 && (
+              {mapHeight > 0 ? (
                 <SkyMinimap
                   geometry={geometry}
                   placements={placements}
                   selfIndex={selfIndex >= 0 ? selfIndex : null}
-                  ghostIndexes={[]}
+                  ghostIndexes={ghostIndexes}
                   selfProgress={me?.progress ?? null}
                   scrollY={scrollY}
                   offsetRef={offsetRef}
                   onScrollTo={(y) => scroll.current?.scrollTo({ y, animated: false })}
                   style={{ top: insets.top + space.md + railHeight + space.md, right: space.sm }}
                 />
-              )}
+              ) : null}
               <View
                 style={{
                   position: 'absolute',
@@ -171,7 +163,7 @@ export function SkyPreviewScreen(
                   onInvite={onInvite}
                 />
               </View>
-              {state === 'withheld' && (
+              {state === 'withheld' ? (
                 <View
                   style={{
                     position: 'absolute',
@@ -186,7 +178,7 @@ export function SkyPreviewScreen(
                     <Button label={copy.boardTitle} variant='secondary' onPress={onInvite} />
                   </Panel>
                 </View>
-              )}
+              ) : null}
             </>
           )}
       </View>

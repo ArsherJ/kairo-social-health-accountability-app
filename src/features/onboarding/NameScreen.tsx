@@ -17,19 +17,34 @@ export type NameScreenProps = { beat: OnboardingBeat }
   valid: boolean;
   busy: boolean;
   error: string | null;
+  keyboardVerticalOffset?: number;
   onSubmit: () => void;
 };
 
 const copy = ONBOARDING_SCREEN_COPY.name;
 const speciesName = SPECIES[DEFAULT_SPECIES].name;
 
-export function NameScreen({ beat, onBack, name, onNameChange, valid, busy, error, onSubmit }: NameScreenProps) {
+export function NameScreen({
+  beat,
+  onBack,
+  name,
+  onNameChange,
+  valid,
+  busy,
+  error,
+  keyboardVerticalOffset = 0,
+  onSubmit,
+}: NameScreenProps) {
   const [inputFocused, setInputFocused] = useState(false);
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+      style={styles.container}
+    >
       <OnboardingFrame
         beat={beat}
         onBack={onBack}

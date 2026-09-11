@@ -8,25 +8,31 @@ import { TodayNextStep } from '../character/TodayNextStep.tsx';
 import { TodayProgressHero } from '../character/TodayProgressHero.tsx';
 import { QuestRows, TodayTiles } from '../character/TodayBoard.tsx';
 import { dateHeading } from '../character/today-board.ts';
+import { ceilingLine } from '../character/kairo-voice.ts';
 import { nextStepSentence } from '../quests/next-step.ts';
 import { WhackBanner } from '../whack/WhackBanner.tsx';
 import { Panel, Screen, Text, useTheme } from '../../ui/index.ts';
 import { font, space } from '../../theme.ts';
 import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, previewReadings, type PreviewState } from './preview-copy.ts';
-import { PREVIEW_POINTS, PREVIEW_TODAY, previewDashboard } from './preview-data.ts';
+import {
+  PREVIEW_POINTS,
+  PREVIEW_TODAY,
+  previewDashboard,
+  type PreviewFixture,
+} from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
 
-export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
+export function TodayPreviewScreen({ state, fixture, onRetry, onWhackBack }: {
   state: PreviewState;
+  fixture: PreviewFixture;
   onRetry: () => void;
   onWhackBack: () => void;
 }) {
   const [details, setDetails] = useState(false);
   const insets = useSafeAreaInsets();
-  const dashboard = previewDashboard(state);
-  const { day: { steps }, location } = dashboard;
-  const level = state === 'empty' ? 1 : 12;
+  const dashboard = previewDashboard(state, fixture);
+  const { day: { steps }, level, mirror } = dashboard;
   const stage = evolutionStageForLevel(level);
   const { colors } = useTheme();
   return (
@@ -45,7 +51,7 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
                   {dateHeading(PREVIEW_TODAY)}
                 </Text>
                 <Text scale='chrome' style={{ ...font.display.major, color: colors.text }}>
-                  {copy.name}
+                  {dashboard.identity.name}
                 </Text>
               </View>
               <TodayChips
@@ -61,17 +67,22 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
                   height={208}
                   level={level}
                   stage={stage}
-                  location={location}
-                  figure={{ kind: 'pose', pose: steps > 0 ? 'walk' : 'idle' }}
-                  body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
+                  location={mirror.motion.location}
+                  figure={mirror.figure}
+                  body={mirror.body}
                   lifetimePoints={PREVIEW_POINTS}
-                  figureLabel={`${copy.name}, level ${level}, at the ${location}.`}
+                  crest={dashboard.ceilingReached}
+                  figureLabel={dashboard.figureLabel}
                 />
               )}
             />
             <View>
               <TodayNextStep
-                sentence={nextStepSentence(dashboard.next, copy.name)}
+                sentence={dashboard.reaction?.sentence ?? (
+                  dashboard.ceilingReached
+                    ? ceilingLine(dashboard.identity.name)
+                    : nextStepSentence(dashboard.next, dashboard.identity.name)
+                )}
                 onDetails={() => setDetails((value) => !value)}
                 showDetails
               />
@@ -96,7 +107,9 @@ export function TodayPreviewScreen({ state, onRetry, onWhackBack }: {
                 quests={dashboard.quests}
                 selected={dashboard.next.kind === 'quest' ? dashboard.next.index : null}
               />
-              {state === 'ready' && <WhackBanner senderName='Rty' onWhackBack={onWhackBack} />}
+              {state === 'ready' ? (
+                <WhackBanner senderName='Rty' onWhackBack={onWhackBack} />
+              ) : null}
             </View>
           </View>
         )}

@@ -324,6 +324,7 @@ export default function Sky() {
                     placement={placements[i] as (typeof placements)[number]}
                     boxWidth={boxWidth}
                     boxHeight={boxHeight}
+                    bottomClearance={insets.bottom + TAB_PILL_CLEARANCE}
                   />
                 ))}
               </SkyCorridor>

@@ -76,7 +76,7 @@ export function FlockPerch(
             onPress={() => onBirdPress(member)}
             style={({ pressed }) =>
               tw.style('items-center justify-end px-sm pb-md', {
-                width: 96,
+                minWidth: 96,
                 minHeight: 152,
                 borderRadius: radius.lg,
                 borderCurve: 'continuous',
@@ -106,11 +106,10 @@ export function FlockPerch(
               <View style={tw`flex-row items-center gap-xs`}>
                 <Text
                   scale='chrome'
-                  numberOfLines={2}
                   style={{
                     ...font.display.small,
                     color: ink,
-                    maxWidth: 76,
+                    maxWidth: 144,
                     textAlign: 'center',
                   }}
                 >

@@ -1,72 +1,104 @@
 # Mobile screen preview
 
-This UI baseline was integrated on `codex/ui-alignment` from
-`claude/mobile-app-ui-redesign-j5knw2` and `codex/mobile-screen-refresh`.
-The commands below run from the repository checkout, including `main` after integration.
+The account-free preview renders the same presentation components as the real
+Today, Sky, Flock, You, and onboarding routes. It supplies local fixture data;
+it does not sign in, request Health access, write a profile, change the saved
+appearance preference, emit telemetry, or send a social action.
 
-When a preview is requested, run `npm run preview:ui`, then open <http://localhost:8082>.
-The alignment pass intentionally leaves the preview and simulator stopped.
-The preview requires no account, health permission, or Supabase connection.
+Run `npm run preview:ui`, then open <http://localhost:8082>. Normal `npm start`
+still opens the authenticated app. The root entry selects the preview only when
+both `__DEV__` and `EXPO_PUBLIC_UI_PREVIEW=1` are true, so a release bundle
+always registers Expo Router.
+
+## Controls and coverage
+
+The top toolbar switches Light/Dark, opens the seven-view Onboarding preview,
+and reveals two control rows:
+
+- **Screen state:** Ready, Loading, Empty, Private, Error. Private flock
+  readings remain null; it never turns a withheld reading into measured zero.
+- **Fixtures:** Everyday, Long names, Ridge, Ceiling + reaction, No sleep,
+  Ghost days. The Today fixture passes readings through `resolveLivingMirror`;
+  the Ridge case
+  reaches the `summit` pose through that resolver, and the ceiling sample uses
+  the real reaction priority and growth ceiling. Long names reach all four tab
+  adapters and every roster member. Ghost days uses the real solo-rival and
+  race-ranking resolvers; on You, Everyday, Ridge, and Ceiling + reaction expose
+  locked, banked, and recharging shield copy respectively.
+
+The canonical shared tab bar remains the only tab registry. The preview canvas
+overrides only its top safe-area inset because the toolbar already consumed it;
+the real bottom inset and 96-point navigation clearance remain in force. Real
+routes retain their existing safe-area ownership.
+
+Onboarding mounts all seven shared views in route order:
+`/welcome → /one-sky → /mirror → /connect → /difficulty → /privacy → /name`.
+The chooser can jump to any view; Back and Skip are local. The Connect action
+reveals a labeled sample reading and its setup panel can be inspected as a
+phase, not an eighth route. Busy and error controls are local samples; an empty
+name shows the real disabled state, and **Fill sample name** makes completion
+reachable. Quest selection, the sharing switch, and the name input stay in
+component state. Completion returns to Today rather than creating an account.
+The policy link may open the public policy page and performs no submission.
+The nested Name preview measures the shared canvas in window coordinates and
+passes that value as its keyboard offset; the normal route keeps the component's
+zero default.
 
 ## What to inspect
 
-- Today: production dashboard tiles and quest rows, card-sized stage-aware bird, next step, details disclosure, sample whack banner.
-- Flock: perch, trailing invite, Today/Yesterday switch, accessible bird sheet, one local whack interaction.
-- Sky: shared flight and right-side scrubbable minimap, step-driven trail fill, flock rail, find-my-bird control and explanation toggle. Path geometry is unchanged; changing its shape belongs to the later redesign.
-- You: profile, streak, selectable best days and the platform text-share action.
-- Onboarding: refreshed welcome beat with expandable explanation. Continue/Skip returns to Today in the preview; the real route retains the existing onboarding flow.
+- **Today:** first-viewport Motion progress beside the plush eagle, details,
+  all three quests, missing sleep, Ridge/summit, crest ceiling, and reaction.
+- **Sky:** the fine trail, right-side minimap, Locate, explanation, solo,
+  private, ghost, and ridge-clearance states. `flightFrame`, `raceProgress`, and
+  minimap arithmetic remain the geometry authority.
+- **Flock:** compact perch, Today/Yesterday summary, every roster bird, one
+  trailing invitation, private readings, solo/no-rank, and bird-sheet close.
+  Maximum-length names widen their own horizontal perch card and wrap without
+  a line clamp; short-name cards retain the compact minimum.
+- **You:** one portrait/header, Settings affordance, streak shield branches,
+  selectable best days, native Share open/cancel, growth copy, and calendar.
+- **Onboarding:** every shared view, Back/Skip, local connection states, quest
+  choice, sharing switch, name keyboard, and disabled/busy/error presentation.
 
-The minimap strip is at least 44 points wide because the strip itself handles touch/drag.
-The pre-merge accessibility correction widens it from 40 to 44 points; the underlying flight
-geometry, vertical scrub mapping, and step progression are unchanged.
+## Boundaries and verification limits
 
-Use the toolbar to switch light/dark and Ready/Loading/Empty/Private/Error fixtures.
-Private readings stay null and members remain visible. Error provides retry.
-The toolbar, fixtures and navigation are preview-only; they do not replace app state.
-Sharing a best day can open the system share sheet, but nothing is sent automatically.
+The preview proves shared presentation and sample-state behavior. It is not an
+authenticated HealthKit, profile-write, consent, invite, whack, notification,
+or route-gate end-to-end run. Opening the native Share sheet is safe only when
+it is canceled without choosing a recipient. The sample whack and invitation
+never call a backend.
 
-## Implementation boundaries
+Browser inspection is useful for a 320-point layout and pointer-driven minimap
+drag, but it does not prove iOS native behavior. The current browser baseline
+also logs known development warnings for legacy shadow props, `pointerEvents`,
+image tint, and the native animation-driver fallback; those warnings predate
+this redesign. Simulator automation can verify minimap taps and accessible
+increment/decrement actions, but its coordinate drag/scroll is unreliable, so
+native drag must remain explicitly unverified unless a human gesture or other
+reliable native tool performs it.
 
-Shared screen components live under their existing `src/features/<domain>/` modules.
-`src/features/preview/MobilePreview.tsx` composes them with sample data.
-Normal `npm start` still opens the authenticated app. The root `index.ts` selects
-the preview only when both `__DEV__` and `EXPO_PUBLIC_UI_PREVIEW=1` are true;
-release bundles always register Expo Router.
+No Accessibility Inspector, physical-device, TestFlight, authenticated account,
+real Health grant, profile insert, consent mutation, invite, or whack is claimed
+by this preview pass. Those require separate release validation and, where
+applicable, a directed test account. Automated and simulator results for the
+warm-pastel pass are recorded in the implementation plan and Task 8 report.
 
-Tailwind utilities use `twrnc` through `src/ui/tailwind.ts`, mapped to existing
-theme tokens. This is deliberately not a NativeWind/Reanimated installation:
-the visual pass adds no native module. The integrated Claude branch does retain
-`userInterfaceStyle: automatic`, a native configuration change requiring a
-compatible build before System appearance can work on installed clients.
-No build or OTA is part of this alignment.
+The 2026-09-11 account-free matrix covered all four tabs and all seven
+onboarding views in both schemes on the iPhone 17 simulator, after a cold
+relaunch at XXXL Dynamic Type, and in Chrome responsive 320×598. Native taps,
+accessible minimap adjustment, local states, the actual Name software keyboard,
+and native Share/Cancel were exercised; browser forward/reverse minimap drag
+was exercised separately. Text size `large`, system light appearance, and
+Reduce Motion off were restored. Native drag and the authenticated/physical
+limits above remain unverified; no six-member visual fixture is claimed.
+Representative before/final captures are in the
+[2026-09-11 preview evidence](../../output/ui-redesign/2026-09-11/); experimental,
+issue, and full-window browser captures are intentionally excluded.
 
-The preview's local toggle selects canonical `themes` through `ThemeScope`.
-Shared primitives and scene gradients follow it; it never writes Settings'
-persisted appearance preference. Auth/onboarding keep their authored palette.
-Tailwind is used for layout; dynamic colors come from the shared theme roles.
+## Implementation boundary
 
-This is not the full Phase 3 rollout. No whack schema, real send RPC, notification
-dispatch, daily seen marker, new reaction art, or voice-setting migration is added.
-The sample whack is local to the preview. Cohort gates and the Phase 4 native-build
-batch remain unchanged. Only the welcome beat is visually replaced; later
-onboarding routes keep their current implementation.
-
-## Earlier screen-refresh verification (before alignment)
-
-This pass checked the browser preview at 320-point width, an existing iPhone 17
-Pro development client at the largest accessibility text size, the bird-sheet
-accessibility grouping, best-day selection, and opening/dismissing the native
-share sheet without sending. The simulator's original text size was restored.
-The source suite passed 2,170 tests; app/core/Edge Function typechecks and a local
-iOS release-bundle export also passed. No native binary was rebuilt or uploaded.
-
-## Alignment verification
-
-The integrated layout has not been rechecked on a device or in a running
-browser: both remain stopped at the user's request. Fresh automated results
-are recorded in `docs/superpowers/plans/2026-09-11-ui-alignment.md`.
-
-Run `npm run typecheck && npm test` before a release. The browser preview is
-useful for visual and state checks, but does not substitute for iOS VoiceOver,
-Accessibility Inspector at XXXL Dynamic Type, native share-sheet testing, or a
-TestFlight device pass. No release or TestFlight cut is part of this change.
+Shared screen components stay in their existing `src/features/<domain>/`
+modules. `src/features/preview/MobilePreview.tsx` is only an adapter around
+those components and canonical theme roles. No new native module, styling
+runtime, route, backend feature, schema change, or production state store is
+part of the preview.

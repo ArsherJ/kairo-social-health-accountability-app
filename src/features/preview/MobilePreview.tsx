@@ -10,8 +10,12 @@ import {
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WelcomeScreen } from '../onboarding/WelcomeScreen.tsx';
+import {
+  SafeAreaInsetsContext,
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { OnboardingPreviewScreen } from './OnboardingPreviewScreen.tsx';
 import { TodayPreviewScreen } from './TodayPreviewScreen.tsx';
 import { FlockPreviewScreen } from './FlockPreviewScreen.tsx';
 import { SkyPreviewScreen } from './SkyPreviewScreen.tsx';
@@ -26,6 +30,7 @@ import {
   type PreviewState,
   type PreviewTab,
 } from './preview-copy.ts';
+import { PREVIEW_FIXTURES, type PreviewFixture } from './preview-data.ts';
 
 const previewToRoute = {
   today: 'index',
@@ -72,7 +77,9 @@ function PreviewCanvas() {
   const [tab, setTab] = useState<PreviewTab>('today');
   const [onboarding, setOnboarding] = useState(false);
   const [state, setState] = useState<PreviewState>('ready');
+  const [fixture, setFixture] = useState<PreviewFixture>('standard');
   const [showStates, setShowStates] = useState(false);
+  const [showFixtures, setShowFixtures] = useState(false);
   const insets = useSafeAreaInsets();
   const { colors, ramp } = themes[dark ? 'dark' : 'light'];
   const controls = { state, onRetry: () => setState('ready') };
@@ -120,6 +127,11 @@ function PreviewCanvas() {
                   label: copy.state,
                   onPress: () => setShowStates((value) => !value),
                   selected: showStates,
+                },
+                {
+                  label: copy.fixtures,
+                  onPress: () => setShowFixtures((value) => !value),
+                  selected: showFixtures,
                 },
               ].map((control) => (
                 <Pressable
@@ -181,47 +193,77 @@ function PreviewCanvas() {
                 ))}
               </ScrollView>
             )}
+            {showFixtures && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={tw`gap-sm`}
+              >
+                {PREVIEW_FIXTURES.map((value) => (
+                  <Pressable
+                    key={value.id}
+                    accessibilityRole='button'
+                    accessibilityState={{ selected: fixture === value.id }}
+                    onPress={() => setFixture(value.id)}
+                    style={tw.style('px-md justify-center', {
+                      minHeight: 44,
+                      borderRadius: radius.pill,
+                      borderCurve: 'continuous',
+                      backgroundColor: fixture === value.id ? ramp.teal[200] : colors.bg,
+                    })}
+                  >
+                    <Text scale='chrome' style={{ ...font.body.strong, color: colors.text }}>
+                      {value.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
           </View>
-          <View style={tw`flex-1`}>
-            {onboarding
-              ? (
-                <WelcomeScreen
-                  onContinue={() => {
-                    setOnboarding(false);
-                    setTab('today');
-                  }}
-                  onSkip={() => {
-                    setOnboarding(false);
-                    setTab('today');
-                  }}
-                />
-              )
-              : (
-                <>
+          <SafeAreaInsetsContext.Provider value={{ ...insets, top: 0 }}>
+            <View style={tw`flex-1`}>
+              {onboarding
+                ? (
+                  <OnboardingPreviewScreen
+                    onComplete={() => {
+                      setOnboarding(false);
+                      setTab('today');
+                    }}
+                  />
+                )
+                : (
+                  <>
                   {tab === 'today' && (
                     <TodayPreviewScreen
                       key={state}
                       {...controls}
+                      fixture={fixture}
                       onWhackBack={() => setTab('flock')}
                     />
                   )}
-                  {tab === 'flock' && <FlockPreviewScreen key={state} {...controls} />}
+                  {tab === 'flock' && (
+                    <FlockPreviewScreen key={state} {...controls} fixture={fixture} />
+                  )}
                   {tab === 'sky' && (
                     <SkyPreviewScreen
                       key={state}
                       {...controls}
+                      fixture={fixture}
                       onInvite={() => setTab('flock')}
                     />
                   )}
-                  {tab === 'you' && <YouPreviewScreen key={state} {...controls} />}
+                  {tab === 'you' && (
+                    <YouPreviewScreen key={state} {...controls} fixture={fixture} />
+                  )}
                   <TabBar
                     value={previewToRoute[tab]}
                     bottomInset={insets.bottom}
                     onChange={(id) => setTab(routeToPreview[id])}
                   />
-                </>
-              )}
-          </View>
+                  </>
+                )}
+            </View>
+          </SafeAreaInsetsContext.Provider>
         </View>
       </View>
     </ThemeScope>

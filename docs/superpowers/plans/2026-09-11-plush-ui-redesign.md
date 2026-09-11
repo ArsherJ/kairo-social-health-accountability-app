@@ -71,7 +71,7 @@ Tasks 1–2 establish shared primitives. Tasks 3–6 consume them. Task 7 extrac
 
 **Files**
 
-- Modify: `src/theme.ts`, `src/ui/Panel.tsx`, `src/ui/Button.tsx`, `src/ui/CtaPill.tsx`, `src/ui/Tile.tsx`, `src/ui/SegmentedControl.tsx`.
+- Modify: `src/theme.ts`, `src/ui/Panel.tsx`, `src/ui/Button.tsx`, `src/ui/CtaPill.tsx`, `src/ui/Tile.tsx`, `src/ui/SegmentedControl.tsx`, `src/ui/Glass.tsx`.
 - Test: `src/ui/contrast.test.ts`, new `src/ui/plush-theme.test.ts`, existing `src/ui/type-faces.test.ts`.
 - Inspect: `src/ui/Glass.tsx`, `src/ui/avatar-tint.ts`, `src/ui/stat-colors.ts` for the fills held by the contrast suite.
 
@@ -154,6 +154,8 @@ secondary: { backgroundColor: colors.teal },
 ```
 
 Use cocoa/plum translucent fills for `glass.dark` and the dark theme's `glass.light`, with enough opacity for text over scenery. Preserve `Glass` as a fill, not a blur. Keep Button's minimum at least its existing 54 points and ensure its busy indicator takes the same ink as its label (including secondary). Add continuous corners to existing CtaPill/Panel edges. Keep destructive action confirmation and styling distinct. Remove caption truncation in `Tile`; its container must grow instead of dropping the second half of a reading. Use `font` spreads rather than new font-family declarations.
+
+Simulator refinement during Task 1: remove Glass's lower-half white fade starting at 45%; it draws a hard horizontal band through sheet content. Preserve fill, edge, shadow, radius, and public API, with sufficient fill opacity for text. This is paint-only within the approved flat surface direction.
 
 - [ ] **4. Verify automated and visual behavior.** Run:
 
@@ -307,6 +309,7 @@ Replace `dioramaSky` stops with soft sky-to-page values in both schemes. Use `ra
 **Files**
 
 - Modify: `src/features/squad/SkyCorridor.tsx`, `SkyControls.tsx`, `SkyMarker.tsx`, `SkyFlockRail.tsx`, `SkyMinimap.tsx`, `SkyStanding.tsx` in the same directory; `src/theme.ts`, `app/(tabs)/sky.tsx`, `src/features/preview/SkyPreviewScreen.tsx`.
+- Create: `src/features/squad/sky-trail.ts`, `sky-trail.test.ts` for normalized-to-rendered tangent projection, added after simulator evidence below.
 - Test: `src/features/squad/minimap.test.ts`, `flight-frame.test.ts`, `race-label.test.ts`, `sky-reading.test.ts` in that directory.
 
 **Interfaces**
@@ -327,6 +330,8 @@ const BAND = 12 / 393;
 ```
 
 Give the segment's existing style `borderCurve: 'continuous'`. Use `ramp.neutral[300]` for the future path and `colors.accent` for traveled segments, with a low-contrast supporting backdrop but readable labels outside it. Keep the ridge mark earned gold and wide enough to remain visible despite the thinner trail; do not derive its width from a 12-point stroke if that makes it disappear.
+
+Implementation refinement from simulator evidence: the legacy normalized tangent is not the physical tangent after the tall drawing-box projection, causing rope-like thin capsules. Keep core `angleAt`, points, arc sampling, path length, placements and progression unchanged; project the tangent into the box aspect ratio in a small tested presentation helper. This supersedes retaining the unprojected segment rotation above. Test agreement with finite differences of rendered points, including bends/endpoints and vertical direction, then visually verify smoothness.
 
 Set the `flightSky` stops in `theme.ts` to a soft daylight range (sky 200 → sage 100 → cream) and a dark muted range (night → dark sky 200 → dark page). Remove hard saturated cyan/orange ends. Keep the drawing box, top inset, viewport clamping, and scroll position untouched.
 
@@ -370,6 +375,8 @@ Keep a horizontal roster so all members remain reachable. Retain the existing `m
 - [ ] **3. Establish the board hierarchy.** Place the day segment before the mode-dependent walk summary. Keep program/date copy near the board. Reduce the walk summary card to a quiet compact surface and make the leaderboard itself the dominant white/lifted card. Rows keep a gold leader rule and an apricot self wash, including when both apply. Replace nested card-like row backgrounds with spacing and subtle separators; keep row accessibility labels unchanged.
 
 Maintain pending/error/retry branches, mixed-date explanation, solo observation, reciprocal consent, leave confirmation, invite-code fitting, and the single consolidated LockedSlot. Apply the same presentation order to FlockPreviewScreen, but keep its sample send state local. Do not wire `onWhack` into the live Leaderboard without a backend; its absence is intentional.
+
+Native baseline refinement: move the preview's existing sample invitation disclosure directly below the perch while open, keeping its local copy/close behavior. Its previous position after the entire board was offscreen and made the perch Invite button appear inert. Live invitation/share behavior and the normal day→summary→board order remain unchanged.
 
 - [ ] **4. Verify.** Re-run listed tests and typecheck. Select both days and confirm the summary follows the same day. Open/close a bird sheet, inspect its grouping, test the sample-only action, and open/dismiss invite UI without sending. At XXXL, verify sheet Close and all roster names remain reachable; withheld readings remain unknown and a solo board announces no rank.
 
@@ -544,7 +551,11 @@ Run `npx vitest run src/features/telemetry/telemetry-payloads.test.ts`; keep its
 
 - Create: `src/features/preview/OnboardingPreviewScreen.tsx`, `src/features/preview/onboarding-preview.ts`, `src/features/preview/onboarding-preview.test.ts`.
 - Modify: `src/features/preview/MobilePreview.tsx`, `preview-copy.ts`, `preview-data.ts`, `preview-data.test.ts` in that directory; `docs/engineering/mobile-screen-preview.md`, `docs/engineering/surfaces.md`, `docs/user-journey.md`, `README.md`, and current-state sections in `CLAUDE.md`.
+- Modify fixture consumers as needed: `TodayPreviewScreen.tsx`, `SkyPreviewScreen.tsx`, `FlockPreviewScreen.tsx`, `YouPreviewScreen.tsx` in the preview directory. Today currently hardcodes walk/idle and the adapters hardcode names; the approved real-resolver/long-name cases must reach those consumers, without changing live routes.
 - Update: this implementation plan with checked steps and actual verification results.
+- Native keyboard QA refinement: `NameScreen.tsx` may receive optional `keyboardVerticalOffset?: number` default0. The preview passes its measured window offset below both toolbars; production retains offset0. This compensates KeyboardAvoidingView's parent-local frame versus screen-absolute keyboard coordinate without hiding preview controls or changing account behavior.
+- Native ground-label QA refinement: shared `SkyMarker.tsx` may use a tested pure `sky-marker-label.ts` policy to place its pill above the unchanged bird when the remaining box tail cannot clear the tab bar. Live and preview Sky callers pass their existing inset+TAB_PILL_CLEARANCE. No path, frame, minimap, placement or scoring arithmetic changes.
+- Native AXXXL long-name refinement: `FlockPerch.tsx` uses minWidth96 and unclamped name text bounded at144pt, instead of Task5's fixed width/two-line cap. Long cards grow in flow and remain horizontally reachable; short names retain the compact minimum. Add a focused contract test plus simulator verification.
 
 **Interfaces**
 
@@ -553,7 +564,7 @@ Run `npx vitest run src/features/telemetry/telemetry-payloads.test.ts`; keep its
 - `OnboardingPreviewScreen({ onComplete })` owns local beat index, sample connection phase, sample name, chosen quest tier, and share-totals toggle. It mounts the production views from Task 7, not copies of their markup.
 - Preview-only controls use the canonical ThemeScope and never call the real appearance store, permission connector, router gate, profile writer, or telemetry emitter.
 
-- [ ] **1. Test the fixture navigation and boundaries first.**
+- [x] **1. Test the fixture navigation and boundaries first.**
 
 ```ts
 import { expect, it } from 'vitest';
@@ -569,7 +580,7 @@ it('previews exactly the real seven routes and does not invent a hatch route', (
 
 Run the test, confirm the new module is missing, then implement the registry derivation and `Math.min(PREVIEW_BEATS.length - 1, Math.max(0, index + 1))`. Keep route callbacks out of the pure module.
 
-- [ ] **2. Mount every shared onboarding view with safe local state.** Use inline hooks:
+- [x] **2. Mount every shared onboarding view with safe local state.** Use inline hooks:
 
 ```ts
 const [index, setIndex] = useState(0);
@@ -585,11 +596,11 @@ Use `beat = PREVIEW_BEATS[index]` with a checked fallback to the first registry 
 
 Use existing `PRIVACY_CLAIM` values as passed props; do not hand-write a claim in preview copy. A preview policy callback may open the public policy URL, with no submission. All simulated answers remain local and the toolbar states that explicitly.
 
-- [ ] **3. Correct the preview safe-area boundary and cover representative states.** The toolbar already consumes `insets.top`. Wrap the screen canvas in `SafeAreaInsetsContext.Provider` with `{ ...insets, top: 0 }`, leaving real route padding unchanged. This export was verified in `node_modules/react-native-safe-area-context/src/index.tsx` and `src/SafeAreaContext.tsx`. This removes the sample preview's double top gap without a production safe-area workaround.
+- [x] **3. Correct the preview safe-area boundary and cover representative states.** The toolbar already consumes `insets.top`. Wrap the screen canvas in `SafeAreaInsetsContext.Provider` with `{ ...insets, top: 0 }`, leaving real route padding unchanged. This export was verified in `node_modules/react-native-safe-area-context/src/index.tsx` and `src/SafeAreaContext.tsx`. This removes the sample preview's double top gap without a production safe-area workaround.
 
 Keep bottom insets/clearance and the canonical TabBar. Add sample long-name, ridge/ceiling, and no-sleep readings using existing pure resolvers, not manually contradictory character poses. Update preview-data tests so a cleared-day sample reaches `summit` through the real resolver. Continue showing loading/error/private fixtures where each has a real meaning; don't label a measured zero private.
 
-- [ ] **4. Run the complete verification matrix.** Automated commands:
+- [x] **4. Run the complete verification matrix.** Automated commands:
 
 ```bash
 npm run typecheck
@@ -631,4 +642,23 @@ Commit verified application/docs changes with an explicit file list, leaving mai
 
 ## Verification record
 
-Planning-only change. No redesigned application component has been implemented or verified yet. Record implementation results here when Tasks 1–8 are executed.
+Tasks 1–8 are implemented on `codex/plush-ui-redesign`; Task 8 implementation
+and controller QA are complete, with the independent Task 8 and whole-branch
+review still pending after its commit. Final Task 8 verification, run after the
+last application edit: `npm run typecheck` exit 0; `npm test` exit 0 with 495
+core and 1,755 root/schema tests (2,250 total); `git diff --check` exit 0. No
+package, native configuration, backend, schema, asset, production resolver, or
+gameplay-rule change is in Task 8.
+
+Controller account-free QA passed all four tabs and all seven onboarding views
+in both schemes on an iPhone 17 simulator, cold-relaunch XXXL coverage, and
+Chrome responsive 320×598 coverage. Native Share was canceled without sending;
+browser minimap drag and native tap/accessibility actions are separate evidence.
+Original text size large, system light, and Reduce Motion off were restored.
+Native drag, Accessibility Inspector, physical device, TestFlight, authenticated
+Health/account actions, and a six-member visual fixture are not claimed. Exact
+outcomes and limitations are in
+`.superpowers/sdd/2026-09-11-plush-ui-redesign/task-8-report.md` and
+`task-8-final-qa.md`. No Task 8 reviewer was dispatched under the controller's
+explicit instruction during implementation; the controller's independent review
+will determine whether Task 8 step 5 can be checked.

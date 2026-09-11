@@ -7,12 +7,15 @@ iOS first via Expo; Supabase backend.
 Four tabs: **Today** (the bird and the day), **Sky** (the daily race),
 **Flock** (the squad) and **You**.
 
-The aligned UI baseline combines the progress dashboard, scrubbable Sky minimap,
-quiet light/dark surfaces, interactive flock perch and best-day sharing. See
+The warm-pastel UI pairs cream, cocoa, lilac, mint and apricot with the canonical
+plush eagle in both appearance schemes. Today places Motion progress beside the
+character; Sky keeps its scrubbable minimap and unchanged race geometry; Flock
+uses a compact perch; You leads with one portrait; all seven onboarding views
+share the same themed presentation. See
 [the mobile preview guide](docs/engineering/mobile-screen-preview.md) for the
-account-free sample screens and verification limits. System appearance retains
-the native `userInterfaceStyle: automatic` change and needs a compatible build;
-merging this work does not deploy one.
+account-free shared screens, fixture controls and verification limits. System
+appearance retains the native `userInterfaceStyle: automatic` change and needs
+a compatible build; merging this work does not deploy one.
 
 Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
 `/difficulty`, `/privacy`, `/name` — grouped into the four phases the progress
@@ -43,15 +46,11 @@ a fact card, not a second noun for the character, which still has none.
 `docs/app-store-listing.md` holds the store description to the same words, and
 to the Daily Walk figure and the free-tier flock size.
 
-**The eagle's body follows its growth stage** as of 2026-09-07 (issue #30) —
-four bands of Level, applied to the three poses a day actually draws (idle,
-walk, run). **The nine growth-stage images landed on 2026-09-08** (issue #31):
-a hatchling in down, a fledgling with its first feathers, a near-grown juvenile
-and the adult, each in those three poses, so crossing level 6 turns a pale down
-chick into a brown-winged bird. Every one is framed against the adult render for
-its own pose — same canvas, same figure height, same centre, same ground line —
-so no screen moved for them, and `scripts/generate_stage_art.py` is what
-reproduces them. The look at each boundary on a real device is still owed.
+**The character art is the plush eagle v3 pack** as of 2026-09-11 (deviation
+#73): one canonical body with eleven pose/state renders and matching crest
+masks. Growth reads through the existing level-driven size and ground response,
+not a second body per stage. Every render shares the base frame so changing a
+pose does not relay the screen.
 
 **Two eagles in a flock do not look identical** as of 2026-09-07 (issue #33).
 The crest takes the hue of whichever stat has earned the most over the account's
@@ -63,7 +62,7 @@ the band above it and on the You tab.
 
 ## Docs
 
-- [Selected plush-eagle v3 direction](output/imagegen/plush-eagle-v3/README.md) — the preferred cleaned character concept, source studies, and local verification. The app still uses its existing canonical static assets; character/runtime replacement is separate work.
+- [Plush-eagle v3 direction](output/imagegen/plush-eagle-v3/README.md) — source studies and local art verification for the canonical static character pack.
 - [`docs/app-store-listing.md`](./docs/app-store-listing.md) — the App Store name, subtitle, description and keywords, typed into App Store Connect by hand. It makes no privacy claim of its own and points at the policy, which is why it is not one of `claim-surfaces.test.ts`' registered surfaces.
 - [`docs/Kairo_Master_Summary.md`](./docs/Kairo_Master_Summary.md) — the product spec (v1.4). Sections are cited in code and docs as `§5`, `§12`, etc. **§5 and §6 describe the retired four-stat model**; Kairo scores three stats (AGI, STR, MND) as of 2026-08-20 and those sections carry build notes saying so — see deviation #41.
 - [`CONTEXT.md`](./CONTEXT.md) — the domain glossary: the words Kairo means and the words it refuses. Vocabulary only, no implementation.

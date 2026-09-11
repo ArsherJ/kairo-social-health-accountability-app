@@ -11,16 +11,28 @@ import { Button, Panel, Screen, Text, useTheme } from '../../ui/index.ts';
 import { font, space } from '../../theme.ts';
 import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
-import { PREVIEW_POINTS, PREVIEW_RECORDS, PREVIEW_STREAK, PREVIEW_TODAY } from './preview-data.ts';
+import {
+  PREVIEW_POINTS,
+  PREVIEW_RECORDS,
+  PREVIEW_TODAY,
+  previewIdentity,
+  previewStreak,
+  type PreviewFixture,
+} from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
 
 export function YouPreviewScreen(
-  { state, onRetry }: { state: PreviewState; onRetry: () => void },
+  { state, fixture, onRetry }: {
+    state: PreviewState;
+    fixture: PreviewFixture;
+    onRetry: () => void;
+  },
 ) {
   const [controlsOpen, setControlsOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const ink = colors.text;
+  const identity = previewIdentity(fixture);
   return (
     <Screen bleed>
       {state === 'loading' || state === 'error'
@@ -32,8 +44,8 @@ export function YouPreviewScreen(
         : (
           <>
             <ProfileHeader
-              name={copy.name}
-              handle={copy.handle}
+              name={identity.name}
+              handle={identity.handle}
               totalXp={3220}
               speciesLine={speciesLine('eagle')}
               joined={copy.join}
@@ -41,7 +53,7 @@ export function YouPreviewScreen(
               onSettings={() => setControlsOpen((open) => !open)}
             />
             <View style={tw`px-lg pb-lg`}>
-              {controlsOpen && (
+              {controlsOpen ? (
                 <Panel>
                   <Text accessibilityRole='header' style={{ ...font.display.small, color: ink }}>
                     Preview controls
@@ -55,8 +67,8 @@ export function YouPreviewScreen(
                     onPress={() => setControlsOpen(false)}
                   />
                 </Panel>
-              )}
-              <StreakCard streak={state === 'empty' ? null : PREVIEW_STREAK} />
+              ) : null}
+              <StreakCard streak={state === 'empty' ? null : previewStreak(fixture)} />
               <RecordsCard
                 records={state === 'empty' ? [] : PREVIEW_RECORDS}
                 today={PREVIEW_TODAY}

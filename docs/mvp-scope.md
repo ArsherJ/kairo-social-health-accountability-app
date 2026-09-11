@@ -52,13 +52,12 @@ ungating either.
 Kairo is **solo-first**. Everything below works with zero friends, and the
 squad is a layer on top.
 
-- **Character** — one of **four Philippine endemic species** chosen at
-  onboarding (deviation #40, superseding #27), named by you, and changeable any
-  time from Profile → Companion: Pilandok, Tamaraw, Carabao, Philippine Eagle.
-  **Cosmetic only** — the choice reaches nothing in scoring, and each species'
-  "affinity" names the stat it is *about*, never a bonus. Squadmates see it on
-  the leaderboard. It has **no in-app noun**: it is
-  "your character", never a Hunter (deviation #26).
+- **Character** — one canonical **Philippine eagle**, named by you. The plush
+  v3 pack has one body with pose/state renders; level-driven size, ground
+  shadow, presence and plumage carry progression without changing species or
+  scoring. The historical species column remains reversible plumbing, not a
+  current picker. It has **no in-app noun**: it is "your character", never a
+  Hunter (deviations #26, #55 and #73).
 - **Three stats from HealthKit** — **Motion** (`AGI`: steps, distance), **Body**
   (`STR`: active calories) and **Mind** (`MND`: sleep), since deviations #41 and
   #51. **Say the words, never the keys.** Body, Motion and Mind are what a
@@ -138,7 +137,16 @@ the OUT table below for the reasoning.
 
 ### Today — the tab, and quests
 
-Today is the **Living Mirror**: KAIRO remains the largest visual, standing in a Motion location derived from live steps against `DAILY_STEP_BASELINE`. Compact Level and personal Streak remain in the scene; the day has one large raw reading (steps), one gentle next step selected from the unchanged three daily quests, and **See today's details**. Details contains Motion steps/distance/Daily Walk run, Body active energy and verified strength minutes when present, verified Mind sleep only when capable and measured, every quest state, relevant sync help, progress help, and the `full`-gated Challenge link. The Sky tab owns the race, You owns Mastery and records, and opening Kairo is never required for activity to count.
+Today is the **progress-and-character dashboard**. Its first hero places the
+Motion reading and Daily Walk progress beside the plush eagle in the resolved
+Motion location; the character still honors Mind priority, verified strength,
+reaction priority, level scale, presence, plumage, summit and ceiling-day sky.
+The next-step sentence and **See today's details** follow, then Body and Mind,
+and the same three daily quests as rows. Motion is rendered once. Details keeps
+distance/Daily Walk run, verified strength when present, verified Mind sleep
+only when capable and measured, every quest state, sync/progress help, and the
+`full`-gated Challenge link. The Sky tab owns the race, You owns Mastery and
+records, and opening Kairo is never required for activity to count.
 
 The tabs are **Today · Sky · Flock · You** (deviation #54). Deviation #59
 replaced Today's dashboard — three quest rings, a race line, Mastery coins, the
@@ -272,7 +280,7 @@ a regression.
 |---|---|---|
 | **Sabotage** — items, targeting, deployment, feed, protection | **Removed 2026-08-09.** It was the original premise and §20 called it non-negotiable, which is why it took a spec version bump to v1.4 rather than a quiet deletion. Goals replaced it, and the Battle replaced Goals in turn on 2026-08-25. | Deviation #17 |
 | **The Battle** — a squad's pooled fight, its creation form, both `/event` routes, the Flock panel, the grading block and the beaten-boss push | **Retired 2026-09-06.** It was the only squad mechanic with an open defect — nothing closed an expired fight, so `challenge_events_one_live_per_kind` held the slot forever and a member who started one and left blocked the squad permanently. It was also the only uncapped XP-paying path, which is what put it outside both the race's cap and the hourly-ceiling flag, and the only mechanic that needed a squad to test. Following the Goals precedent exactly, **nothing that banked XP was destroyed**: the three tables stay, every live row is closed, `event_progress()` stays read-only, and the pooling and completion-XP arithmetic stays in `@kairo/core` marked deprecated with its tests. `event_completed` survives as a notification trigger routing to `/flock`, because a push sent before the deploy can be tapped after it. The cooperative reading the squad loses is picked up by the Flock strip, shipped separately as issue #25 on 2026-09-06: one filled disc per member who cleared the Daily Walk, with a member who is not sharing totals drawn as a ring and counted in neither half. | Deviation #66, `docs/superpowers/specs/2026-09-06-road-to-high-rating-design.md` Part B |
-| **Character morphing, gear slots, Rive animation** | V1. The art is not commissioned; §15 scopes the MVP to *static* placeholder art, and pulling in an animation runtime for a placeholder is the wrong trade. The three responses listed above are what exists. | §15, `CharacterFigure.tsx` |
+| **Per-stage bodies, gear slots, Rive animation** | V1+. The canonical plush eagle pack is static; growth is size within one frame, and no animation runtime or cosmetic system is installed. | Deviation #73, `CharacterFigure.tsx` |
 | **Anything the species choice is not** — per-species evolution art, skins, battle frames, a roster past four, a *mechanical* affinity bonus, and animation beyond React Native `Animated` | Deliberate, and each one for its own reason. One artwork per species is what makes four species affordable, and it works because the figure's three responses are already code — a per-stage or per-dominance set is ~96 assets nobody will maintain. A mechanical affinity would rescore history, since `daily_scores` is replayed from stored buckets, so it is a migration rather than a tweak. No new dependency was added for motion: `react-native-svg`, Rive and Reanimated all stay uninstalled. | Deviation #40, spec §13 |
 | **Referrals, "war declarations", reward tiers** | Spec'd, never built. The squad invite code is membership plumbing, not a referral system — it has no attribution and no reward delivery. | §9, roadmap |
 | **Coin packs, the shop, Legendary subscription, AdMob rewarded ads, purchase restoration** | **This beta is explicitly non-monetized.** There is no IAP, no paywall, no ad, and therefore no predatory gating — and also nothing proven about purchase, refund, restore or entitlement recovery. Remove all pricing from any release criteria. | §10, deferred to V1+ |
