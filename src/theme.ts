@@ -409,9 +409,8 @@ export const font = {
 
   Everything above this line is the **light** palette, and it is still what the
   static exports (`colors`, `ramp`, `glass`, `shadow`, `earnedColor`) mean —
-  root Vitest reads them, and so do the screens that have not been moved onto
-  the runtime theme (the onboarding run and sign-in, which carry their own
-  night beats and stay light by design).
+  root Vitest reads them, along with sign-in's intentionally fixed-light
+  surface. The onboarding run now reads the runtime theme like the main app.
 
   A screen that follows the viewer's appearance reads `useTheme()` instead,
   which hands back one of the two `Theme` objects below. **The names and the

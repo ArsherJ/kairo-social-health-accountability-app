@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { statusBarTone, surfaceScheme } from './status-bar-tone.ts';
 
 describe('focused screen status bar', () => {
-  it('uses light ink on the dark Today scene and welcome beat', () => {
+  it('uses light ink on the dark Today scene', () => {
     expect(statusBarTone('/', true)).toBe('light');
-    expect(statusBarTone('/welcome', false)).toBe('light');
   });
   it('follows the selected appearance on every tab and stacked screen', () => {
     expect(statusBarTone('/', false)).toBe('dark');
@@ -13,27 +12,24 @@ describe('focused screen status bar', () => {
       expect(statusBarTone(path, false)).toBe('dark');
     }
   });
-  it('keeps authored onboarding surfaces independent of the saved preference', () => {
-    for (
-      const path of [
-        '/welcome',
-        '/one-sky',
-        '/mirror',
-        '/connect',
-        '/difficulty',
-        '/privacy',
-        '/name',
-        '/sign-in',
-      ]
-    ) {
-      expect(surfaceScheme(path, 'dark')).toBe('light');
+  it('lets every onboarding beat follow the selected appearance', () => {
+    for (const path of [
+      '/welcome',
+      '/one-sky',
+      '/mirror',
+      '/connect',
+      '/difficulty',
+      '/privacy',
+      '/name',
+    ]) {
+      expect(surfaceScheme(path, 'light')).toBe('light');
+      expect(surfaceScheme(path, 'dark')).toBe('dark');
+      expect(statusBarTone(path, false)).toBe('dark');
+      expect(statusBarTone(path, true)).toBe('light');
     }
-    for (const path of ['/welcome', '/mirror', '/privacy']) {
-      expect(statusBarTone(path, false)).toBe('light');
-    }
-    for (const path of ['/connect', '/name', '/sign-in', '/difficulty', '/one-sky']) {
-      expect(statusBarTone(path, true)).toBe('dark');
-    }
-    expect(surfaceScheme('/settings', 'dark')).toBe('dark');
+  });
+  it('keeps sign-in fixed to light', () => {
+    expect(surfaceScheme('/sign-in', 'dark')).toBe('light');
+    expect(statusBarTone('/sign-in', true)).toBe('dark');
   });
 });

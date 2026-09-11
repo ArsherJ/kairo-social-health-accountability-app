@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { colors, font, radius, space } from '@/theme.ts';
-import { Text } from '@/ui/index.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Text, useStyles, useTheme } from '@/ui/index.ts';
 import { RAIL_PHASES, railStepLabel } from './beats.ts';
 
 /**
@@ -9,10 +9,10 @@ import { RAIL_PHASES, railStepLabel } from './beats.ts';
  *
  * **The same four segments on every step**, so the run always says how much is
  * left. That is the one thing the previous two-screen onboarding could not do
- * and did not need to: a run of two has no shape worth drawing. A run of six
+ * and did not need to: a run of two has no shape worth drawing. A run of seven
  * does, and a person part-way through one with no end in sight abandons it.
  *
- * Four segments for six screens, deliberately. The rail measures *phases*, not
+ * Four segments for seven routed beats, deliberately. The rail measures *phases*, not
  * files — welcome and the sky are one phase (what this is), permissions and the
  * hatch are one (letting it in), difficulty and privacy are one (your choices),
  * and the name is its own. Numbering each screen would make the rail jump
@@ -31,7 +31,7 @@ export function OnboardingRail({
   partial = 0,
   onBack,
   onSkip,
-  tone = 'light',
+  tone = 'page',
 }: {
   /** Phases completed, 0–RAIL_PHASES. Comes from `onboardingBeat()`. */
   filled: number;
@@ -41,11 +41,15 @@ export function OnboardingRail({
   onBack?: () => void;
   /** Omit past the point where skipping is meaningful. */
   onSkip?: () => void;
-  /** `light` on a saturated ground (cream marks), `dark` on a pale one. */
-  tone?: 'light' | 'dark';
+  /** Explicitly invert only when the rail sits on an intentional deep panel. */
+  tone?: 'page' | 'inverse';
 }) {
-  const on = tone === 'light' ? colors.bg : colors.text;
-  const off = tone === 'light' ? 'rgba(255,255,255,0.3)' : 'rgba(36,27,77,0.16)';
+  const styles = useStyles(makeStyles);
+  const { colors, glass } = useTheme();
+  const inverse = tone === 'inverse';
+  const on = inverse ? colors.onDeep : colors.text;
+  const off = inverse ? glass.dark.edge : colors.borderStrong;
+  const disc = inverse ? glass.dark.fillSoft : colors.surface;
 
   return (
     <View style={styles.rail}>
@@ -57,7 +61,7 @@ export function OnboardingRail({
           onPress={onBack}
           style={({ pressed }) => [
             styles.disc,
-            { borderColor: off, backgroundColor: off },
+            { borderColor: off, backgroundColor: disc },
             pressed && styles.pressed,
           ]}
         >
@@ -120,6 +124,7 @@ export function OnboardingRail({
  * position indicators announcing themselves is one too many.
  */
 export function OnboardingDots({ index, count }: { index: number; count: number }) {
+  const styles = useStyles(makeStyles);
   return (
     <View
       accessibilityElementsHidden
@@ -133,7 +138,7 @@ export function OnboardingDots({ index, count }: { index: number; count: number 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   rail: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   disc: {
     width: 44,
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 3,
     transform: [{ rotate: '45deg' }],
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: colors.borderStrong,
   },
-  dotOn: { backgroundColor: colors.bg },
+  dotOn: { backgroundColor: colors.accent },
 });

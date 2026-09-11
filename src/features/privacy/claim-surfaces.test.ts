@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { HEALTH_DISCLOSURE } from '../health/disclosure.ts';
 import { INVITE_HOST } from '../squad/invite-link.ts';
 import { inviteMessage } from '../squad/invite-message.ts';
-import { SUPPORT_EMAIL } from '../support/links.ts';
+import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from '../support/links.ts';
 import { NO_TRAIL_CLAUSE, PRIVACY_CLAIM } from './claim-copy.ts';
 
 /**
@@ -289,7 +289,13 @@ interface ClaimSurface {
    * on a sentence nobody can see. The web surfaces are read off disk and have
    * the link by construction; these three need it stated.
    */
-  rendersFrom?: { path: string; keys: (keyof typeof PRIVACY_CLAIM)[] };
+  rendersFrom?: {
+    path: string;
+    keys: (keyof typeof PRIVACY_CLAIM)[];
+    /** A dumb shared view renders these injected props; its route binds the claim keys. */
+    props?: string[];
+    bindingPath?: string;
+  };
 }
 
 /** Markup as a reader sees it: tags gone, whitespace collapsed. */
@@ -365,8 +371,10 @@ const SURFACES: ClaimSurface[] = [
     claim: () => `${PRIVACY_CLAIM.healthRequired}\n${PRIVACY_CLAIM.sharingTotals}`,
     makes: ['totalsOnly', 'mutual', 'namesNoRetiredStat'],
     rendersFrom: {
-      path: 'app/(onboard)/privacy.tsx',
+      path: 'src/features/onboarding/PrivacyScreen.tsx',
       keys: ['healthRequired', 'sharingTotals'],
+      props: ['healthCopy', 'sharingCopy'],
+      bindingPath: 'app/(onboard)/privacy.tsx',
     },
   },
   {
@@ -378,9 +386,14 @@ const SURFACES: ClaimSurface[] = [
     // and a retired stat in the title or a stray engine key in a caption is
     // the same defect one element over. Comments stripped, so the reasoning
     // beside the copy is not mistaken for the copy.
-    alsoScan: () => code(readFileSync('app/(onboard)/connect.tsx', 'utf8')),
+    alsoScan: () => code(readFileSync('src/features/onboarding/ConnectScreen.tsx', 'utf8')),
     makes: ['fourTotals', 'totalsOnly', 'mutual', 'namesNoRetiredStat'],
-    rendersFrom: { path: 'app/(onboard)/connect.tsx', keys: ['connectHealth'] },
+    rendersFrom: {
+      path: 'src/features/onboarding/ConnectScreen.tsx',
+      keys: ['connectHealth'],
+      props: ['privacyCopy'],
+      bindingPath: 'app/(onboard)/connect.tsx',
+    },
   },
   {
     name: 'the invite message',
@@ -431,10 +444,16 @@ describe('the privacy claim, across every surface that makes it', () => {
       }
 
       if (surface.rendersFrom) {
-        const { path, keys } = surface.rendersFrom;
+        const { path, keys, props, bindingPath } = surface.rendersFrom;
         it(`is actually rendered by ${path}`, () => {
           const source = code(readFileSync(path, 'utf8'));
-          for (const key of keys) expect(source).toContain(`PRIVACY_CLAIM.${key}`);
+          if (props) {
+            for (const prop of props) expect(source).toContain(prop);
+            const binding = code(readFileSync(bindingPath ?? '', 'utf8'));
+            for (const key of keys) expect(binding).toContain(`PRIVACY_CLAIM.${key}`);
+          } else {
+            for (const key of keys) expect(source).toContain(`PRIVACY_CLAIM.${key}`);
+          }
         });
       }
 
@@ -465,6 +484,17 @@ describe('the pages that carry the claim to a stranger', () => {
     // The landing page has one, and it is the invite-code reveal — inline, no
     // request, and `invite-message.test.ts` owns it. The policy needs none.
     expect(readFileSync('web/privacy.html', 'utf8')).not.toMatch(/<script/);
+  });
+});
+
+describe('the onboarding policy control', () => {
+  it('opens the established public policy instead of an unrelated app route', () => {
+    const source = code(readFileSync('app/(onboard)/privacy.tsx', 'utf8'));
+
+    expect(source).toContain('PRIVACY_POLICY_URL');
+    expect(source).toContain('Linking.openURL(PRIVACY_POLICY_URL)');
+    expect(source).not.toContain("router.push('/progress')");
+    expect(PRIVACY_POLICY_URL).toMatch(/^https:\/\/.+\/privacy$/);
   });
 });
 

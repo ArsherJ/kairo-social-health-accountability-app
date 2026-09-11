@@ -1,27 +1,21 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { colors, font, shadow, space } from '@/theme.ts';
-import { Glass, Text } from '@/ui/index.ts';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { font, space, type Theme } from '@/theme.ts';
+import { Glass, Text, useStyles, useTheme } from '@/ui/index.ts';
 
 /**
  * The one fat button at the foot of an onboarding beat.
  *
- * Deliberately not `Button`. `Button` is the app's control — a 52pt pill sized
- * to its label, in the display face, with a hard 3px lip. An onboarding CTA is
+ * Deliberately not `Button`. `Button` is the app's compact control, sized to
+ * its label. An onboarding CTA is
  * a different object: full width, 62pt tall, and the only tappable thing on the
  * screen. Making `Button` grow a fifth variant to cover that would put a shape
  * nothing else in the app uses behind a name everything else in the app uses.
  *
  * Three tones, and each is a ground rather than a preference:
  *
- *   - `glass` for a saturated field (the two value cards), where a solid fill
- *     would punch a hole in the gradient behind it;
- *   - `ink` for a pale field, where the button has to be the darkest thing;
- *   - `bright` for the moment the run pays off, on the name screen.
- *
- * **A 3px lip, not a shadow**, on the two solid tones. It is the design's own
- * mark and it does something a shadow does not: it survives being pressed,
- * because the press state removes it and the button visibly sits down.
+ * `glass` is the readable translucent surface, `ink` is a deliberate deep
+ * fill, and `bright` is the apricot primary action. None carries a hard lip.
  */
 export function OnboardingCta({
   label,
@@ -29,6 +23,7 @@ export function OnboardingCta({
   icon,
   lines = 1,
   disabled = false,
+  busy = false,
   onPress,
 }: {
   label: string;
@@ -47,9 +42,12 @@ export function OnboardingCta({
    */
   lines?: 1 | 2;
   disabled?: boolean;
+  busy?: boolean;
   onPress: () => void;
 }) {
-  const ink = tone === 'glass' ? colors.sage : tone === 'ink' ? colors.bg : colors.text;
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
+  const ink = tone === 'bright' ? colors.ink : tone === 'ink' ? colors.onDeep : colors.text;
 
   const body = (
     <View
@@ -57,10 +55,16 @@ export function OnboardingCta({
       importantForAccessibility="no-hide-descendants"
       style={styles.body}
     >
-      <Text scale="chrome" numberOfLines={lines} style={[styles.label, { color: ink }]}>
-        {label}
-      </Text>
-      {icon && <MaterialCommunityIcons name={icon} size={20} color={ink} />}
+      {busy ? (
+        <ActivityIndicator color={ink} />
+      ) : (
+        <>
+          <Text scale="chrome" numberOfLines={lines} style={[styles.label, { color: ink }]}>
+            {label}
+          </Text>
+          {icon ? <MaterialCommunityIcons name={icon} size={20} color={ink} /> : null}
+        </>
+      )}
     </View>
   );
 
@@ -68,8 +72,8 @@ export function OnboardingCta({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
         styles.pill,
@@ -77,10 +81,8 @@ export function OnboardingCta({
         // `bright` is the accent, which is a fill — so its label is ink, set
         // above. Cream on it measures 2.65:1.
         tone === 'bright' && styles.brightPill,
-        // The lip collapses on press, so the button sits down rather than
-        // merely fading. Glass has none: it has no edge to lose.
-        pressed && tone !== 'glass' && styles.pressed,
-        disabled && styles.disabled,
+        pressed && styles.pressed,
+        (disabled || busy) && styles.disabled,
       ]}
     >
       {tone === 'glass' ? (
@@ -96,18 +98,15 @@ export function OnboardingCta({
 
 const HEIGHT = 62;
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, shadow }: Theme) => StyleSheet.create({
   pill: { minHeight: HEIGHT, borderRadius: 26, borderCurve: 'continuous', justifyContent: 'center' },
   glassPill: { minHeight: HEIGHT, justifyContent: 'center' },
-  inkPill: { backgroundColor: colors.text, borderBottomWidth: 3, borderBottomColor: '#120c2b', ...shadow.lg },
+  inkPill: { backgroundColor: colors.sage, ...shadow.lg },
   brightPill: {
     backgroundColor: colors.accent,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.accentEdge,
     ...shadow.lg,
   },
-  // Losing the lip *and* gaining the height back, so the button does not jump.
-  pressed: { borderBottomWidth: 0, marginBottom: 3, opacity: 0.92 },
+  pressed: { opacity: 0.82 },
   disabled: { opacity: 0.45 },
   body: {
     flexDirection: 'row',

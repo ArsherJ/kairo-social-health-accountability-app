@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { type RefreshControlProps, ScrollView, View } from 'react-native';
+import { type RefreshControlProps, ScrollView, type ScrollViewProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { space } from '../theme.ts';
 import { useChromeStore } from './chrome.ts';
@@ -34,13 +34,15 @@ export function Screen({
   scroll = true,
   bleed = false,
   refreshControl,
+  keyboardShouldPersistTaps,
   tone,
   children,
 }: {
   scroll?: boolean;
   bleed?: boolean;
   refreshControl?: ReactElement<RefreshControlProps>;
-  /** Fixed night beat backdrop; descendants still use their scoped theme. */
+  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
+  /** Optional deep backdrop; descendants still use their selected theme. */
   tone?: 'light' | 'dark';
   children: ReactNode;
 }) {
@@ -65,6 +67,7 @@ export function Screen({
       style={container}
       contentContainerStyle={padding}
       refreshControl={refreshControl}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       showsVerticalScrollIndicator={false}
     >
       {children}

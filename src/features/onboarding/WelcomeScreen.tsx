@@ -1,135 +1,104 @@
-import { evolutionStageForLevel } from '@kairo/core';
 import { useState } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CharacterFigure } from '../character/CharacterFigure.tsx';
-import { Gradient, Panel, Screen, Text } from '../../ui/index.ts';
-import { ThemeScope } from '../../ui/use-theme.ts';
-import { tw } from '../../ui/tailwind.ts';
-import { colors, font, radius, ramp, space } from '../../theme.ts';
-import { OnboardingDots, OnboardingRail } from './OnboardingChrome.tsx';
+import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KAIRO_POSE_ASSETS } from '@/features/character/character-assets.ts';
+import { font, radius, space, type Theme } from '@/theme.ts';
+import { Panel, Text, useStyles } from '@/ui/index.ts';
 import { OnboardingCta } from './OnboardingCta.tsx';
+import { OnboardingDots } from './OnboardingChrome.tsx';
+import { OnboardingFrame } from './OnboardingFrame.tsx';
 import { beatCta, type OnboardingBeat, onboardingBeat, valueCardPosition } from './beats.ts';
-import { WELCOME_SCREEN_COPY as copy } from './welcome-screen-copy.ts';
+import { ONBOARDING_SCREEN_COPY } from './onboarding-screen-copy.ts';
 
-const FIELD = [{ color: colors.night, at: 0 }, { color: colors.midnight, at: 1 }];
+const copy = ONBOARDING_SCREEN_COPY.welcome;
 
-export function WelcomeScreen(
-  { onContinue, onSkip, beat = onboardingBeat('welcome') }: {
-    onContinue: () => void;
-    onSkip: () => void;
-    beat?: OnboardingBeat;
-  },
-) {
+export type WelcomeScreenProps = { beat?: OnboardingBeat }
+  & { onContinue: () => void }
+  & { onSkip: () => void };
+
+export function WelcomeScreen({
+  onContinue,
+  onSkip,
+  beat = onboardingBeat('welcome'),
+}: WelcomeScreenProps) {
   const [expanded, setExpanded] = useState(false);
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const styles = useStyles(makeStyles);
+
   return (
-    <ThemeScope scheme='light'>
-      <Screen bleed tone='dark'>
-        <Gradient stops={FIELD} />
-        <View style={tw.style('px-lg gap-lg', { paddingTop: insets.top + space.md })}>
-          <OnboardingRail filled={beat.filled} partial={beat.partial} onSkip={onSkip} />
-          <Text
-            scale='chrome'
-            style={{ ...font.display.brandSmall, color: colors.bg, textAlign: 'center' }}
-          >
-            KAIRO
-          </Text>
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility='no-hide-descendants'
-            style={tw`items-center justify-center py-md`}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                width: 250,
-                height: 250,
-                borderRadius: radius.pill,
-                borderCurve: 'continuous',
-                backgroundColor: ramp.neutral[800],
-              }}
-            />
-            <View style={tw`flex-row items-end justify-center`}>
-              <View style={{ marginRight: -28, opacity: 0.85 }}>
-                <CharacterFigure
-                  height={Math.min(width * 0.28, 120)}
-                  level={1}
-                  stage={evolutionStageForLevel(1)}
-                  compact
-                  figure={{ kind: 'pose', pose: 'idle' }}
-                  body={{ tier: 'slim', shade: colors.sage, shadowWeight: 0 }}
-                />
-              </View>
-              <CharacterFigure
-                height={Math.min(width * 0.52, 220)}
-                level={21}
-                stage={evolutionStageForLevel(21)}
-                compact
-                figure={{ kind: 'pose', pose: 'idle' }}
-                body={{ tier: 'fit', shade: colors.sage, shadowWeight: 0 }}
-              />
-            </View>
-          </View>
-          <View style={tw`gap-md items-center`}>
-            <Text scale='chrome' style={{ ...font.body.label, color: ramp.sage[300] }}>
-              {copy.eyebrow}
-            </Text>
-            <Text
-              accessibilityRole='header'
-              style={{ ...font.display.major, color: colors.bg, textAlign: 'center' }}
-            >
-              {copy.title}
-            </Text>
-            <Text
-              style={{
-                ...font.body.body,
-                fontSize: 16,
-                lineHeight: 25,
-                color: ramp.sage[200],
-                textAlign: 'center',
-              }}
-            >
-              {copy.body}
-            </Text>
-          </View>
+    <OnboardingFrame
+      beat={beat}
+      onSkip={onSkip}
+      footer={
+        <>
           <OnboardingDots {...valueCardPosition(beat)} />
           <OnboardingCta
             label={beatCta(beat)}
-            tone='bright'
-            icon='arrow-right'
+            tone="bright"
+            icon="arrow-right"
             lines={2}
             onPress={onContinue}
           />
           <Pressable
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityState={{ expanded }}
             onPress={() => setExpanded((value) => !value)}
-            style={({ pressed }) =>
-              tw.style('items-center justify-center px-md', {
-                minHeight: 48,
-                opacity: pressed ? 0.7 : 1,
-              })}
+            style={({ pressed }) => [styles.detailButton, pressed && styles.pressed]}
           >
-            <Text scale='chrome' style={{ ...font.body.body, color: colors.bg }}>
+            <Text scale="chrome" style={styles.detailLabel}>
               {expanded ? copy.less : copy.detail}
             </Text>
           </Pressable>
-          {expanded && (
-            <Panel style={{ marginTop: 0 }}>
-              <Text style={{ ...font.display.small, color: colors.text }}>{copy.solo}</Text>
-              <Text style={tw.style('pt-sm pb-lg', font.body.body, { color: colors.subtle })}>
-                {copy.soloBody}
-              </Text>
-              <Text style={{ ...font.display.small, color: colors.text }}>{copy.flock}</Text>
-              <Text style={tw.style('pt-sm', font.body.body, { color: colors.subtle })}>
-                {copy.flockBody}
-              </Text>
-            </Panel>
-          )}
-        </View>
-      </Screen>
-    </ThemeScope>
+        </>
+      }
+    >
+      <Text scale="chrome" style={styles.wordmark}>{copy.wordmark}</Text>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.stage}
+      >
+        <View style={styles.halo} />
+        <Image
+          source={KAIRO_POSE_ASSETS.idle}
+          style={{ width: Math.min(width * 0.56, 220), height: Math.min(width * 0.56, 220) }}
+          resizeMode="contain"
+        />
+      </View>
+      <View style={styles.copy}>
+        <Text scale="chrome" style={styles.eyebrow}>{copy.eyebrow}</Text>
+        <Text accessibilityRole="header" style={styles.title}>{copy.title}</Text>
+        <Text style={styles.body}>{copy.body}</Text>
+      </View>
+      {expanded ? (
+        <Panel style={styles.explainer}>
+          <Text style={styles.explainerTitle}>{copy.solo}</Text>
+          <Text style={styles.explainerBody}>{copy.soloBody}</Text>
+          <Text style={styles.explainerTitle}>{copy.flock}</Text>
+          <Text style={styles.explainerBody}>{copy.flockBody}</Text>
+        </Panel>
+      ) : null}
+    </OnboardingFrame>
   );
 }
+
+const makeStyles = ({ colors, ramp }: Theme) => StyleSheet.create({
+  wordmark: { ...font.display.brandSmall, color: colors.muted, textAlign: 'center' },
+  stage: { minHeight: 220, alignItems: 'center', justifyContent: 'center' },
+  halo: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: radius.pill,
+    backgroundColor: ramp.sage[200],
+  },
+  copy: { alignItems: 'center', gap: space.sm },
+  eyebrow: { ...font.body.label, color: colors.accentDeep, textAlign: 'center' },
+  title: { ...font.display.major, color: colors.text, textAlign: 'center' },
+  body: { ...font.body.body, fontSize: 16, lineHeight: 25, color: colors.subtle, textAlign: 'center' },
+  detailButton: { minHeight: 48, paddingHorizontal: space.md, alignItems: 'center', justifyContent: 'center' },
+  detailLabel: { ...font.body.body, color: colors.accentDeep },
+  pressed: { opacity: 0.65 },
+  explainer: { marginTop: 0, gap: space.sm },
+  explainerTitle: { ...font.display.small, color: colors.text },
+  explainerBody: { ...font.body.body, color: colors.subtle, paddingBottom: space.sm },
+});
