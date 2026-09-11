@@ -17,15 +17,29 @@ import { FlockPreviewScreen } from './FlockPreviewScreen.tsx';
 import { SkyPreviewScreen } from './SkyPreviewScreen.tsx';
 import { YouPreviewScreen } from './YouPreviewScreen.tsx';
 import { setNavHidden, Text } from '../../ui/index.ts';
+import { TabBar } from '../../ui/TabBar.tsx';
 import { ThemeScope } from '../../ui/use-theme.ts';
 import { tw } from '../../ui/tailwind.ts';
 import { colors, font, radius, space, themes } from '../../theme.ts';
 import {
   PREVIEW_COPY as copy,
-  PREVIEW_TABS,
   type PreviewState,
   type PreviewTab,
 } from './preview-copy.ts';
+
+const previewToRoute = {
+  today: 'index',
+  sky: 'sky',
+  flock: 'flock',
+  you: 'profile',
+} as const;
+
+const routeToPreview = {
+  index: 'today',
+  sky: 'sky',
+  flock: 'flock',
+  profile: 'you',
+} as const;
 
 export function MobilePreview() {
   const { fontScale } = useWindowDimensions();
@@ -200,54 +214,11 @@ function PreviewCanvas() {
                     />
                   )}
                   {tab === 'you' && <YouPreviewScreen key={state} {...controls} />}
-                  <View
-                    style={tw.style('absolute flex-row items-center p-sm', {
-                      bottom: insets.bottom + space.md,
-                      left: space.md,
-                      right: space.md,
-                      minHeight: 80,
-                      backgroundColor: colors.surface,
-                      borderRadius: radius.xxl,
-                      borderCurve: 'continuous',
-                    })}
-                  >
-                    {PREVIEW_TABS.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        accessibilityRole='tab'
-                        accessibilityLabel={item.label}
-                        accessibilityState={{ selected: tab === item.id }}
-                        onPress={() => setTab(item.id)}
-                        style={({ pressed }) =>
-                          tw.style('flex-1 items-center justify-center gap-xs py-sm', {
-                            minHeight: 60,
-                            borderRadius: radius.lg,
-                            borderCurve: 'continuous',
-                            backgroundColor: tab === item.id ? ramp.accent[200] : 'transparent',
-                            opacity: pressed ? 0.65 : 1,
-                          })}
-                      >
-                        <MaterialCommunityIcons
-                          name={item.icon}
-                          size={23}
-                          color={tab === item.id ? colors.accentDeep : colors.subtle}
-                          accessibilityElementsHidden
-                          importantForAccessibility='no-hide-descendants'
-                        />
-                        <Text
-                          scale='chrome'
-                          accessibilityElementsHidden
-                          importantForAccessibility='no-hide-descendants'
-                          style={{
-                            ...font.display.label,
-                            color: tab === item.id ? colors.accentDeep : colors.text,
-                          }}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  <TabBar
+                    value={previewToRoute[tab]}
+                    bottomInset={insets.bottom}
+                    onChange={(id) => setTab(routeToPreview[id])}
+                  />
                 </>
               )}
           </View>
