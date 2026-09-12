@@ -1,5 +1,5 @@
 import type { StatRecord } from '../profile/records.ts';
-import { DEMO_LEADERBOARD, DEMO_LEADERBOARD_COMPLETED, DEMO_STREAK } from '../demo/fixtures.ts';
+import { DEMO_LEADERBOARD, DEMO_LEADERBOARD_COMPLETED, DEMO_STREAK } from './fixtures.ts';
 import type { LeaderboardMode } from '../squad/queries.ts';
 import type { PreviewState } from './preview-copy.ts';
 import {

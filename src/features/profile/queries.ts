@@ -1,6 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { DEMO_STREAK } from '@/features/demo/fixtures.ts';
-import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
 import type { SpeciesId } from '@/features/character/species.ts';
 
@@ -152,12 +150,9 @@ export function streakKey(userId: string | undefined) {
 }
 
 export function useStreak(userId: string | undefined) {
-  // `enabled` is dropped too, not just the result: a doomed request against a
-  // fixture the user is already looking at is noise in the network log.
-  const demo = useDemoOn();
-  const query = useQuery({
+  return useQuery({
     queryKey: streakKey(userId),
-    enabled: !demo && Boolean(userId),
+    enabled: Boolean(userId),
     queryFn: async (): Promise<Streak | null> => {
       const { data, error } = await supabase
         .from('streaks')
@@ -171,6 +166,4 @@ export function useStreak(userId: string | undefined) {
       return (data as Streak | null) ?? null;
     },
   });
-
-  return demo ? demoResult<Streak | null>(DEMO_STREAK) : query;
 }

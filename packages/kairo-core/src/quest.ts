@@ -21,6 +21,7 @@
  */
 
 import { addDays } from './day.ts';
+import { fnv1a } from './hash.ts';
 import { median } from './median.ts';
 
 export type QuestTier = 'starter' | 'steady' | 'strong';
@@ -160,23 +161,6 @@ export function questTier(input: {
 }
 
 /**
- * FNV-1a, 32-bit. A hash rather than a PRNG because this module takes no seed
- * state and returns no generator — every call must be answerable from its
- * arguments alone, which is what makes "the same three all day" a property of
- * the function rather than of a cache.
- */
-function hash(input: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    // `Math.imul` keeps the multiply in 32 bits; a plain `*` loses precision
-    // past 2^53 and the hash stops being uniform.
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-/**
  * Today's three, for this account.
  *
  * Selection is a rotation over the tier's list rather than three independent
@@ -239,7 +223,7 @@ export function pickQuests(input: {
   );
   if (pool.length <= QUESTS_PER_DAY) return [...pool];
 
-  const seed = hash(`${input.userId}:${input.localDate}`);
+  const seed = fnv1a(`${input.userId}:${input.localDate}`);
   const start = seed % pool.length;
   const stride = 1 + (seed % (pool.length - 1));
 

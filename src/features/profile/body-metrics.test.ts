@@ -99,10 +99,9 @@ describe('BODY_METRICS_NOTE', () => {
   });
 
   it('names no surface the player cannot reach', () => {
-    // `maxHeartRateForAge()` is birth year's only consumer, behind Strain —
-    // and `TodayPanel`, the only surface that ever rendered Strain, was
-    // unmounted by deviation #59. A note pointing at it would be the same
-    // class of false claim as the one this copy replaced.
+    // Birth year's only consumer was Strain, unmounted by deviation #59 and
+    // deleted on 2026-09-12. A note pointing at it would be the same class of
+    // false claim as the one this copy replaced.
     //
     // **If Strain returns to a screen, delete this test rather than working
     // around it**: naming a real consumer is better copy than saying nothing,

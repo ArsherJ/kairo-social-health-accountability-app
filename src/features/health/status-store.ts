@@ -5,8 +5,7 @@ import { create } from 'zustand';
  *
  * `useHealthSync` runs in the tab layout; the strip that reports it renders on
  * the character screen. The same split the permission-granted registry above it
- * solves, solved the same way the rest of the app does — zustand, like
- * `useDemoStore`.
+ * solves, solved the same way the rest of the app does — zustand.
  *
  * In-memory rather than persisted: `loadSyncState()` in `storage.ts` is still
  * the durable record, and this is a projection of it kept live for the current

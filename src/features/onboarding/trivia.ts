@@ -1,4 +1,5 @@
 import { DAILY_STEP_BASELINE, QUESTS_PER_DAY, RACE_FINISH_LINE } from '@kairo/core';
+import { fnv1a } from '../../../packages/kairo-core/src/hash.ts';
 
 /**
  * The facts shown while Kairo is connecting to Health.
@@ -76,23 +77,6 @@ export const TRIVIA: readonly Trivia[] = [
 ];
 
 /**
- * A stable 32-bit hash. FNV-1a.
- *
- * Written out rather than imported so this module keeps its one dependency.
- * `>>> 0` after each step keeps it in unsigned 32-bit range, which is what
- * makes the result identical on every platform rather than drifting once the
- * intermediate exceeds `Number.MAX_SAFE_INTEGER`.
- */
-function hash(seed: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
-
-/**
  * Which fact this account sees.
  *
  * **Deterministic, and that is not a nicety.** `Math.random()` in a render body
@@ -109,7 +93,7 @@ function hash(seed: string): number {
 export function pickTrivia(seed: string | undefined): Trivia {
   const first = TRIVIA[0] as Trivia;
   if (!seed) return first;
-  return TRIVIA[hash(seed) % TRIVIA.length] ?? first;
+  return TRIVIA[fnv1a(seed) % TRIVIA.length] ?? first;
 }
 
 /** Re-exported so the test can assert the identity without a second import. */

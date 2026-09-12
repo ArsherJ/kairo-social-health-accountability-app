@@ -1,5 +1,7 @@
 # The app's surfaces — the reasoning
 
+
+> **2026-09-12 note.** Several files this text calls "still on disk", "unmounted with their tests" or "kept under `@deprecated`" were deleted by the ponytail audit (roadmap deviation #74): `TodayPanel.tsx`, `strain.ts`, `event.ts`, `Avatar.tsx`/`avatar-tint.ts`, `KairoLab.tsx`, `kairo-lab-contract.ts`, `data/*.json`, `validateCharacterManifests`, `species-art.ts`, `species-label.ts`, the `demo/` feature and `scripts/replay-dry-run.mjs`. The schema they served is untouched. Read those sentences as history.
 Extracted verbatim from `CLAUDE.md` on 2026-09-08 to keep that file inside its
 size limit. **The rules still live in `CLAUDE.md`** (search "Kairo is Playful");
 this file is the *why* behind them — the device-seen failure that produced each
@@ -931,3 +933,357 @@ state. Shared native Views and theme roles provide the scenery; no new native
 dependency or asset build is introduced. The curved keystone helpers remain
 historical/reusable geometry, not the new Sky presentation authority; core
 ranking, scoring, consent, ghosts and finish-line semantics are unchanged.
+
+
+## The screen rules, in full (moved from `CLAUDE.md` 2026-09-12)
+
+**Kairo's warm-pastel plush presentation is current as of 2026-09-11.** The
+palette and shared controls keep the semantic-role and contrast contracts below.
+Today combines Motion progress and the resolved figure in one responsive hero;
+Sky uses a finer trail without changing `flightFrame`, race progress or minimap
+math; Flock compacts the perch and keeps board semantics; You uses one shared
+portrait/header; all seven onboarding routes consume theme-aware shared views.
+The safe preview mounts those views with local fixture state and no production
+auth, health, profile, consent or telemetry effects. Detailed preview boundaries
+and verification limits live in `docs/engineering/mobile-screen-preview.md`.
+
+**Appearance architecture established 2026-09-10** (deviation #72). The
+screen-layout descriptions in this block are historical where the 2026-09-11
+warm-pastel presentation above replaces them; the scheme, token, inset and
+geometry contracts remain current. The reasoning is in
+`docs/engineering/surfaces.md` under the dated headings:
+
+- **Two schemes, one set of roles.** `src/theme.ts` keeps every token name and
+  adds `light`, `dark`, `themes`, `Theme` and `Scheme`. The static exports
+  (`colors`, `ramp`, `glass`, `shadow`, `earnedColor`) **are the light
+  palette** and stay: root Vitest reads them and `contrast.test.ts` holds both
+  palettes to the same claims. Authored sign-in still reads the light roles;
+  onboarding now consumes the local theme scope. A themed screen writes
+  `const makeStyles = (t: Theme) => StyleSheet.create({...})` at module scope
+  and reads `useStyles(makeStyles)`; a one-off colour reads `useTheme()`. The
+  factory **must be a module-level constant** — the cache is keyed by its
+  identity, so an inline factory rebuilds the sheet every render.
+- **The ramp's ink-strength contract holds in both schemes, and that is what
+  makes the migration correct by construction.** Under the dark scheme the low
+  steps are dark tints and the high steps are light tints: `ramp.x[200]` is
+  still a wash you set text on, `[500]` still a fill, `[700]`/`[800]` still
+  inks. The middle of every ramp is the same hue at night — a fill is a fill.
+- **Two tokens do not flip.** `colors.ink` is always dark and sits on a bright
+  fill (the primary button, the streak pill, a cleared calendar day, the
+  selected segment); `colors.onDeep` is always light and sits on a deep fill
+  (teal, sage 600, night). **`colors.text` on a bright fill is the mistake**:
+  it renders correctly in the light scheme and vanishes at night. Every
+  bright-fill label in the app reads `ink` now, and the dark block of
+  `contrast.test.ts` asserts `ink` on every bright fill and `onDeep` on every
+  deep one.
+- **`userInterfaceStyle` is `automatic`.** It was `dark`, which forced the trait
+  collection and made `useColorScheme()` unable to report the phone's answer;
+  `system` would have been a lie. It is a native field, so the fingerprint
+  moves and this ships with a build. `useScheme()` reads the MMKV preference
+  (`appearance-store.ts`, its own storage id, untouched by sign-out) through
+  `resolveScheme()` (`appearance.ts`, zero-import, tested); a phone that
+  reports nothing reads as light, never a silent flip to dark. The status bar
+  follows the focused surface via `status-bar-tone.ts` in `app/_layout.tsx`.
+- **Local theme scopes use the same tokens.** `ThemeScope` in `use-theme.ts`
+  overrides rendering only, never the stored preference. The root scopes the
+  authored auth routes to light; onboarding consumes the current scheme and
+  `statusBarTone` follows each surface. The sample preview scopes its own light/dark toggle so
+  `Screen`, cards, sheets and scenery all change together. Preview boundaries
+  and verification are in `docs/engineering/mobile-screen-preview.md`.
+- **Today is a dashboard and the Living Mirror's rules are what keep it
+  honest.** `today-board.ts` composes every tile sentence and is the only place
+  a tile's words come from — raw units only, no engine key, unknown is never
+  zero, and the Motion tile reaches the ridge through `DailyWalkState` so no
+  literal appears (`today-composition.test.ts` scans for one). `TodayTiles`
+  and `QuestRows` draw; `todayQuests()` still resolves exactly three and
+  `selectNextStep()` only marks one of them. The scene is `Diorama` at
+  `SCENE_HEIGHT` (236), a card in the column rather than the page's header,
+  and the location word is the Motion tile's eyebrow. `TodayCount` is gone.
+- **The Sky minimap is a map, not a picture.** `SkyMinimap` is pinned to the
+  right edge between the measured rail and the measured foot — both
+  `onLayout`, for the Dynamic Type reason the rail always was — and sized by
+  `minimapHeight()`. It draws `miniPath`, `miniRacers` and the ridge from the
+  **same** `flightFrame` numbers the corridor is drawn with, so the two cannot
+  disagree about where a bird is; the window's `translateY` is an
+  interpolation of the scroller's native `Animated.Value`, and a touch or drag
+  on the strip calls `offsetForMapY()` and `scrollTo`. **The corridor is
+  painted by steps**: `SkyCorridor` takes `progress` (the reader's own
+  `raceProgress`, capped at the line) and paints the flown segments in the
+  accent. `flight-frame.test.ts`'s scan of `sky.tsx` is unchanged and still
+  binds.
+- **The bar is one wash.** `TabPill`'s four per-tab gradients went; the moving
+  pill is `ramp.accent[200]` with `accentDeep` on it, so the bar says which
+  tab and nothing else. `NAV_HEIGHT` is still 96; `BAR_HEIGHT` is 68.
+- **`SegmentedControl` is the only filter control**, and its selected segment
+  is a raised surface in the page's ink, never an accent fill: the board's
+  Today/Yesterday toggle painted its active half orange, which made a filter
+  look like the screen's primary action. `Tile` is the dashboard's unit — one
+  accessibility element, two sizes and no third.
+- **Flock and You have no bands.** The board's violet-into-pink field and the
+  You tab's sky band are gone; both screens still `bleed` and take
+  `insets.top` themselves (`bleed-inset.test.ts`). The leader's row carries a
+  gold rule down its leading edge rather than a sage tint; the flock strip's
+  marks sit on the page in the page's inks, and its withheld mark is still a
+  ring. The You tab's ring sits beside its words rather than above them.
+
+**Kairo is Playful as of 2026-08-30** (deviation #58), which supersedes Sunlit's
+palette and type; Sunlit's stale values are in `docs/archive/design-history.md`.
+Every token in `src/theme.ts` kept its name and changed its value, so around
+ninety call sites re-skinned without being edited — **a token names a role,
+never a hue** (`ramp.sage[500]` is a violet now and still means "your lane").
+Fredoka and Nunito replace Caprasimo and Figtree, **copied into
+`assets/fonts/` and loaded through `useFonts`, not added as npm dependencies**,
+because `package.json` is a fingerprint input.
+
+**`docs/engineering/surfaces.md` holds the reasoning for every screen rule
+below** — the Playful redesign in full, the onboarding run and its calibration
+and welcome beats, the Sky corridor, the growth-stage and plumage art passes,
+and the three device-fault rounds that produced most of the layout rules.
+**Read it before adding or reshaping a screen**; the rules themselves:
+
+- **A bright fill takes ink, never cream.** `colors.accent` measures 2.65:1
+  against cream, coral 2.93 and gold 1.52, and all three render perfectly —
+  four call sites shipped that pairing in this redesign's own first pass.
+  `contrast.test.ts` asserts the rule for every fill *including the failures*,
+  so a palette that later made one dark enough for cream fails loudly.
+  `coralEdge` carries neither ink nor cream and is pinned as such. Body-size
+  accent text is `colors.accentDeep`; large display type is `colors.accentInk`.
+  The ramps' step contract is ink strength — 200 a wash, 500 a fill, 700/800
+  inks — and ~37 call sites depend on it.
+- **No native module may be added for a visual effect.** `Glass` is not a blur
+  and must not become one; the Sky corridor is twenty-four rotated plain-RN
+  segments rather than `react-native-svg`; the crest tint is a generated mask
+  rather than a runtime blend. Each would move the fingerprint, spend one of the
+  month's fifteen builds and withhold every OTA until that build landed.
+  `Gradient` gained a `direction`; `experimental_backgroundImage` is
+  deliberately unused, because its failure mode is a transparent view.
+- **One icon family.** The Feather/MDI split is retired; reintroducing a second
+  family is a design decision, not a convenience. `STAT_COLORS` (in
+  `src/ui/stat-colors.ts`, re-exported from `StatIcon.tsx`) reverses Sunlit's
+  no-per-stat-hue rule, because a Flock row carries four stat figures at 11pt
+  with no words beside them.
+- **`src/theme.ts` is the only file that may name a typeface.** RN falls back to
+  the system face silently for an unknown family — invisible on a simulator that
+  has the old font. `type-faces.test.ts` scans for literals and checks every
+  named face is loaded and on disk.
+- **Onboarding is seven beats and the last one is still the name**: `/welcome →
+  /one-sky → /mirror → /connect → /difficulty → /privacy → /name`. Add steps
+  **before** the name, never after — anything asked after the INSERT flips
+  `resolveRoute` to `'ready'` under an unfinished screen and needs deviation
+  #22's deleted `finishingOnboarding` flag back. `/difficulty` and `/privacy`
+  ask before the row exists and `useOnboardingAnswers` holds their answers until
+  `/name` writes them, because `quest_tier_override` and `squad_data_consent_at`
+  are in the UPDATE grant and not the INSERT grant. **The run is declared once,
+  in `src/features/onboarding/beats.ts`** — a beat declares its phase and the
+  registry derives the rail's fills, the paged dots and the button words;
+  `beat-registry.test.ts` fails any screen that hand-writes one, its skip
+  destination or its impression. The rail measures **four phases, not screens**.
+  `onboardingSkipTarget()` derives the skip landing as the last beat of phase 0
+  (the mirror), rather than naming a route twice.
+- **The difficulty beat opens with a measurement, and the tier it proposes is a
+  seed rather than a rule** (deviation #63). `/connect` reads fourteen complete
+  local days through `readDailySteps`; `calibrateQuestTier()` in `quest.ts`
+  medians them, drops zeroes, excludes today and needs four qualifying days,
+  and `no-history` is a different sentence from a low proposal. `questTier()` is
+  untouched and stays the fallback; the whole rule set is one pure function in
+  `quest.ts` rather than a sibling module, and `QUEST_CATALOGUE` is imported
+  rather than threaded through. `readDailySteps` must stay one daily-interval
+  step collection — `readHealthWindow` would read heart rate to size a quest.
+  Nothing about those days leaves the phone: no `profiles` write, no telemetry,
+  and `calibration_completed` carries `{ outcome }` and not the tier proposed.
+  `questTierChosen` is what makes the player's answer win outright.
+- **The welcome run is four cards and the fourth is the flock ask** (deviation
+  #64) — a card rather than a sheet, because a separately leased sheet would put
+  two first-run surfaces on one first focus. Exactly one card carries an actions
+  slot and a test asserts it. `welcome_seen` is claimed when the run **opens**,
+  so an interrupted run loses the ask; that loss is bounded by the Sky tab's
+  permanent invite slot and must not be repaired with a second marker. The join
+  door is withheld from an account that already has a squad. Every word lives in
+  `welcome-cards.ts`, reading `RACE_FINISH_LINE` and `FREE_SQUAD_MAX_MEMBERS`
+  from the constants; the request crosses to the Flock tab as `?pane=join`
+  through `flock-pane.ts`, which owns both the href and the parser, and the tab
+  **consumes and clears** it. One answer per run, on a ref.
+- **Each beat records one impression** — `onboarding_beat_seen` with `{ route }`,
+  from `useBeatImpression`, unguarded on mount, and `userId` is deliberately not
+  an effect dependency. The hatch (`/connect`'s "Did you know?" phase) reports
+  nothing: it is a phase, not a route. Its window opens when `connectHealth`
+  **resolves, not at tap**, and closes at the **later** of "minimum served" and
+  "read finished" (`hatching-window.ts`); `trivia.ts` picks by a hash of the
+  account and states no effect size.
+- **Native modals lease `src/ui/modal-owner.ts`** — permission asks, welcome
+  cards and Today details must never be visible under different owners in one
+  frame. Claim in an effect, release in the same effect, never from a close
+  callback.
+- **The sheet lessons apply to every bounded surface**: a `maxHeight`, a
+  `ScrollView` that is `flexGrow: 0, flexShrink: 1`, and content wrapped in a
+  `View` with an explicit **point** width (`width: '100%'` resolves against a
+  ScrollView measuring that content). `Panel` sets `overflow: 'hidden'`, so an
+  oversized sheet is clipped **silently** and the child that goes is the decline
+  control. `OnboardingCta` takes `lines?: 1 | 2` for the same reason. Find this
+  class of bug with
+  `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large`,
+  and **relaunch after changing content size** — RN caches text measurements.
+- **`<Screen bleed>` hands the top inset back**, and forgetting it is invisible
+  until somebody looks at a device: the You tab drew its only route to Settings
+  inside the Dynamic Island's cutout. `src/ui/bleed-inset.test.ts` scans every
+  bleeding surface, following one level of imports. A `<Modal>` gets no inset of
+  its own, so `TodayDetailsSheet` takes the **bottom** inset for its only
+  dismissal.
+- **A rail or list draws one trailing slot, never one per free seat.** The Sky
+  flock rail is four roster slots then one trailing slot (the invite or an
+  overflow `+N`, never both and never none), with `flexWrap` deliberately absent
+  so it fails by clipping rather than by wrapping; `LockedSlot` is **one** row
+  carrying the count and no rank. Withheld members sort last on the rail, and
+  keep board order in the strip.
+- **The flight is inset below the flock rail**, and `flight-frame.ts` owns that
+  arithmetic plus the opening offset. The rail's height is **measured**, not
+  assumed; `flightFrame` is handed `chromeBottom` so every assertion holds for
+  whatever the screen composes, and a source scan on `sky.tsx` closes the rest;
+  the gradient spans the whole scroller, inset included; the inset moves the
+  **drawing box**, not the path.
+- **Counted figures go through `countWords` in `quest-copy.ts`** — HealthKit
+  reports active energy as a float, and "395.66 active kcal" shipped in Today's
+  one visible sentence. **`StatRail` declares `flexDirection: 'row'`**: a layout
+  that depends on a default moves when its container does. **The invite code
+  takes the `fixed` scale plus `numberOfLines={1}`, `adjustsFontSizeToFit` and a
+  `minimumFontScale` floor** — correct only together, and guarded by a scan of
+  the tag itself.
+- **The dev client's floating gear is turned off at runtime**
+  (`hideDevMenuFloatingButton()`, `__DEV__`-guarded), deliberately **not** via
+  `ios.infoPlist.EXDevMenuShowFloatingActionButton`, which is a fingerprint
+  input and costs a native build. It was never in TestFlight: `expo-dev-menu` is
+  a debug-only pod.
+- **The character is the plush eagle v3 pack, and there is no per-stage body**
+  (deviation #73, 2026-09-11, superseding issues #30/#31). Eleven renders and
+  eleven crest masks under `assets/character/{base,poses,states,crests}`, named
+  **without a version suffix** — v1 is deleted, not shipped beside it, so there
+  is nothing to disambiguate from. `KAIRO_STAGE_ASSETS`, `KAIRO_STAGE_CRESTS`,
+  `STAGE_POSES` and the whole cosmetics system are gone with it, and the bundle
+  fell from 7.7 MB to 1.2 MB. Literal `require`s are still mandatory — a computed
+  path is a blank image on a device and nothing at build time — and
+  `character-assets.test.ts` still fails a cell that is missing, computed or
+  naming an absent file.
+- **The growth stage now reads as *size*, never as anatomy.** `staticFigureSelection`
+  has no `{ kind: 'stage' }` branch and `resolveLivingMirror` takes no stage at
+  all; `CharacterFigure` keeps the prop because `figureResponse`'s `bodyScale`,
+  the ground shadow and the presence ring all read it. Restoring per-stage bodies
+  is re-adding one table and one branch. **Shipping mixed was refused**: a
+  character that silently becomes a different species at level 21 reads as a bug,
+  and pointing all four stage cells at one file is exactly what
+  `character-assets.test.ts`'s `'two stages share a drawing'` assertion exists to
+  reject. `firstLevelOfStage` still derives 1/6/11/21 from
+  `evolutionStageForLevel`, and the stage names are still a development
+  vocabulary no player surface speaks.
+- **`dayPose()` resolves Motion against Body, and `summit` wins outright.**
+  Ridge draws `summit` whatever else happened; below it, **a verified strength
+  session takes the figure for the rest of the day** and draws `workout`;
+  otherwise the Motion ladder answers. Two axes want one drawing, so the order is
+  stated in one function and tested, rather than being an accident of branch
+  placement. The trade is deliberate — a trained player at the treeline loses
+  that day's `walk` — because Motion still reads in the tile, the meter and the
+  location word, while Body reads nowhere but the figure and the ground shadow.
+  It takes **minutes, not the occurrence id**: `living-reaction.ts` still reads
+  `verifiedWorkoutOccurrence` to fire the one-shot celebration, and a count
+  cannot re-fire anything. `resolveLivingMirror`'s `verifiedStrengthMinutes` is
+  **required and never defaulted**, or "did not train" and "caller forgot" become
+  the same silent answer.
+- **`summit` is the seventh pose and the ridge draws it** (deviation #73).
+  `motionPose()` returns `idle → walk → run → summit` across the five Motion
+  bands, so the day's finish stops looking identical to 80% of the way there. It
+  is **persistent, not a celebration**: `daily_walk` still fires its
+  `race_victory` reaction on the crossing and still wins the priority cascade for
+  `REACTION_HOLD_MS`, and the figure settles into `summit` afterwards. The name
+  is deliberately not `ridge` — that word already means the step count, the
+  Motion band and the race's finish line, and `CONTEXT.md` carries `summit` as
+  silent development vocabulary. **No surface speaks it**, and `MOTION_LOCATIONS`
+  is unchanged: the ladder still ends at the ridge and `locationName` still says
+  "Ridge".
+- **`scripts/generate_crest_masks.py` is the only character art generator left**,
+  and it must be **re-run after any change to the art in its `SOURCES`**, which a
+  test holds against `REQUIRED_PNG`. Its constants were not retuned for v3 — they
+  reproduce the pack's checked-in masks byte-identically. `generate_stage_art.py`
+  is deleted; there is no stage art to generate. **A render must be framed against
+  the base** — same 570 × 636 canvas, same figure height, same ground line, same
+  centre — and `character-assets.test.ts`'s "frames every render against the base"
+  is what holds it, because `bodyScale` can only make a young bird small if the
+  artwork never is.
+- **Run's stance is a camera problem, not a prompt problem.** Deviation #73
+  committed to fixing its "bouncy hop/skip" read and three `gpt-image-2` edits
+  failed: one streamed the wings off both canvas edges, one read as a bird
+  sitting with its legs out. Running is a side-on motion and every pose in this
+  pack is front-facing — a front view can show a leg stagger and a few degrees of
+  lean, not travel. The shipped pose buys its motion with asymmetry and a raised
+  foot, which is what reads at 44 and 72 px. Fixing it means a three-quarter view
+  for `run`, which is a decision about the whole pack's camera. Attempts and
+  prompts are in `output/imagegen/plush-eagle-v3/pose-commission-01/`.
+- **Two Mind faces are local edits, not generations.** `sleepy` and
+  `well_rested` are deterministic Pillow edits of the idle render — Mind's whole
+  premise is that the body does not move, only the face, and generating a whole
+  bird to shift two eyes is how identity drifts. `normal` is a byte copy of idle
+  under a second filename, because the registry guard reads paths and a shared
+  path reads as a duplicated cell. `staticFigureSelection` never picks `normal`,
+  and nothing draws the `sleep` pose at all — it exists so the registry stays
+  whole.
+- **The crest takes the dominant stat's hue and the body's scale follows the
+  stage** (issue #33), which is how two eagles in a flock stop looking
+  identical. `crestTint` reads **lifetime** points through `laneStat` — not
+  `useDominantStat`'s fortnight, which `squad_leaderboard()` cannot project — so
+  Today and a flock row cannot disagree; a balanced player takes no hue. The
+  crest, never the bird: the figure already says four things by shape.
+  `scripts/generate_crest_masks.py` finds the crest by **geometry** (topmost
+  opaque row inside the central 44%) and must be **re-run after any change to
+  the art in its `SOURCES`**, which a test holds against `REQUIRED_PNG`.
+  `CREST_TINT_OPACITY` is 0.62 — full strength erases the outlines beneath. The
+  crest is never spoken, and `plumage.test.ts` scans from the two label
+  functions' own declarations. The thumbnail deliberately does not scale.
+  **"Crest" names two things**: capital-C is the ceiling day's sky, lowercase is
+  the bird's head feathers; the feature word is **plumage**.
+- **The You tab's header band carries no bird of its own** — the ring is the
+  bird on that screen — and one ground shadow, centred under it.
+- **The Flock band names the day's leader** from `rows[0]`, ordered by the board
+  rather than by the race, following `mode` ("won the day" vs "is ahead"), and
+  guarded on two or more rows. **A squad of one reads the Sky's own sentence**:
+  `resolveSquadStanding` answers `{ kind: 'alone' }` from the **squad's size,
+  never the board's row count**, carries no rank and no denominator, and renders
+  `SOLO_SKY_OBSERVATION` imported from the Sky. `LeaderboardRow` takes `ranked`,
+  false on a board of one, which withholds the glyph *and* the spoken `Rank 1`;
+  `RowLabelInput.rank` is `number | null` rather than a flag beside a number.
+  The copy lives in `standing.ts` and `ordinal()` is one module.
+- **The shield sentence names the streak minimum below it.**
+  `shield_available_on === null` means only that nothing is recharging, so
+  `shield-note.ts` holds both halves of the eligibility, derives the `5`, and
+  names a pending recharge first at any streak length.
+- **`Avatar`'s tint table lives in `avatar-tint.ts`** so `contrast.test.ts` can
+  read its inks; it had shipped cream on `colors.accent` for as long as the
+  component existed. `colors.text` is the ink; `ramp.accent[900]` is the
+  tempting wrong answer at 4.39 and a test asserts that failure. Nothing mounts
+  `Avatar` today.
+- **Settings is its own screen** (`/settings`, behind the gear on You), and
+  **"Dress your Kairo" is deliberately not built.** Its twelve PNGs were
+  flattened full-character previews rather than composable layers, and deviation
+  #73 deleted them along with `KAIRO_COSMETIC_ASSETS`, `data/cosmetics.json` and
+  the manifest validation — keeping a validated contract for an unbuilt feature
+  meant every pose change paid it a tax, which `summit` would have paid across
+  twelve entries. Building it later starts from layers, which is where it always
+  had to start.
+- **Kairo says things without words, so a group that means something is one
+  element with a composed label** and its decorative children are hidden. That
+  grouping is **explicit** — the parent keeps `accessible` +
+  `accessibilityLabel` **and** every direct child is hidden with
+  `accessibilityElementsHidden` + `importantForAccessibility="no-hide-descendants"`;
+  neither half is redundant. Before adding a name, read what is already spoken
+  beside it — a label that repeats an adjacent line is noise, and one inside a
+  control that already names itself is a bug. Where composition has real edges
+  it gets a tested pure module: `src/features/squad/row-label.ts` exists because
+  a leaderboard row was twelve separate stops. The character HUD's layout stays
+  **flow-based** — it was the app's only absolutely-positioned chrome and its
+  pills overlapped at large Dynamic Type; do not reintroduce a `top` on any
+  child. Structure is verified in Xcode's Accessibility Inspector on the
+  simulator before a TestFlight build is cut — it answers "is this row one
+  element or twelve" with no build and no VoiceOver gestures.
+
+**This whole redesign shipped over the air, and that was verified rather than
+assumed**: the tree's fingerprint was `324fba3e`, byte-identical to build 22's.
+**Build 23, 2026-09-02, moved it to `9d76c5d3`** — one string in
+`NSHealthShareUsageDescription` and nothing else — and every OTA since targets
+that runtime, the plumage pass included.

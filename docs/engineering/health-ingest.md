@@ -220,3 +220,73 @@ alongside `evaluateStepBurst`, and `stat_records()` skips a flagged day
   30,000-step hour with a workout and a heart rate vouching for it — the
   payload was accepted, the bucket stored as `30000 / 22500 / 700`, the day
   flagged, and `stat_records()` returned no rows.
+
+
+## The rules, in full (moved from `CLAUDE.md` 2026-09-12)
+
+**Health reads are filtered at the source, and an implausible hour flags the
+day, as of 2026-09-06** (deviation #67, all three parts). The reasoning, the
+silent failures each half invites, and the simulator verification run are
+`docs/engineering/health-ingest.md` — **read it before touching any read
+filter, the ceilings, or `stat_records()`.** The rules:
+
+- **`EXCLUDE_TYPED_IN` is spread into the filter of every
+  `queryStatisticsCollectionForQuantity` call** in `src/features/health/read.ts`,
+  so a number typed into the Health app stops being Kairo activity at the
+  source. It is a compound `NOT` over `withMetadataKey`, **never
+  `operatorType: notEqualTo`** — an automatically-recorded sample carries no
+  `HKWasUserEntered` key at all, and `!=` against a missing key silently zeroes
+  every quantity read forever. A source scan bans the word `notEqualTo` in that
+  file and has no exceptions. `queryWorkoutSamples` keeps a **date-only** filter
+  on purpose: sleep and workouts read the flag off returned samples instead, and
+  filtering them at the query would make `WorkoutSessionReading.wasUserEntered`
+  dead and move a §3 rule the server owns onto the client.
+- **Untrusted step sources stop counting**, via `partitionStepSources`
+  (`src/features/health/step-sources.ts`) feeding `filter.sources` on the
+  **same** combined statistics collection — never per-source sums, which rebuild
+  the iPhone/Watch double count Apple's in-query de-duplication prevents
+  (deviation #8). `null` (the enumeration threw) counts every source; an empty
+  trusted list **skips the steps collection**, which zeroes the day — passing
+  `sources: []` yields no predicate natively and counts everything, the exact
+  failure the read exists to prevent. The trusted prefix is
+  `com.apple.health.`: case-sensitive, trailing dot, something after it, all
+  three load-bearing. `STEP_SOURCE_BRIDGE_ALLOWLIST` is empty on purpose and
+  ships **in the app**, so it moves by OTA. Exclusion is inert and must never
+  flag the day; `today-details.ts` discloses the dropped names as a standing
+  fact about a source and a test bans seven accusing words. `filter.sources`
+  must hold the objects `querySources` returned — a mapped or spread copy
+  downcasts to nil natively and counts every source silently. The dropped names
+  never leave the phone, and a scan of `sync.ts`, `useHealthSync.ts` and Today
+  holds both halves of that.
+- **`dev-seed.ts` is the simulator control and must keep working.** It writes
+  unflagged samples through the same read path, which is the only check that
+  distinguishes "the predicate excludes everything" from "the predicate works";
+  `read.ts` passes the app's own bundle id through `alsoTrust` under `__DEV__`
+  only. Re-run the two-reading check in the doc before changing
+  `EXCLUDE_TYPED_IN` or any collection's filter.
+- **Two deliberate limits.** The source predicate is on **steps only**, and it
+  applies to `readHealthWindow` only — `readStepsToday` (the onboarding reveal)
+  and `readDailySteps` (calibration) still read every source. The calibration
+  half is **issue #43**: it writes a durable `quest_tier_override` from steps
+  the day totals will never contain.
+- **`HOURLY_CEILINGS` flag; they do not clamp and do not reject.** 12,000 steps,
+  15,000 m, 1,200 active kcal per hour in `packages/kairo-core/src/anticheat.ts`,
+  checked by `isDayFlagged` beside `evaluateStepBurst`. A clamp writes a number
+  Apple never reported into the store every score replays from and would reduce
+  a real day; a rejection is indistinguishable from the August outage. A test
+  sends 90,000 steps through `validateSyncRequest` and asserts the payload is
+  accepted intact. The ceilings are **unsuppressible**; the burst rule stays
+  suppressible, because a burst is about missing corroboration and a fabricated
+  hour can claim both.
+- **The substantive half is `stat_records()` skipping a flagged day** (migration
+  `20260906120000`) — `not exists` rather than a join, removing the whole local
+  date. Nothing else consumes raw units uncapped; the Battle was the last and
+  went with deviation #66, so adding an uncapped consumer reopens the hole
+  rather than merely widening a feature.
+- **`FLAGGED_DAY_NOTE` in `today-details.ts` reaches the accused first**, names
+  a consequence that is real (no personal best, a flag on the flock row) and
+  never "won't count towards the flock" — a flag is a social signal, never a
+  score reduction (`trust.ts`). It names no rule, threshold or figure, which is
+  also why `daily_scores.flagged` stays a boolean. Tests pin the wording and ban
+  the "won't count" claim.
+- **All five Edge Functions redeploy together**, because the planner is shared.

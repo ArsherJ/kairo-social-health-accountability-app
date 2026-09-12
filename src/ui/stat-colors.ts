@@ -32,10 +32,7 @@ import { colors, ramp } from '../theme.ts';
  * in `StatIcon.tsx` and was therefore unreachable from a test: that file
  * reaches `@expo/vector-icons` and so React Native's Flow syntax, which root
  * Vitest cannot parse. That is the same move `stat-names.ts` made out of the
- * same file, and the same one `avatar-tint.ts` made out of `Avatar.tsx` — where
- * a fill table with no reachable ink turned out to have no ink rule, and had
- * been setting cream on a bright fill for as long as the component existed.
- * `StatIcon.tsx` re-exports this, so no call site moved.
+ * same file. `StatIcon.tsx` re-exports this, so no call site moved.
  */
 export const STAT_COLORS = {
   AGI: colors.accent,

@@ -42,8 +42,7 @@
  * Vitest cannot load a component file at all, so a literal there means a
  * literal hand-copied into the test beside it. Grow the bird and the head goes
  * back under the rail with the guard still green. That is the `stat-names.ts`
- * and `avatar-tint.ts` move again: a constant a test cannot reach is a constant
- * with no rule on it.
+ * move again: a constant a test cannot reach is a constant with no rule on it.
  */
 export const SKY_FIGURE = 44;
 export const SKY_SELF_FIGURE = 60;

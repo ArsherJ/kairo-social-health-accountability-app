@@ -12,8 +12,7 @@ import { LockedSlot } from '../squad/LockedSlot.tsx';
 import { PERCH_COPY } from '../squad/perch-copy.ts';
 import { whackAnnouncement, whackRowMark } from '../whack/whack-copy.ts';
 import { Button, Panel, Screen, SegmentedControl, Text, useTheme } from '../../ui/index.ts';
-import { font, radius } from '../../theme.ts';
-import { tw } from '../../ui/tailwind.ts';
+import { font, radius, space } from '../../theme.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
 import { previewMembers, type PreviewFixture } from './preview-data.ts';
 import { PreviewStateNotice } from './PreviewStateNotice.tsx';
@@ -63,7 +62,7 @@ export function FlockPreviewScreen(
               whackedIds={mode === 'current' && sentTo ? [sentTo] : []}
             />
             {inviting ? (
-              <View style={tw`px-lg`}>
+              <View style={{ paddingHorizontal: space.lg }}>
                 <Panel>
                   <Text
                     accessibilityRole='header'
@@ -71,7 +70,7 @@ export function FlockPreviewScreen(
                   >
                     {copy.inviteTitle}
                   </Text>
-                  <Text style={tw.style('py-md', font.body.body, { color: colors.subtle })}>
+                  <Text style={[{ paddingVertical: space.md }, font.body.body, { color: colors.subtle }]}>
                     {copy.inviteBody}
                   </Text>
                   <Button
@@ -82,13 +81,13 @@ export function FlockPreviewScreen(
                 </Panel>
               </View>
             ) : null}
-            <View style={tw`px-lg`}>
-              <View style={tw`mt-sm`}>
+            <View style={{ paddingHorizontal: space.lg }}>
+              <View style={{ marginTop: space.sm }}>
                 <SegmentedControl
-                  options={[{ value: 'current', label: PERCH_COPY.today }, {
-                    value: 'completed',
-                    label: PERCH_COPY.yesterday,
-                  }]}
+                  options={[
+                    { value: 'current', label: PERCH_COPY.today },
+                    { value: 'completed', label: PERCH_COPY.yesterday },
+                  ]}
                   value={mode}
                   onChange={setMode}
                   accessibilityLabel='Which day the board ranks'
@@ -96,11 +95,14 @@ export function FlockPreviewScreen(
               </View>
               {walk ? (
                 <View
-                  style={tw.style('mt-sm p-md gap-sm', {
+                  style={{
+                    marginTop: space.sm,
+                    padding: space.md,
+                    gap: space.sm,
                     borderRadius: radius.lg,
                     borderCurve: 'continuous',
                     backgroundColor: ramp.sage[100],
-                  })}
+                  }}
                 >
                   <Text style={{ ...font.body.strong, color: colors.subtle }}>{walk.label}</Text>
                   <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast.ts';
-import { AVATAR_TINTS, SELF_AVATAR_TINT } from './avatar-tint.ts';
 import { STAT_COLORS } from './stat-colors.ts';
 import { colors, dark, ramp } from '../theme.ts';
 
@@ -232,8 +231,7 @@ describe('a bright fill takes ink, never cream', () => {
  * `STAT_COLORS` moved out of `StatIcon.tsx` on 2026-09-07.
  *
  * That file reaches `@expo/vector-icons`, so root Vitest could not load it and
- * these three values had no assertion of any kind — exactly the state the
- * avatar tints below were in while they lived in `Avatar.tsx`.
+ * these three values had no assertion of any kind.
  *
  * **What is asserted here is separation, not contrast, and that is deliberate.**
  * Measured on the cream ground these are 1.75:1, 1.84:1 and 2.68:1. They sit
@@ -275,37 +273,6 @@ describe('the stat hues stay apart, and stay off words', () => {
     // The claim the table's own doc makes. The matching ink roles carry words;
     // these decorative family fills do not.
     expect(contrastRatio(hue, colors.bg)).toBeLessThan(AA_BODY * 1.01);
-  });
-});
-
-/**
- * The avatar tints, which are the same rule applied by a table.
- *
- * This block is here because the self tint once set **cream on
- * `colors.accent`**, the exact pairing the `brightFills` block above asserts
- * must fail. It survived every pass of that block because the table lived in
- * `Avatar.tsx` where root Vitest cannot reach it. Moving it to
- * `avatar-tint.ts` is what makes these five rows assertable at all.
- *
- * Each row is checked against **its own** ground rather than against a shared
- * one: that is the whole shape of a tint table, and a row whose ink drifts from
- * its ground is invisible in every other test.
- */
-describe('every avatar tint carries its own initial', () => {
-  it.each([...AVATAR_TINTS, SELF_AVATAR_TINT].map((t, i) => [i, t] as const))(
-    'tint %i',
-    (_i, tint) => {
-      // Body threshold, not large: the initial is `size * 0.38`, so a 44pt disc
-      // sets it at ~17pt and the smaller call sites go lower.
-      expect(contrastRatio(tint.ink, tint.bg)).toBeGreaterThanOrEqual(AA_BODY);
-    },
-  );
-
-  it('the self tint uses the shared ink even though accent 900 also reads now', () => {
-    expect(SELF_AVATAR_TINT.bg).toBe(colors.accent);
-    expect(SELF_AVATAR_TINT.ink).toBe(colors.ink);
-    expect(contrastRatio(ramp.accent[900], colors.accent)).toBeGreaterThanOrEqual(AA_BODY);
-    expect(contrastRatio(colors.bg, colors.accent)).toBeLessThan(AA_BODY);
   });
 });
 

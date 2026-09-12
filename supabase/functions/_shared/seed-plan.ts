@@ -1,14 +1,16 @@
 /**
  * Pure decisions for seed-health, the development-only data generator.
  *
- * No imports, no I/O, no clock reads — so it runs under plain Node in the same
- * suite as the other planners. The randomness lives here rather than in
+ * No I/O, no clock reads — so it runs under plain Node in the same suite as
+ * the other planners. The randomness lives here rather than in
  * `@kairo/core`, which stays deterministic by design.
  *
  * Nothing here fabricates a score. It produces hourly buckets; the real
  * scoring engine turns those into a total, which is what makes a seeded
  * leaderboard worth looking at.
  */
+
+import { fnv1a } from '../../../packages/kairo-core/src/hash.ts';
 
 export type Persona = 'sedentary' | 'average' | 'active' | 'athlete';
 
@@ -72,14 +74,7 @@ export function makeRng(seed: number): () => number {
 
 /** FNV-1a over the parts, so a user-day always seeds the same way. */
 export function hashSeed(...parts: string[]): number {
-  let hash = 2166136261;
-  for (const part of parts) {
-    for (let i = 0; i < part.length; i++) {
-      hash ^= part.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-  }
-  return hash >>> 0;
+  return fnv1a(parts.join(''));
 }
 
 export function generateDay(persona: Persona, seed: number): SeedBucket[] {

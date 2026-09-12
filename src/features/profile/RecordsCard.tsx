@@ -4,9 +4,8 @@ import { CORE_STATS, type CoreStat } from '@kairo/core';
 import { recordDate, RECORDS_EMPTY, recordValue } from './record-copy.ts';
 import type { StatRecord } from './records.ts';
 import { Button, Panel, STAT_NAMES, StatIcon, Text } from '../../ui/index.ts';
-import { font, radius } from '../../theme.ts';
+import { font, radius, space } from '../../theme.ts';
 import { useTheme } from '../../ui/use-theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { BestDayShareButton } from './BestDayShareButton.tsx';
 import { BEST_DAY_COPY } from './share-copy.ts';
 
@@ -39,7 +38,7 @@ export function RecordsCard({ records, today, isError = false, onRetry }: {
       </Text>
       {isError
         ? (
-          <View style={tw`pt-md`}>
+          <View style={{ paddingTop: space.md }}>
             <Text accessibilityRole='alert' style={{ ...font.body.body, color: colors.damage }}>
               {BEST_DAY_COPY.error}
             </Text>
@@ -51,18 +50,18 @@ export function RecordsCard({ records, today, isError = false, onRetry }: {
           <ActivityIndicator
             accessibilityLabel={BEST_DAY_COPY.loading}
             color={colors.accentDeep}
-            style={tw`py-lg`}
+            style={{ paddingVertical: space.lg }}
           />
         )
         : ordered.length === 0
         ? (
-          <Text style={tw.style('pt-md', font.body.body, { color: colors.subtle })}>
+          <Text style={[{ paddingTop: space.md }, font.body.body, { color: colors.subtle }]}>
             {RECORDS_EMPTY}
           </Text>
         )
         : (
           <>
-            <View style={tw`gap-sm pt-lg`}>
+            <View style={{ gap: space.sm, paddingTop: space.lg }}>
               {ordered.map((record) => {
                 const active = selected?.stat === record.stat;
                 const value = recordValue(record.stat, record.value);
@@ -77,8 +76,8 @@ export function RecordsCard({ records, today, isError = false, onRetry }: {
                     } best day, ${value}, ${when}. Select to share.`}
                     accessibilityState={{ selected: active }}
                     onPress={() => setSelectedStat(record.stat)}
-                    style={({ pressed }) =>
-                      tw.style('p-md', {
+                    style={({ pressed }) => ({
+                        padding: space.md,
                         minHeight: 80,
                         borderRadius: radius.lg,
                         borderCurve: 'continuous',
@@ -88,10 +87,10 @@ export function RecordsCard({ records, today, isError = false, onRetry }: {
                         opacity: pressed ? 0.7 : 1,
                       })}
                   >
-                    <View {...hidden} style={tw`flex-row items-center gap-md`}>
+                    <View {...hidden} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
                       <StatIcon stat={record.stat} size={25} color={colors.accentDeep} />
-                      <View style={tw`flex-1 gap-xs`}>
-                        <View style={tw`flex-row flex-wrap justify-between gap-xs`}>
+                      <View style={{ flex: 1, gap: space.xs }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: space.xs }}>
                           <Text scale='chrome' style={{ ...font.body.label, color: colors.subtle }}>
                             {STAT_NAMES[record.stat]}
                           </Text>

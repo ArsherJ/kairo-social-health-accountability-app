@@ -23,7 +23,6 @@ import { YouPreviewScreen } from './YouPreviewScreen.tsx';
 import { setNavHidden, Text } from '../../ui/index.ts';
 import { TabBar } from '../../ui/TabBar.tsx';
 import { ThemeScope } from '../../ui/use-theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { colors, font, radius, space, themes } from '../../theme.ts';
 import {
   PREVIEW_COPY as copy,
@@ -58,7 +57,7 @@ export function MobilePreview() {
   });
   if (!loaded && !error) {
     return (
-      <View style={tw`flex-1 items-center justify-center bg-bg`}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator color={colors.accentDeep} />
       </View>
     );
@@ -91,19 +90,24 @@ function PreviewCanvas() {
   return (
     <ThemeScope scheme={dark ? 'dark' : 'light'}>
       <View
-        style={tw.style('flex-1 items-center', {
+        style={{
+          flex: 1,
+          alignItems: 'center',
           backgroundColor: dark ? colors.night : ramp.neutral[200],
-        })}
+        }}
       >
         <StatusBar style={dark ? 'light' : 'dark'} />
         <View
-          style={tw.style('w-full flex-1', { maxWidth: 460, backgroundColor: colors.bg })}
+          style={{ width: '100%', flex: 1, maxWidth: 460, backgroundColor: colors.bg }}
         >
           <View
-            style={tw.style('px-md pb-sm gap-xs', {
+            style={{
+              paddingHorizontal: space.md,
+              paddingBottom: space.sm,
+              gap: space.xs,
               paddingTop: insets.top + space.sm,
               backgroundColor: colors.surface,
-            })}
+            }}
           >
             <Text scale='chrome' style={{ ...font.display.small, color: colors.text }}>
               {copy.title}
@@ -111,7 +115,7 @@ function PreviewCanvas() {
             <Text scale='chrome' style={{ ...font.body.quiet, color: colors.subtle }}>
               {copy.sample}
             </Text>
-            <View style={tw`flex-row flex-wrap gap-sm`}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
               {[
                 {
                   label: dark ? copy.dark : copy.light,
@@ -139,8 +143,10 @@ function PreviewCanvas() {
                   accessibilityRole='button'
                   accessibilityState={{ selected: control.selected }}
                   onPress={control.onPress}
-                  style={({ pressed }) =>
-                    tw.style('px-md items-center justify-center', {
+                  style={({ pressed }) => ({
+                      paddingHorizontal: space.md,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       minWidth: 44,
                       minHeight: 44,
                       borderRadius: radius.pill,
@@ -165,7 +171,7 @@ function PreviewCanvas() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={tw`gap-sm`}
+                contentContainerStyle={{ gap: space.sm }}
               >
                 {(['ready', 'loading', 'empty', 'withheld', 'error'] as const).map((value) => (
                   <Pressable
@@ -173,12 +179,14 @@ function PreviewCanvas() {
                     accessibilityRole='button'
                     accessibilityState={{ selected: state === value }}
                     onPress={() => setState(value)}
-                    style={tw.style('px-md justify-center', {
+                    style={{
+                      paddingHorizontal: space.md,
+                      justifyContent: 'center',
                       minHeight: 44,
                       borderRadius: radius.pill,
                       borderCurve: 'continuous',
                       backgroundColor: state === value ? colors.teal : colors.bg,
-                    })}
+                    }}
                   >
                     <Text
                       scale='chrome'
@@ -197,7 +205,7 @@ function PreviewCanvas() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={tw`gap-sm`}
+                contentContainerStyle={{ gap: space.sm }}
               >
                 {PREVIEW_FIXTURES.map((value) => (
                   <Pressable
@@ -205,12 +213,14 @@ function PreviewCanvas() {
                     accessibilityRole='button'
                     accessibilityState={{ selected: fixture === value.id }}
                     onPress={() => setFixture(value.id)}
-                    style={tw.style('px-md justify-center', {
+                    style={{
+                      paddingHorizontal: space.md,
+                      justifyContent: 'center',
                       minHeight: 44,
                       borderRadius: radius.pill,
                       borderCurve: 'continuous',
                       backgroundColor: fixture === value.id ? ramp.teal[200] : colors.bg,
-                    })}
+                    }}
                   >
                     <Text scale='chrome' style={{ ...font.body.strong, color: colors.text }}>
                       {value.label}
@@ -221,7 +231,7 @@ function PreviewCanvas() {
             )}
           </View>
           <SafeAreaInsetsContext.Provider value={{ ...insets, top: 0 }}>
-            <View style={tw`flex-1`}>
+            <View style={{ flex: 1 }}>
               {onboarding
                 ? (
                   <OnboardingPreviewScreen

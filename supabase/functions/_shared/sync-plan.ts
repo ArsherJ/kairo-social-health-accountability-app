@@ -29,9 +29,9 @@ export interface IncomingBucket {
   elevatedHeartRate?: boolean;
   /**
    * Hourly average bpm. **Null or absent means not measured, never resting** —
-   * `computeStrain()` skips a null hour rather than crediting it as rest, so a
-   * watch left on the charger does not read as an afternoon of recovery.
-   * Display only: nothing here reaches `daily_scores`.
+   * a watch left on the charger must not read as an afternoon of recovery.
+   * Nothing here reaches `daily_scores`; it is the heart-rate half of the
+   * verified-strength evidence.
    */
   avgHeartRate?: number | null;
 }

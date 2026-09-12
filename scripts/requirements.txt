@@ -1,7 +1,3 @@
-# Dependencies for scripts/generate_swap_assets.py and generate_hunter_variants.py
-python-dotenv
-openai
+# Dependencies for scripts/generate_crest_masks.py
 pillow==11.3.0
-
-# Dependencies for scripts/prep_assets.py and prep_hunter_art.py
 numpy

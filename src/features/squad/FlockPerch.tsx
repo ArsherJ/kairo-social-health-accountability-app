@@ -4,7 +4,6 @@ import { evolutionStageForLevel } from '@kairo/core';
 import { CharacterFigure } from '../character/CharacterFigure.tsx';
 import { font, radius, space } from '../../theme.ts';
 import { Text, useTheme } from '../../ui/index.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { birdLabel, PERCH_COPY } from './perch-copy.ts';
 
 export interface PerchMember {
@@ -44,8 +43,8 @@ export function FlockPerch(
   const { colors, ramp, earnedColor } = useTheme();
   const ink = colors.text;
   return (
-    <View style={tw.style('overflow-hidden pb-md', { paddingTop: topInset + space.md })}>
-      <View style={tw`px-lg gap-xs`}>
+    <View style={{ overflow: 'hidden', paddingBottom: space.md, paddingTop: topInset + space.md }}>
+      <View style={{ paddingHorizontal: space.lg, gap: space.xs }}>
         <Text
           scale='chrome'
           style={{ ...font.body.label, color: colors.subtle }}
@@ -62,7 +61,7 @@ export function FlockPerch(
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={tw`px-lg pt-md pb-sm gap-sm items-end`}
+        contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm, gap: space.sm, alignItems: 'flex-end' }}
       >
         {members.map((member) => (
           <Pressable
@@ -74,8 +73,11 @@ export function FlockPerch(
               whacked: whackedIds.includes(member.user_id),
             })}
             onPress={() => onBirdPress(member)}
-            style={({ pressed }) =>
-              tw.style('items-center justify-end px-sm pb-md', {
+            style={({ pressed }) => ({
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingHorizontal: space.sm,
+                paddingBottom: space.md,
                 minWidth: 96,
                 minHeight: 152,
                 borderRadius: radius.lg,
@@ -84,8 +86,8 @@ export function FlockPerch(
                 opacity: pressed ? 0.65 : 1,
               })}
           >
-            <View {...hidden} style={tw`items-center`}>
-              <View style={tw`h-6 items-center justify-center`}>
+            <View {...hidden} style={{ alignItems: 'center' }}>
+              <View style={{ height: 24, alignItems: 'center', justifyContent: 'center' }}>
                 {members.length > 1 && member.user_id === leaderId && (
                   <MaterialCommunityIcons name='crown' size={23} color={earnedColor} />
                 )}
@@ -103,7 +105,7 @@ export function FlockPerch(
                   MND: member.ratings.MND ?? 0,
                 }}
               />
-              <View style={tw`flex-row items-center gap-xs`}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
                 <Text
                   scale='chrome'
                   style={{
@@ -142,8 +144,11 @@ export function FlockPerch(
             accessibilityRole='button'
             accessibilityLabel={PERCH_COPY.inviteLabel}
             onPress={onInvite}
-            style={({ pressed }) =>
-              tw.style('items-center justify-center gap-sm mb-md', {
+            style={({ pressed }) => ({
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: space.sm,
+                marginBottom: space.md,
                 minWidth: 80,
                 minHeight: 132,
                 opacity: pressed ? 0.65 : 1,
@@ -151,11 +156,15 @@ export function FlockPerch(
           >
             <View
               {...hidden}
-              style={tw.style('w-14 h-14 items-center justify-center', {
+              style={{
+                width: 56,
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: colors.surface,
                 borderRadius: radius.pill,
                 borderCurve: 'continuous',
-              })}
+              }}
             >
               <MaterialCommunityIcons
                 name='plus'
@@ -175,12 +184,13 @@ export function FlockPerch(
       </ScrollView>
       <View
         {...hidden}
-        style={tw.style('mx-lg', {
+        style={{
+          marginHorizontal: space.lg,
           height: 3,
           borderRadius: radius.pill,
           borderCurve: 'continuous',
           backgroundColor: ramp.neutral[300],
-        })}
+        }}
       />
     </View>
   );

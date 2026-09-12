@@ -313,7 +313,8 @@ The character tab and the old Today tab merged here on 2026-08-27 (deviation #50
   board row draws the bird where the initial disc used to
   be. **Nobody keeps the disc any more** — `displaySpecies(null)` is an eagle,
   so the `Avatar` fallback for accounts predating the choice is gone from all
-  six render boundaries, along with `CharacterFigure`'s View primitives.
+  six render boundaries, along with `CharacterFigure`'s View primitives (and
+  `Avatar.tsx` itself was deleted on 2026-09-12, deviation #74).
 
 - *(Superseded 2026-09-11 by deviation #73 — the plush eagle v3 pack has one body at every level, so what follows describes the stage's **size** response, which is unchanged, and per-stage **artwork**, which is gone.)* **The body itself follows the growth stage as of 2026-09-07** (issue #30) — a
   fourth response, and the first that changes the picture rather than the

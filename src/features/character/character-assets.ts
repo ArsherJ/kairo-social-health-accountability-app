@@ -8,7 +8,7 @@ import type { KairoPose, SleepState } from './character-contract';
  * **Written out as literal `require`s, and it has to stay that way.** Metro
  * resolves `require` statically, so `require(`...${pose}...`)` is not a path it
  * can follow — a computed path is a runtime miss on device, not a bundling
- * error, which is the same trap `species-art.ts` records. The `Record<…>` types
+ * error. The `Record<…>` types
  * are the other half: a missing cell fails `tsc`, and a cell naming a file that
  * is not there fails the bundle. Neither can render blank.
  *

@@ -1,8 +1,7 @@
 import { ActivityIndicator, View } from 'react-native';
 import { Button, Panel, Text } from '../../ui/index.ts';
-import { font } from '../../theme.ts';
+import { font, space } from '../../theme.ts';
 import { useTheme } from '../../ui/use-theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
 
 export function PreviewStateNotice(
@@ -10,13 +9,13 @@ export function PreviewStateNotice(
 ) {
   const { colors } = useTheme();
   return (
-    <View style={tw`px-lg py-lg`}>
+    <View style={{ paddingHorizontal: space.lg, paddingVertical: space.lg }}>
       {state === 'loading'
         ? (
           <ActivityIndicator
             accessibilityLabel={copy.waiting}
             color={colors.accentDeep}
-            style={tw`py-lg`}
+            style={{ paddingVertical: space.lg }}
           />
         )
         : (

@@ -316,3 +316,149 @@ changed, not three. Three things break easily:
   stat it weights in the current vocabulary — hence "Body counts for more". A
   member of a Strength squad therefore reads "Body counts for more", which is
   correct and briefly confusing; that trade was taken knowingly.
+
+
+## The rules, in full (moved from `CLAUDE.md` 2026-09-12)
+
+**Kairo scores three stats, and the ladder is not a lookup.** Deviations #41
+(three stats, 2026-08-20), the 2026-08-29 Body/Motion/Mind pass, #51 (surface
+names, 2026-08-25) and #68 (a rested night, 2026-09-08). The full accounts —
+what each pass moved, what it retired, the double-counts it would reintroduce,
+and the ADR-0001 replay licence it spent — are `docs/engineering/scoring.md`,
+with the design at
+`docs/superpowers/specs/2026-08-29-body-motion-mind-design.md` and the
+vocabulary in `CONTEXT.md`. **Read that doc before changing a threshold, a
+shift, a point curve or a stat's surface copy.** The rules:
+
+- **`CoreStat` is `'AGI' | 'STR' | 'MND'`** — steps, active calories, sleep.
+  END folded into STR and VIT into AGI as **threshold shifts**, never point
+  multipliers (a stored multiplier stacks with the squad program's read-time
+  weight — deviation #10's trap). A day's stat points scale by
+  `3 / earnable stats`, so both ceilings are 4,400 and a wearable buys a third
+  route to the same ceiling rather than a higher one.
+- **The surface names are Body (`STR`) · Motion (`AGI`) · Mind (`MND`)**, and
+  the engine keys never change — deviation #23's move in a second place.
+  `src/ui/stat-names.ts` is the single source, zero-runtime-import so root
+  Vitest can hold it, re-exported by `StatIcon.tsx`; `dominanceName()` replaced
+  `DOMINANCE_LABELS` and a parallel table of stat words anywhere is stale by
+  construction. A test scans `src` and `app` for the word **Agility**.
+  "Strength" is deliberately not guarded: `squads.program` and `ChallengeArea`
+  name a game, not a stat — a Strength squad's blurb still reads "Body counts
+  for more", which is correct and briefly confusing, and that trade was taken
+  knowingly. **Do not import `@/ui/index.ts` from a module root Vitest tests.**
+- **The Daily Walk reads `tiers->>'AGI_base'`, never `tiers->>'AGI'`.** AGI's
+  spread shift lowers its whole ladder, so the stored shifted tier would make a
+  public-health baseline scale with the user. `sync-plan.ts` writes both keys;
+  `train/queries.ts` falls back to `AGI` for rows written before the switch.
+- **Prove any shift through `computeDailyScore`, never through `tierFor`.**
+  `tierFor` *is* `shiftedTierFor(stat, raw, 0)`, the one path where a shift is
+  absent by definition — a guard written there passes however wrong the scored
+  day becomes, which is how the `AGI`/`AGI_base` divergence got through review
+  once.
+- **`planDay` requires `earnableStats` and `verifiedStrengthMinutes`, and
+  neither is defaulted.** Both its callers are write paths, so a default is
+  every stored row scoring at factor 1.0 with nothing to notice.
+  `scoring-inputs.ts` derives them against **the date being scored**, never
+  wall-clock today.
+- **The board re-sums the per-stat columns; it does not read `total`.** That is
+  what lets `squad_leaderboard()` apply the program weights at read time
+  (deviation #11), and it means a stat is competitively invisible until it is in
+  `program_weighted_total` **and** `squad_leaderboard` **and**
+  `weightedBoardTotal`. Changing that function's signature is a **drop by exact
+  argument list**, never `create or replace`.
+- **One signal, one mechanism, and the retired `workoutShift` is why.**
+  Verified strength minutes raise Body's **raw value**
+  (`STRENGTH_MINUTE_KCAL_CREDIT`, 4 kcal/minute) and must never touch its bands;
+  a rested night (`restedShift` in `packages/kairo-core/src/shifts.ts`, routed
+  to `STR` by `statShifts`) lowers Body's **bands** and must never touch its raw
+  value, nor Mind's own bands. Route either through the other's mechanism and
+  the double-count returns exactly as it was. `statShifts`' `sleepMinutes` is
+  **required** — a default makes "no wearable" and "caller forgot" the same
+  silent answer — and the value is already trust-gated, so a phone-only account
+  takes a zero shift and meets no sentence. Sleep shifts Body and **never
+  Motion**, whose shift already caps at eight active hours.
+  `verifiedStrengthMinutesFrom` filters on `activity_type`, which had to be
+  added to `WORKOUT_SESSION_COLUMNS` — without it every row reads `undefined`
+  and Body credits nothing, forever, with no error.
+- **`statPointsFor` interpolates between the tier anchors.** 250 / 650 / 1,200
+  still land exactly on the bands, so the 4,400 ceiling, `tierFor`, the Daily
+  Walk streak and `AGI_base` are unmoved. **Below Bronze is still zero** and
+  that is load-bearing: interpolating from the origin would let fifty steps
+  score points, count as a scored day and keep a streak alive.
+- **Mind tapers to Silver rather than falling to Bronze** — Gold holds to
+  `MIND_OVERSLEEP_HOURS` (9), declines to the Silver anchor by
+  `MIND_TAPER_END_HOURS` (10.5), floors there. HealthKit sleep is noisy, and a
+  cliff punishes measurement error as behaviour. `mindTierFor` derives its tier
+  from `mindPoints`, never a second threshold table. `TIER_POINTS` lives in
+  `tier-points.ts` and is **imported by both** `mind.ts` and `scoring.ts` —
+  threading it through as an argument broke an out-of-package caller at runtime.
+  `topBandFor(stat, shift)` is the only way a threshold leaves the engine.
+- **`profiles.has_sleep_source` is the single stored answer to "can this account
+  earn Mind?"**, read by both quest paths (`pickQuests` takes `hasSleep`), absent
+  from `profiles`' column-level UPDATE grant, and **flips both ways** — unlike
+  sticky `has_wearable`. `sync-health` writes it for the **latest** date in the
+  payload; `smoke-sync.mjs` asserts it.
+- **`stat_records()` is derived on every read and takes no argument.** Best day
+  per stat in raw units. Body's record is active calories **without** the
+  strength credit, which is also what keeps the function clear of
+  `workout_sessions`; Mind reads `was_user_entered is not true`; a stat with no
+  qualifying day returns **no row**, never a zero. A flagged day is skipped
+  (see the anti-cheat rules above).
+- **The surfaces use one sentence form — observation, em dash, consequence** —
+  in `spreadLine`, `statDetailLine`, `ceilingLine` and `restedLine`. `spreadLine`
+  and `restedLine` report the **discount**, never the moved figure, and
+  `spreadLine` may say neither "ridge" nor a target, because both name flat
+  figures already on screen. `statDetailLine` never prints `StatDetail.points`.
+  The crest changes **the sky, never the bird**, and is always paired with
+  `ceilingLine`. Engine-key guards are case-sensitive and word-bounded
+  (`/\b(AGI|STR|MND)\b/`) — a loose `/agi/i` matches "Dagit". `/progress` is the
+  only screen that explains the model, so a stale entry there is worse than
+  none. **"Ability rating" is "mastery" everywhere**, comments included.
+  `stat-detail.ts`'s deleted `unquantified` state must not come back: Body's
+  shift is measurable now, and those 137 lines existed for one that was not.
+- **A scoring change that moves stored history redeploys all five Edge
+  Functions and runs `replay-scores` in the same deploy**, under ADR-0001's
+  2026-09-06 amendment (`REPLAY_SECRET` minted for the pass and unset after).
+  Past roughly fifty accounts or sixty days the original rule returns: a
+  migration that rescores, or it does not ship. **A replay skipped at the time
+  is a silent divergence the next replay pays for in one lump** — #68's pass
+  moved ten days and only three were its own.
+
+**Solo mode gained a floor and a curve on 2026-08-15** (deviations #31–#33).
+Three things that are easy to break by accident:
+
+- **`DAILY_STEP_BASELINE` is derived from `THRESHOLDS.AGI.gold`, never written
+  as a literal** — and `scoring.test.ts` *also* pins it at 10,000. Both halves
+  matter and they guard opposite failures. The derivation stops a raised Gold
+  leaving a second number describing the old one; it is what lets the walk
+  streak read a tier out of `daily_scores`, which stores tiers and never raw
+  steps — **`tiers->>'AGI_base'`, not `tiers->>'AGI'`**, since the three-stat
+  switch, for the reason in the block above. The literal in the test stops the
+  derivation being *too*
+  obedient: the Daily Walk baseline is a public-health number that must never
+  scale with the user, so a raised Gold silently dragging it upward would be
+  exactly as wrong as it going stale. Raise Gold and the test fails, and a human
+  decides.
+- **A Challenge is derived, never stored.** `resolveChallenge()` is a pure
+  function of qualifying sessions **strictly before** the day being judged, and
+  "strictly before" is load-bearing twice: the session being judged cannot move
+  its own bar, and nothing stateful exists for a retroactive Apple revision to
+  invalidate — the read-time projection property Event progress already has.
+  Only the *completion* is stored, with the target snapshotted, because the
+  trailing median can no longer answer "what did I clear in March". Do not add
+  a stored level counter; clearing already makes the next one harder, because
+  the median moved.
+- **`workout_sessions` is owner-readable only and appears in no projection.** A
+  pace carries fitness, and with distance it carries routine — at least as
+  identifying as the hourly movement §5 protects. A schema test asserts no
+  `public` function's body mentions the table; keep it that way. Apple's
+  `HKWorkoutActivityType` **raw number** is stored untranslated, and which
+  numbers mean something is decided in `challenge.ts`. `kairo-core` cannot
+  import the HealthKit library and neither can a test (Flow syntax root Vitest
+  cannot parse), so the guard is a **compile-time** assertion in
+  `src/features/health/activity-types.ts` — proposing a runtime one is the
+  obvious mistake. Related: `queryWorkoutSamples` takes **no unit parameter**,
+  unlike every other read in `read.ts`, so `workout-units.ts` converts from the
+  unit each `Quantity` reports and yields null for an unrecognised one, which
+  becomes 0 and makes the session non-qualifying. Inert beats wrong — a 5-mile
+  run stored as 5,000 metres would quietly corrupt every pace after it.

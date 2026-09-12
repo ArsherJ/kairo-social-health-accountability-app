@@ -9,7 +9,6 @@ import { ClearedCalendar } from '../profile/ClearedCalendar.tsx';
 import { ProfileHeader } from '../profile/ProfileHeader.tsx';
 import { Button, Panel, Screen, Text, useTheme } from '../../ui/index.ts';
 import { font, space } from '../../theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, type PreviewState } from './preview-copy.ts';
 import {
   PREVIEW_POINTS,
@@ -52,7 +51,7 @@ export function YouPreviewScreen(
               lifetimePoints={PREVIEW_POINTS}
               onSettings={() => setControlsOpen((open) => !open)}
             />
-            <View style={tw`px-lg pb-lg`}>
+            <View style={{ paddingHorizontal: space.lg, paddingBottom: space.lg }}>
               {controlsOpen ? (
                 <Panel>
                   <Text accessibilityRole='header' style={{ ...font.display.small, color: ink }}>

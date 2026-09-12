@@ -34,3 +34,6 @@ supabase/.branches/
 expo-env.d.ts
 # @end expo-cli
 .superpowers/
+
+# graphify tool cache — regenerated on demand, never committed
+graphify-out/

@@ -218,7 +218,6 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-secure-store',
-    './plugins/withIosBuildWarningFixes',
     // Load-bearing, not an optimisation choice. Meta's prebuilt React
     // xcframework is compiled against libc++ 19 while CocoaPods builds Expo's
     // pods against the installed Xcode's libc++ 21, and the two disagree on
@@ -278,11 +277,6 @@ const config: ExpoConfig = {
       'expo-notifications',
       { mode: 'production' },
     ],
-    // The native date picker behind the goal form's "Custom" end date. Config
-    // plugin rather than autolinking alone: it is what pins the compile SDK on
-    // Android, which V1.5 will need. Adding it means `npm run prebuild` before
-    // the next `npm run ios`.
-    '@react-native-community/datetimepicker',
   ],
 
   experiments: {

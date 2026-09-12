@@ -24,15 +24,13 @@
  * changes no score, no rank and no quest, and a prompt implying otherwise sold
  * a benefit the app cannot deliver.
  *
- * **`birth_year` has no live reader either, and the note therefore names
- * none.** Its one consumer is `maxHeartRateForAge()`, behind the display-only
- * Strain figure (deviation #24) — and `TodayPanel`, the only surface that ever
- * rendered Strain, was unmounted by deviation #59 on 2026-09-01. The ticket
- * behind this copy asked it to name Strain; that instruction was written three
- * days after the surface stopped existing, and naming a screen the player
- * cannot reach would be the same class of false claim as the one being fixed.
- * All three fields are inert today. If Strain returns to a screen,
- * `body-metrics.test.ts` is the reminder that the note may name it again.
+ * **`birth_year` has no reader at all, and the note therefore names none.**
+ * Its one consumer was the display-only Strain figure (deviation #24), whose
+ * surface was unmounted by deviation #59 and whose code was deleted on
+ * 2026-09-12. Naming a screen the player cannot reach would be the same class
+ * of false claim as the one being fixed. All three fields are inert today. If
+ * Strain returns, `body-metrics.test.ts` is the reminder that the note may
+ * name it again.
  *
  * Here rather than in the component because root Vitest cannot load a `.tsx`,
  * and a claim the app makes about its own scoring is exactly the sort that

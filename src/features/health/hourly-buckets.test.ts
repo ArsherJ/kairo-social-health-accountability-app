@@ -45,8 +45,8 @@ describe('toBuckets — shape', () => {
       activeMinutes: 0,
       hadWorkout: false,
       elevatedHeartRate: false,
-      // Null, not 0. An hour with no reading is unmeasured, and computeStrain()
-      // skips it — a zero would be an hour recorded as below resting.
+      // Null, not 0. An hour with no reading is unmeasured — a zero would be
+      // an hour recorded as below resting.
       avgHeartRate: null,
     });
     expect(buckets.at(-1)?.hour).toBe(23);

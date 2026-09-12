@@ -6,8 +6,6 @@ import {
   type CoreStat,
   type Dominance,
 } from '@kairo/core';
-import { DEMO_SCORE } from '@/features/demo/fixtures.ts';
-import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import { supabase } from '@/lib/supabase.ts';
 
 export type TodayScore = {
@@ -46,11 +44,10 @@ export function todayScoreKey(
  */
 export function useTodayScore(userId: string | undefined, timeZone: string | undefined) {
   const localDate = timeZone ? currentLocalDate(new Date(), timeZone) : undefined;
-  const demo = useDemoOn();
 
-  const query = useQuery({
+  return useQuery({
     queryKey: todayScoreKey(userId, localDate),
-    enabled: !demo && Boolean(userId && localDate),
+    enabled: Boolean(userId && localDate),
     queryFn: async (): Promise<TodayScore | null> => {
       const { data, error } = await supabase
         .from('daily_scores')
@@ -68,8 +65,6 @@ export function useTodayScore(userId: string | undefined, timeZone: string | und
       return (data as TodayScore | null) ?? null;
     },
   });
-
-  return demo ? demoResult<TodayScore | null>(DEMO_SCORE) : query;
 }
 
 /**

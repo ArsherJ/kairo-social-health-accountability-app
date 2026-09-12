@@ -16,7 +16,6 @@ import { displaySpecies, speciesLine } from '@/features/character/species.ts';
 import { GrowthCard } from '@/features/profile/GrowthCard.tsx';
 import { RecordsCard } from '@/features/profile/RecordsCard.tsx';
 import { useStatRecords } from '@/features/profile/records.ts';
-import { DemoToggle } from '@/features/demo/DemoToggle.tsx';
 import { ClearedCalendar } from '@/features/profile/ClearedCalendar.tsx';
 import { ProfileHeader } from '@/features/profile/ProfileHeader.tsx';
 import { StreakCard } from '@/features/profile/StreakCard.tsx';
@@ -299,7 +298,6 @@ export default function ProfileTab() {
               {seedStatus !== null && <Text style={styles.devStatus}>{seedStatus}</Text>}
             </>
           )}
-          <DemoToggle />
         </View>
       )}
     </Screen>

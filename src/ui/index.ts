@@ -4,7 +4,6 @@ export { useChromeStore, setNavHidden } from './chrome.ts';
 export { BackRow } from './BackRow.tsx';
 export { Panel } from './Panel.tsx';
 export { GroundShadow, PresenceRing } from './GroundShadow.tsx';
-export { Avatar } from './Avatar.tsx';
 export { Gradient } from './Gradient.tsx';
 export { Glass, glassInk } from './Glass.tsx';
 export { rampColors, type Stop } from './gradient.ts';

@@ -1,12 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { addDays, currentLocalDate, type GhostDay, type SquadProgram } from '@kairo/core';
-import {
-  DEMO_LEADERBOARD,
-  DEMO_LEADERBOARD_COMPLETED,
-  DEMO_MEMBER_COUNT,
-  DEMO_SQUAD,
-} from '@/features/demo/fixtures.ts';
-import { demoResult, useDemoOn } from '@/features/demo/useDemo.ts';
 import type { SpeciesId } from '@/features/character/species.ts';
 import { supabase } from '@/lib/supabase.ts';
 import { normalizeInviteCode } from './invite-code.ts';
@@ -122,11 +115,9 @@ export const squadKeys = {
  * correct; null means "not in a squad", which is a normal state, not an error.
  */
 export function useMySquad(userId: string | undefined) {
-  const demo = useDemoOn();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: squadKeys.mine(userId),
-    enabled: !demo && Boolean(userId),
+    enabled: Boolean(userId),
     queryFn: async (): Promise<Squad | null> => {
       const { data, error } = await supabase
         .from('squads')
@@ -136,8 +127,6 @@ export function useMySquad(userId: string | undefined) {
       return (data as Squad | null) ?? null;
     },
   });
-
-  return demo ? demoResult<Squad | null>(DEMO_SQUAD) : query;
 }
 
 /**
@@ -160,15 +149,9 @@ export function useMySquad(userId: string | undefined) {
  * rows, so a bare `count` needs no policy change and exposes no identity.
  */
 export function useSquadMemberCount(squadId: string | undefined) {
-  // Overridden along with the board, though the plan did not list it: the
-  // standing hero reads `{kind:'unknown'}` while this is undefined, so a demo
-  // board with a real member count would render three rows under no rank at
-  // all — and `resolveSlots` would derive the empty seats from it too.
-  const demo = useDemoOn();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: squadKeys.members(squadId),
-    enabled: !demo && Boolean(squadId),
+    enabled: Boolean(squadId),
     queryFn: async (): Promise<number> => {
       const { count, error } = await supabase
         .from('squad_members')
@@ -178,19 +161,15 @@ export function useSquadMemberCount(squadId: string | undefined) {
       return count ?? 0;
     },
   });
-
-  return demo ? demoResult<number>(DEMO_MEMBER_COUNT) : query;
 }
 
 export function useSquadLeaderboard(
   squadId: string | undefined,
   mode: LeaderboardMode,
 ) {
-  const demo = useDemoOn();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: squadKeys.board(squadId, mode),
-    enabled: !demo && Boolean(squadId),
+    enabled: Boolean(squadId),
     queryFn: async (): Promise<LeaderboardRow[]> => {
       const { data, error } = await supabase.rpc('squad_leaderboard', {
         p_squad_id: squadId as string,
@@ -201,17 +180,6 @@ export function useSquadLeaderboard(
       return (data ?? []) as LeaderboardRow[];
     },
   });
-
-  // Each mode gets its own day. They used to share one array, which made the
-  // Today/Yesterday toggle a no-op under demo — so the control that proves
-  // `mode` reaches `squad_leaderboard()` could not be checked by hand, which is
-  // the only way UI is checked here.
-  if (demo) {
-    return demoResult<LeaderboardRow[]>(
-      mode === 'completed' ? DEMO_LEADERBOARD_COMPLETED : DEMO_LEADERBOARD,
-    );
-  }
-  return query;
 }
 
 /**

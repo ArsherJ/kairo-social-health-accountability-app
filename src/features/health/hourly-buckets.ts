@@ -46,9 +46,9 @@ export interface SyncBucket {
   /**
    * Hourly average bpm, or null for an hour with no reading.
    *
-   * **Null, never zero.** `computeStrain()` skips a null hour and would count a
-   * zero as an hour spent below resting — a watch on the charger is not an hour
-   * of rest. The column is nullable for the same reason.
+   * **Null, never zero.** A zero would read as an hour spent below resting —
+   * a watch on the charger is not an hour of rest. The column is nullable for
+   * the same reason, and the server's verified-strength evidence reads it.
    */
   avgHeartRate: number | null;
 }

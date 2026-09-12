@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CORE_STATS } from '@kairo/core';
 import { Button, Glass, StatCoin, Text, useReduceMotion, useTheme } from '../../ui/index.ts';
 import { claimModal, releaseModal } from '../../ui/modal-owner.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { font, radius, space } from '../../theme.ts';
 import { KairoThumbnail } from '../character/KairoThumbnail.tsx';
 import { WHACK_COPY } from '../whack/whack-copy.ts';
@@ -66,21 +65,25 @@ export function PerchBirdSheet(
       onRequestClose={onClose}
     >
       <View
-        style={tw.style('flex-1 justify-end items-center px-lg', {
+        style={{
+          flex: 1,
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingHorizontal: space.lg,
           backgroundColor: glass.dark.fill,
           paddingBottom: insets.bottom + space.md,
           paddingTop: insets.top + space.md,
-        })}
+        }}
       >
         <Glass
           tone='light'
           style={{ width: sheetWidth, maxHeight: height - insets.top - insets.bottom - space.xl }}
         >
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }}>
-            <View accessibilityViewIsModal style={tw.style('p-lg gap-md', { width: sheetWidth })}>
-              <View style={tw`flex-row items-center gap-md`}>
+            <View accessibilityViewIsModal style={{ padding: space.lg, gap: space.md, width: sheetWidth }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
                 <KairoThumbnail size={88} pose='idle' lifetimePoints={member.ratings} decorative />
-                <View style={tw`flex-1 gap-xs`}>
+                <View style={{ flex: 1, gap: space.xs }}>
                   <Text accessibilityRole='header' style={{ ...font.display.major, color: ink }}>
                     {member.character_name}
                   </Text>
@@ -92,11 +95,16 @@ export function PerchBirdSheet(
               <View
                 accessible
                 accessibilityLabel={perchStatsLabel(member.ratings)}
-                style={tw.style('flex-row flex-wrap justify-center gap-lg p-md', {
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  gap: space.lg,
+                  padding: space.md,
                   borderRadius: radius.lg,
                   borderCurve: 'continuous',
                   backgroundColor: ramp.sage[100],
-                })}
+                }}
               >
                 {CORE_STATS.map((stat) => (
                   <View

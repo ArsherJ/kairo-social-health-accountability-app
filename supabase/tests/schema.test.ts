@@ -41,10 +41,31 @@ import {
   type HourlyReading,
 } from '../../src/features/health/hourly-buckets.ts';
 import { setupHarness, type Harness } from './harness.ts';
-// The replay dry run's own board query, imported rather than retyped: a copy
-// here would be a second thing to keep in step with the script, which is the
-// drift this test exists to catch.
-import { BOARD_TOTAL_SQL } from '../../scripts/replay-dry-run.mjs';
+
+/**
+ * A positional call of `program_weighted_total`, the shape any ad-hoc board
+ * query (a replay, a dry run, a support script) writes. The retired signature
+ * and the current one BOTH take seven arguments — `p_mind` sits where `p_end`
+ * sat, `p_factor` (numeric) where `p_rec` (integer) sat — and integer→numeric
+ * is an implicit cast, so a call in the old positional order resolves cleanly
+ * and mis-ranks in silence. Executing it is the only thing that catches it.
+ */
+const BOARD_TOTAL_SQL = `
+      select sm.squad_id::text as squad_id, ds.user_id::text as user_id,
+             ds.local_date::text as local_date,
+             public.program_weighted_total(
+               s.program,              -- p_program     text
+               ds.agi_points,          -- p_agi         integer
+               ds.str_points,          -- p_str         integer
+               ds.mind_points,         -- p_mind        integer
+               ds.consistency_points,  -- p_consistency integer
+               0,                      -- p_rec         integer
+               ds.normalization_factor -- p_factor      numeric
+             ) as old_weighted
+      from public.daily_scores ds
+      join public.squad_members sm on sm.user_id = ds.user_id
+      join public.squads s         on s.id = sm.squad_id
+`;
 
 let h: Harness;
 
@@ -120,12 +141,11 @@ describe('XP rollup', () => {
 });
 
 describe('heart rate and strain inputs', () => {
-  // Display only — nothing here reaches `daily_scores`, ranks anybody, or
-  // enters a goal. `computeStrain()` is a read-time projection over these rows.
+  // Nothing here reaches `daily_scores`, ranks anybody, or enters a goal.
 
   it('leaves avg_heart_rate null on an ordinary sync', async () => {
     // A phone-only user has no heart-rate source at all, and null must mean
-    // "not measured" rather than "resting" — computeStrain skips null hours.
+    // "not measured" rather than "resting".
     const user = await h.createUser();
     await h.asService(
       `insert into public.health_buckets (user_id, local_date, hour, steps)
@@ -3348,15 +3368,9 @@ describe('program weights agree with kairo-core', () => {
     ]);
   });
 
-  // The dry run calls this function too, and its call is the one that cannot
-  // be checked by reading. The retired signature and the current one BOTH take
-  // seven arguments — `p_mind` sits where `p_end` sat, `p_factor` (numeric)
-  // where `p_rec` (integer) sat — and integer→numeric is an implicit cast, so
-  // a call left in the old positional order resolves cleanly against the new
-  // function and mis-ranks the cohort with no error anywhere. The overload
-  // assertion above cannot see it: there is only one function, and it is being
-  // called wrongly. Executing the script's literal query is what catches it.
-  it('agrees with weightedBoardTotal when the replay dry run calls it', async () => {
+  // The overload assertion above cannot see a positional slip: there is only
+  // one function, and it is being called wrongly. See `BOARD_TOTAL_SQL`.
+  it('agrees with weightedBoardTotal when called positionally', async () => {
     // **Two squads, on two different programs, because one cannot pin three
     // positions.** A program boosts exactly one stat and leaves the other two
     // at 1.0, so a single running squad is blind to a `p_str` ↔ `p_mind`
@@ -3386,9 +3400,9 @@ describe('program weights agree with kairo-core', () => {
       [runner, lifter],
     );
 
-    // The script's query is deliberately unfiltered — it pulls every member-day
-    // in the project — so this picks its own freshly created users out of
-    // whatever else the suite has seeded rather than pinning a row count.
+    // The query is deliberately unfiltered, so this picks its own freshly
+    // created users out of whatever else the suite has seeded rather than
+    // pinning a row count.
     const rows = await h.asService<{ user_id: string; old_weighted: number }>(
       BOARD_TOTAL_SQL,
     );

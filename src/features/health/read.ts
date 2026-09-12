@@ -501,9 +501,9 @@ export async function readHealthWindow(
     });
 
     // The same number, kept rather than discarded. It used to be reduced to
-    // the boolean above and thrown away; `computeStrain()` needs the magnitude,
-    // and re-querying HealthKit for a value already in hand would be a second
-    // round trip for data this loop is already holding.
+    // the boolean above and thrown away; the server's heart-rate evidence
+    // needs the magnitude, and re-querying HealthKit for a value already in
+    // hand would be a second round trip for data this loop is already holding.
     //
     // Zero means "no reading this hour", which `toBuckets` maps to null — an
     // hour with the watch off is unmeasured, not an hour at rest.

@@ -1,5 +1,7 @@
 # The Battle, and Goals becoming Events — history
 
+
+> **2026-09-12 note.** Several files this text calls "still on disk", "unmounted with their tests" or "kept under `@deprecated`" were deleted by the ponytail audit (roadmap deviation #74): `TodayPanel.tsx`, `strain.ts`, `event.ts`, `Avatar.tsx`/`avatar-tint.ts`, `KairoLab.tsx`, `kairo-lab-contract.ts`, `data/*.json`, `validateCharacterManifests`, `species-art.ts`, `species-label.ts`, the `demo/` feature and `scripts/replay-dry-run.mjs`. The schema they served is untouched. Read those sentences as history.
 Extracted verbatim from `CLAUDE.md` on 2026-09-08 to keep that file inside its
 size limit. Both mechanics are **retired**: read this as history. The rules that
 survive them — the tables that must not be dropped, `closed_at is null`,
@@ -109,3 +111,39 @@ easily:
   `notification_log.kind` is free text, historical rows say it, and a push sent
   before the deploy can be tapped after it. A tap that goes nowhere is
   indistinguishable from push being broken.
+
+
+## What is still live (moved from `CLAUDE.md` 2026-09-12)
+
+**The Battle is retired as of 2026-09-06** (deviation #66), and Goals became
+Events before it (deviations #45/#48/#49, 2026-08-25). Both accounts — how a
+Battle worked, what the rename moved, and why the remains are shaped as they
+are — are `docs/archive/battle-and-goals.md`. What is still live:
+
+- **The three tables stay and must not be dropped.** `recalculate_user_xp` sums
+  `event_completions.xp_awarded`, so dropping them silently drops every
+  account's banked Battle XP on the next write to any other XP source, and every
+  level falls with nothing to notice. `packages/kairo-core/src/event.ts` stays
+  whole and tested under `@deprecated` for the same reason, and `EVENT_KINDS` /
+  `EVENT_METRICS` are the values the column CHECKs reference.
+- **`closed_at is null` is not optional on any read** of `challenge_events`; the
+  table still holds pre-pivot rows, which is why the `kind`, `metric`,
+  `events_need_end` and `events_need_squad` checks are all written
+  `check (closed_at is not null or …)`.
+- **`event_progress()` survives and holds the whole old visibility rule**
+  (participant OR member of the event's squad), while the three RLS policies
+  recreated in `20260906130000_retire_the_battle.sql` are narrower —
+  participation for `challenge_events`, owner-only for the children — so the
+  mutual recursion `can_see_event()` existed to break cannot form. They
+  deliberately disagree.
+- **`event_completed` and `event_created` stay as historical values** in
+  `NotificationTrigger` and `AppEventType` (`notification_log.kind` is free
+  text, and a push sent before a deploy can be tapped after it). The `eventId`
+  such a payload carries addresses nothing and must never be interpolated into a
+  path again.
+- **Testing a migration's effect on existing rows needs a staged harness** —
+  `setupHarness({ stopBefore })` + `applyMigration()`, because the suite
+  otherwise applies every file before the first test.
+- **`recalculate_user_xp` is a full recompute written out whole.** Read the
+  deployed body before editing: a source omitted is a source dropped, and every
+  account's ratings fall on the next sync.

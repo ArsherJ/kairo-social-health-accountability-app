@@ -13,7 +13,6 @@ import { nextStepSentence } from '../quests/next-step.ts';
 import { WhackBanner } from '../whack/WhackBanner.tsx';
 import { Panel, Screen, Text, useTheme } from '../../ui/index.ts';
 import { font, space } from '../../theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { PREVIEW_COPY as copy, previewReadings, type PreviewState } from './preview-copy.ts';
 import {
   PREVIEW_POINTS,
@@ -44,9 +43,9 @@ export function TodayPreviewScreen({ state, fixture, onRetry, onWhackBack }: {
           </View>
         )
         : (
-          <View style={tw.style('px-lg', { paddingTop: insets.top + space.md })}>
-            <View style={tw`flex-row flex-wrap items-center gap-sm pb-md`}>
-              <View style={tw`flex-1`}>
+          <View style={{ paddingHorizontal: space.lg, paddingTop: insets.top + space.md }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, paddingBottom: space.md }}>
+              <View style={{ flex: 1 }}>
                 <Text scale='chrome' style={{ ...font.body.label, color: colors.muted }}>
                   {dateHeading(PREVIEW_TODAY)}
                 </Text>
@@ -94,10 +93,10 @@ export function TodayPreviewScreen({ state, fixture, onRetry, onWhackBack }: {
                   >
                     {copy.details}
                   </Text>
-                  <Text style={tw.style('pt-sm', font.body.body, { color: colors.subtle })}>
+                  <Text style={[{ paddingTop: space.sm }, font.body.body, { color: colors.subtle }]}>
                     {copy.detailsBody}
                   </Text>
-                  <Text style={tw.style('pt-md', font.display.small, { color: colors.text })}>
+                  <Text style={[{ paddingTop: space.md }, font.display.small, { color: colors.text }]}>
                     {previewReadings(dashboard.day.steps, dashboard.day.activeKcal)}
                   </Text>
                 </Panel>

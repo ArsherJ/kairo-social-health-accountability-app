@@ -15,7 +15,6 @@ import { PRIVACY_CLAIM } from '../privacy/claim-copy.ts';
 import { PRIVACY_POLICY_URL } from '../support/links.ts';
 import { Text, useTheme } from '../../ui/index.ts';
 import { font, radius, space } from '../../theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { ONBOARDING_PREVIEW_COPY as copy } from './preview-copy.ts';
 import { PREVIEW_BEATS, previewBeatAfter, previewKeyboardOffset } from './onboarding-preview.ts';
 
@@ -49,12 +48,12 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
   const failed = sampleState === 'error';
 
   return (
-    <View style={tw`flex-1`}>
+    <View style={{ flex: 1 }}>
       <View style={{ padding: space.sm, gap: space.xs, backgroundColor: colors.surface }}>
         <Text scale='chrome' style={{ ...font.body.strong, color: colors.text }}>
           {copy.localOnly}
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={tw`gap-xs`}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs }}>
           {PREVIEW_BEATS.map((entry, beatIndex) => (
             <PreviewChoice
               key={entry.name}
@@ -64,7 +63,7 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
             />
           ))}
         </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={tw`gap-xs`}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs }}>
           {(['default', 'busy', 'error'] as const).map((value) => (
             <PreviewChoice
               key={value}
@@ -88,7 +87,7 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
 
       <View
         ref={screenRef}
-        style={tw`flex-1`}
+        style={{ flex: 1 }}
         onLayout={() => {
           screenRef.current?.measureInWindow((_x, windowY) => {
             setKeyboardOffset(previewKeyboardOffset(windowY));

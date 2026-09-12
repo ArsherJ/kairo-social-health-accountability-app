@@ -1,9 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { View } from 'react-native';
 import { Button, Panel, Text } from '../../ui/index.ts';
-import { font } from '../../theme.ts';
+import { font, space } from '../../theme.ts';
 import { useTheme } from '../../ui/use-theme.ts';
-import { tw } from '../../ui/tailwind.ts';
 import { WHACK_COPY, whackBackLine } from './whack-copy.ts';
 
 /** The data owner decides when a received whack is unseen and can be answered. */
@@ -13,7 +12,7 @@ export function WhackBanner(
   const { colors } = useTheme();
   return (
     <Panel variant='tint'>
-      <View style={tw`flex-row items-center gap-md`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
         <MaterialCommunityIcons
           name='feather'
           color={colors.accentDeep}
