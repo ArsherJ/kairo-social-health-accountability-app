@@ -24,6 +24,7 @@ export default function Privacy() {
       onBack={() => router.back()}
       onContinue={() => router.push('/name')}
       onPolicy={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+      onCounting={() => router.push('/counting')}
     />
   );
 }

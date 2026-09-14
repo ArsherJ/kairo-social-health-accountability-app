@@ -603,6 +603,10 @@ export default function Today() {
           closeDetails();
           router.push('/progress');
         }}
+        onCounting={() => {
+          closeDetails();
+          router.push('/counting');
+        }}
       />
     </>
   );

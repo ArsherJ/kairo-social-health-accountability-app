@@ -251,6 +251,7 @@ describe('open flight placements', () => {
       viewportHeight: 852,
       chromeBottom,
       gap,
+      footTop: 852 - 120,
       focusY,
     });
     const selfTopOnScreen = frame.topInset + focusY! - frame.openAt - SKY_SELF_FIGURE / 2;

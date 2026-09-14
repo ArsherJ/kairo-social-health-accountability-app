@@ -2,29 +2,28 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { font, radius, space, type Theme } from '@/theme.ts';
 import { Text, useStyles, useTheme } from '@/ui/index.ts';
-import { RAIL_PHASES, railStepLabel } from './beats.ts';
+import { RAIL_STEPS, railStepLabel } from './beats.ts';
 
 /**
  * The rail across the top of every onboarding beat.
  *
- * **The same four segments on every step**, so the run always says how much is
- * left. That is the one thing the previous two-screen onboarding could not do
- * and did not need to: a run of two has no shape worth drawing. A run of seven
- * does, and a person part-way through one with no end in sight abandons it.
+ * **The same seven segments on every step**, so the run always says how much
+ * is left. That is the one thing the previous two-screen onboarding could not
+ * do and did not need to: a run of two has no shape worth drawing. A run of
+ * seven does, and a person part-way through one with no end in sight abandons
+ * it.
  *
- * Four segments for seven routed beats, deliberately. The rail measures *phases*, not
- * files — welcome and the sky are one phase (what this is), permissions and the
- * hatch are one (letting it in), difficulty and privacy are one (your choices),
- * and the name is its own. Numbering each screen would make the rail jump
- * about, and it would have to change every time a beat is added or removed.
+ * One segment per routed beat (deviation #75). It drew four *phases* so that
+ * adding a beat never lengthened the run, and testers read a half-filled
+ * segment as no progress and the run as stalled — so now every tap visibly
+ * moves the bar. The hatch is the one exception: a wait the player cannot act
+ * on shares the Health ask's segment, drawn half-filled for the ask and whole
+ * for the hatch, rather than counting as progress of its own.
  *
- * `filled` is how many phases are done and `partial` is progress through the
- * current one, so the rail can move *within* a phase — which is what stops the
- * two-screen phases feeling like the bar has stalled.
- *
- * **Neither is written by hand any more.** Every beat reads its pair out of
- * `beats.ts`, which derives them from the run's declared phases — see that
+ * **Neither number is written by hand.** Every beat reads its pair out of
+ * `beats.ts`, which derives them from the run's declared steps — see that
  * module for why seven hand-written positions were the wrong source of truth.
+ * The segment count is derived the same way.
  */
 export function OnboardingRail({
   filled,
@@ -33,9 +32,9 @@ export function OnboardingRail({
   onSkip,
   tone = 'page',
 }: {
-  /** Phases completed, 0–RAIL_PHASES. Comes from `onboardingBeat()`. */
+  /** Steps completed, 0–RAIL_STEPS. Comes from `onboardingBeat()`. */
   filled: number;
-  /** 0–1 through the current phase. */
+  /** 0–1 through the current step. */
   partial?: number;
   /** Omit on the first beat, which has nowhere to go back to. */
   onBack?: () => void;
@@ -69,14 +68,14 @@ export function OnboardingRail({
         </Pressable>
       )}
 
-      {/* One accessible element for the whole bar. Four separate segments are
-          four stops that each say nothing; the group says where you are. */}
+      {/* One accessible element for the whole bar. Seven separate segments are
+          seven stops that each say nothing; the group says where you are. */}
       <View
         accessible
         accessibilityLabel={railStepLabel(filled)}
         style={styles.track}
       >
-        {Array.from({ length: RAIL_PHASES }, (_, i) => (
+        {Array.from({ length: RAIL_STEPS }, (_, i) => (
           <View
             key={i}
             accessibilityElementsHidden
@@ -84,7 +83,7 @@ export function OnboardingRail({
             style={[styles.segment, { backgroundColor: off }]}
           >
             {/* The fill is a child at a width rather than a second background,
-                so a half-done phase draws as a genuinely half-filled segment
+                so the Health ask draws as a genuinely half-filled segment
                 instead of an on/off one. */}
             {(i < filled || (i === filled && partial > 0)) && (
               <View
@@ -149,7 +148,9 @@ const makeStyles = ({ colors }: Theme) => StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   pressed: { opacity: 0.6 },
-  track: { flex: 1, flexDirection: 'row', gap: 5 },
+  // 4, not 5: seven segments between a 44-point disc and a 48-point Skip have
+  // to fit a 320-point screen at `space.lg` either side.
+  track: { flex: 1, flexDirection: 'row', gap: 4 },
   segment: { flex: 1, height: 8, borderRadius: radius.pill, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.pill },
   skip: { ...font.body.body, fontSize: 13 },

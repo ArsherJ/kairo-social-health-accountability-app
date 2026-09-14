@@ -17,6 +17,8 @@ export type PrivacyScreenProps = { beat: OnboardingBeat }
   healthCopy: string;
   sharingCopy: string;
   onPolicy: () => void;
+  /** Opens the counting screen; a no-op in the account-free preview. */
+  onCounting: () => void;
 };
 
 const copy = ONBOARDING_SCREEN_COPY.privacy;
@@ -30,6 +32,7 @@ export function PrivacyScreen({
   healthCopy,
   sharingCopy,
   onPolicy,
+  onCounting,
 }: PrivacyScreenProps) {
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
@@ -50,6 +53,16 @@ export function PrivacyScreen({
           >
             <MaterialCommunityIcons name="shield-lock-outline" size={17} color={colors.accentDeep} />
             <Text scale="chrome" style={styles.policyLabel}>{copy.policyText}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={copy.countingLabel}
+            hitSlop={space.sm}
+            onPress={onCounting}
+            style={({ pressed }) => [styles.policy, pressed && styles.pressed]}
+          >
+            <MaterialCommunityIcons name="counter" size={17} color={colors.accentDeep} />
+            <Text scale="chrome" style={styles.policyLabel}>{copy.countingText}</Text>
           </Pressable>
         </>
       }

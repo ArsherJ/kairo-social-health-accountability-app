@@ -19,8 +19,9 @@ appearance retains the native `userInterfaceStyle: automatic` change and needs
 a compatible build; merging this work does not deploy one.
 
 Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
-`/difficulty`, `/privacy`, `/name` — grouped into the four phases the progress
-rail draws: what this is, letting it in, your choices, the name. The Health ask
+`/difficulty`, `/privacy`, `/name` — and the progress rail draws one segment
+per beat, "Step n of 7", with the hatch sharing the Health ask's step
+(deviation #75). The Health ask
 is fourth, behind the mirror beat, which moves the blame off the player before
 the one dialog whose refusal cannot be undone from inside the app. The profile
 row commits exactly once, on the name beat, so every question is asked before

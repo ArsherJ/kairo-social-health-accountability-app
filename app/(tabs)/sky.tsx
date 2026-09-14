@@ -239,17 +239,21 @@ export default function Sky() {
    *
    * The rail's height is **measured**, not assumed: it carries a line of type
    * and grows with Dynamic Type, so a constant here would be right at one text
-   * size and wrong at the largest.
+   * size and wrong at the largest. The foot is measured for the same reason,
+   * and the opening position is clamped above it — a player with no steps yet
+   * opens on a bird at the ground, which is where the foot is pinned.
    *
    * `contentOffset` rather than a `scrollTo` in an effect: the effect version
    * paints at the ground for one frame and then jumps, which reads as the
    * screen glitching every single time it is opened.
    */
+  const footTop = height - insets.bottom - TAB_PILL_CLEARANCE - footHeight;
   const frame = flightFrame({
     boxHeight,
     viewportHeight: height,
     chromeBottom: chromeTop + railHeight,
     gap: space.md,
+    footTop,
     focusY: me ? skyFlightFocusY(placements, selfIndex, boxHeight) : null,
   });
 
@@ -275,7 +279,6 @@ export default function Sky() {
   );
   const scrollTo = (offset: number) => scroller.current?.scrollTo({ y: offset, animated: false });
 
-  const footTop = height - insets.bottom - TAB_PILL_CLEARANCE - footHeight;
   const mapHeight = minimapHeight({
     viewportHeight: height,
     chromeBottom: chromeTop + railHeight,

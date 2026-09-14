@@ -117,12 +117,24 @@ which is a statement about Kairo's list and never about the player — no flag, 
 suspicion, nothing lost but the steps, and the player is told which app so the
 list can grow. *(Built 2026-09-06.)*
 
+**Counting** — how a day's activity becomes Kairo's figures, told to the player
+in one place: which sources are **counted**, what is **typed in** and left out,
+where the day stops (the **ridge**), and what a **flag** means. It names no
+threshold: the bar an hour is judged against is never published.
+
 **Typed in** — a figure a person wrote into the Health app by hand, rather than
 one a sensor recorded. Kairo does not read it: it is excluded at the query, on
 every quantity read, so a typed-in number is not a day that was scored and then
 discounted — it is a day that never happened. The word for what is left is
 **recorded**, never "verified", which already means something narrower about a
 workout's source. *(Built 2026-09-06.)*
+
+**Flag** — the mark on a local day whose hours do not look like human movement.
+A social signal and never a score reduction: the day still scores, still pays
+the character and still counts for the streak; what it cannot do is set a
+**best day**, and squadmates see the mark on that day's row. It is about that
+day only — the next day starts clean. The bar an hour is judged against is
+never named to the player.
 
 **Best day** — a personal best on one stat, kept permanently. Yours alone; it is
 not a leaderboard and never appears on one.
@@ -192,7 +204,9 @@ prompt, and not by a blank card that reads as an accusation.
 line**, which is the same figure as the Daily Walk and the **ridge**. Ranked by **capped** steps:
 past the line, more steps buy nothing.
 
-**Ghost** — one of your own past days, raced when you have no squad.
+**Ghost** — one of your own past days, raced when you have no squad. On the
+sky it is a **faded** bird and is named by its day — "your Saturday" — never by
+a name; the sky says in words that faded birds are your own recent days.
 
 **Program** — the stat a squad has chosen to weight. Never a "focus".
 
@@ -244,8 +258,13 @@ one guessing. _Avoid_, on every surface: "too many attempts", "rate limit",
 nothing else: a beat says one thing, and adding a thing means adding a beat.
 
 **Phase** — a stretch of beats that share a purpose: what this is, letting it
-in, your choices, the name. **Progress is shown in phases, not beats**, so
-adding a beat never makes the run look longer to the person walking it.
+in, your choices, the name. A phase decides where Skip lands and which beats
+are the value cards; it no longer decides what the progress rail draws.
+**Progress is shown one step per beat** — the run is as long as it is, and a
+beat added later makes it visibly longer. *(Until 2026-09-14 progress was shown
+in phases so adding a beat never lengthened the run; testers read a
+part-filled phase as a stalled run, and the rule was retired.)* The **hatch**
+is not a step of its own: it is the same step as the ask it follows.
 
 **Calibration** — the one-time reading of the player's own recent step history,
 taken on the phone at the moment Health is granted, that proposes how big their

@@ -1,3 +1,5 @@
+import { SKY_FLIGHT_LABEL_EXTENT } from './sky-flight.ts';
+
 /**
  * Where the flight sits inside the Sky tab's scroller.
  *
@@ -26,6 +28,16 @@
  *
  * The rail's own height is measured rather than assumed, because it carries a
  * line of type and therefore grows with Dynamic Type.
+ *
+ * The **opening position** has the mirror-image problem at the foot. A player
+ * with no steps yet opens on a bird at the ground, and the ground is where the
+ * standing card, the freshness line and the tab bar are pinned. The placement
+ * module keeps that bird above the foot inside the box; what this module has
+ * to do is not slide it back under by opening lower to clear the rail. So the
+ * target is clamped against the measured foot as well, and the foot wins when
+ * a small phone at a large text size cannot satisfy both — the bird is what
+ * the reader came for. Opening position only: birds still scroll under the
+ * foot as the reader climbs, for the reason the rail argues above.
  *
  * Pure, and here rather than in `app/(tabs)/sky.tsx`, for the reason every
  * other decision on this screen is: root Vitest cannot load a component file at
@@ -69,6 +81,11 @@ export interface FlightFrameInput {
   /** Clear air between the chrome and the first thing the flight draws. */
   gap: number;
   /**
+   * Where the pinned foot starts, as a viewport `y`: the viewport height less
+   * the bottom inset, the tab-pill clearance and the measured foot.
+   */
+  footTop: number;
+  /**
    * Your own bird's `y` inside the drawing box, or null when you have none —
    * a squadless account with no scored history has no position to open on.
    */
@@ -95,9 +112,16 @@ export function flightFrame(input: FlightFrameInput): FlightFrame {
   const focus = topInset + (input.focusY ?? input.boxHeight);
   const preferredFocus = input.viewportHeight * FOCUS_FROM_TOP;
   const clearOfChrome = topInset + SKY_SELF_FIGURE / 2;
-  const focusFromTop = Math.min(
-    Math.max(0, input.viewportHeight - SKY_SELF_FIGURE / 2),
-    Math.max(preferredFocus, clearOfChrome),
+  // The bird, its label and the gap all above the foot. Applied last, so it
+  // wins over the rail when the two cannot both be satisfied.
+  const clearOfFoot = input.footTop - input.gap - SKY_FLIGHT_LABEL_EXTENT - SKY_SELF_FIGURE / 2;
+  const focusFromTop = Math.max(
+    0,
+    Math.min(
+      input.viewportHeight - SKY_SELF_FIGURE / 2,
+      clearOfFoot,
+      Math.max(preferredFocus, clearOfChrome),
+    ),
   );
 
   const furthest = Math.max(0, contentHeight - input.viewportHeight);

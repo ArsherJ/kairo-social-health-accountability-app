@@ -41,7 +41,12 @@ phase, not an eighth route. Busy and error controls are local samples; an empty
 name shows the real disabled state, and **Fill sample name** makes completion
 reachable. Quest selection, the sharing switch, and the name input stay in
 component state. Completion returns to Today rather than creating an account.
-The policy link may open the public policy page and performs no submission.
+The policy link may open the public policy page and performs no submission;
+the counting link beside it is inert, so the preview never leaves its canvas.
+The difficulty view seeds its chosen tier and its reading from one constant
+(`PREVIEW_CALIBRATION`), the way production's answers store pre-selects the
+proposed tier the moment a reading lands — the preview once started at null
+and was the surface that reproduced "the proposal and the choice disagree".
 The nested Name preview measures the shared canvas in window coordinates and
 passes that value as its keyboard offset; the normal route keeps the component's
 zero default.
@@ -51,8 +56,9 @@ zero default.
 - **Today:** first-viewport Motion progress beside the plush eagle, details,
   all three quests, missing sleep, Ridge/summit, crest ceiling, and reaction.
 - **Sky:** open-air flight with automatic lateral drift, layered ridges,
-  right-side minimap, Locate, explanation, solo, private, ghost, and
-  ridge-clearance states. No trail is painted. The scene/map/Locate share a
+  right-side minimap, Locate, explanation, solo, private, ghost (rail titled
+  **YOUR RECENT DAYS** with its note), and ridge-clearance states; a grounded
+  self bird opens above the pinned foot. No trail is painted. The scene/map/Locate share a
   straight progress projection; `flightFrame` still owns measured clearances
   and `raceProgress` remains the earned-step authority. Reduce Motion makes the
   scene static; drifting never adds steps or changes a rank.

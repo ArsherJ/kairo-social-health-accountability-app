@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ONBOARDING_BEATS,
-  RAIL_PHASES,
+  RAIL_STEPS,
   beatCta,
   beatRoute,
   onboardingBeat,
@@ -25,13 +25,15 @@ describe('the onboarding beat registry', () => {
     ]);
   });
 
-  it('groups the run into exactly the rail phases, in order, none empty', () => {
-    const phases = ONBOARDING_BEATS.map((b) => b.phase);
-    expect([...phases].sort((a, b) => a - b)).toEqual(phases);
-    for (let phase = 0; phase < RAIL_PHASES; phase += 1) {
-      expect(phases).toContain(phase);
+  it('walks the rail one step per beat, in order, none skipped', () => {
+    const steps = ONBOARDING_BEATS.map((b) => b.step);
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps);
+    for (let step = 0; step < RAIL_STEPS; step += 1) {
+      expect(steps).toContain(step);
     }
-    expect(Math.max(...phases)).toBe(RAIL_PHASES - 1);
+    // Seven routed beats, seven steps: the hatch shares the Health ask's.
+    expect(RAIL_STEPS).toBe(7);
+    expect(Math.max(...steps)).toBe(6);
   });
 
   it('gives every beat with a button its own words', () => {
@@ -39,46 +41,46 @@ describe('the onboarding beat registry', () => {
     expect(new Set(labels).size).toBe(labels.length);
   });
 
-  // The rail still measures four phases; the mirror beat moves only the fills
-  // and partials inside the phase it joined, which is what adding a beat is
-  // supposed to cost. Pinned in full because a derivation one step off
-  // anywhere redraws a rail nobody asked to redraw, and the error is invisible
-  // until somebody watches the bar move on a device.
-  it('spreads the opening phase across three beats and leaves the rest alone', () => {
+  // One segment per screen (deviation #75). The rail drew four phases for
+  // seven beats and testers read a half-filled segment as no progress and the
+  // run as stalled. Every tap now visibly moves the bar; the hatch — a wait
+  // the player cannot act on — is the one thing that stays on the same step,
+  // filling the Health ask's segment rather than opening one of its own.
+  // Pinned in full because a derivation one step off anywhere redraws a rail
+  // nobody asked to redraw, and the error is invisible until somebody watches
+  // the bar move on a device.
+  it('fills one segment per beat, with the hatch closing out the Health ask', () => {
     const rail = Object.fromEntries(
       ONBOARDING_BEATS.map((b) => [b.name, [b.filled, b.partial]]),
     );
     expect(rail).toEqual({
-      welcome: [0, 1 / 3],
-      'one-sky': [0, 2 / 3],
-      mirror: [0, 1],
-      connect: [1, 0.5],
-      hatching: [1, 1],
-      difficulty: [2, 0.5],
-      privacy: [2, 1],
-      // The name beat hand-wrote `filled={4}`, which fills four of four
-      // segments. Phase 3 filled to 1 fills the same four: three whole, the
-      // fourth at 100% width.
-      name: [3, 1],
+      welcome: [0, 1],
+      'one-sky': [1, 1],
+      mirror: [2, 1],
+      connect: [3, 0.5],
+      hatching: [3, 1],
+      difficulty: [4, 1],
+      privacy: [5, 1],
+      name: [6, 1],
     });
   });
 
   // The dots under the opening value cards promise three cards. They promised
   // three while two existed; the mirror beat is the third, and the count is
-  // honest now — and derived, so it stays honest.
+  // honest now — and derived from the pitch, so it stays honest.
   it('opens with exactly the three beats the paged dots promise', () => {
-    expect(ONBOARDING_BEATS.filter((b) => b.phase === 0).map((b) => b.name)).toEqual([
+    expect(ONBOARDING_BEATS.filter((b) => b.pitch).map((b) => b.name)).toEqual([
       'welcome',
       'one-sky',
       'mirror',
     ]);
   });
 
-  it('closes every phase out before the next one opens', () => {
-    for (let phase = 0; phase < RAIL_PHASES; phase += 1) {
-      const inPhase = ONBOARDING_BEATS.filter((b) => b.phase === phase);
-      expect(inPhase.at(-1)?.partial).toBe(1);
-      expect(inPhase.every((b) => b.filled === phase)).toBe(true);
+  it('closes every step out before the next one opens', () => {
+    for (let step = 0; step < RAIL_STEPS; step += 1) {
+      const onStep = ONBOARDING_BEATS.filter((b) => b.step === step);
+      expect(onStep.at(-1)?.partial).toBe(1);
+      expect(onStep.every((b) => b.filled === step)).toBe(true);
     }
   });
 
@@ -92,19 +94,19 @@ describe('the onboarding beat registry', () => {
     for (const beat of ONBOARDING_BEATS) {
       if (beat.route !== null) expect(beat.route).toBe(`/${beat.name}`);
     }
-    // The hatch is a phase of `/connect`, not a route of its own — it draws a
-    // rail step and will report no beat impression.
+    // The hatch is a stage of `/connect`, not a route of its own — it shares
+    // the ask's rail step and will report no beat impression.
     expect(onboardingBeat('hatching').route).toBeNull();
   });
 });
 
 describe('resolveBeats', () => {
-  it('spreads a phase evenly however many beats it holds', () => {
+  it('spreads a step evenly however many beats share it', () => {
     const resolved = resolveBeats([
-      { name: 'a', route: null, phase: 0, cta: null },
-      { name: 'b', route: null, phase: 0, cta: null },
-      { name: 'c', route: null, phase: 0, cta: null },
-      { name: 'd', route: null, phase: 1, cta: null },
+      { name: 'a', route: null, step: 0, pitch: true, cta: null },
+      { name: 'b', route: null, step: 0, pitch: true, cta: null },
+      { name: 'c', route: null, step: 0, pitch: true, cta: null },
+      { name: 'd', route: null, step: 1, pitch: false, cta: null },
     ] as never);
 
     expect(resolved.map((b) => [b.filled, b.partial])).toEqual([
@@ -117,12 +119,13 @@ describe('resolveBeats', () => {
 });
 
 describe('railStepLabel', () => {
-  it('counts the phase you are in, never past the end of the rail', () => {
-    expect(railStepLabel(0)).toBe('Step 1 of 4');
-    expect(railStepLabel(3)).toBe('Step 4 of 4');
-    // The value the name beat used to pass. It read "Step 4 of 4" then and
-    // must still, or a rail that renders identically speaks differently.
-    expect(railStepLabel(4)).toBe('Step 4 of 4');
+  it('counts the step you are on, never past the end of the rail', () => {
+    expect(railStepLabel(0)).toBe('Step 1 of 7');
+    expect(railStepLabel(3)).toBe('Step 4 of 7');
+    expect(railStepLabel(6)).toBe('Step 7 of 7');
+    // Clamped: the last beat closes the rail out and there is no eighth step
+    // to announce.
+    expect(railStepLabel(7)).toBe('Step 7 of 7');
   });
 });
 
@@ -164,7 +167,7 @@ describe('onboardingSkipTarget', () => {
 
   it('is a beat that carries no skip of its own', () => {
     const target = ONBOARDING_BEATS.find((b) => b.route === onboardingSkipTarget());
-    expect(target?.phase).toBe(0);
-    expect(ONBOARDING_BEATS.filter((b) => b.phase === 0).at(-1)).toBe(target);
+    expect(target?.pitch).toBe(true);
+    expect(ONBOARDING_BEATS.filter((b) => b.pitch).at(-1)).toBe(target);
   });
 });

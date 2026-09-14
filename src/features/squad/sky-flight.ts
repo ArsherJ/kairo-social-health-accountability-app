@@ -13,6 +13,8 @@ export const SKY_FLIGHT_RIGHT_CLEARANCE = SKY_MINIMAP_WIDTH + 8;
 /** Fixed-scale 11pt label at the shared 1.2 cap, including its pill padding. */
 const LABEL_HEIGHT_BOUND = 30;
 const LABEL_GAP = 4;
+/** How far a bird's label reaches past its figure — what a clearance has to add to half the figure. */
+export const SKY_FLIGHT_LABEL_EXTENT = LABEL_GAP + LABEL_HEIGHT_BOUND;
 
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) return 0;

@@ -8,23 +8,27 @@
  * hoping the sums still landed, and getting one wrong is invisible until
  * somebody watches the bar on a device.
  *
- * So the run declares its **phases** and the rail positions are derived. A beat
- * says which phase it belongs to; `resolveBeats` gives it `filled` (the phase)
- * and `partial` (how far through that phase's beats it sits). Adding a beat is
- * one entry and the partials around it re-derive themselves.
+ * So the run declares each beat's **step** and the rail positions are derived.
+ * `resolveBeats` gives a beat `filled` (its step) and `partial` (how far
+ * through that step's beats it sits). Adding a beat is one entry and the
+ * count re-derives itself.
  *
- * **The rail measures phases, not screens** — four segments for seven beats,
- * for the reasons in `OnboardingChrome.tsx`. That component owns how the rail
- * *looks*; this module owns where each beat sits on it.
+ * **The rail draws one step per beat** (deviation #75, 2026-09-14). It drew
+ * four *phases* for seven beats so that adding a beat never lengthened the
+ * run, and testers read a half-filled segment as no progress and the run as
+ * stalled. Now every tap visibly moves the bar; the one thing that shares a
+ * step is the hatch, which is a wait the player cannot act on and so fills
+ * the Health ask's segment rather than opening one of its own. The *pitch* —
+ * the three value cards — survives as a flag, because Skip's destination and
+ * the paged dots are derived from it and never depended on the rail.
+ * `OnboardingChrome.tsx` owns how the rail *looks*; this module owns where
+ * each beat sits on it.
  *
  * **Zero runtime imports, deliberately.** Root Vitest defines no `@/` alias and
  * cannot parse React Native's Flow syntax, so a module that reaches either is
  * untestable — the same constraint `stat-names.ts` and `kairo-voice.ts` record.
  * The run's order and its copy are exactly the things worth a test.
  */
-
-/** Segments the rail draws. Four phases: what this is, letting it in, your choices, the name. */
-export const RAIL_PHASES = 4;
 
 export type BeatName =
   | 'welcome'
@@ -58,13 +62,15 @@ export interface BeatSpec {
   /**
    * The route this beat lives on, and the name its impression reports.
    *
-   * `null` for a beat that is a *phase* of another beat's screen rather than a
-   * route of its own — the hatch, which `/connect` swaps to in place. It draws
-   * a rail step and has no impression to report.
+   * `null` for a beat that is a stage of another beat's screen rather than a
+   * route of its own — the hatch, which `/connect` swaps to in place. It
+   * shares the ask's rail step and has no impression to report.
    */
   route: BeatRoute | null;
-  /** Which rail phase this beat belongs to, 0-indexed. */
-  phase: number;
+  /** Which rail step this beat draws, 0-indexed. Beats sharing a step split it. */
+  step: number;
+  /** Part of the pitch — a value card, and what Skip skips. */
+  pitch: boolean;
   /**
    * The words on this beat's one fat button.
    *
@@ -81,40 +87,43 @@ export interface BeatSpec {
 }
 
 export interface OnboardingBeat extends BeatSpec {
-  /** Phases completed, 0–RAIL_PHASES. */
+  /** Steps completed, 0–RAIL_STEPS. */
   filled: number;
-  /** 0–1 through the current phase. */
+  /** 0–1 through the current step. */
   partial: number;
 }
 
 /**
- * The run, in the order it is walked. Beats of a phase are contiguous.
+ * The run, in the order it is walked. Beats sharing a step are contiguous.
  */
 const SPECS: readonly BeatSpec[] = [
-  { name: 'welcome', route: '/welcome', phase: 0, cta: "Let's fly" },
-  { name: 'one-sky', route: '/one-sky', phase: 0, cta: "I'm in" },
-  { name: 'mirror', route: '/mirror', phase: 0, cta: 'Show me' },
-  { name: 'connect', route: '/connect', phase: 1, cta: 'Connect Apple Health' },
-  { name: 'hatching', route: null, phase: 1, cta: null },
-  { name: 'difficulty', route: '/difficulty', phase: 2, cta: 'Lock it in' },
-  { name: 'privacy', route: '/privacy', phase: 2, cta: 'Good to know' },
-  { name: 'name', route: '/name', phase: 3, cta: 'Say hello' },
+  { name: 'welcome', route: '/welcome', step: 0, pitch: true, cta: "Let's fly" },
+  { name: 'one-sky', route: '/one-sky', step: 1, pitch: true, cta: "I'm in" },
+  { name: 'mirror', route: '/mirror', step: 2, pitch: true, cta: 'Show me' },
+  { name: 'connect', route: '/connect', step: 3, pitch: false, cta: 'Connect Apple Health' },
+  { name: 'hatching', route: null, step: 3, pitch: false, cta: null },
+  { name: 'difficulty', route: '/difficulty', step: 4, pitch: false, cta: 'Lock it in' },
+  { name: 'privacy', route: '/privacy', step: 5, pitch: false, cta: 'Good to know' },
+  { name: 'name', route: '/name', step: 6, pitch: false, cta: 'Say hello' },
 ];
+
+/** Segments the rail draws: one per step, derived from the run. */
+export const RAIL_STEPS = Math.max(...SPECS.map((s) => s.step)) + 1;
 
 /**
  * Give each beat its place on the rail.
  *
- * `filled` is the beat's phase and `partial` is its position within that
- * phase's beats, so the last beat of a phase always closes it out at 1 — which
- * is what stops a two-beat phase feeling like the bar has stalled.
+ * `filled` is the beat's step and `partial` is its position among the beats
+ * sharing that step, so the last of them always closes it out at 1 — the
+ * Health ask draws its segment half-filled and the hatch fills it.
  */
 export function resolveBeats(specs: readonly BeatSpec[]): readonly OnboardingBeat[] {
   return specs.map((spec) => {
-    const inPhase = specs.filter((s) => s.phase === spec.phase);
+    const onStep = specs.filter((s) => s.step === spec.step);
     return {
       ...spec,
-      filled: spec.phase,
-      partial: (inPhase.indexOf(spec) + 1) / inPhase.length,
+      filled: spec.step,
+      partial: (onStep.indexOf(spec) + 1) / onStep.length,
     };
   });
 }
@@ -143,7 +152,7 @@ export function beatCta(beat: OnboardingBeat): string {
  * A beat's own route, narrowed to a real one.
  *
  * The same shape as `beatCta` and for the same reason: `route` is nullable
- * because the hatch is a phase of `/connect` rather than a screen, and a caller
+ * because the hatch is a stage of `/connect` rather than a screen, and a caller
  * that navigates or reports an impression should not have to decide what a
  * missing route means.
  */
@@ -155,10 +164,11 @@ export function beatRoute(beat: OnboardingBeat): BeatRoute {
 /**
  * Where Skip lands.
  *
- * **The last beat of the opening phase, derived — never a route written down
- * twice.** Skip's purpose is getting past the pitch, and the pitch *is* phase
- * 0, so skipping to the end of that phase is the rule rather than a
- * coincidence of which screens exist today. Both skip affordances used to name
+ * **The last beat of the pitch, derived — never a route written down twice.**
+ * Skip's purpose is getting past the pitch, so skipping to the end of it is
+ * the rule rather than a coincidence of which screens exist today — and the
+ * pitch is a flag on the beat rather than a rail phase, because the rail no
+ * longer has phases and Skip never depended on it. Both skip affordances used to name
  * `/connect`, which was right while the pitch ended there; the mirror beat is
  * the reason it no longer is, and the argument aimed at the people most likely
  * to decline is exactly the one a skip must not route around.
@@ -167,16 +177,15 @@ export function beatRoute(beat: OnboardingBeat): BeatRoute {
  * nothing left to skip.
  */
 export function onboardingSkipTarget(): BeatRoute {
-  const opening = ONBOARDING_BEATS.filter((b) => b.phase === 0);
-  const last = opening.at(-1);
-  if (!last) throw new Error('The onboarding run has no opening phase');
+  const last = ONBOARDING_BEATS.filter((b) => b.pitch).at(-1);
+  if (!last) throw new Error('The onboarding run has no pitch');
   return beatRoute(last);
 }
 
 /**
  * Which of the paged dots this beat lights, and how many there are.
  *
- * **The opening phase and the value cards are the same three beats**, so the
+ * **The pitch and the value cards are the same three beats**, so the
  * dots are derived from the run rather than restated on each card. They were
  * hand-written — `index={0} count={3}` and `index={1} count={3}` — and had gone
  * wrong in exactly the way that invites: they promised three cards while two
@@ -189,7 +198,7 @@ export function onboardingSkipTarget(): BeatRoute {
  * hidden from assistive technology so only one of them announces position.
  */
 export function valueCardPosition(beat: OnboardingBeat): { index: number; count: number } {
-  const cards = ONBOARDING_BEATS.filter((b) => b.phase === 0);
+  const cards = ONBOARDING_BEATS.filter((b) => b.pitch);
   const index = cards.findIndex((b) => b.name === beat.name);
   if (index < 0) throw new Error(`Onboarding beat ${beat.name} is not a value card`);
   return { index, count: cards.length };
@@ -201,8 +210,8 @@ export function valueCardPosition(beat: OnboardingBeat): { index: number; count:
  * Lives here rather than in the component so the sentence is pinned by a test —
  * a rail that renders identically and *speaks* differently is the regression
  * this is most likely to hide. Clamped, because the last beat closes the rail
- * out and there is no fifth step to announce.
+ * out and there is no eighth step to announce.
  */
 export function railStepLabel(filled: number): string {
-  return `Step ${Math.min(RAIL_PHASES, filled + 1)} of ${RAIL_PHASES}`;
+  return `Step ${Math.min(RAIL_STEPS, filled + 1)} of ${RAIL_STEPS}`;
 }

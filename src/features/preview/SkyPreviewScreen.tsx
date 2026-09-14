@@ -67,11 +67,13 @@ export function SkyPreviewScreen(
     flightBottomClearance,
   );
   const selfIndex = racers.findIndex((racer) => racer.isSelf);
+  const footTop = size.height - insets.bottom - TAB_PILL_CLEARANCE - footHeight;
   const frame = flightFrame({
     boxHeight,
     viewportHeight: size.height,
     chromeBottom: insets.top + space.md + railHeight,
     gap: space.md,
+    footTop,
     focusY: me ? skyFlightFocusY(placements, selfIndex, boxHeight) : null,
   });
   const locate = () => scroll.current?.scrollTo({ y: frame.openAt, animated: !reduceMotion });
@@ -91,7 +93,7 @@ export function SkyPreviewScreen(
   const mapHeight = minimapHeight({
     viewportHeight: size.height,
     chromeBottom: insets.top + space.md + railHeight,
-    footTop: size.height - insets.bottom - TAB_PILL_CLEARANCE - footHeight,
+    footTop,
     gap: space.md,
   });
   const geometry = useMemo(() => ({

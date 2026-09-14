@@ -231,6 +231,15 @@ export default function Settings() {
             onPress={() => void Linking.openURL(feedbackMailto())}
           />
           <View style={styles.divider} />
+          {/* Where the figures come from — the screen a player wants after
+              "aren't counted yet" or a flag, and findable again from here. */}
+          <Row
+            icon="counter"
+            tint={colors.teal}
+            label="How Kairo counts your activity"
+            onPress={() => router.push('/counting')}
+          />
+          <View style={styles.divider} />
           <Row
             icon="shield-check-outline"
             tint={ramp.sky[600]}

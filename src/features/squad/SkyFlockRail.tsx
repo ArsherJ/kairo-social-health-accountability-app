@@ -5,6 +5,7 @@ import type { Racer } from '@kairo/core';
 import { KairoThumbnail } from '@/features/character/KairoThumbnail.tsx';
 import { font, radius, space, type Theme } from '@/theme.ts';
 import { Glass, Text, useStyles, useTheme } from '@/ui/index.ts';
+import { SKY_SCREEN_COPY as copy } from './sky-screen-copy.ts';
 
 /**
  * Who is in the sky today, pinned over the flight.
@@ -43,6 +44,13 @@ import { Glass, Text, useStyles, useTheme } from '@/ui/index.ts';
  * the Flock tab rather than opening an invite sheet of its own — the code and
  * the share button already live there, and a second way to invite is a second
  * thing to keep in step.
+ *
+ * **A ghost race is titled differently.** A player with no squad races their
+ * own recent days, and a rail that still said "your flock" over faded birds
+ * read as strangers, or as a bug. The title says whose birds they are and one
+ * line under the seats says what a faded one is; both are one accessible
+ * element, so the explanation is not a separate stop. The info button's
+ * explanation stays about the ridge — one explanation per fact.
  */
 
 /** Slots in the row, including the trailing one. See the width budget above. */
@@ -90,18 +98,24 @@ export function SkyFlockRail({
     ];
   const shown = roster.slice(0, ROSTER_SLOTS);
   const overflow = roster.length - shown.length;
+  const ghosts = racers.some((racer) => racer.isGhost === true);
+  const title = ghosts ? copy.railGhosts : copy.railFlock;
 
   return (
     <Glass tone='light' style={styles.rail}>
-      <View style={styles.title}>
+      <View
+        accessible
+        accessibilityLabel={ghosts ? `${title}. ${copy.railGhostsNote}` : title}
+        style={styles.title}
+      >
         <MaterialCommunityIcons
           {...HIDDEN}
-          name='account-multiple'
+          name={ghosts ? 'history' : 'account-multiple'}
           size={14}
           color={colors.subtle}
         />
         <Text {...HIDDEN} scale='chrome' style={styles.titleText}>
-          YOUR FLOCK TODAY
+          {title}
         </Text>
       </View>
 
@@ -135,6 +149,12 @@ export function SkyFlockRail({
             </Pressable>
           )}
       </View>
+
+      {ghosts && (
+        <Text {...HIDDEN} scale='chrome' style={styles.note}>
+          {copy.railGhostsNote}
+        </Text>
+      )}
     </Glass>
   );
 }
@@ -198,6 +218,7 @@ const makeStyles = ({ colors, ramp }: Theme) =>
     rail: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 12, borderRadius: radius.lg },
     title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
     titleText: { ...font.body.label, color: colors.text },
+    note: { ...font.body.body, fontSize: 12.5, lineHeight: 17, color: colors.subtle, textAlign: 'center', marginTop: 8 },
     /**
      * One row. **No `flexWrap`** — see the width budget on the module comment.
      * `center` rather than `space-between` so a squad of two sits together

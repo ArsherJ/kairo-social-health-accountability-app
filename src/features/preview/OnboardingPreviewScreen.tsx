@@ -20,10 +20,18 @@ import { PREVIEW_BEATS, previewBeatAfter, previewKeyboardOffset } from './onboar
 
 type SampleState = 'default' | 'busy' | 'error' | 'hatching';
 
+/**
+ * The reading the preview's Health ask pretends to take. Production writes
+ * the proposed tier into the answers store the moment a reading lands, so the
+ * difficulty beat mounts with the proposal already selected; the preview has
+ * no store, so its chosen state starts from the same constant the note reads.
+ */
+const PREVIEW_CALIBRATION = { outcome: 'proposed', tier: 'steady', medianSteps: 6840 } as const;
+
 export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void }) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<'asking' | 'revealed'>('asking');
-  const [chosen, setChosen] = useState<QuestTier | null>(null);
+  const [chosen, setChosen] = useState<QuestTier | null>(PREVIEW_CALIBRATION.tier);
   const [shareTotals, setShareTotals] = useState(false);
   const [name, setName] = useState('');
   const [sampleState, setSampleState] = useState<SampleState>('default');
@@ -109,7 +117,7 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
             phase={phase}
             busy={busy}
             failed={failed}
-            steps={phase === 'revealed' ? 6840 : null}
+            steps={phase === 'revealed' ? PREVIEW_CALIBRATION.medianSteps : null}
             privacyCopy={PRIVACY_CLAIM.connectHealth}
             onBack={back}
             onConnect={() => setPhase('revealed')}
@@ -120,7 +128,7 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
             beat={beat}
             chosen={chosen}
             onChoose={setChosen}
-            note={calibrationNote({ outcome: 'proposed', tier: 'steady', medianSteps: 6840 })}
+            note={calibrationNote(PREVIEW_CALIBRATION)}
             onBack={back}
             onContinue={next}
           />
@@ -134,6 +142,8 @@ export function OnboardingPreviewScreen({ onComplete }: { onComplete: () => void
             onBack={back}
             onContinue={next}
             onPolicy={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+            // Inert: the preview never leaves its canvas.
+            onCounting={() => {}}
           />
         ) : (
           <NameScreen

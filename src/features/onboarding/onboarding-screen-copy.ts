@@ -55,11 +55,13 @@ export const ONBOARDING_SCREEN_COPY = {
   privacy: {
     title: 'Your privacy,\nyour call',
     intro:
-      'Kairo reads your steps to raise your bird and rank your day. You can change any of this later in Settings.',
+      'Kairo reads your steps, active calories and sleep to raise your bird and rank your day. You can change any of this later in Settings.',
     healthTitle: 'Health data',
     sharingTitle: 'Share totals with your flock',
     policyLabel: "Read Kairo's privacy policy",
     policyText: 'How Kairo handles your data',
+    countingLabel: 'Read how Kairo counts your activity',
+    countingText: 'How Kairo counts your activity',
     requiredLabel: (title: string) => `${title}: required`,
   },
   name: {

@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SKY_PATH_ASPECT } from '@kairo/core';
 import { SKY_SELF_FIGURE, flightFrame } from './flight-frame.ts';
-import { skyFlightPoint } from './sky-flight.ts';
+import {
+  SKY_FLIGHT_LABEL_EXTENT,
+  skyFlightBottomClearance,
+  skyFlightFocusY,
+  skyFlightPlacements,
+  skyFlightPoint,
+} from './sky-flight.ts';
 
 /**
  * The flight is scrolled under chrome that is pinned over it, so the drawing
@@ -24,7 +30,54 @@ const PHONES = [
  */
 const RAIL_HEIGHTS = [96, 132];
 
+/**
+ * The pinned foot — the standing card, the freshness line and the solo card —
+ * measured the same way: none, a default-size one and an accessibility-size
+ * one. Zero is the first layout pass.
+ */
+const FOOT_HEIGHTS = [0, 160, 260];
+
+/** `TAB_PILL_CLEARANCE` and the two safe-area bottoms, without loading `Screen.tsx`. */
+const TAB_CLEARANCE = 96 + 24;
+const BOTTOM_INSETS = { 852: 34, 568: 0 } as const;
+
 const GAP = 16;
+
+/** A screen far taller than any content, so the foot never binds. */
+const NO_FOOT = 10_000;
+
+/**
+ * Your own bird with no steps yet, placed the way the Sky places it — at the
+ * ground, held above the pinned foot by the placement module's own bound —
+ * and the frame that opens on it.
+ */
+function groundOpening(phone: (typeof PHONES)[number], railHeight: number, footHeight: number) {
+  const boxHeight = phone.width / SKY_PATH_ASPECT;
+  const insetBottom = BOTTOM_INSETS[phone.height];
+  const clearance = skyFlightBottomClearance({
+    insetBottom,
+    tabClearance: TAB_CLEARANCE,
+    footerHeight: footHeight,
+    gap: 8,
+  });
+  const placements = skyFlightPlacements(
+    [{ identity: 'me', progress: 0, figureSize: SKY_SELF_FIGURE }],
+    phone.width,
+    clearance,
+  );
+  const focusY = skyFlightFocusY(placements, 0, boxHeight);
+  const footTop = phone.height - insetBottom - TAB_CLEARANCE - footHeight;
+  const frame = flightFrame({
+    boxHeight,
+    viewportHeight: phone.height,
+    chromeBottom: 59 + 8 + railHeight,
+    gap: GAP,
+    footTop,
+    focusY,
+  });
+  const birdOnScreen = frame.topInset + (focusY ?? 0) - frame.openAt;
+  return { frame, footTop, birdBottom: birdOnScreen + SKY_SELF_FIGURE / 2 + SKY_FLIGHT_LABEL_EXTENT };
+}
 
 describe('flightFrame', () => {
   it('starts the drawing box below the pinned chrome, by the gap', () => {
@@ -33,6 +86,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 780,
     });
 
@@ -53,6 +107,7 @@ describe('flightFrame', () => {
           viewportHeight: phone.height,
           chromeBottom,
           gap: GAP,
+      footTop: NO_FOOT,
           focusY: skyFlightPoint(1).y * boxHeight,
         });
 
@@ -94,6 +149,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 67,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 780,
     });
     const after = flightFrame({
@@ -101,6 +157,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 67 + 96,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 780,
     });
 
@@ -114,6 +171,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 0,
       gap: 0,
+      footTop: NO_FOOT,
       focusY: 780,
     });
 
@@ -127,11 +185,57 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 780,
     });
     const birdOnScreen = frame.topInset + 780 - frame.openAt;
 
     expect(birdOnScreen - SKY_SELF_FIGURE / 2).toBeGreaterThanOrEqual(chromeBottom + GAP);
+  });
+
+  it('opens with your own grounded bird clear of the pinned foot, at every size', () => {
+    // A player with no steps yet opens the flight on a bird at the ground,
+    // and the ground is where the standing card, the freshness line and the
+    // tab bar are pinned. The placement module already holds the bird above
+    // that foot *inside the box*; this is the other half — that the offset
+    // the screen opens at leaves it there on screen, rather than sliding it
+    // back under the foot to satisfy the rail. The foot wins over the rail
+    // when a small phone at a large text size cannot satisfy both, because
+    // the bird is what the reader came for.
+    for (const phone of PHONES) {
+      for (const railHeight of RAIL_HEIGHTS) {
+        for (const footHeight of FOOT_HEIGHTS) {
+          const { birdBottom, footTop } = groundOpening(phone, railHeight, footHeight);
+          expect(birdBottom, `${phone.width}pt, rail ${railHeight}, foot ${footHeight}`)
+            .toBeLessThan(footTop);
+        }
+      }
+    }
+  });
+
+  it('still prefers a third of the way down when the foot leaves room', () => {
+    const frame = flightFrame({
+      boxHeight: 1560,
+      viewportHeight: 852,
+      chromeBottom: 0,
+      gap: 0,
+      footTop: 852 - 34 - TAB_CLEARANCE,
+      focusY: 780,
+    });
+
+    expect(frame.openAt).toBeCloseTo(780 - 852 / 3);
+  });
+
+  it('does not move the scroller when the foot finally reports its height', () => {
+    // The foot measures on a layout pass like the rail does. When it lands,
+    // the placement module lifts the grounded bird by the same amount the
+    // foot's top came down, so the opening offset is unchanged and
+    // `contentOffset` is not re-applied — the bird moves, the flight does not.
+    for (const phone of PHONES) {
+      const before = groundOpening(phone, 96, 0).frame.openAt;
+      const after = groundOpening(phone, 96, 160).frame.openAt;
+      expect(after).toBeCloseTo(before);
+    }
   });
 
   it('never scrolls above the start of the flight', () => {
@@ -140,6 +244,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: skyFlightPoint(1).y * 1560,
     });
 
@@ -152,6 +257,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 1560,
     });
 
@@ -164,6 +270,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: null,
     });
 
@@ -176,6 +283,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: 163,
       gap: GAP,
+      footTop: NO_FOOT,
       focusY: 200,
     });
 
@@ -191,6 +299,7 @@ describe('flightFrame', () => {
       viewportHeight: 852,
       chromeBottom: -20,
       gap: 0,
+      footTop: NO_FOOT,
       focusY: 780,
     });
 
@@ -231,5 +340,14 @@ describe('the Sky screen feeds it a measured rail', () => {
   it('spends the measurement on the chrome the flight has to clear', () => {
     const call = screen.slice(screen.indexOf('flightFrame({'));
     expect(call.slice(0, call.indexOf('});'))).toMatch(/chromeBottom:[^,]*railHeight/);
+  });
+
+  it('spends the foot measurement on the opening position too', () => {
+    // Same shape as the rail: `footTop` is composed from the measured foot,
+    // and dropping `footHeight` out of that sum puts the grounded bird back
+    // under the standing card with every assertion above still green.
+    expect(screen).toMatch(/const footTop = [^;]*footHeight/);
+    const call = screen.slice(screen.indexOf('flightFrame({'));
+    expect(call.slice(0, call.indexOf('});'))).toMatch(/footTop/);
   });
 });

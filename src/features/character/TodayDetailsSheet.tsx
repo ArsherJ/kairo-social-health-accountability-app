@@ -42,6 +42,7 @@ export function TodayDetailsSheet({
   onDismiss,
   onChallenges,
   onProgress,
+  onCounting,
 }: {
   visible: boolean;
   sections: readonly TodayDetailSection[];
@@ -54,6 +55,8 @@ export function TodayDetailsSheet({
   onDismiss: () => void;
   onChallenges: () => void;
   onProgress: () => void;
+  /** Where the figures come from — one tap from "aren't counted yet" or a flag. */
+  onCounting: () => void;
 }) {
   const styles = useStyles(makeStyles);
   const { width: windowWidth } = useWindowDimensions();
@@ -137,6 +140,16 @@ export function TodayDetailsSheet({
                 style={({ pressed }) => pressed && { opacity: 0.6 }}
               >
                 <Text style={styles.link}>How progress works</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="How Kairo counts your activity"
+                hitSlop={space.sm}
+                onPress={onCounting}
+                style={({ pressed }) => pressed && { opacity: 0.6 }}
+              >
+                <Text style={styles.link}>How Kairo counts your activity</Text>
               </Pressable>
 
               {/* Silent for a healthy fresh sync — inside a sheet somebody

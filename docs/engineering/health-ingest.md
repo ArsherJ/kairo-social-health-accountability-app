@@ -203,7 +203,12 @@ alongside `evaluateStepBurst`, and `stat_records()` skips a flagged day
   no figure, and a test pins that: one sentence for two rules is also why
   `daily_scores.flagged` stays a **boolean**, and naming the bar would publish
   it to the one reader with a motive to sit just under it. `useTodayScore`
-  selects `flagged` for this and nothing else decides anything from it.
+  selects `flagged` for this and nothing else decides anything from it. The
+  **Counting** screen (`app/counting.tsx`, 2026-09-14) is where a player
+  learns what a flag is — a day whose hours don't look like human movement,
+  costing no points, blocking a personal best that day, shown on the flock
+  row, about that day only — and `counting-copy.test.ts` bans the ceiling
+  figures, formatted and bare, for the same reason.
 - **The distance comment was corrected and the rule was not touched.**
   `DistanceWalkingRunning` is pedometer-estimated by the motion coprocessor on
   iPhone, not GPS-derived. Requiring a workout or heart rate *beside* the

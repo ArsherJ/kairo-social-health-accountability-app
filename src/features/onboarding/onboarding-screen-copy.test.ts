@@ -18,6 +18,16 @@ describe('shared onboarding screen copy', () => {
     expect(copy.name.portraitLabel('Philippine Eagle')).toBe('Your Philippine Eagle Kairo');
   });
 
+  it('states the whole Health ask on the screen that is about the ask', async () => {
+    // The intro said Kairo reads "your steps". It reads steps, active calories
+    // and sleep; the locked row beneath and Apple's own sheet both say so, and
+    // an intro that understates the ask on the privacy beat is a trust problem
+    // rather than a shortening. What is *read*, not what is shared — the claim
+    // module owns sharing, and this sentence must trip none of its markers.
+    const { ONBOARDING_SCREEN_COPY: copy } = await import('./onboarding-screen-copy.ts');
+    expect(copy.privacy.intro).toContain('steps, active calories and sleep');
+  });
+
   it('speaks only the current surface vocabulary', async () => {
     const { ONBOARDING_SCREEN_COPY: copy } = await import('./onboarding-screen-copy.ts');
     const text = [

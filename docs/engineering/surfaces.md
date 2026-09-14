@@ -132,16 +132,19 @@ replace Caprasimo and Figtree. Six things break easily:
   once, and both grants are respected. Read that store before touching the flow.
   The entry moved from `/connect`, so `redirectTarget` returns `/welcome` now.
 - **The run is declared once, in `src/features/onboarding/beats.ts`, and four
-  numbers are derived from it.** A beat declares its **phase**; the registry
+  numbers are derived from it.** A beat declares its **step**; the registry
   gives it `filled`/`partial` for the rail and `index`/`count` for the paged
   dots. All four were hand-written across the screens, and both pairs had
   already gone wrong the way that invites — the dots promised three cards while
   two existed. `beat-registry.test.ts` scans `app/(onboard)/` and
   `src/features/onboarding/` and fails any screen that puts a literal back, or
   that hand-writes its button words, its skip destination, or its impression.
-  **The rail measures four phases, not screens** — what this is, letting it in,
-  your choices, the name — so adding a beat moves fills and partials inside one
-  phase and never the segment count.
+  **The rail draws one segment per beat, "Step n of 7"** (deviation #75,
+  2026-09-14): it measured four phases so adding a beat never lengthened the
+  run, and testers read a half-filled segment as no progress and the run as
+  stalled. The hatch shares the Health ask's step — a wait the player cannot
+  act on is not progress. *Phase* survives only as a `pitch` flag, which Skip
+  and the value-card dots derive from; `RAIL_STEPS` is derived from the run.
 - **The difficulty beat opens with a measurement, and the tier it proposes is a
   seed rather than a rule** (deviation #63, 2026-09-04). `/connect` reads
   **fourteen complete local days** of step totals off the phone after the grant;
@@ -308,7 +311,13 @@ budget (320pt screen − rail inset − padding = 260pt; 5×46 + 4×6 = 254), an
 `flexWrap` is deliberately **absent**: this has to fail by clipping, which is
 visible, rather than by wrapping, which is what it did and what looked like a
 design. Withheld members sort last, so the row never drops a bird that has a
-position in favour of one that does not.
+position in favour of one that does not. **Over a ghost race the rail is
+titled YOUR RECENT DAYS** (2026-09-14, issue #45), with one line under the
+seats — *Each faded bird is one of your own past days.* — because a rail that
+still said "your flock" over a solo player's own past days read as strangers,
+or as a bug. The title block is one accessible element whose label includes
+the note; `sky-screen-copy.ts` holds both titles and the note; the info
+button's explanation stays about the ridge, one explanation per fact.
 
 **Four device-build UI faults, fixed 2026-09-05, all OTA.** They shipped
 together because each is the same shape: a rule that was already written down
@@ -364,7 +373,16 @@ place.
   every assertion about it holds for whatever the screen composes** — drop the
   rail out of that sum and the flight goes back under it with the whole suite
   green. A source scan on `sky.tsx` is what closes that, the same move
-  `bleed-inset.test.ts` makes. **The gradient spans
+  `bleed-inset.test.ts` makes. **The opening position is also clamped above
+  the pinned foot** (2026-09-14, issue #45): `flightFrame` takes `footTop` —
+  the viewport less the bottom inset, the tab-pill clearance and the measured
+  foot — and a player with no steps yet, whose bird is at the ground where the
+  standing card and the freshness line are pinned, opens with the bird, its
+  label and the gap above it. The foot wins over the rail when a 320-point
+  phone at the largest text size cannot satisfy both, because the bird is what
+  the reader came for; the foot measuring late leaves `openAt` unchanged,
+  since the placement lifts the bird by the same amount. Opening position
+  only — birds still scroll under the foot. **The gradient spans
   the whole scroller**, inset included, or the inset is a band of `colors.night`
   above the sky rather than clear air. And **the inset moves the drawing box,
   not the path**: clouds, band, birds and both labels are positioned inside that
@@ -1077,9 +1095,10 @@ and the three device-fault rounds that produced most of the layout rules.
   in `src/features/onboarding/beats.ts`** — a beat declares its phase and the
   registry derives the rail's fills, the paged dots and the button words;
   `beat-registry.test.ts` fails any screen that hand-writes one, its skip
-  destination or its impression. The rail measures **four phases, not screens**.
-  `onboardingSkipTarget()` derives the skip landing as the last beat of phase 0
-  (the mirror), rather than naming a route twice.
+  destination or its impression. The rail draws **one segment per beat**
+  (deviation #75); the pitch is a flag, not a rail phase.
+  `onboardingSkipTarget()` derives the skip landing as the last beat of the
+  pitch (the mirror), rather than naming a route twice.
 - **The difficulty beat opens with a measurement, and the tier it proposes is a
   seed rather than a rule** (deviation #63). `/connect` reads fourteen complete
   local days through `readDailySteps`; `calibrateQuestTier()` in `quest.ts`
