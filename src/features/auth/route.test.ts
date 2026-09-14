@@ -113,6 +113,18 @@ describe('redirectTarget', () => {
     expect(at('needs-profile', '(onboard)')).toBeNull();
   });
 
+  it('lets a user with no profile read the counting screen from the privacy beat', () => {
+    // `/counting` is a pushed route outside every group, linked from the
+    // privacy beat (issue #45). Found on the simulator: the gate bounced the
+    // reader straight back to `/welcome` the moment it was pushed — the same
+    // shape as the stacked-route eviction the ready case already fixed.
+    // Reading it is not leaving the run; Back returns to the beat.
+    expect(at('needs-profile', 'counting')).toBeNull();
+    // Only that one route: `/progress` and `/settings` are for an account
+    // that exists.
+    expect(at('needs-profile', 'progress')).toBe('/welcome');
+  });
+
   it('sends a ready user to the tabs', () => {
     expect(at('ready', '(auth)')).toBe('/');
     expect(at('ready', '(tabs)')).toBeNull();

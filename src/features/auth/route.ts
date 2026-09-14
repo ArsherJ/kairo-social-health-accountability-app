@@ -81,7 +81,13 @@ export function redirectTarget(input: {
       // privacy beats ask early and are *written* by the name screen — see
       // `useOnboardingAnswers` for why that is the only arrangement that
       // satisfies both that rule and the column-level grants.
-      return input.group === '(onboard)' ? null : '/welcome';
+      //
+      // `/counting` is the one route outside the group a person may stand on
+      // before the row exists: the privacy beat links to it, and reading it
+      // is not leaving the run — Back returns to the beat. Found on the
+      // simulator (issue #45): without this the gate bounced the reader to
+      // `/welcome` the instant the route was pushed.
+      return input.group === '(onboard)' || input.group === 'counting' ? null : '/welcome';
     case 'ready':
       // Anywhere except the two shells a ready user has finished with. Written
       // as a denylist rather than `group === '(tabs)'` on purpose: stacked
