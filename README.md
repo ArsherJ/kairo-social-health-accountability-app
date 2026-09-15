@@ -15,8 +15,8 @@ uses a compact perch; You leads with one portrait; all seven onboarding views
 share the same themed presentation. See
 [the mobile preview guide](docs/engineering/mobile-screen-preview.md) for the
 account-free shared screens, fixture controls and verification limits. System
-appearance retains the native `userInterfaceStyle: automatic` change and needs
-a compatible build; merging this work does not deploy one.
+appearance retains the native `userInterfaceStyle: automatic` change, which
+shipped in build 26 (2026-09-15).
 
 Onboarding is seven beats — `/welcome`, `/one-sky`, `/mirror`, `/connect`,
 `/difficulty`, `/privacy`, `/name` — and the progress rail draws one segment
